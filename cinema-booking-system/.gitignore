@@ -1,0 +1,46 @@
+# ── Java / Maven ─────────────────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ── Spring Boot ──────────────────────────────────────────────
+*.log
+logs/
+
+# ── Node / Frontend ──────────────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+*.local
+.pnp
+.pnp.js
+
+# ── Environment / Secrets ────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.production
+
+# ── IDE — IntelliJ IDEA ──────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# ── IDE — VS Code / Cursor ───────────────────────────────────
+.vscode/
+!.vscode/extensions.json
+
+# ── OS ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
