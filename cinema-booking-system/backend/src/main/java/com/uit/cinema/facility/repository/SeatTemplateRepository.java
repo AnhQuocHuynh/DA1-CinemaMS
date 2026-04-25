@@ -1,0 +1,13 @@
+package com.uit.cinema.facility.repository;
+
+import com.uit.cinema.facility.entity.SeatTemplate;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface SeatTemplateRepository extends JpaRepository<SeatTemplate, Long> {
+
+    List<SeatTemplate> findByRoomIdAndActiveTrue(Long roomId);
+}

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Vé Xem Phim — Cinema Booking System</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      padding: 24px;
+    }
+    .ticket {
+      width: 680px;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,.15);
+      display: flex;
+    }
+    /* ── Left section ── */
+    .ticket-left {
+      flex: 1;
+      padding: 28px 24px;
+    }
+    .cinema-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #e50914;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .movie-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin: 8px 0 16px;
+      line-height: 1.3;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 20px;
+      margin-bottom: 20px;
+    }
+    .info-item label {
+      font-size: 10px;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      display: block;
+      margin-bottom: 2px;
+    }
+    .info-item span {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+    }
+    .seat-badge {
+      display: inline-block;
+      background: #e50914;
+      color: #fff;
+      font-size: 18px;
+      font-weight: 700;
+      padding: 8px 20px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .ticket-code {
+      font-size: 11px;
+      color: #aaa;
+      letter-spacing: 1px;
+    }
+    .ticket-code span { color: #555; font-weight: 700; }
+    /* ── Tear line ── */
+    .tear-line {
+      width: 2px;
+      background: repeating-linear-gradient(
+        to bottom,
+        #ddd 0, #ddd 8px,
+        transparent 8px, transparent 16px
+      );
+      position: relative;
+    }
+    .tear-line::before,
+    .tear-line::after {
+      content: '';
+      position: absolute;
+      left: -10px;
+      width: 20px;
+      height: 20px;
+      background: #f5f5f5;
+      border-radius: 50%;
+    }
+    .tear-line::before { top: -10px; }
+    .tear-line::after  { bottom: -10px; }
+    /* ── Right section (QR) ── */
+    .ticket-right {
+      width: 180px;
+      background: #1a1a1a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      gap: 16px;
+    }
+    .qr-box {
+      width: 120px;
+      height: 120px;
+      background: #fff;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: #999;
+      text-align: center;
+      padding: 8px;
+    }
+    .ticket-right .label {
+      font-size: 10px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      text-align: center;
+    }
+    .ticket-right .price {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="ticket">
+    <!-- LEFT -->
+    <div class="ticket-left">
+      <div class="cinema-name">Cinema Booking System</div>
+      <div class="movie-title">[[${movieTitle}]]</div>
+
+      <div class="info-grid">
+        <div class="info-item">
+          <label>Ngày chiếu</label>
+          <span>[[${showDate}]]</span>
+        </div>
+        <div class="info-item">
+          <label>Giờ chiếu</label>
+          <span>[[${showTime}]]</span>
+        </div>
+        <div class="info-item">
+          <label>Rạp</label>
+          <span>[[${cinemaName}]]</span>
+        </div>
+        <div class="info-item">
+          <label>Phòng</label>
+          <span>[[${roomName}]]</span>
+        </div>
+        <div class="info-item">
+          <label>Loại ghế</label>
+          <span>[[${seatType}]]</span>
+        </div>
+        <div class="info-item">
+          <label>Khán giả</label>
+          <span>[[${customerName}]]</span>
+        </div>
+      </div>
+
+      <div class="seat-badge">Ghế [[${seatLabel}]]</div>
+
+      <div class="ticket-code">
+        Mã vé: <span>[[${ticketCode}]]</span>
+      </div>
+    </div>
+
+    <!-- TEAR LINE -->
+    <div class="tear-line"></div>
+
+    <!-- RIGHT -->
+    <div class="ticket-right">
+      <div class="label">Quét mã để vào cổng</div>
+      <!--
+        Thay thế bằng thẻ <img> khi tích hợp thư viện QR:
+        <img src="data:image/png;base64,[[${qrCodeBase64}]]" width="120" height="120"/>
+      -->
+      <div class="qr-box">QR Code<br/>[[${ticketCode}]]</div>
+      <div class="label">Giá vé</div>
+      <div class="price">[[${price}]]đ</div>
+    </div>
+  </div>
+</body>
+</html>
