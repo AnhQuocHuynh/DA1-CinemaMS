@@ -4,6 +4,7 @@ import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.facility.dto.request.CinemaRequest;
 import com.uit.cinema.facility.dto.response.CinemaResponse;
 import com.uit.cinema.facility.entity.Cinema;
+import com.uit.cinema.facility.mapper.CinemaMapper;
 import com.uit.cinema.facility.repository.CinemaRepository;
 import com.uit.cinema.facility.service.CinemaService;
 import lombok.RequiredArgsConstructor;
@@ -19,18 +20,19 @@ import java.util.stream.Collectors;
 public class CinemaServiceImpl implements CinemaService {
 
     private final CinemaRepository cinemaRepository;
+    private final CinemaMapper cinemaMapper;
 
     @Override
     public List<CinemaResponse> getAllActiveCinemas() {
         return cinemaRepository.findByActiveTrue().stream()
-                .map(this::mapToResponse)
+                .map(cinemaMapper::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
     public CinemaResponse getCinemaById(Long id) {
         Cinema cinema = getCinemaEntityById(id);
-        return mapToResponse(cinema);
+        return cinemaMapper.toResponse(cinema);
     }
 
     private Cinema getCinemaEntityById(Long id) {
@@ -41,15 +43,9 @@ public class CinemaServiceImpl implements CinemaService {
     @Override
     @Transactional
     public CinemaResponse createCinema(CinemaRequest request) {
-        Cinema cinema = Cinema.builder()
-                .name(request.getName())
-                .address(request.getAddress())
-                .city(request.getCity())
-                .phone(request.getPhone())
-                .active(request.isActive())
-                .build();
+        Cinema cinema = cinemaMapper.toEntity(request);
         Cinema savedCinema = cinemaRepository.save(cinema);
-        return mapToResponse(savedCinema);
+        return cinemaMapper.toResponse(savedCinema);
     }
 
     @Override
@@ -58,16 +54,5 @@ public class CinemaServiceImpl implements CinemaService {
         Cinema cinema = getCinemaEntityById(id);
         cinema.setActive(false);
         cinemaRepository.save(cinema);
-    }
-
-    private CinemaResponse mapToResponse(Cinema cinema) {
-        return CinemaResponse.builder()
-                .id(cinema.getId())
-                .name(cinema.getName())
-                .address(cinema.getAddress())
-                .city(cinema.getCity())
-                .phone(cinema.getPhone())
-                .active(cinema.isActive())
-                .build();
     }
 }

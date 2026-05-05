@@ -3,6 +3,7 @@ package com.uit.cinema.catalog.service.Impl;
 import com.uit.cinema.catalog.dto.request.EventRequest;
 import com.uit.cinema.catalog.dto.response.EventResponse;
 import com.uit.cinema.catalog.entity.Event;
+import com.uit.cinema.catalog.mapper.EventMapper;
 import com.uit.cinema.catalog.repository.EventRepository;
 import com.uit.cinema.catalog.service.EventService;
 import com.uit.cinema.core.exception.CustomException;
@@ -20,18 +21,19 @@ import java.util.stream.Collectors;
 public class EventServiceImpl implements EventService {
 
     private final EventRepository eventRepository;
+    private final EventMapper eventMapper;
 
     @Override
     public List<EventResponse> getUpcomingEvents() {
         return eventRepository.findByStartTimeAfterAndActiveTrue(LocalDateTime.now()).stream()
-                .map(this::mapToResponse)
+                .map(eventMapper::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
     public EventResponse getEventById(Long id) {
         Event event = getEventEntityById(id);
-        return mapToResponse(event);
+        return eventMapper.toResponse(event);
     }
     
     private Event getEventEntityById(Long id) {
@@ -42,17 +44,9 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public EventResponse createEvent(EventRequest request) {
-        Event event = Event.builder()
-                .name(request.getName())
-                .description(request.getDescription())
-                .startTime(request.getStartTime())
-                .endTime(request.getEndTime())
-                .venue(request.getVenue())
-                .imageUrl(request.getImageUrl())
-                .active(request.isActive())
-                .build();
+        Event event = eventMapper.toEntity(request);
         Event savedEvent = eventRepository.save(event);
-        return mapToResponse(savedEvent);
+        return eventMapper.toResponse(savedEvent);
     }
 
     @Override
@@ -61,20 +55,5 @@ public class EventServiceImpl implements EventService {
         Event event = getEventEntityById(id);
         event.setActive(false);
         eventRepository.save(event);
-    }
-    
-    private EventResponse mapToResponse(Event event) {
-        return EventResponse.builder()
-                .id(event.getId())
-                .name(event.getName())
-                .description(event.getDescription())
-                .startTime(event.getStartTime())
-                .endTime(event.getEndTime())
-                .venue(event.getVenue())
-                .imageUrl(event.getImageUrl())
-                .active(event.isActive())
-                .createdAt(event.getCreatedAt())
-                .updatedAt(event.getUpdatedAt())
-                .build();
     }
 }

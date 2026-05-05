@@ -6,6 +6,7 @@ import com.uit.cinema.showtime.dto.response.ShowtimeResponse;
 import com.uit.cinema.showtime.dto.response.ShowtimeSeatResponse;
 import com.uit.cinema.showtime.entity.Showtime;
 import com.uit.cinema.showtime.entity.ShowtimeSeat;
+import com.uit.cinema.showtime.mapper.ShowtimeMapper;
 import com.uit.cinema.showtime.repository.ShowtimeRepository;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
 import com.uit.cinema.showtime.service.ShowtimeService;
@@ -24,12 +25,13 @@ public class ShowtimeServiceImpl implements ShowtimeService {
 
     private final ShowtimeRepository showtimeRepository;
     private final ShowtimeSeatRepository showtimeSeatRepository;
+    private final ShowtimeMapper showtimeMapper;
 
     @Override
     public List<ShowtimeResponse> getShowtimesByMovie(Long movieId) {
         return showtimeRepository.findByMovieIdAndStartTimeAfterOrderByStartTimeAsc(movieId, LocalDateTime.now())
                 .stream()
-                .map(this::mapToShowtimeResponse)
+                .map(showtimeMapper::toResponse)
                 .collect(Collectors.toList());
     }
 
@@ -37,55 +39,24 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     public ShowtimeResponse getShowtimeById(Long id) {
         Showtime showtime = showtimeRepository.findById(id)
             .orElseThrow(() -> new CustomException("Suất chiếu không tồn tại", HttpStatus.NOT_FOUND, "SHOWTIME_NOT_FOUND"));
-        return mapToShowtimeResponse(showtime);
+        return showtimeMapper.toResponse(showtime);
     }
 
     @Override
     public List<ShowtimeSeatResponse> getSeatMap(Long showtimeId) {
         return showtimeSeatRepository.findByShowtimeId(showtimeId).stream()
-                .map(this::mapToSeatResponse)
+                .map(showtimeMapper::toSeatResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
     @Transactional
     public ShowtimeResponse createShowtime(ShowtimeRequest request) {
-        Showtime showtime = Showtime.builder()
-                .roomId(request.getRoomId())
-                .movieId(request.getMovieId())
-                .eventId(request.getEventId())
-                .startTime(request.getStartTime())
-                .endTime(request.getEndTime())
-                .basePrice(request.getBasePrice())
-                .build();
+        Showtime showtime = showtimeMapper.toEntity(request);
         Showtime savedShowtime = showtimeRepository.save(showtime);
         
         // TODO: Cần trigger logic tạo ShowtimeSeat tương ứng với SeatTemplate của Room ở đây.
         
-        return mapToShowtimeResponse(savedShowtime);
-    }
-
-    private ShowtimeResponse mapToShowtimeResponse(Showtime showtime) {
-        return ShowtimeResponse.builder()
-                .id(showtime.getId())
-                .roomId(showtime.getRoomId())
-                .movieId(showtime.getMovieId())
-                .eventId(showtime.getEventId())
-                .startTime(showtime.getStartTime())
-                .endTime(showtime.getEndTime())
-                .basePrice(showtime.getBasePrice())
-                .status(showtime.getStatus().name())
-                .createdAt(showtime.getCreatedAt())
-                .build();
-    }
-
-    private ShowtimeSeatResponse mapToSeatResponse(ShowtimeSeat seat) {
-        return ShowtimeSeatResponse.builder()
-                .id(seat.getId())
-                .showtimeId(seat.getShowtimeId())
-                .seatTemplateId(seat.getSeatTemplateId())
-                .price(seat.getPrice())
-                .status(seat.getStatus().name())
-                .build();
+        return showtimeMapper.toResponse(savedShowtime);
     }
 }

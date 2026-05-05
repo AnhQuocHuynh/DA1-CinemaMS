@@ -3,12 +3,13 @@ package com.uit.cinema.iam.service.Impl;
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.core.security.CustomUserDetails;
 import com.uit.cinema.core.security.JwtTokenProvider;
-import com.uit.cinema.iam.dto.response.AuthResponse;
 import com.uit.cinema.iam.dto.request.LoginRequest;
 import com.uit.cinema.iam.dto.request.RegisterRequest;
+import com.uit.cinema.iam.dto.response.AuthResponse;
 import com.uit.cinema.iam.dto.response.UserResponse;
 import com.uit.cinema.iam.entity.Role;
 import com.uit.cinema.iam.entity.User;
+import com.uit.cinema.iam.mapper.AuthMapper;
 import com.uit.cinema.iam.repository.RoleRepository;
 import com.uit.cinema.iam.repository.UserRepository;
 import com.uit.cinema.iam.service.AuthService;
@@ -21,9 +22,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +33,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
+    private final AuthMapper authMapper;
 
     @Override
     @Transactional
@@ -43,13 +43,11 @@ public class AuthServiceImpl implements AuthService {
         }
         Role customerRole = roleRepository.findByName(Role.RoleName.ROLE_CUSTOMER)
             .orElseThrow(() -> new CustomException("Role không tồn tại", HttpStatus.INTERNAL_SERVER_ERROR));
-        User user = User.builder()
-            .email(request.getEmail())
-            .passwordHash(passwordEncoder.encode(request.getPassword()))
-            .fullName(request.getFullName())
-            .phone(request.getPhone())
-            .roles(Set.of(customerRole))
-            .build();
+            
+        User user = authMapper.toUser(request);
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setRoles(Set.of(customerRole));
+        
         return userRepository.save(user);
     }
 
@@ -63,17 +61,7 @@ public class AuthServiceImpl implements AuthService {
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         User user = userDetails.getUser();
         
-        List<String> roles = user.getRoles().stream()
-                .map(role -> role.getName().name())
-                .collect(Collectors.toList());
-                
-        UserResponse userResponse = UserResponse.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .phone(user.getPhone())
-                .roles(roles)
-                .build();
+        UserResponse userResponse = authMapper.toUserResponse(user);
                 
         return AuthResponse.builder()
                 .accessToken(token)
