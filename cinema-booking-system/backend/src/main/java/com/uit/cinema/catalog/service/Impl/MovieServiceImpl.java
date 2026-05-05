@@ -1,7 +1,8 @@
-package com.uit.cinema.catalog.service;
+package com.uit.cinema.catalog.service.Impl;
 
 import com.uit.cinema.catalog.entity.Movie;
 import com.uit.cinema.catalog.repository.MovieRepository;
+import com.uit.cinema.catalog.service.MovieService;
 import com.uit.cinema.core.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

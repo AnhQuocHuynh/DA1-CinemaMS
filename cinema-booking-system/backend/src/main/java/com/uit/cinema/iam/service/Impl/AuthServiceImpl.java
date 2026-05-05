@@ -1,4 +1,4 @@
-package com.uit.cinema.iam.service;
+package com.uit.cinema.iam.service.Impl;
 
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.core.security.JwtTokenProvider;
@@ -6,6 +6,7 @@ import com.uit.cinema.iam.entity.Role;
 import com.uit.cinema.iam.entity.User;
 import com.uit.cinema.iam.repository.RoleRepository;
 import com.uit.cinema.iam.repository.UserRepository;
+import com.uit.cinema.iam.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;

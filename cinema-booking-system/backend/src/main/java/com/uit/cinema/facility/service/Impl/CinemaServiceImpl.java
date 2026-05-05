@@ -1,8 +1,9 @@
-package com.uit.cinema.facility.service;
+package com.uit.cinema.facility.service.Impl;
 
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.facility.entity.Cinema;
 import com.uit.cinema.facility.repository.CinemaRepository;
+import com.uit.cinema.facility.service.CinemaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;

@@ -1,10 +1,11 @@
-package com.uit.cinema.showtime.service;
+package com.uit.cinema.showtime.service.Impl;
 
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.showtime.entity.Showtime;
 import com.uit.cinema.showtime.entity.ShowtimeSeat;
 import com.uit.cinema.showtime.repository.ShowtimeRepository;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.showtime.service.ShowtimeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;

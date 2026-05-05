@@ -1,7 +1,8 @@
-package com.uit.cinema.booking.service;
+package com.uit.cinema.booking.service.Impl;
 
 import com.uit.cinema.booking.entity.Ticket;
 import com.uit.cinema.booking.repository.TicketRepository;
+import com.uit.cinema.booking.service.TicketGenerationService;
 import com.uit.cinema.core.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
