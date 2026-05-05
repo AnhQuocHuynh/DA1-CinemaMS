@@ -1,12 +1,13 @@
 package com.uit.cinema.facility.service;
 
-import com.uit.cinema.facility.entity.Cinema;
+import com.uit.cinema.facility.dto.request.CinemaRequest;
+import com.uit.cinema.facility.dto.response.CinemaResponse;
 
 import java.util.List;
 
 public interface CinemaService {
-    List<Cinema> getAllActiveCinemas();
-    Cinema getCinemaById(Long id);
-    Cinema createCinema(Cinema cinema);
+    List<CinemaResponse> getAllActiveCinemas();
+    CinemaResponse getCinemaById(Long id);
+    CinemaResponse createCinema(CinemaRequest request);
     void deleteCinema(Long id);
 }

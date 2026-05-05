@@ -1,13 +1,14 @@
 package com.uit.cinema.catalog.service;
 
-import com.uit.cinema.catalog.entity.Movie;
+import com.uit.cinema.catalog.dto.request.MovieRequest;
+import com.uit.cinema.catalog.dto.response.MovieResponse;
 
 import java.util.List;
 
 public interface MovieService {
-    List<Movie> getAllActiveMovies();
-    Movie getMovieById(Long id);
-    Movie createMovie(Movie movie);
-    Movie updateMovie(Long id, Movie updated);
+    List<MovieResponse> getAllActiveMovies();
+    MovieResponse getMovieById(Long id);
+    MovieResponse createMovie(MovieRequest request);
+    MovieResponse updateMovie(Long id, MovieRequest request);
     void deleteMovie(Long id);
 }
