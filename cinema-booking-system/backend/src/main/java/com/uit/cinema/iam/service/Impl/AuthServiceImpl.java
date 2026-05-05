@@ -1,7 +1,12 @@
 package com.uit.cinema.iam.service.Impl;
 
 import com.uit.cinema.core.exception.CustomException;
+import com.uit.cinema.core.security.CustomUserDetails;
 import com.uit.cinema.core.security.JwtTokenProvider;
+import com.uit.cinema.iam.dto.response.AuthResponse;
+import com.uit.cinema.iam.dto.request.LoginRequest;
+import com.uit.cinema.iam.dto.request.RegisterRequest;
+import com.uit.cinema.iam.dto.response.UserResponse;
 import com.uit.cinema.iam.entity.Role;
 import com.uit.cinema.iam.entity.User;
 import com.uit.cinema.iam.repository.RoleRepository;
@@ -16,7 +21,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,27 +37,47 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public User register(String email, String password, String fullName, String phone) {
-        if (userRepository.existsByEmail(email)) {
+    public User register(RegisterRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
             throw new CustomException("Email đã được sử dụng", HttpStatus.CONFLICT, "EMAIL_TAKEN");
         }
         Role customerRole = roleRepository.findByName(Role.RoleName.ROLE_CUSTOMER)
             .orElseThrow(() -> new CustomException("Role không tồn tại", HttpStatus.INTERNAL_SERVER_ERROR));
         User user = User.builder()
-            .email(email)
-            .passwordHash(passwordEncoder.encode(password))
-            .fullName(fullName)
-            .phone(phone)
+            .email(request.getEmail())
+            .passwordHash(passwordEncoder.encode(request.getPassword()))
+            .fullName(request.getFullName())
+            .phone(request.getPhone())
             .roles(Set.of(customerRole))
             .build();
         return userRepository.save(user);
     }
 
     @Override
-    public String login(String email, String password) {
+    public AuthResponse login(LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(email, password)
+            new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
-        return jwtTokenProvider.generateAccessToken(authentication);
+        
+        String token = jwtTokenProvider.generateAccessToken(authentication);
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        User user = userDetails.getUser();
+        
+        List<String> roles = user.getRoles().stream()
+                .map(role -> role.getName().name())
+                .collect(Collectors.toList());
+                
+        UserResponse userResponse = UserResponse.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .phone(user.getPhone())
+                .roles(roles)
+                .build();
+                
+        return AuthResponse.builder()
+                .accessToken(token)
+                .user(userResponse)
+                .build();
     }
 }
