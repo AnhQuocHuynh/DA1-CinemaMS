@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, ArrowRight, LogIn, AlertCircle } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ArrowLeft, LogIn, AlertCircle } from 'lucide-react';
 import { InputField } from '../components/InputField';
 import { Header } from '../components/Header';
 import { authService } from '../services/authService';
@@ -150,8 +150,16 @@ export const Login: React.FC = () => {
           {/* Modal Card */}
           <div className="relative w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col transform transition-all">
             <div className="p-8 sm:p-10">
+              <Link
+                to="/"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Home
+              </Link>
+
               {/* Branding & Title */}
-              <div className="mb-10 text-center">
+              <div className="mb-10 text-center mt-6">
                 <span className="text-xl font-black tracking-tighter text-on-surface block mb-2">
                   CinemaArchitect
                 </span>
@@ -226,7 +234,7 @@ export const Login: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-4 bg-primary text-on-primary rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-primary/20 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                    className="w-full py-4 bg-blue-600 text-white rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-blue-600/20 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
                     {isLoading ? 'SIGNING IN...' : 'SIGN IN TO PORTAL'}
                     {!isLoading && <ArrowRight className="w-4 h-4" />}

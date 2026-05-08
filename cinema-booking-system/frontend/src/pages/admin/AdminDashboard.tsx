@@ -1,206 +1,206 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { LogOut, BarChart3, Film, Users } from 'lucide-react';
-import { useAuthStore } from '../../store/authStore';
-import { adminService } from '../../services/apiService';
-
-interface StatCard {
-  title: string;
-  value: string | number;
-  icon: React.ReactNode;
-  trend?: string;
-}
+import React from 'react';
+import { CalendarDays, Filter, Plus } from 'lucide-react';
+import { AdminLayout } from '../../components/admin/AdminLayout';
+import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
+import { AdminTopBar } from '../../components/admin/AdminTopBar';
+import { useAdminDashboard } from '../../hooks/useAdminDashboard';
 
 export const AdminDashboard: React.FC = () => {
-  const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
-  const [stats, setStats] = useState<any>(null);
-  const [movies, setMovies] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [statsData, moviesData] = await Promise.all([
-          adminService.getDashboardStats(),
-          adminService.getMovieManagement(),
-        ]);
-        setStats(statsData);
-        setMovies(moviesData);
-      } catch (error) {
-        console.error('Failed to load admin data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, []);
-
-  const handleLogout = () => {
-    console.log('👤 [ADMIN] Logout clicked');
-    logout();
-    navigate('/');
-  };
-
-  const statCards: StatCard[] = stats ? [
-    {
-      title: 'Total Bookings',
-      value: stats.totalBookings,
-      icon: <BarChart3 className="w-6 h-6 text-primary" />,
-      trend: '+12% vs last month',
-    },
-    {
-      title: 'Revenue',
-      value: `₫${(stats.totalRevenue / 1000000).toFixed(1)}M`,
-      icon: <BarChart3 className="w-6 h-6 text-green-600" />,
-      trend: '+8% vs last month',
-    },
-    {
-      title: 'Active Users',
-      value: stats.activeUsers,
-      icon: <Users className="w-6 h-6 text-blue-600" />,
-      trend: '+25 new users',
-    },
-    {
-      title: 'Total Movies',
-      value: stats.totalMovies,
-      icon: <Film className="w-6 h-6 text-purple-600" />,
-      trend: '+3 new movies',
-    },
-  ] : [];
+  const { overview, liveSales, popularMovies, isLoading } = useAdminDashboard();
 
   return (
-    <div className="min-h-screen bg-surface">
-      {/* Header */}
-      <header className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md shadow-sm h-16 flex justify-between items-center px-8">
-        <div className="flex items-center gap-8">
-          <span className="text-xl font-bold tracking-tighter text-slate-900">CinemaArchitect - Admin</span>
-          <div className="hidden md:flex space-x-6">
-            <a href="#dashboard" className="text-slate-600 hover:text-slate-900 transition-colors font-medium text-sm">
-              Dashboard
-            </a>
-            <a href="#movies" className="text-slate-600 hover:text-slate-900 transition-colors font-medium text-sm">
-              Movies
-            </a>
-            <a href="#users" className="text-slate-600 hover:text-slate-900 transition-colors font-medium text-sm">
-              Users
-            </a>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-600">{user?.email}</span>
-          <button
-            onClick={handleLogout}
-            className="bg-error text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-red-700 transition-all flex items-center gap-2"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </button>
-        </div>
-      </header>
+    <AdminLayout activeItemId="dashboard">
+      <AdminTopBar
+        title="Admin Console"
+        searchPlaceholder="Search operations, venues, or reports..."
+        navLinks={[
+          { label: 'Analytics', to: '/admin/dashboard' },
+          { label: 'Reports', to: '/admin/permissions' },
+          { label: 'Logs', to: '/admin/showtimes' },
+        ]}
+      />
 
-      {/* Main Content */}
-      <main className="pt-20 px-8 pb-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Title */}
-          <section className="mb-12">
-            <h1 className="text-4xl font-bold text-on-surface mb-2">Admin Dashboard 📊</h1>
-            <p className="text-on-surface-variant">Manage your cinema system and view business metrics</p>
-          </section>
-
-          {isLoading ? (
-            <div className="text-center py-12">
-              <p className="text-on-surface-variant">Loading dashboard...</p>
-            </div>
-          ) : (
+      <main className="p-6 md:p-10 bg-surface min-h-screen">
+        <AdminPageHeader
+          eyebrow="Theater Overview"
+          title="Good Morning, Chief."
+          subtitle="Monday, October 23, 2023"
+          actions={
             <>
-              {/* Stats Grid */}
-              <section id="dashboard" className="mb-12">
-                <h2 className="text-2xl font-bold text-on-surface mb-6">Key Metrics</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {statCards.map((stat, index) => (
-                    <div key={index} className="bg-surface-container rounded-xl p-6 border border-outline-variant/30">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <p className="text-on-surface-variant text-sm mb-2">{stat.title}</p>
-                          <p className="text-3xl font-bold text-on-surface">{stat.value}</p>
-                        </div>
-                        {stat.icon}
+              <button className="bg-surface-container-low px-4 py-3 rounded-lg flex items-center gap-3 text-sm font-semibold">
+                <CalendarDays className="w-4 h-4 text-primary" />
+                Last 30 Days
+              </button>
+              <button className="bg-surface-container-low px-4 py-3 rounded-lg flex items-center gap-3 text-sm font-semibold">
+                <Filter className="w-4 h-4 text-primary" />
+                Filters
+              </button>
+            </>
+          }
+        />
+
+        {isLoading ? (
+          <div className="text-center py-16">
+            <p className="text-on-surface-variant">Loading dashboard...</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-12 gap-6 mt-10">
+              <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl p-8 shadow-sm flex flex-col justify-between h-[340px]">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Revenue</span>
+                    <h3 className="text-5xl font-black text-primary tracking-tighter mt-2">
+                      ${overview?.totalRevenue.toLocaleString('en-US')}
+                    </h3>
+                    <div className="flex items-center mt-2 text-emerald-600 space-x-1">
+                      <span className="text-xs font-bold">{overview?.revenueChange}</span>
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <span className="w-3 h-3 rounded-full bg-primary"></span>
+                    <span className="w-3 h-3 rounded-full bg-primary/20"></span>
+                  </div>
+                </div>
+                <div className="mt-8 flex items-end justify-between h-32 space-x-2">
+                  {Array.from({ length: 12 }).map((_, index) => (
+                    <div
+                      key={`bar-${index}`}
+                      className={`w-full rounded-t-sm ${index % 4 === 3 ? 'bg-primary' : 'bg-surface-container-low'}`}
+                      style={{ height: `${35 + index * 4}%` }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="col-span-12 lg:col-span-4 bg-surface-container-lowest rounded-xl p-8 shadow-sm flex flex-col items-center justify-center text-center">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-6 w-full text-left">
+                  Occupancy Rate
+                </span>
+                <div className="relative w-40 h-40 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90">
+                    <circle
+                      className="text-surface-container-low"
+                      cx="80"
+                      cy="80"
+                      fill="transparent"
+                      r="68"
+                      stroke="currentColor"
+                      strokeWidth="12"
+                    />
+                    <circle
+                      className="text-primary"
+                      cx="80"
+                      cy="80"
+                      fill="transparent"
+                      r="68"
+                      stroke="currentColor"
+                      strokeDasharray="427.2"
+                      strokeDashoffset="110"
+                      strokeLinecap="round"
+                      strokeWidth="12"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-4xl font-black text-slate-900 tracking-tighter">
+                      {overview?.occupancyRate}%
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      Global Average
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-8 grid grid-cols-2 gap-4 w-full">
+                  <div className="bg-surface-container-low p-3 rounded-lg">
+                    <span className="block text-xs font-bold text-slate-900">{overview?.seatsSold}</span>
+                    <span className="text-[10px] uppercase text-slate-500 tracking-wider">Seats Sold</span>
+                  </div>
+                  <div className="bg-surface-container-low p-3 rounded-lg">
+                    <span className="block text-xs font-bold text-slate-900">{overview?.seatsAvailable}</span>
+                    <span className="text-[10px] uppercase text-slate-500 tracking-wider">Available</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-span-12 lg:col-span-4 bg-inverse-surface rounded-xl p-8 shadow-sm text-white">
+                <div className="flex justify-between items-center mb-8">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Live Feed</span>
+                  <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+                </div>
+                <div className="space-y-6">
+                  {liveSales.map((sale) => (
+                    <div key={sale.id} className="flex items-center space-x-4">
+                      <div className="w-12 h-12 rounded bg-slate-700/50 flex items-center justify-center overflow-hidden">
+                        <img src={sale.posterUrl} alt={sale.movieTitle} className="w-full h-full object-cover opacity-80" />
                       </div>
-                      {stat.trend && (
-                        <p className="text-xs text-green-600 font-semibold">{stat.trend}</p>
-                      )}
+                      <div className="flex-1">
+                        <h4 className="text-sm font-bold truncate">{sale.movieTitle}</h4>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">
+                          {sale.tickets} Tickets • {sale.screen}
+                        </p>
+                      </div>
+                      <span className="text-xs font-bold text-primary-fixed-dim">${sale.amount.toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
-              </section>
+                <button className="w-full mt-10 py-3 border border-slate-700 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-colors">
+                  View Live Dashboard
+                </button>
+              </div>
 
-              {/* Movies Management */}
-              <section id="movies" className="mb-12">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-on-surface flex items-center gap-2">
-                    <Film className="w-6 h-6 text-primary" />
-                    Movies Management
-                  </h2>
-                  <button className="px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-blue-700">
-                    + Add Movie
-                  </button>
+              <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+                <div className="flex justify-between items-center mb-8">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Popularity Index</span>
+                  <div className="flex space-x-4">
+                    <span className="text-[10px] font-bold uppercase text-primary border-b-2 border-primary pb-1">
+                      This Week
+                    </span>
+                    <span className="text-[10px] font-bold uppercase text-slate-400">All Time</span>
+                  </div>
                 </div>
-                <div className="bg-surface-container rounded-xl overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-surface-container-high border-b border-outline-variant/30">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-sm font-bold text-on-surface">Title</th>
-                        <th className="px-6 py-4 text-left text-sm font-bold text-on-surface">Status</th>
-                        <th className="px-6 py-4 text-left text-sm font-bold text-on-surface">Bookings</th>
-                        <th className="px-6 py-4 text-left text-sm font-bold text-on-surface">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {movies.map((movie, index) => (
-                        <tr key={index} className="border-b border-outline-variant/20 hover:bg-surface-container-low transition-colors">
-                          <td className="px-6 py-4 text-on-surface">{movie.title}</td>
-                          <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                              movie.status === 'active' 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {movie.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-on-surface">{movie.bookings}</td>
-                          <td className="px-6 py-4 space-x-2">
-                            <button className="px-3 py-1 bg-primary text-white rounded text-xs hover:bg-blue-700">Edit</button>
-                            <button className="px-3 py-1 bg-error text-white rounded text-xs hover:bg-red-700">Delete</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="space-y-6">
+                  {popularMovies.map((movie) => (
+                    <div key={movie.id} className="group">
+                      <div className="flex justify-between items-end mb-2">
+                        <h4 className="text-sm font-bold text-slate-900">{movie.title}</h4>
+                        <span className="text-xs font-bold text-slate-500">{movie.score}%</span>
+                      </div>
+                      <div className="h-2 w-full bg-surface-container-low rounded-full overflow-hidden">
+                        <div className="h-full bg-primary rounded-full" style={{ width: `${movie.score}%` }}></div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </section>
+              </div>
+            </div>
 
-              {/* Users Management */}
-              <section id="users">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-on-surface flex items-center gap-2">
-                    <Users className="w-6 h-6 text-primary" />
-                    Users Management
-                  </h2>
-                  <button className="px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-blue-700">
-                    + Add User
-                  </button>
+            <footer className="mt-12 flex flex-col md:flex-row justify-between items-start md:items-center border-t border-slate-100 pt-8 gap-4">
+              <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    Projection Systems Online
+                  </span>
                 </div>
-                <div className="bg-surface-container rounded-xl p-6 text-center">
-                  <p className="text-on-surface-variant">Users management section will be implemented here</p>
-                  <p className="text-sm text-on-surface-variant mt-2">Total users: 487</p>
+                <div className="flex items-center space-x-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    Payment Gateway Active
+                  </span>
                 </div>
-              </section>
-            </>
-          )}
-        </div>
+              </div>
+              <div className="flex items-center space-x-4">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">v2.4.0 Stable</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">© 2023 The Digital Architect</span>
+              </div>
+            </footer>
+
+            <button className="fixed bottom-10 right-10 w-14 h-14 bg-primary text-white rounded-full shadow-xl flex items-center justify-center active:scale-95 transition-all z-40">
+              <Plus className="w-6 h-6" />
+            </button>
+          </>
+        )}
       </main>
-    </div>
+    </AdminLayout>
   );
 };

@@ -6,8 +6,19 @@ import { Home } from './pages/Home';
 import { MovieDetails } from './pages/MovieDetails';
 import { MovieSearch } from './pages/MovieSearch';
 import { UserDashboard } from './pages/portal/UserDashboard';
+import { Booking } from './pages/portal/Booking';
+import { Checkout } from './pages/portal/Checkout';
+import { CheckoutSuccess } from './pages/portal/CheckoutSuccess';
+import { TicketInfo } from './pages/portal/TicketInfo';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { MovieManagement } from './pages/admin/MovieManagement';
+import { PermissionManagement } from './pages/admin/PermissionManagement';
+import { PricingAndVouchers } from './pages/admin/PricingAndVouchers';
+import { RoomManagement } from './pages/admin/RoomManagement';
+import { ShowtimeManagement } from './pages/admin/ShowtimeManagement';
 import { StaffDashboard } from './pages/staff/StaffDashboard';
+import { TicketLookup } from './pages/staff/TicketLookup';
+import { QRChecker } from './pages/staff/QRChecker';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
@@ -30,6 +41,10 @@ function App() {
         //</ProtectedRoute>
         }
       />
+      <Route path="/user/booking" element={<Booking />} />
+      <Route path="/user/checkout" element={<Checkout />} />
+      <Route path="/user/checkout-success" element={<CheckoutSuccess />} />
+      <Route path="/user/tickets/:ticketId" element={<TicketInfo />} />
 
       {/* Protected Admin Routes */}
       <Route
@@ -40,6 +55,11 @@ function App() {
         //  </ProtectedRoute>
         }
       />
+      <Route path="/admin/movies" element={<MovieManagement />} />
+      <Route path="/admin/permissions" element={<PermissionManagement />} />
+      <Route path="/admin/pricing" element={<PricingAndVouchers />} />
+      <Route path="/admin/rooms" element={<RoomManagement />} />
+      <Route path="/admin/showtimes" element={<ShowtimeManagement />} />
 
       {/* Protected Staff Routes */}
       <Route
@@ -50,6 +70,8 @@ function App() {
         //  </ProtectedRoute>
         }
       />
+      <Route path="/staff/ticket-lookup" element={<TicketLookup />} />
+      <Route path="/staff/qr-checker" element={<QRChecker />} />
 
       {/* Catch-all redirect */}
       <Route path="*" element={<Navigate to="/" replace />} />
