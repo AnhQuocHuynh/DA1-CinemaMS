@@ -6,8 +6,9 @@ import com.uit.cinema.booking.entity.Voucher;
 import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.VoucherRepository;
 import com.uit.cinema.core.exception.CustomException;
-import com.uit.cinema.showtime.entity.ShowtimeSeat;
-import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.showtime.service.SeatReservationService;
+import com.uit.cinema.showtime.service.contract.SeatBookingRequest;
+import com.uit.cinema.showtime.service.contract.SeatView;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -16,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -26,7 +26,7 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final VoucherRepository voucherRepository;
-    private final ShowtimeSeatRepository showtimeSeatRepository;
+    private final SeatReservationService seatReservationService;
     private final TicketGenerationService ticketGenerationService;
 
     /**
@@ -35,18 +35,9 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public Order createOrder(Long userId, Long showtimeId, List<Long> seatIds, String voucherCode) {
-        List<ShowtimeSeat> seats = new ArrayList<>();
-        BigDecimal total = BigDecimal.ZERO;
-
-        for (Long seatId : seatIds) {
-            ShowtimeSeat seat = showtimeSeatRepository.findById(seatId)
-                .orElseThrow(() -> new CustomException("Ghế không tồn tại", HttpStatus.NOT_FOUND, "SEAT_NOT_FOUND"));
-            if (seat.getStatus() != ShowtimeSeat.SeatStatus.HELD) {
-                throw new CustomException("Ghế chưa được giữ hoặc đã hết hạn giữ", HttpStatus.CONFLICT, "SEAT_NOT_HELD");
-            }
-            seats.add(seat);
-            total = total.add(seat.getPrice());
-        }
+        SeatBookingRequest seatRequest = new SeatBookingRequest(userId, showtimeId, seatIds);
+        var validationResult = seatReservationService.validateHeldSeats(seatRequest);
+        BigDecimal total = validationResult.totalAmount();
 
         BigDecimal discount = BigDecimal.ZERO;
         Long voucherId = null;
@@ -69,13 +60,13 @@ public class OrderServiceImpl implements OrderService {
             .build();
         Order saved = orderRepository.save(order);
 
-        for (ShowtimeSeat seat : seats) {
-            seat.setStatus(ShowtimeSeat.SeatStatus.BOOKED);
-            showtimeSeatRepository.save(seat);
+        seatReservationService.confirmHeldSeats(seatRequest);
+
+        for (SeatView seat : validationResult.seats()) {
             Ticket ticket = Ticket.builder()
                 .order(saved)
-                .showtimeSeatId(seat.getId())
-                .price(seat.getPrice())
+                .showtimeSeatId(seat.seatId())
+                .price(seat.price())
                 .build();
             ticketGenerationService.generateTicket(ticket);
         }
