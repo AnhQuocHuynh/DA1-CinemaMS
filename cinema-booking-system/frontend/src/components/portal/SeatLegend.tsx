@@ -1,10 +1,9 @@
 import React from 'react';
 
 const legendItems = [
-  { label: 'Available', className: 'bg-primary-fixed' },
-  { label: 'Selected', className: 'bg-primary' },
-  { label: 'Holding', className: 'bg-tertiary-container' },
-  { label: 'Sold', className: 'bg-secondary-container' },
+  { label: 'Available', className: 'bg-green-500' },
+  { label: 'Holding', className: 'bg-yellow-400 ring-2 ring-gray-400' },
+  { label: 'Sold', className: 'bg-gray-400' },
 ];
 
 export const SeatLegend: React.FC = () => {

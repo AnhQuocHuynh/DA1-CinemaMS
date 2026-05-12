@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { bookingService } from '../services/apiService';
+import { bookingService } from '../services/bookingService';
 import { TicketDetails } from '../types/booking';
 
 export const useTicketDetails = (ticketId: string) => {

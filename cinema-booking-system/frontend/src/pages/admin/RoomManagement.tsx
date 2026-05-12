@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
@@ -7,6 +8,7 @@ import { useAdminRooms } from '../../hooks/useAdminRooms';
 import { AdminTheater } from '../../types/admin';
 
 export const RoomManagement: React.FC = () => {
+  const navigate = useNavigate();
   const { theaters, isLoading } = useAdminRooms();
   const [expandedTheaters, setExpandedTheaters] = useState<Record<string, boolean>>({
     'theater-1': true,
@@ -135,9 +137,17 @@ export const RoomManagement: React.FC = () => {
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                  <button className="p-2 hover:bg-slate-100 rounded text-slate-400 hover:text-primary transition-colors">
-                                    Edit
-                                  </button>
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-surface-container-low text-primary rounded"
+                                      onClick={() => navigate(`/admin/rooms/${room.id}/seats`)}
+                                    >
+                                      Configure Seats
+                                    </button>
+                                    <button className="p-2 hover:bg-slate-100 rounded text-slate-400 hover:text-primary transition-colors">
+                                      Edit
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             ))}

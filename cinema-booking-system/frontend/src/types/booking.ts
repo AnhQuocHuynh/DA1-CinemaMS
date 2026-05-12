@@ -1,4 +1,5 @@
 export type SeatStatus = 'available' | 'selected' | 'sold' | 'holding';
+export type SeatType = 'normal' | 'vip';
 
 export interface Seat {
   id: string;
@@ -6,7 +7,9 @@ export interface Seat {
   row: string;
   number: number;
   status: SeatStatus;
+  type: SeatType;
   price: number;
+  isPathway?: boolean;
 }
 
 export interface SeatRow {

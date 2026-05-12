@@ -18,12 +18,23 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
           const selected = isSelected(seat);
           const isDisabled = seat.status === 'sold' || seat.status === 'holding';
           const baseClass = seat.status === 'sold'
-            ? 'bg-secondary-container opacity-50 cursor-not-allowed'
+            ? 'bg-gray-400 cursor-not-allowed'
             : seat.status === 'holding'
-              ? 'bg-tertiary-container cursor-wait'
+              ? 'bg-yellow-400 ring-2 ring-gray-400 cursor-wait'
               : selected
-                ? 'bg-primary text-white ring-2 ring-primary ring-offset-2'
-                : 'bg-primary-fixed hover:bg-primary transition-colors cursor-pointer';
+                ? 'bg-yellow-400 ring-2 ring-gray-400 text-gray-900'
+                : 'bg-green-500 hover:bg-green-600 transition-colors cursor-pointer';
+            if (seat.isPathway) {
+              return (
+                <div
+                  key={seat.id}
+                  className="w-full aspect-square rounded-sm bg-transparent"
+                  aria-hidden="true"
+                />
+              );
+            }
+
+          const vipClass = seat.type === 'vip' ? 'border-2 border-amber-400' : 'border border-transparent';
 
           return (
             <button
@@ -31,8 +42,8 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
               type="button"
               disabled={isDisabled}
               onClick={() => onSeatToggle(seat)}
-              className={`${baseClass} w-full aspect-square rounded-sm flex items-center justify-center text-[8px] font-bold`}
-              title={seat.label}
+              className={`${baseClass} ${vipClass} w-full aspect-square rounded-sm flex items-center justify-center text-[8px] font-bold`}
+                title={`${seat.label} • ${seat.type.toUpperCase()}`}
             >
               <span className={`${selected ? 'opacity-100' : 'opacity-0'} transition-opacity`}>
                 {seat.label}

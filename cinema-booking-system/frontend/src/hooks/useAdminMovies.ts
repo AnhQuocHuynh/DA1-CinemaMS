@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { adminService } from '../services/apiService';
+import { adminService } from '../services/adminService';
 import { AdminMovieListItem } from '../types/admin';
 
 export const useAdminMovies = () => {

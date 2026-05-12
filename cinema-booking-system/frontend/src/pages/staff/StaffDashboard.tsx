@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Clock, TrendingUp, Ticket } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
-import { staffService } from '../../services/apiService';
+import { staffService } from '../../services/staffService';
 
 export const StaffDashboard: React.FC = () => {
   const navigate = useNavigate();

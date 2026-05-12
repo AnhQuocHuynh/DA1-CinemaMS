@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { adminService } from '../services/apiService';
+import { adminService } from '../services/adminService';
 import { AdminVoucher } from '../types/admin';
 
 interface PricingTier {

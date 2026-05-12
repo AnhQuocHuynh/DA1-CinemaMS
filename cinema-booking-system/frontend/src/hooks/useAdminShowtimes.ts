@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { adminService } from '../services/apiService';
+import { adminService } from '../services/adminService';
 import { AdminShowtimeItem } from '../types/admin';
 
 export const useAdminShowtimes = () => {

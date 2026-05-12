@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Film, Ticket, User } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
-import { movieService, bookingService } from '../../services/apiService';
+import { bookingService } from '../../services/bookingService';
+import { movieService } from '../../services/movieService';
 
 interface Movie {
   id: number;

@@ -1,11 +1,13 @@
 import React from 'react';
 import { ArrowRight, Info } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { PortalTopNav } from '../../components/portal/PortalTopNav';
 import { SeatLegend } from '../../components/portal/SeatLegend';
 import { SeatMapGrid } from '../../components/portal/SeatMapGrid';
 import { useSeatSelection } from '../../hooks/useSeatSelection';
 
 export const Booking: React.FC = () => {
+  const navigate = useNavigate();
   const { seatMap, selectedSeats, isSelected, toggleSeat, summary, isLoading } = useSeatSelection('showtime-1');
 
   return (
@@ -90,7 +92,10 @@ export const Booking: React.FC = () => {
                 </div>
               </div>
 
-              <button className="w-full py-4 bg-primary text-white font-bold tracking-tight rounded-lg hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+              <button
+                className="w-full py-4 bg-primary text-white font-bold tracking-tight rounded-lg hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                onClick={() => navigate('/user/checkout')}
+              >
                 Proceed to Checkout
                 <ArrowRight className="w-4 h-4" />
               </button>

@@ -1,34 +1,25 @@
-import { useEffect, useState } from 'react';
-import { bookingService } from '../services/apiService';
-
-interface CheckoutSummary {
-  movieTitle: string;
-  venue: string;
-  showtime: string;
-  seats: string[];
-  subtotal: number;
-  fees: number;
-  total: number;
-}
+import { useMemo } from 'react';
+import { useBookingStore } from '../store/bookingStore';
+import { BookingSummary } from '../types/booking';
 
 export const useCheckoutSummary = () => {
-  const [summary, setSummary] = useState<CheckoutSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { selectedSeats } = useBookingStore();
+  const isLoading = false;
 
-  useEffect(() => {
-    const loadSummary = async () => {
-      try {
-        const data = await bookingService.getCheckoutSummary();
-        setSummary(data);
-      } catch (error) {
-        console.error('Failed to load checkout summary:', error);
-      } finally {
-        setIsLoading(false);
-      }
+  const summary = useMemo<BookingSummary>(() => {
+    const subtotal = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
+    const fees = selectedSeats.length ? 4.5 : 0;
+
+    return {
+      movieTitle: 'Interstellar: 10th Anniversary Re-release',
+      venue: 'IMAX 70mm',
+      showtime: '8:30 PM',
+      seats: selectedSeats,
+      fees,
+      subtotal,
+      total: subtotal + fees,
     };
-
-    loadSummary();
-  }, []);
+  }, [selectedSeats]);
 
   return { summary, isLoading };
 };

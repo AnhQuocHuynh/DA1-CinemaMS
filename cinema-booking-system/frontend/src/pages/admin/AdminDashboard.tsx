@@ -1,12 +1,20 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { CalendarDays, Filter, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { useAdminDashboard } from '../../hooks/useAdminDashboard';
+import { useAdminRooms } from '../../hooks/useAdminRooms';
 
 export const AdminDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const { overview, liveSales, popularMovies, isLoading } = useAdminDashboard();
+  const { theaters } = useAdminRooms();
+
+  const highlightedRooms = useMemo(() => {
+    return theaters.flatMap((theater) => theater.rooms.map((room) => ({ theater, room }))).slice(0, 6);
+  }, [theaters]);
 
   return (
     <AdminLayout activeItemId="dashboard">
@@ -173,6 +181,61 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            <section className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="bg-surface-container-lowest rounded-xl p-6 shadow-sm lg:col-span-2">
+                <div className="flex items-center justify-between mb-6">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    Hall Seat Configurations
+                  </span>
+                  <button
+                    className="text-[10px] font-bold uppercase tracking-widest text-primary"
+                    onClick={() => navigate('/admin/rooms')}
+                  >
+                    Manage Rooms
+                  </button>
+                </div>
+                {highlightedRooms.length === 0 ? (
+                  <p className="text-sm text-on-surface-variant">No rooms available yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {highlightedRooms.map(({ theater, room }) => (
+                      <button
+                        key={room.id}
+                        type="button"
+                        onClick={() => navigate(`/admin/rooms/${room.id}/seats`)}
+                        className="text-left p-4 rounded-xl bg-surface-container-low border border-surface-container-low/80 hover:border-primary/40 transition-colors"
+                      >
+                        <div className="text-sm font-semibold text-slate-900">{room.name}</div>
+                        <div className="text-[10px] uppercase tracking-widest text-slate-500 mt-2">
+                          {theater.name}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-3">Capacity {room.capacity} seats</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="bg-inverse-surface rounded-xl p-6 text-white shadow-sm">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  Quick Actions
+                </div>
+                <div className="mt-6 space-y-4">
+                  <button
+                    className="w-full py-3 rounded-lg bg-slate-800/60 text-left px-4 text-sm font-semibold"
+                    onClick={() => navigate('/admin/rooms')}
+                  >
+                    Review Room Inventory
+                  </button>
+                  <button
+                    className="w-full py-3 rounded-lg bg-slate-800/60 text-left px-4 text-sm font-semibold"
+                    onClick={() => navigate('/admin/showtimes')}
+                  >
+                    Open Scheduling Board
+                  </button>
+                </div>
+              </div>
+            </section>
 
             <footer className="mt-12 flex flex-col md:flex-row justify-between items-start md:items-center border-t border-slate-100 pt-8 gap-4">
               <div className="flex items-center space-x-6">

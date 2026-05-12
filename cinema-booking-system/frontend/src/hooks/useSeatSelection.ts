@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { bookingService } from '../services/apiService';
+import { bookingService } from '../services/bookingService';
 import { useBookingStore } from '../store/bookingStore';
 import { Seat, SeatMap } from '../types/booking';
 

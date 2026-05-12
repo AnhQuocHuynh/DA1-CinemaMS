@@ -46,7 +46,9 @@ export const Checkout: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-[10px] font-bold tracking-widest uppercase text-outline mb-1">Selected Seats</p>
-                    <p className="text-sm font-semibold text-on-surface">{summary.seats.join(', ')}</p>
+                    <p className="text-sm font-semibold text-on-surface">
+                      {summary.seats.map((seat) => seat.label).join(', ')}
+                    </p>
                   </div>
                   <div className="col-span-2">
                     <p className="text-[10px] font-bold tracking-widest uppercase text-outline mb-4">Pricing Breakdown</p>

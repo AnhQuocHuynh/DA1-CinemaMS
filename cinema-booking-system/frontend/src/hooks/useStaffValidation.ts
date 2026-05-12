@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { staffService } from '../services/apiService';
+import { staffService } from '../services/staffService';
 import { StaffBookingValidation, StaffValidationStats } from '../types/staff';
 
 export const useStaffValidation = () => {

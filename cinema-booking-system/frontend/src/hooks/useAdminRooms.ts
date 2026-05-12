@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { adminService } from '../services/apiService';
+import { adminService } from '../services/adminService';
 import { AdminTheater } from '../types/admin';
 
 export const useAdminRooms = () => {

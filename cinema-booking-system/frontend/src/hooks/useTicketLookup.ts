@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { staffService } from '../services/apiService';
+import { staffService } from '../services/staffService';
 import { StaffBookingValidation } from '../types/staff';
 
 export const useTicketLookup = () => {
