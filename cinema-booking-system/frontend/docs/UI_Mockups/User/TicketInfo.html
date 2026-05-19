@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Digital Ticket - The Digital Architect</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "error": "#ba1a1a",
+              "primary-container": "#2563eb",
+              "surface-container": "#e7eeff",
+              "inverse-on-surface": "#ecf1ff",
+              "tertiary-fixed-dim": "#ffb95f",
+              "on-secondary": "#ffffff",
+              "inverse-primary": "#b4c5ff",
+              "surface-dim": "#cfdaf2",
+              "error-container": "#ffdad6",
+              "secondary-container": "#d5e0f8",
+              "secondary-fixed": "#d8e3fb",
+              "on-tertiary-fixed": "#2a1700",
+              "inverse-surface": "#263143",
+              "on-primary-fixed-variant": "#003ea8",
+              "on-surface": "#111c2d",
+              "on-tertiary": "#ffffff",
+              "on-secondary-fixed": "#111c2d",
+              "surface-container-low": "#f0f3ff",
+              "on-error": "#ffffff",
+              "surface-container-high": "#dee8ff",
+              "tertiary-fixed": "#ffddb8",
+              "secondary-fixed-dim": "#bcc7de",
+              "primary-fixed-dim": "#b4c5ff",
+              "on-secondary-container": "#586377",
+              "secondary": "#545f73",
+              "background": "#f9f9ff",
+              "surface-container-highest": "#d8e3fb",
+              "on-tertiary-fixed-variant": "#653e00",
+              "on-primary-fixed": "#00174b",
+              "on-primary": "#ffffff",
+              "surface-container-lowest": "#ffffff",
+              "on-surface-variant": "#434655",
+              "surface-variant": "#d8e3fb",
+              "on-primary-container": "#eeefff",
+              "outline": "#737686",
+              "surface-bright": "#f9f9ff",
+              "on-error-container": "#93000a",
+              "surface": "#f9f9ff",
+              "tertiary": "#784b00",
+              "primary-fixed": "#dbe1ff",
+              "on-tertiary-container": "#ffeedd",
+              "surface-tint": "#0053db",
+              "tertiary-container": "#996100",
+              "on-secondary-fixed-variant": "#3c475a",
+              "outline-variant": "#c3c6d7",
+              "on-background": "#111c2d",
+              "primary": "#004ac6"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ticket-perforation {
+            background-image: radial-gradient(circle at 0px 10px, transparent 10px, white 10px);
+            background-size: 100% 20px;
+        }
+        .mask-ticket {
+            mask-image: radial-gradient(circle at 0% 50%, transparent 12px, black 12px), radial-gradient(circle at 100% 50%, transparent 12px, black 12px);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/50 dark:border-slate-800/50 shadow-sm font-inter antialiased tracking-tight">
+<div class="flex justify-between items-center h-16 px-6 max-w-full mx-auto">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-slate-900 dark:text-white">The Digital Architect</span>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-slate-600 dark:text-slate-400 hover:text-blue-600 transition-colors" href="#">Movies</a>
+<a class="text-slate-600 dark:text-slate-400 hover:text-blue-600 transition-colors" href="#">Events</a>
+<a class="text-slate-600 dark:text-slate-400 hover:text-blue-600 transition-colors" href="#">Showtimes</a>
+<a class="text-blue-700 dark:text-blue-400 font-semibold border-b-2 border-blue-700 pb-1" href="#">My Tickets</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all active:scale-95 duration-200">Sign In</button>
+<button class="px-5 py-2 text-sm font-semibold bg-primary text-on-primary rounded-lg shadow-sm hover:bg-primary/90 active:scale-95 duration-200">Book Now</button>
+</div>
+</div>
+</header>
+<main class="pt-24 pb-32 px-4 md:px-6 max-w-4xl mx-auto min-h-screen">
+<!-- Back Action -->
+<div class="mb-8">
+<button class="flex items-center gap-2 text-sm font-medium text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">arrow_back</span>
+                Back to My Tickets
+            </button>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+<!-- Left Column: Ticket Artwork & Meta -->
+<div class="lg:col-span-5 space-y-8">
+<div class="aspect-[2/3] w-full rounded-xl overflow-hidden shadow-2xl relative group">
+<img alt="Cinematic movie poster for Interstellar featuring an astronaut in deep space with vibrant nebula lighting" class="w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 transition-all duration-700" data-alt="Cinematic movie poster for Interstellar featuring an astronaut in deep space with vibrant nebula lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuASLc1wPHljykhO6kqPW4F6YY92q9RPH7jgkFszXVR3Yl7QAA2OR4J90RhSHcyUu2jHzBjtFL4l0H0NTznZbHPsHYwMx511pq_YwjXwttkDKkb9lRvo-kDlT1COvT9Ozne7glQYD3gHKALFTiyXsq98n3cR_rksy8XRxWvLUQ1n6kj7f8nxXgeyPYF5M5whVsDV9sn_a3JTROEd3w2n4C4sIlr5jeJqa2Eq_yveuWpPsdEF4JBasYUmuFElB77RQXtelLB8WUIc4mY"/>
+<div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/80 to-transparent"></div>
+<div class="absolute bottom-6 left-6">
+<span class="inline-block px-3 py-1 bg-primary text-on-primary text-[10px] font-bold tracking-widest uppercase mb-2">Confirmed</span>
+<h2 class="text-2xl font-bold text-white tracking-tight">INTERSTELLAR</h2>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 rounded-xl space-y-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" data-icon="info">info</span>
+<p class="text-xs text-on-secondary-container leading-relaxed">Please arrive 20 minutes before the show starts. Digital tickets must be presented at the hall entrance.</p>
+</div>
+</div>
+</div>
+<!-- Right Column: The Ticket -->
+<div class="lg:col-span-7 flex flex-col gap-6">
+<!-- Ticket Card -->
+<div class="relative bg-surface-container-lowest rounded-xl shadow-lg overflow-hidden flex flex-col">
+<!-- Top Section -->
+<div class="p-8 pb-10">
+<div class="flex justify-between items-start mb-10">
+<div>
+<h1 class="text-4xl font-black text-on-surface tracking-tighter mb-1">INTERSTELLAR</h1>
+<p class="text-sm font-medium text-primary tracking-wide uppercase">Directed by Christopher Nolan</p>
+</div>
+<div class="text-right">
+<span class="label-md uppercase font-bold tracking-widest text-on-surface-variant block mb-1">Hall</span>
+<span class="text-3xl font-light tracking-tighter text-on-surface">IMAX-04</span>
+</div>
+</div>
+<!-- Data Grid -->
+<div class="grid grid-cols-2 gap-y-8 gap-x-4">
+<div>
+<label class="text-[10px] font-bold tracking-widest uppercase text-outline mb-2 block">Date</label>
+<p class="text-lg font-semibold text-on-surface">Friday, Oct 24</p>
+</div>
+<div>
+<label class="text-[10px] font-bold tracking-widest uppercase text-outline mb-2 block">Time</label>
+<p class="text-lg font-semibold text-on-surface">08:30 PM</p>
+</div>
+<div class="col-span-2">
+<label class="text-[10px] font-bold tracking-widest uppercase text-outline mb-2 block">Venue</label>
+<p class="text-lg font-semibold text-on-surface">The Grand Architectural Cinema, NYC</p>
+</div>
+<div>
+<label class="text-[10px] font-bold tracking-widest uppercase text-outline mb-2 block">Seats</label>
+<div class="flex gap-2">
+<span class="px-3 py-1 bg-surface-container-high rounded font-bold text-on-primary-fixed-variant">H-12</span>
+<span class="px-3 py-1 bg-surface-container-high rounded font-bold text-on-primary-fixed-variant">H-13</span>
+</div>
+</div>
+<div class="text-right">
+<label class="text-[10px] font-bold tracking-widest uppercase text-outline mb-2 block">Booking ID</label>
+<p class="text-lg font-mono font-medium text-on-surface">#TDA-88291</p>
+</div>
+</div>
+</div>
+<!-- Perforation Line -->
+<div class="relative h-6 flex items-center">
+<div class="absolute -left-3 w-6 h-6 bg-surface rounded-full"></div>
+<div class="absolute -right-3 w-6 h-6 bg-surface rounded-full"></div>
+<div class="w-full border-t-2 border-dashed border-outline-variant mx-6"></div>
+</div>
+<!-- Bottom Section (Scanner) -->
+<div class="p-10 bg-surface-container-low flex flex-col items-center justify-center">
+<div class="bg-white p-4 rounded-lg shadow-sm mb-6">
+<img alt="Entry QR code for ticket TDA-88291" class="w-40 h-40" data-alt="A clean high-contrast black and white QR code on a plain white square background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_xUvoDj4tJmYPBR2DuJo-h2Pa5QaKQAZn4OweJ938Ta4KWOUQe5bR25MMbPxWjvpHq8dGiTWbTNkj3NLCDo939vm-6ynl3I6DkOrACWyHCaxh_4VVuQEO4XGyEc7SNT8STHnL9J2SCr78FQeEH1wk7EMp9Xd-Bj30r6pwqYDWzlsXJmAIud0k4vrSkXoD7QOWlvQykMwBNKhm4bwqe8Es5FfjO_LQHv97UJrmsB_X07XALEj3h-PCenD41WLsPIlBzgHzuhjlDE4"/>
+</div>
+<p class="text-[10px] font-bold tracking-widest uppercase text-outline mb-4">Scan at Entrance</p>
+<!-- Quick Actions -->
+<div class="flex gap-4 w-full">
+<button class="flex-1 flex items-center justify-center gap-2 bg-on-surface text-white py-3 rounded-lg font-semibold text-sm hover:bg-on-surface/90 transition-all active:scale-95">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">wallet</span>
+                                Add to Wallet
+                            </button>
+<button class="flex-1 flex items-center justify-center gap-2 bg-white border border-outline-variant text-on-surface py-3 rounded-lg font-semibold text-sm hover:bg-surface-container-lowest transition-all active:scale-95">
+<span class="material-symbols-outlined text-lg">print</span>
+                                Print Ticket
+                            </button>
+</div>
+</div>
+</div>
+<!-- Secondary Actions -->
+<div class="flex justify-between items-center px-2">
+<button class="text-sm font-medium text-error hover:underline flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">cancel</span>
+                        Cancel Ticket
+                    </button>
+<button class="text-sm font-medium text-primary hover:underline flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">share</span>
+                        Share with Friends
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl shadow-[0_-4px_12px_rgba(0,0,0,0.05)] border-t border-slate-200/30 dark:border-slate-800/30 rounded-t-xl">
+<a class="flex flex-col items-center text-slate-400 dark:text-slate-600 tap-highlight-transparent" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="text-[10px] font-bold tracking-widest uppercase mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center text-slate-400 dark:text-slate-600 tap-highlight-transparent" href="#">
+<span class="material-symbols-outlined" data-icon="qr_code_scanner">qr_code_scanner</span>
+<span class="text-[10px] font-bold tracking-widest uppercase mt-1">Scan</span>
+</a>
+<a class="flex flex-col items-center text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/30 rounded-lg py-1 px-3 tap-highlight-transparent" href="#">
+<span class="material-symbols-outlined" data-icon="confirmation_number">confirmation_number</span>
+<span class="text-[10px] font-bold tracking-widest uppercase mt-1">Tickets</span>
+</a>
+<a class="flex flex-col items-center text-slate-400 dark:text-slate-600 tap-highlight-transparent" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-[10px] font-bold tracking-widest uppercase mt-1">Profile</span>
+</a>
+</nav>
+</body></html>

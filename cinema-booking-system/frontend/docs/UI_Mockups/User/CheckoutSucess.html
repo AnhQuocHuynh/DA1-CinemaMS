@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Checkout | The Digital Architect</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "error": "#ba1a1a",
+              "primary-container": "#2563eb",
+              "surface-container": "#e7eeff",
+              "inverse-on-surface": "#ecf1ff",
+              "tertiary-fixed-dim": "#ffb95f",
+              "on-secondary": "#ffffff",
+              "inverse-primary": "#b4c5ff",
+              "surface-dim": "#cfdaf2",
+              "error-container": "#ffdad6",
+              "secondary-container": "#d5e0f8",
+              "secondary-fixed": "#d8e3fb",
+              "on-tertiary-fixed": "#2a1700",
+              "inverse-surface": "#263143",
+              "on-primary-fixed-variant": "#003ea8",
+              "on-surface": "#111c2d",
+              "on-tertiary": "#ffffff",
+              "on-secondary-fixed": "#111c2d",
+              "surface-container-low": "#f0f3ff",
+              "on-error": "#ffffff",
+              "surface-container-high": "#dee8ff",
+              "tertiary-fixed": "#ffddb8",
+              "secondary-fixed-dim": "#bcc7de",
+              "primary-fixed-dim": "#b4c5ff",
+              "on-secondary-container": "#586377",
+              "secondary": "#545f73",
+              "background": "#f9f9ff",
+              "surface-container-highest": "#d8e3fb",
+              "on-tertiary-fixed-variant": "#653e00",
+              "on-primary-fixed": "#00174b",
+              "on-primary": "#ffffff",
+              "surface-container-lowest": "#ffffff",
+              "on-surface-variant": "#434655",
+              "surface-variant": "#d8e3fb",
+              "on-primary-container": "#eeefff",
+              "outline": "#737686",
+              "surface-bright": "#f9f9ff",
+              "on-error-container": "#93000a",
+              "surface": "#f9f9ff",
+              "tertiary": "#784b00",
+              "primary-fixed": "#dbe1ff",
+              "on-tertiary-container": "#ffeedd",
+              "surface-tint": "#0053db",
+              "tertiary-container": "#996100",
+              "on-secondary-fixed-variant": "#3c475a",
+              "outline-variant": "#c3c6d7",
+              "on-background": "#111c2d",
+              "primary": "#004ac6"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #f9f9ff;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        /* Custom Architectural Focus Shadow */
+        .depth-card {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+        }
+    </style>
+</head>
+<body class="text-on-surface">
+<!-- Top Navigation Suppression: Transactional Focus Mode -->
+<!-- The TopAppBar is omitted to prioritize the checkout canvas as per UX guidelines -->
+<main class="min-h-screen flex flex-col items-center py-12 px-6 md:py-20">
+<div class="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 gap-12">
+<!-- Branding & Progress Anchor -->
+<div class="lg:col-span-12 mb-4">
+<div class="flex items-center gap-4 mb-8">
+<button class="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-low hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-primary">arrow_back</span>
+</button>
+<div>
+<h1 class="text-2xl font-bold tracking-tight text-on-surface">Review Order</h1>
+<p class="text-sm text-on-surface-variant font-medium uppercase tracking-widest">Step 3 of 3: Checkout</p>
+</div>
+</div>
+</div>
+<!-- Left Column: Booking Details (Architectural Summary) -->
+<div class="lg:col-span-7 space-y-10">
+<!-- Summary Table Section -->
+<section class="bg-surface-container-lowest rounded-xl p-8 depth-card">
+<div class="flex justify-between items-start mb-10">
+<div class="space-y-1">
+<span class="text-[10px] font-bold tracking-widest uppercase text-outline">Selected Feature</span>
+<h2 class="text-2xl font-bold text-on-surface tracking-tight">Oppenheimer</h2>
+<div class="flex items-center gap-2 mt-2">
+<span class="material-symbols-outlined text-primary text-sm">location_on</span>
+<span class="text-sm font-medium text-on-secondary-fixed-variant">Grand Architecture IMAX, Hall 4</span>
+</div>
+</div>
+<img class="w-20 h-28 object-cover rounded shadow-lg" data-alt="minimalist cinematic poster of a dramatic historical figure with high contrast lighting and muted tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCG8D7L37vvUr3uFzpwqlX_oIL6dEz1abSuJwUtZ7IntGIRdj8AZBpvde6ogXRa7Eh7M_gRuRYo3N-_m9IFGjst-soXulTR-QlfNJ5jJknZkrwYOeGf56HMf7xS0kjscXsc-ePGaV4bCnJ-NKMb802dzT_8n8D6XSsqAZDUbDWq1_hV38X3JRj8ffJcx_Md0X3201DN8XmaIJXMNSkNdbJKw-Q3jJGAPw_BanyLXOoA8o-htU1f9MhImSEkdF7qyJK4HUpZgNb3xYc"/>
+</div>
+<!-- Details Grid -->
+<div class="grid grid-cols-2 gap-y-8 border-t border-surface-container-low pt-8">
+<div>
+<p class="text-[10px] font-bold tracking-widest uppercase text-outline mb-1">Date &amp; Time</p>
+<p class="text-sm font-semibold text-on-surface">Oct 24, 2023 | 07:30 PM</p>
+</div>
+<div>
+<p class="text-[10px] font-bold tracking-widest uppercase text-outline mb-1">Selected Seats</p>
+<p class="text-sm font-semibold text-on-surface">Gold: K12, K13, K14</p>
+</div>
+<div class="col-span-2">
+<p class="text-[10px] font-bold tracking-widest uppercase text-outline mb-4">Pricing Breakdown</p>
+<div class="space-y-3">
+<div class="flex justify-between items-center text-sm">
+<span class="text-on-surface-variant">Standard Rate (3 x $18.00)</span>
+<span class="font-medium text-on-surface">$54.00</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-on-surface-variant">Architect Convenience Fee</span>
+<span class="font-medium text-on-surface">$4.50</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Promo Code -->
+<section class="bg-surface-container-low rounded-lg p-6 flex flex-col md:flex-row items-center gap-4">
+<div class="flex-1 w-full">
+<label class="text-[10px] font-bold tracking-widest uppercase text-outline block mb-2" for="promo">Promotion Code</label>
+<input class="w-full bg-surface-container-lowest border-none focus:ring-0 text-sm font-bold tracking-widest uppercase h-12 px-4 rounded" id="promo" placeholder="ENTER CODE" type="text"/>
+</div>
+<button class="w-full md:w-auto px-8 h-12 bg-inverse-surface text-white text-xs font-bold tracking-widest uppercase hover:bg-on-surface transition-all active:scale-95">
+                        Apply
+                    </button>
+</section>
+</div>
+<!-- Right Column: Payment Gateway (Focused Action Zone) -->
+<div class="lg:col-span-5">
+<div class="sticky top-12 space-y-6">
+<section class="bg-surface-container-lowest rounded-xl p-8 depth-card border-t-4 border-primary">
+<h3 class="text-[11px] font-bold tracking-widest uppercase text-outline mb-8 text-center">Payment Gateway</h3>
+<!-- Payment Options -->
+<div class="space-y-3 mb-10">
+<!-- Card Option -->
+<label class="group relative flex items-center p-4 border border-surface-container-low rounded-lg cursor-pointer hover:bg-surface-container-low transition-all">
+<input checked="" class="sr-only peer" name="payment" type="radio"/>
+<div class="w-5 h-5 border-2 border-outline-variant rounded-full flex items-center justify-center peer-checked:border-primary peer-checked:bg-primary mr-4 transition-all">
+<div class="w-2 h-2 bg-white rounded-full"></div>
+</div>
+<div class="flex flex-1 items-center justify-between">
+<span class="text-sm font-semibold text-on-surface">Credit / Debit Card</span>
+<div class="flex gap-2">
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">credit_card</span>
+</div>
+</div>
+</label>
+<!-- UPI Option -->
+<label class="group relative flex items-center p-4 border border-surface-container-low rounded-lg cursor-pointer hover:bg-surface-container-low transition-all">
+<input class="sr-only peer" name="payment" type="radio"/>
+<div class="w-5 h-5 border-2 border-outline-variant rounded-full flex items-center justify-center peer-checked:border-primary peer-checked:bg-primary mr-4 transition-all">
+<div class="w-2 h-2 bg-white rounded-full"></div>
+</div>
+<div class="flex flex-1 items-center justify-between">
+<span class="text-sm font-semibold text-on-surface">Unified Payments Interface (UPI)</span>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">qr_code_2</span>
+</div>
+</label>
+<!-- Net Banking Option -->
+<label class="group relative flex items-center p-4 border border-surface-container-low rounded-lg cursor-pointer hover:bg-surface-container-low transition-all">
+<input class="sr-only peer" name="payment" type="radio"/>
+<div class="w-5 h-5 border-2 border-outline-variant rounded-full flex items-center justify-center peer-checked:border-primary peer-checked:bg-primary mr-4 transition-all">
+<div class="w-2 h-2 bg-white rounded-full"></div>
+</div>
+<div class="flex flex-1 items-center justify-between">
+<span class="text-sm font-semibold text-on-surface">Net Banking</span>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">account_balance</span>
+</div>
+</label>
+</div>
+<!-- Total & CTA -->
+<div class="border-t border-surface-container-low pt-8">
+<div class="flex justify-between items-end mb-8">
+<span class="text-[10px] font-bold tracking-widest uppercase text-outline">Total Amount Due</span>
+<span class="text-3xl font-extrabold text-on-surface tracking-tighter leading-none">$58.50</span>
+</div>
+<button class="w-full bg-primary text-white py-5 rounded shadow-lg shadow-primary/20 hover:bg-surface-tint active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+<span class="text-sm font-bold tracking-widest uppercase">Confirm &amp; Pay</span>
+<span class="material-symbols-outlined text-sm">lock</span>
+</button>
+<p class="text-center text-[10px] text-outline mt-6 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[12px]">security</span>
+                                SECURE 256-BIT ENCRYPTED TRANSACTION
+                            </p>
+</div>
+</section>
+<!-- Trust Indicators -->
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-low rounded p-4 flex flex-col items-center text-center">
+<span class="material-symbols-outlined text-primary mb-2">verified_user</span>
+<span class="text-[9px] font-bold tracking-widest uppercase text-on-surface-variant">Buyer Protection</span>
+</div>
+<div class="bg-surface-container-low rounded p-4 flex flex-col items-center text-center">
+<span class="material-symbols-outlined text-primary mb-2">history</span>
+<span class="text-[9px] font-bold tracking-widest uppercase text-on-surface-variant">Easy Refunds</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Support Anchor -->
+<footer class="mt-20 text-center pb-10">
+<p class="text-xs text-outline font-medium">Need help with your booking?</p>
+<div class="flex justify-center gap-6 mt-4">
+<a class="text-xs font-bold tracking-widest uppercase text-primary hover:underline" href="#">Support Center</a>
+<span class="w-1 h-1 bg-outline-variant rounded-full my-auto"></span>
+<a class="text-xs font-bold tracking-widest uppercase text-primary hover:underline" href="#">Terms of Service</a>
+</div>
+</footer>
+</main>
+<!-- Navigation suppression confirmed for transaction focus -->
+</body></html>
