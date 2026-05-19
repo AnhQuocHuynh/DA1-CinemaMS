@@ -2,11 +2,13 @@ import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, Star } from 'lucide-react';
 import { calculateEndTime, formatDuration, movies, searchMovies } from '../utils/movieData';
+import { useAuthStore } from '../store/authStore';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [showAutocomplete, setShowAutocomplete] = useState(false);
+  const { user } = useAuthStore();
 
   const suggestions = useMemo(() => {
     if (!searchTerm.trim()) {
@@ -24,17 +26,28 @@ export const Home: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md shadow-sm">
-        <div className="max-w-[1280px] mx-auto h-16 px-6 flex items-center justify-between gap-6">
-          <div className="flex items-center gap-8">
+        <div className="max-w-[1280px] mx-auto h-16 px-1 md:px-2 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-5">
             <span className="text-xl font-bold tracking-tight">CinemaArchitect</span>
-            <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
+            {user && (
+              <div className="hidden sm:flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white text-[11px] font-bold">
+                  {user.email.charAt(0).toUpperCase()}
+                </span>
+                <div className="leading-tight">
+                  <p className="text-[11px] font-semibold">{user.email}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-slate-500">{user.role}</p>
+                </div>
+              </div>
+            )}
+            <nav className="hidden md:flex items-center gap-4 text-sm font-medium">
               <a href="#movies" className="text-blue-700 border-b-2 border-blue-700 pb-1">Movies</a>
               <a href="#theaters" className="text-slate-600 hover:text-slate-900">Theaters</a>
               <a href="#membership" className="text-slate-600 hover:text-slate-900">Membership</a>
             </nav>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="relative hidden lg:block">
               <form
                 onSubmit={(e) => {
@@ -71,7 +84,11 @@ export const Home: React.FC = () => {
               )}
             </div>
 
-            <Link to="/login" className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md">Sign In</Link>
+            {!user && (
+              <Link to="/login" className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md">
+                Sign In
+              </Link>
+            )}
             <Link to="/signup" className="px-5 py-2 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-500">Book Now</Link>
           </div>
         </div>

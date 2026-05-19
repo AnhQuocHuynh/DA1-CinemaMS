@@ -69,7 +69,11 @@ export const Login: React.FC = () => {
       const response = await authService.login(formData);
       console.log('Login successful:', response);
       const role = response.user.role.toLowerCase();
-      navigate(`/${role}/dashboard`);
+      if (role === 'user') {
+        navigate('/');
+      } else {
+        navigate(`/${role}/dashboard`);
+      }
     } catch (error) {
       console.error('Login error:', error);
       if (error instanceof Error) {
