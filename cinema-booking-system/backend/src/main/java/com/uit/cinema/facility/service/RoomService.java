@@ -1,12 +1,13 @@
 package com.uit.cinema.facility.service;
 
-import com.uit.cinema.facility.entity.Room;
+import com.uit.cinema.facility.dto.request.RoomRequest;
+import com.uit.cinema.facility.dto.response.RoomResponse;
 
 import java.util.List;
 
 public interface RoomService {
-    List<Room> getRoomsByCinema(Long cinemaId);
-    Room getRoomById(Long id);
-    Room createRoom(Room room);
+    List<RoomResponse> getRoomsByCinema(Long cinemaId);
+    RoomResponse getRoomById(Long id);
+    RoomResponse createRoom(RoomRequest request);
     void deleteRoom(Long id);
 }

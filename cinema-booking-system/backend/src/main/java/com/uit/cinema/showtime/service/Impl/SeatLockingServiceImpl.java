@@ -1,8 +1,9 @@
-package com.uit.cinema.showtime.service;
+package com.uit.cinema.showtime.service.Impl;
 
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.showtime.entity.ShowtimeSeat;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.showtime.service.SeatLockingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
