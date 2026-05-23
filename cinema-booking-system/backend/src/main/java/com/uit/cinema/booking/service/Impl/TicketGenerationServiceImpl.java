@@ -39,7 +39,7 @@ public class TicketGenerationServiceImpl implements TicketGenerationService {
         if (ticket.getStatus() != Ticket.TicketStatus.VALID) {
             throw new CustomException("Vé đã được sử dụng hoặc đã hủy", HttpStatus.BAD_REQUEST, "TICKET_NOT_VALID");
         }
-        ticket.setStatus(Ticket.TicketStatus.USED);
+        ticket.setStatus(Ticket.TicketStatus.CHECKED_IN);
         ticket.setCheckedInAt(java.time.LocalDateTime.now());
         log.info("Checked in ticket: {}", ticketCode);
         return ticketRepository.save(ticket);

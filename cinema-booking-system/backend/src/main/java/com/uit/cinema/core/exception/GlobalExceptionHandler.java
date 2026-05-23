@@ -20,8 +20,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ApiResponse<Object>> handleCustomException(CustomException ex) {
-        return ResponseEntity.status(ex.getStatus())
-                .body(ApiResponse.error(ex.getMessage()));
+        ApiResponse<Object> response = ApiResponse.error(
+                ex.getErrorCode(),
+                ex.getMessage(),
+                null
+        );
+        return ResponseEntity.status(ex.getStatus()).body(response);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -32,28 +36,31 @@ public class GlobalExceptionHandler {
             fieldErrors.put(field, error.getDefaultMessage());
         });
         
-        ApiResponse<Object> response = ApiResponse.error("Dữ liệu đầu vào không hợp lệ");
-        response.setData(fieldErrors);
+        ApiResponse<Object> response = ApiResponse.error(
+                ErrorCode.INVALID_INPUT,
+                "Dữ liệu đầu vào không hợp lệ",
+                fieldErrors
+        );
         
         return ResponseEntity.badRequest().body(response);
     }
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<Object>> handleBadCredentials(BadCredentialsException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error("Sai email hoặc mật khẩu"));
+        ApiResponse<Object> response = ApiResponse.error(ErrorCode.INVALID_CREDENTIALS);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Object>> handleAccessDenied(AccessDeniedException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error("Bạn không có quyền thực hiện thao tác này"));
+        ApiResponse<Object> response = ApiResponse.error(ErrorCode.FORBIDDEN);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGenericException(Exception ex) {
         log.error("Unhandled exception", ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("Lỗi hệ thống, vui lòng thử lại sau"));
+        ApiResponse<Object> response = ApiResponse.error(ErrorCode.INTERNAL_ERROR);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 }

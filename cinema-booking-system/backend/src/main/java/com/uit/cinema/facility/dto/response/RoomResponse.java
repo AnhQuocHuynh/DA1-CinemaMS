@@ -19,4 +19,5 @@ public class RoomResponse {
     private Integer rows;
     private Integer columns;
     private boolean active;
+    private boolean underMaintenance;
 }

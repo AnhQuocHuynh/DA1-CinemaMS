@@ -45,6 +45,6 @@ public class Ticket {
     private LocalDateTime createdAt;
 
     public enum TicketStatus {
-        VALID, USED, CANCELLED
+        VALID, CHECKED_IN, CANCELLED, REFUNDED
     }
 }

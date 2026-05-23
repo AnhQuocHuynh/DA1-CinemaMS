@@ -17,4 +17,5 @@ public class ShowtimeSeatResponse {
     private Long seatTemplateId;
     private BigDecimal price;
     private String status;
+    private Long holdTtlSeconds;
 }

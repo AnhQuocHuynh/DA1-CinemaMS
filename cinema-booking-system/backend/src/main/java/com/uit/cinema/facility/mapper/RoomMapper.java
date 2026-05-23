@@ -5,6 +5,7 @@ import com.uit.cinema.facility.dto.response.RoomResponse;
 import com.uit.cinema.facility.entity.Room;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
 @Mapper
 public interface RoomMapper {
@@ -16,4 +17,8 @@ public interface RoomMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "cinema", ignore = true)
     Room toEntity(RoomRequest request);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "cinema", ignore = true)
+    void updateEntity(@MappingTarget Room room, RoomRequest request);
 }
