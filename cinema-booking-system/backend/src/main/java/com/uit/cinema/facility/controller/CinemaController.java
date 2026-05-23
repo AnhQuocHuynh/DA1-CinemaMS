@@ -38,6 +38,13 @@ public class CinemaController {
         return ResponseEntity.ok(ApiResponse.success(cinema, "Tạo rạp mới thành công"));
     }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<CinemaResponse>> updateCinema(@PathVariable Long id, @Valid @RequestBody CinemaRequest request) {
+        CinemaResponse cinema = cinemaService.updateCinema(id, request);
+        return ResponseEntity.ok(ApiResponse.success(cinema, "Cập nhật rạp thành công"));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteCinema(@PathVariable Long id) {

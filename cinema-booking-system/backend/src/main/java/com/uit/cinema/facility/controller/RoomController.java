@@ -40,6 +40,14 @@ public class RoomController {
         return ResponseEntity.ok(ApiResponse.success(room, "Tạo phòng chiếu mới thành công"));
     }
 
+    @PutMapping("/{roomId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<RoomResponse>> updateRoom(@PathVariable Long cinemaId, @PathVariable Long roomId, @Valid @RequestBody RoomRequest request) {
+        request.setCinemaId(cinemaId);
+        RoomResponse room = roomService.updateRoom(roomId, request);
+        return ResponseEntity.ok(ApiResponse.success(room, "Cập nhật phòng chiếu thành công"));
+    }
+
     @DeleteMapping("/{roomId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteRoom(@PathVariable Long cinemaId, @PathVariable Long roomId) {

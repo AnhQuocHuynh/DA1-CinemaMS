@@ -9,5 +9,6 @@ public interface RoomService {
     List<RoomResponse> getRoomsByCinema(Long cinemaId);
     RoomResponse getRoomById(Long id);
     RoomResponse createRoom(RoomRequest request);
+    RoomResponse updateRoom(Long id, RoomRequest request);
     void deleteRoom(Long id);
 }

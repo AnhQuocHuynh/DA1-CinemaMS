@@ -9,5 +9,6 @@ public interface CinemaService {
     List<CinemaResponse> getAllActiveCinemas();
     CinemaResponse getCinemaById(Long id);
     CinemaResponse createCinema(CinemaRequest request);
+    CinemaResponse updateCinema(Long id, CinemaRequest request);
     void deleteCinema(Long id);
 }

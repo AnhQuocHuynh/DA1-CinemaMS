@@ -44,6 +44,6 @@ public class Showtime {
     private LocalDateTime createdAt;
 
     public enum Status {
-        SCHEDULED, ONGOING, FINISHED, CANCELLED
+        SCHEDULED, STARTED, ENDED, CANCELLED
     }
 }

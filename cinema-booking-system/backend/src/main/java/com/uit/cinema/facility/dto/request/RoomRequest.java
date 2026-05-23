@@ -17,4 +17,5 @@ public class RoomRequest {
     private Integer rows;
     private Integer columns;
     private boolean active = true;
+    private boolean underMaintenance = false;
 }

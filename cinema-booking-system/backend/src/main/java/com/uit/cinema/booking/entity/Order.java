@@ -24,6 +24,12 @@ public class Order {
     @Column(nullable = false)
     private Long userId;
 
+    @Column(nullable = false)
+    private Long showtimeId;
+
+    @Column(columnDefinition = "TEXT")
+    private String seatIdsSnapshot;
+
     private Long voucherId;
 
     @Column(precision = 12, scale = 2, nullable = false)

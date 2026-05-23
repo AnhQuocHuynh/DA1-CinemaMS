@@ -18,4 +18,6 @@ public class TicketResponse {
     private Ticket.TicketStatus status;
     private LocalDateTime checkedInAt;
     private LocalDateTime createdAt;
+    private Boolean refundable;
+    private Integer refundPercent;
 }

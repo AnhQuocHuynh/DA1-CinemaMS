@@ -32,4 +32,7 @@ public class Room {
 
     @Builder.Default
     private boolean active = true;
+
+    @Builder.Default
+    private boolean underMaintenance = false;
 }
