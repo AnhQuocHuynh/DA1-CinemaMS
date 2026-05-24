@@ -16,4 +16,18 @@ public interface MovieRepository extends JpaRepository<Movie, Long> {
     List<Movie> findByGenreName(String genreName);
 
     List<Movie> findByTitleContainingIgnoreCaseAndActiveTrue(String title);
+
+    @Query("SELECT DISTINCT m FROM Movie m LEFT JOIN m.genres g " +
+           "WHERE (:keyword IS NULL OR LOWER(m.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(m.description) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+           "AND (:genreId IS NULL OR g.id = :genreId) " +
+           "AND (:fromDate IS NULL OR m.releaseDate >= :fromDate) " +
+           "AND (:toDate IS NULL OR m.releaseDate <= :toDate) " +
+           "AND m.active = true")
+    org.springframework.data.domain.Page<Movie> searchMovies(
+            @org.springframework.data.repository.query.Param("keyword") String keyword,
+            @org.springframework.data.repository.query.Param("genreId") Long genreId,
+            @org.springframework.data.repository.query.Param("fromDate") java.time.LocalDate fromDate,
+            @org.springframework.data.repository.query.Param("toDate") java.time.LocalDate toDate,
+            org.springframework.data.domain.Pageable pageable
+    );
 }

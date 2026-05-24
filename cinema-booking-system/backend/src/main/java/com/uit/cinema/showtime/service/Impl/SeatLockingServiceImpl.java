@@ -1,8 +1,10 @@
-package com.uit.cinema.showtime.service;
+package com.uit.cinema.showtime.service.Impl;
 
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.showtime.entity.ShowtimeSeat;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.showtime.service.SeatHoldPolicy;
+import com.uit.cinema.showtime.service.SeatLockingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -10,7 +12,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.util.List;
 
 /**
@@ -23,9 +24,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SeatLockingServiceImpl implements SeatLockingService {
 
-    private static final String LOCK_PREFIX = "seat:lock:";
-    private static final Duration TTL = Duration.ofMinutes(10);
-
     private final RedisTemplate<String, Object> redisTemplate;
     private final ShowtimeSeatRepository showtimeSeatRepository;
 
@@ -33,8 +31,8 @@ public class SeatLockingServiceImpl implements SeatLockingService {
     @Transactional
     public void holdSeats(Long showtimeId, List<Long> seatIds, Long userId) {
         for (Long seatId : seatIds) {
-            String lockKey = buildKey(showtimeId, seatId);
-            Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, userId.toString(), TTL);
+            String lockKey = SeatHoldPolicy.holdKey(showtimeId, seatId);
+            Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, userId.toString(), SeatHoldPolicy.HOLD_TTL);
             if (!Boolean.TRUE.equals(acquired)) {
                 throw new CustomException(
                     "Ghế " + seatId + " đang được người khác giữ, vui lòng chọn ghế khác",
@@ -55,16 +53,12 @@ public class SeatLockingServiceImpl implements SeatLockingService {
 
     @Override
     public void releaseHold(Long showtimeId, Long seatId) {
-        redisTemplate.delete(buildKey(showtimeId, seatId));
+        redisTemplate.delete(SeatHoldPolicy.holdKey(showtimeId, seatId));
         showtimeSeatRepository.findById(seatId).ifPresent(seat -> {
             if (seat.getStatus() == ShowtimeSeat.SeatStatus.HELD) {
                 seat.setStatus(ShowtimeSeat.SeatStatus.AVAILABLE);
                 showtimeSeatRepository.save(seat);
             }
         });
-    }
-
-    private String buildKey(Long showtimeId, Long seatId) {
-        return LOCK_PREFIX + showtimeId + ":" + seatId;
     }
 }

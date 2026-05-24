@@ -1,7 +1,8 @@
-package com.uit.cinema.booking.service;
+package com.uit.cinema.booking.service.Impl;
 
 import com.uit.cinema.booking.entity.Ticket;
 import com.uit.cinema.booking.repository.TicketRepository;
+import com.uit.cinema.booking.service.TicketGenerationService;
 import com.uit.cinema.core.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +39,7 @@ public class TicketGenerationServiceImpl implements TicketGenerationService {
         if (ticket.getStatus() != Ticket.TicketStatus.VALID) {
             throw new CustomException("Vé đã được sử dụng hoặc đã hủy", HttpStatus.BAD_REQUEST, "TICKET_NOT_VALID");
         }
-        ticket.setStatus(Ticket.TicketStatus.USED);
+        ticket.setStatus(Ticket.TicketStatus.CHECKED_IN);
         ticket.setCheckedInAt(java.time.LocalDateTime.now());
         log.info("Checked in ticket: {}", ticketCode);
         return ticketRepository.save(ticket);
