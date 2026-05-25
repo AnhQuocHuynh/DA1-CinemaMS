@@ -2,7 +2,7 @@
 export const showtimeService = {
   getShowtimes: async (movieId: number) => {
     // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/showtimes?movieId=${movieId}`);
+    // const response = await axios.get(`${API_BASE_URL}/showtimes/movie/${movieId}`);
     // return response.data;
 
     console.log('🕐 [SHOWTIME] Fetching showtimes for movie:', movieId);

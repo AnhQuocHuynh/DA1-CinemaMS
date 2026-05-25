@@ -3,7 +3,7 @@ export const bookingService = {
   createBooking: async (bookingData: any) => {
     // TODO: Uncomment for real implementation
     // const token = localStorage.getItem('authToken');
-    // const response = await axios.post(`${API_BASE_URL}/bookings`, bookingData, {
+    // const response = await axios.post(`${API_BASE_URL}/orders`, bookingData, {
     //   headers: { Authorization: `Bearer ${token}` }
     // });
     // return response.data;
@@ -61,7 +61,8 @@ export const bookingService = {
 
   getCheckoutSummary: async () => {
     // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/bookings/checkout`);
+    // TODO: Backend does not expose a checkout summary endpoint yet.
+    // const response = await axios.get(`${API_BASE_URL}/orders/checkout`);
     // return response.data;
 
     console.log('🧾 [BOOKING] Fetching checkout summary');
@@ -80,7 +81,7 @@ export const bookingService = {
 
   getTicketById: async (ticketId: string) => {
     // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/tickets/${ticketId}`);
+    // const response = await axios.get(`${API_BASE_URL}/tickets/code/${ticketId}`);
     // return response.data;
 
     console.log('🎫 [BOOKING] Fetching ticket:', ticketId);

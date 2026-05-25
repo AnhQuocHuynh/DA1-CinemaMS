@@ -5,6 +5,7 @@ import { ForgotPassword } from './pages/ForgotPassword';
 import { Home } from './pages/Home';
 import { MovieDetails } from './pages/MovieDetails';
 import { MovieSearch } from './pages/MovieSearch';
+import { HealthCheck } from './pages/HealthCheck';
 import { UserDashboard } from './pages/portal/UserDashboard';
 import { Booking } from './pages/portal/Booking';
 import { Checkout } from './pages/portal/Checkout';
@@ -29,6 +30,7 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/movies/:movieId" element={<MovieDetails />} />
       <Route path="/movies/search" element={<MovieSearch />} />
+      <Route path="/health-check" element={<HealthCheck />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<SignUp />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />

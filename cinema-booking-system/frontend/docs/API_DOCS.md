@@ -16,7 +16,8 @@
 5. [Protected Endpoints](#protected-endpoints)
 6. [Error Handling](#error-handling)
 7. [Flow Examples](#flow-examples)
-8. [Integration Checklist](#integration-checklist)
+8. [Frontend Integration Alignment](#frontend-integration-alignment-may-2026-snapshot)
+9. [Integration Checklist](#integration-checklist)
 
 ---
 
@@ -24,11 +25,12 @@
 
 ### Token Management
 
-**Storage**: LocalStorage or SessionStorage with key: `token` or `accessToken`
+**Storage**: Access token + refresh token in LocalStorage or SessionStorage
 
 ```typescript
 // After login
 localStorage.setItem('accessToken', response.accessToken);
+localStorage.setItem('refreshToken', response.refreshToken);
 
 // In subsequent requests
 const token = localStorage.getItem('accessToken');
@@ -39,6 +41,7 @@ const headers = {
 
 // On logout
 localStorage.removeItem('accessToken');
+localStorage.removeItem('refreshToken');
 ```
 
 ### Token Lifecycle
@@ -46,7 +49,7 @@ localStorage.removeItem('accessToken');
 - **Valid**: 24 hours (86400000 ms)
 - **Expired**: User receives 401 UNAUTHORIZED
 - **Action**: Redirect to login, clear stored token
-- **Refresh**: Currently no refresh token endpoint (user must re-login)
+- **Refresh**: Use `POST /auth/refresh` with refresh token
 
 ### Required Headers
 
@@ -61,46 +64,57 @@ Content-Type: application/json
 
 ### Success Response
 
-All successful responses follow this structure:
+Most endpoints return a standard `ApiResponse<T>` wrapper:
 
 ```json
 {
-  "id": 1,
-  "field1": "value1",
-  "field2": "value2",
-  "timestamp": "2024-01-15T15:30:00"
+  "success": true,
+  "message": "Thành công",
+  "data": {
+    "id": 1,
+    "field1": "value1"
+  },
+  "timestamp": 1710000000000
 }
 ```
 
-**HTTP Status**: `200 OK`, `201 CREATED`, `204 NO CONTENT`
+**HTTP Status**: `200 OK` (most endpoints), `201 CREATED` (if used), `204 NO CONTENT` (delete)
 
 ### Error Response
 
 ```json
 {
-  "timestamp": "2024-01-15T15:30:00",
-  "status": 400,
+  "success": false,
+  "message": "Mã giảm giá không hợp lệ",
   "errorCode": "INVALID_VOUCHER",
-  "message": "Mã giảm giá không hợp lệ"
+  "details": null,
+  "timestamp": 1710000000000
 }
 ```
 
 **HTTP Status**: `4xx` or `5xx`
 
-### List Response
+### List Response (Wrapped)
 
 ```json
-[
-  {
-    "id": 1,
-    "name": "Item 1"
-  },
-  {
-    "id": 2,
-    "name": "Item 2"
-  }
-]
+{
+  "success": true,
+  "message": "Thành công",
+  "data": [
+    { "id": 1, "name": "Item 1" },
+    { "id": 2, "name": "Item 2" }
+  ],
+  "timestamp": 1710000000000
+}
 ```
+
+### Raw Responses (No Wrapper)
+
+These endpoints currently return raw JSON objects/arrays (no `ApiResponse` wrapper):
+- `/api/orders/**`
+- `/api/tickets/**`
+- `/api/vouchers/**`
+- `/api/reviews/**`
 
 ---
 
@@ -122,10 +136,13 @@ Register a new user account.
 }
 ```
 
-**Response** (201 Created):
+**Response** (200 OK):
 ```json
 {
-  "message": "Đăng ký thành công"
+  "success": true,
+  "message": "Đăng ký thành công",
+  "data": "Đăng ký thành công",
+  "timestamp": 1710000000000
 }
 ```
 
@@ -142,7 +159,8 @@ async function register(email, password, fullName, phone) {
     body: JSON.stringify({ email, password, fullName, phone })
   });
   if (response.ok) {
-    return { success: true };
+    const payload = await response.json();
+    return { success: payload.success, message: payload.message };
   }
   return { success: false, error: await response.json() };
 }
@@ -167,8 +185,21 @@ Authenticate user and receive JWT token.
 **Response** (200 OK):
 ```json
 {
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwiaWF0IjoxNjM4MzYwNDAwfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
-  "tokenType": "Bearer"
+  "success": true,
+  "message": "Đăng nhập thành công",
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "tokenType": "Bearer",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": 1,
+      "email": "user@example.com",
+      "fullName": "John Doe",
+      "phone": "0901234567",
+      "roles": ["ROLE_CUSTOMER"]
+    }
+  },
+  "timestamp": 1710000000000
 }
 ```
 
@@ -186,11 +217,101 @@ async function login(email, password) {
   });
   
   if (response.ok) {
-    const { accessToken } = await response.json();
+    const payload = await response.json();
+    const { accessToken, refreshToken, user } = payload.data;
     localStorage.setItem('accessToken', accessToken);
-    return { success: true, token: accessToken };
+    localStorage.setItem('refreshToken', refreshToken);
+    return { success: true, token: accessToken, user };
   }
   return { success: false, error: 'Invalid credentials' };
+}
+```
+
+---
+
+### POST /auth/refresh
+
+Refresh access token with refresh token.
+
+**Headers**: None (public)
+
+**Request Body**:
+```json
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**Response** (200 OK): Same shape as login `data` (new `accessToken`, `refreshToken`, and `user`).
+
+---
+
+### POST /auth/logout
+
+Invalidate refresh token.
+
+**Request Body**:
+```json
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Đăng xuất thành công",
+  "data": null,
+  "timestamp": 1710000000000
+}
+```
+
+---
+
+### POST /auth/forgot-password
+
+Request a password reset.
+
+**Request Body**:
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Yêu cầu đặt lại mật khẩu đã được xử lý. Vui lòng kiểm tra log hệ thống",
+  "data": null,
+  "timestamp": 1710000000000
+}
+```
+
+---
+
+### POST /auth/reset-password
+
+Reset password using reset token.
+
+**Request Body**:
+```json
+{
+  "token": "reset-token-from-system",
+  "newPassword": "NewPassword123!",
+  "confirmPassword": "NewPassword123!"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Đặt lại mật khẩu thành công",
+  "data": null,
+  "timestamp": 1710000000000
 }
 ```
 
@@ -208,33 +329,36 @@ Get all active movies.
 
 **Response** (200 OK):
 ```json
-[
-  {
-    "id": 1,
-    "title": "Inception",
-    "description": "A mind-bending thriller about dreams within dreams.",
-    "durationMinutes": 148,
-    "releaseDate": "2024-01-10",
-    "ageRating": "PG-13",
-    "posterUrl": "https://example.com/inception.jpg",
-    "trailerUrl": "https://example.com/inception-trailer.mp4",
-    "language": "English",
-    "active": true,
-    "genres": [
-      { "id": 1, "name": "Sci-Fi" },
-      { "id": 2, "name": "Thriller" }
-    ],
-    "createdAt": "2024-01-01T00:00:00",
-    "updatedAt": "2024-01-01T00:00:00"
-  }
-]
+{
+  "success": true,
+  "message": "Lấy danh sách phim thành công",
+  "data": [
+    {
+      "id": 1,
+      "title": "Inception",
+      "description": "A mind-bending thriller about dreams within dreams.",
+      "durationMinutes": 148,
+      "releaseDate": "2024-01-10",
+      "ageRating": "PG-13",
+      "posterUrl": "https://example.com/inception.jpg",
+      "trailerUrl": "https://example.com/inception-trailer.mp4",
+      "language": "English",
+      "active": true,
+      "genres": ["Sci-Fi", "Thriller"],
+      "createdAt": "2024-01-01T00:00:00",
+      "updatedAt": "2024-01-01T00:00:00"
+    }
+  ],
+  "timestamp": 1710000000000
+}
 ```
 
 **Frontend Integration**:
 ```typescript
 async function fetchMovies() {
   const response = await fetch('http://localhost:8080/api/movies');
-  return response.json(); // Array of movies
+  const payload = await response.json();
+  return payload.data; // Array of movies
 }
 ```
 
@@ -246,7 +370,7 @@ Get detailed information about a specific movie.
 
 **Path Parameters**: `id` (Long) - Movie ID
 
-**Response** (200 OK): Same as single movie object
+**Response** (200 OK): ApiResponse with single `MovieResponse`
 
 **Error Cases**:
 - `404 NOT_FOUND`: Movie doesn't exist
@@ -259,20 +383,25 @@ Get all upcoming events.
 
 **Response** (200 OK):
 ```json
-[
-  {
-    "id": 1,
-    "name": "Concert Night",
-    "description": "Live music performance by famous artist",
-    "startTime": "2024-02-20T19:00:00",
-    "endTime": "2024-02-20T22:00:00",
-    "venue": "Grand Theater",
-    "imageUrl": "https://example.com/concert.jpg",
-    "active": true,
-    "createdAt": "2024-01-10T00:00:00",
-    "updatedAt": "2024-01-10T00:00:00"
-  }
-]
+{
+  "success": true,
+  "message": "Lấy danh sách sự kiện sắp tới thành công",
+  "data": [
+    {
+      "id": 1,
+      "name": "Concert Night",
+      "description": "Live music performance by famous artist",
+      "startTime": "2024-02-20T19:00:00",
+      "endTime": "2024-02-20T22:00:00",
+      "venue": "Grand Theater",
+      "imageUrl": "https://example.com/concert.jpg",
+      "active": true,
+      "createdAt": "2024-01-10T00:00:00",
+      "updatedAt": "2024-01-10T00:00:00"
+    }
+  ],
+  "timestamp": 1710000000000
+}
 ```
 
 **Frontend Note**: Only returns future events (startTime > now)
@@ -285,7 +414,38 @@ Get event details.
 
 **Path Parameters**: `id` (Long) - Event ID
 
-**Response** (200 OK): Single event object
+**Response** (200 OK): ApiResponse with single `EventResponse`
+
+---
+
+### GET /catalog/search
+
+Search movies and events.
+
+**Query Parameters** (all optional):
+- `keyword` (string)
+- `genreId` (long)
+- `fromDate` (YYYY-MM-DD)
+- `toDate` (YYYY-MM-DD)
+- `page` (default 0)
+- `size` (default 10)
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Tìm kiếm danh mục thành công",
+  "data": {
+    "movies": [/* MovieResponse */],
+    "events": [/* EventResponse */],
+    "movieTotalPages": 2,
+    "eventTotalPages": 1,
+    "movieTotalElements": 12,
+    "eventTotalElements": 4
+  },
+  "timestamp": 1710000000000
+}
+```
 
 ---
 
@@ -295,47 +455,82 @@ Get all active cinemas.
 
 **Response** (200 OK):
 ```json
-[
-  {
-    "id": 1,
-    "name": "Galaxy Cinema Hanoi",
-    "address": "123 Tran Hung Dao St, Hanoi",
-    "city": "Hanoi",
-    "phone": "0243456789",
-    "active": true,
-    "rooms": []  // Use GET /cinemas/{id} for full room data
-  }
-]
+{
+  "success": true,
+  "message": "Lấy danh sách rạp thành công",
+  "data": [
+    {
+      "id": 1,
+      "name": "Galaxy Cinema Hanoi",
+      "address": "123 Tran Hung Dao St, Hanoi",
+      "city": "Hanoi",
+      "phone": "0243456789",
+      "active": true
+    }
+  ],
+  "timestamp": 1710000000000
+}
 ```
 
 ---
 
 ### GET /cinemas/{id}
 
-Get cinema details with all rooms.
+Get cinema details.
 
 **Response** (200 OK):
 ```json
 {
-  "id": 1,
-  "name": "Galaxy Cinema Hanoi",
-  "address": "123 Tran Hung Dao St, Hanoi",
-  "city": "Hanoi",
-  "phone": "0243456789",
-  "active": true,
-  "rooms": [
+  "success": true,
+  "message": "Lấy thông tin rạp thành công",
+  "data": {
+    "id": 1,
+    "name": "Galaxy Cinema Hanoi",
+    "address": "123 Tran Hung Dao St, Hanoi",
+    "city": "Hanoi",
+    "phone": "0243456789",
+    "active": true
+  },
+  "timestamp": 1710000000000
+}
+```
+
+---
+
+### GET /cinemas/{cinemaId}/rooms
+
+Get rooms for a cinema.
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Lấy danh sách phòng chiếu thành công",
+  "data": [
     {
       "id": 1,
+      "cinemaId": 1,
+      "cinemaName": "Galaxy Cinema Hanoi",
       "name": "Hall A",
       "type": "2D",
       "totalSeats": 150,
       "rows": 10,
       "columns": 15,
-      "active": true
+      "active": true,
+      "underMaintenance": false
     }
-  ]
+  ],
+  "timestamp": 1710000000000
 }
 ```
+
+---
+
+### GET /cinemas/{cinemaId}/rooms/{roomId}
+
+Get room details.
+
+**Response** (200 OK): ApiResponse with single `RoomResponse`.
 
 ---
 
@@ -347,19 +542,24 @@ Get all showtimes for a specific movie.
 
 **Response** (200 OK):
 ```json
-[
-  {
-    "id": 5,
-    "roomId": 1,
-    "movieId": 1,
-    "eventId": null,
-    "startTime": "2024-02-15T19:00:00",
-    "endTime": "2024-02-15T21:30:00",
-    "basePrice": "150000.00",
-    "status": "SCHEDULED",
-    "createdAt": "2024-01-10T10:00:00"
-  }
-]
+{
+  "success": true,
+  "message": "Lấy danh sách suất chiếu thành công",
+  "data": [
+    {
+      "id": 5,
+      "roomId": 1,
+      "movieId": 1,
+      "eventId": null,
+      "startTime": "2024-02-15T19:00:00",
+      "endTime": "2024-02-15T21:30:00",
+      "basePrice": "150000.00",
+      "status": "SCHEDULED",
+      "createdAt": "2024-01-10T10:00:00"
+    }
+  ],
+  "timestamp": 1710000000000
+}
 ```
 
 **Showtime Status**: `SCHEDULED`, `ONGOING`, `FINISHED`, `CANCELLED`
@@ -370,7 +570,7 @@ Get all showtimes for a specific movie.
 
 Get showtime details.
 
-**Response** (200 OK): Single showtime object
+**Response** (200 OK): ApiResponse with single `ShowtimeResponse`
 
 ---
 
@@ -380,29 +580,37 @@ Get seat map (availability & pricing) for a showtime.
 
 **Response** (200 OK):
 ```json
-[
-  {
-    "id": 1,
-    "showtimeId": 5,
-    "seatTemplateId": 10,
-    "price": "150000.00",
-    "status": "AVAILABLE"
-  },
-  {
-    "id": 2,
-    "showtimeId": 5,
-    "seatTemplateId": 11,
-    "price": "180000.00",
-    "status": "HELD"
-  },
-  {
-    "id": 3,
-    "showtimeId": 5,
-    "seatTemplateId": 12,
-    "price": "150000.00",
-    "status": "BOOKED"
-  }
-]
+{
+  "success": true,
+  "message": "Lấy sơ đồ ghế thành công",
+  "data": [
+    {
+      "id": 1,
+      "showtimeId": 5,
+      "seatTemplateId": 10,
+      "price": "150000.00",
+      "status": "AVAILABLE",
+      "holdTtlSeconds": null
+    },
+    {
+      "id": 2,
+      "showtimeId": 5,
+      "seatTemplateId": 11,
+      "price": "180000.00",
+      "status": "HELD",
+      "holdTtlSeconds": 120
+    },
+    {
+      "id": 3,
+      "showtimeId": 5,
+      "seatTemplateId": 12,
+      "price": "150000.00",
+      "status": "BOOKED",
+      "holdTtlSeconds": null
+    }
+  ],
+  "timestamp": 1710000000000
+}
 ```
 
 **Seat Status**:
@@ -414,7 +622,8 @@ Get seat map (availability & pricing) for a showtime.
 ```typescript
 async function getSeatMap(showtimeId) {
   const response = await fetch(`http://localhost:8080/api/showtimes/${showtimeId}/seats`);
-  const seats = await response.json();
+  const payload = await response.json();
+  const seats = payload.data;
   
   // Map seats to UI grid based on room layout
   const availableSeats = seats.filter(s => s.status === 'AVAILABLE');
@@ -433,7 +642,7 @@ Validate a voucher code (check if active and applicable).
 
 **Path Parameters**: `code` (String) - Voucher code (e.g., "SUMMER2024")
 
-**Response** (200 OK):
+**Response** (200 OK) (raw `Voucher`):
 ```json
 {
   "id": 1,
@@ -441,6 +650,8 @@ Validate a voucher code (check if active and applicable).
   "discountType": "PERCENTAGE",
   "discountValue": "10.00",
   "maxDiscountAmount": "100000.00",
+  "usageLimit": 500,
+  "usedCount": 25,
   "validFrom": "2024-06-01T00:00:00",
   "validUntil": "2024-08-31T23:59:59",
   "active": true
@@ -474,6 +685,8 @@ async function validateVoucher(code) {
 
 **Format**: `Authorization: Bearer <token>`
 
+**Note**: `/api/orders/**` and several GET endpoints currently do not enforce auth in code; frontend should still send tokens and treat them as protected.
+
 ---
 
 ### POST /orders
@@ -496,11 +709,13 @@ Content-Type: application/json
 }
 ```
 
-**Response** (200 OK):
+**Response** (200 OK) (raw `Order`):
 ```json
 {
   "id": 1,
   "userId": 1,
+  "showtimeId": 5,
+  "seatIdsSnapshot": "[10,11,12]",
   "voucherId": 3,
   "totalAmount": "450000.00",
   "discountAmount": "45000.00",
@@ -531,6 +746,7 @@ Content-Type: application/json
 - `finalAmount`: Amount to be paid (totalAmount - discountAmount)
 - `status`: PENDING (waiting for payment)
 - `tickets`: Array of generated tickets with QR codes (base64 encoded PNG)
+- `seatIdsSnapshot`: Server snapshot of seat ids as a string
 - `voucherCode`: Optional (can be null)
 
 **Error Cases**:
@@ -587,7 +803,7 @@ Process payment for an order.
 - `BANK_TRANSFER`
 - `WALLET`
 
-**Response** (200 OK):
+**Response** (200 OK) (raw `Order`):
 ```json
 {
   "id": 1,
@@ -644,12 +860,13 @@ Refund a completed order (must have PAID status).
 }
 ```
 
-**Response** (200 OK):
+**Response** (200 OK) (raw `Order`):
 ```json
 {
   "id": 1,
   "status": "REFUNDED",
-  "reason": "Customer requested cancellation"
+  "paymentMethod": "CREDIT_CARD",
+  "paymentTransactionId": "TXN-123456789"
 }
 ```
 
@@ -676,13 +893,21 @@ Content-Type: application/json
 }
 ```
 
-**Response** (200 OK):
+**Response** (200 OK) (raw `TicketResponse`):
 ```json
 {
   "id": 1,
+  "orderId": 1,
+  "userId": 1,
+  "showtimeSeatId": 10,
   "ticketCode": "CINEMA-2024-0001",
-  "status": "USED",
-  "checkedInAt": "2024-02-15T19:05:00"
+  "qrCodeData": "...",
+  "price": "150000.00",
+  "status": "CHECKED_IN",
+  "checkedInAt": "2024-02-15T19:05:00",
+  "createdAt": "2024-01-15T15:30:00",
+  "refundable": false,
+  "refundPercent": 0
 }
 ```
 
@@ -693,11 +918,103 @@ Content-Type: application/json
 
 ---
 
-### GET /orders/{id}
+### GET /tickets/code/{ticketCode}
 
-Get order details (authenticated user).
+Get ticket by code.
 
-**Response** (200 OK): Full order object with all tickets
+**Response** (200 OK): raw `TicketResponse`.
+
+---
+
+### GET /tickets/users/{userId}
+
+Get all tickets for a user.
+
+**Response** (200 OK): array of `TicketResponse`.
+
+---
+
+### GET /tickets/orders/{orderId}
+
+Get all tickets for an order.
+
+**Response** (200 OK): array of `TicketResponse`.
+
+---
+
+### POST /reviews
+
+Create a review (movie or event).
+
+**Request Body**:
+```json
+{
+  "userId": 1,
+  "movieId": 5,
+  "eventId": null,
+  "rating": 5,
+  "comment": "Amazing experience"
+}
+```
+
+**Response** (200 OK) (raw `ReviewResponse`):
+```json
+{
+  "id": 1,
+  "userId": 1,
+  "movieId": 5,
+  "eventId": null,
+  "rating": 5,
+  "comment": "Amazing experience",
+  "status": "ACTIVE",
+  "createdAt": "2024-01-15T15:30:00"
+}
+```
+
+---
+
+### GET /reviews/movies/{movieId}
+
+Get reviews for a movie.
+
+**Response** (200 OK): array of `ReviewResponse`.
+
+---
+
+### GET /reviews/events/{eventId}
+
+Get reviews for an event.
+
+**Response** (200 OK): array of `ReviewResponse`.
+
+---
+
+### GET /reviews/movies/{movieId}/insight
+
+Get review insights for a movie.
+
+**Response** (200 OK) (raw `ReviewInsightResponse`):
+```json
+{
+  "movieId": 5,
+  "eventId": null,
+  "totalReviews": 120,
+  "averageRating": 4.6,
+  "oneStarCount": 2,
+  "twoStarCount": 5,
+  "threeStarCount": 18,
+  "fourStarCount": 40,
+  "fiveStarCount": 55
+}
+```
+
+---
+
+### GET /reviews/events/{eventId}/insight
+
+Get review insights for an event.
+
+**Response** (200 OK): raw `ReviewInsightResponse`.
 
 ---
 
@@ -708,15 +1025,16 @@ Get user profile (self or admin only).
 **Response** (200 OK):
 ```json
 {
-  "id": 1,
-  "email": "user@example.com",
-  "fullName": "John Doe",
-  "phone": "0901234567",
-  "gender": "M",
-  "dateOfBirth": "1995-05-20",
-  "active": true,
-  "createdAt": "2024-01-15T10:30:00",
-  "updatedAt": "2024-01-15T10:30:00"
+  "success": true,
+  "message": "Lấy thông tin người dùng thành công",
+  "data": {
+    "id": 1,
+    "email": "user@example.com",
+    "fullName": "John Doe",
+    "phone": "0901234567",
+    "roles": ["ROLE_CUSTOMER"]
+  },
+  "timestamp": 1710000000000
 }
 ```
 
@@ -744,11 +1062,11 @@ Create a new movie (Admin only).
   "trailerUrl": "https://example.com/avatar3-trailer.mp4",
   "language": "English",
   "active": true,
-  "genres": [1, 3]
+  "genreIds": [1, 3]
 }
 ```
 
-**Response** (200 OK): Created movie object
+**Response** (200 OK): ApiResponse with created `MovieResponse`
 
 ---
 
@@ -764,7 +1082,7 @@ Update movie details (Admin only).
 
 Soft-delete movie (Admin only).
 
-**Response** (204 No Content)
+**Response** (200 OK): ApiResponse with `null` data
 
 ---
 
@@ -780,12 +1098,11 @@ Create showtime (Admin or Staff).
   "eventId": null,
   "startTime": "2024-02-20T19:00:00",
   "endTime": "2024-02-20T21:30:00",
-  "basePrice": "150000.00",
-  "status": "SCHEDULED"
+  "basePrice": "150000.00"
 }
 ```
 
-**Response** (200 OK): Created showtime object
+**Response** (200 OK): ApiResponse with created `ShowtimeResponse`
 
 ---
 
@@ -804,6 +1121,26 @@ Create cinema (Admin only).
 }
 ```
 
+**Response** (200 OK): ApiResponse with created `CinemaResponse`
+
+---
+
+### PUT /cinemas/{id}
+
+Update cinema (Admin only).
+
+**Request Body**: Same as POST
+
+**Response** (200 OK): ApiResponse with updated `CinemaResponse`
+
+---
+
+### DELETE /cinemas/{id}
+
+Soft-delete cinema (Admin only).
+
+**Response** (200 OK): ApiResponse with `null` data
+
 ---
 
 ### POST /cinemas/{cinemaId}/rooms
@@ -813,14 +1150,36 @@ Create room (Admin only).
 **Request Body**:
 ```json
 {
+  "cinemaId": 1,
   "name": "Hall B",
   "type": "3D",
   "totalSeats": 180,
   "rows": 12,
   "columns": 15,
-  "active": true
+  "active": true,
+  "underMaintenance": false
 }
 ```
+
+**Response** (200 OK): ApiResponse with created `RoomResponse`
+
+---
+
+### PUT /cinemas/{cinemaId}/rooms/{roomId}
+
+Update room (Admin only).
+
+**Request Body**: Same as POST
+
+**Response** (200 OK): ApiResponse with updated `RoomResponse`
+
+---
+
+### DELETE /cinemas/{cinemaId}/rooms/{roomId}
+
+Delete room (Admin only).
+
+**Response** (200 OK): ApiResponse with `null` data
 
 ---
 
@@ -842,9 +1201,56 @@ Create voucher (Admin only).
 }
 ```
 
+**Response** (200 OK): raw `Voucher`
+
 **Discount Types**:
 - `PERCENTAGE`: Discount as percentage (e.g., 10 = 10%)
 - `FIXED_AMOUNT`: Fixed amount discount in currency units
+
+---
+
+### GET /vouchers
+
+Get all vouchers (Admin only).
+
+**Response** (200 OK): array of `Voucher`
+
+---
+
+### POST /events
+
+Create event (Admin only).
+
+**Request Body**:
+```json
+{
+  "name": "Concert Night",
+  "description": "Live music performance",
+  "startTime": "2024-02-20T19:00:00",
+  "endTime": "2024-02-20T22:00:00",
+  "venue": "Grand Theater",
+  "imageUrl": "https://example.com/concert.jpg",
+  "active": true
+}
+```
+
+**Response** (200 OK): ApiResponse with created `EventResponse`
+
+---
+
+### DELETE /events/{id}
+
+Delete event (Admin only).
+
+**Response** (200 OK): ApiResponse with `null` data
+
+---
+
+### GET /users
+
+Get all users (Admin only).
+
+**Response** (200 OK): ApiResponse with array of `UserResponse`
 
 ---
 
@@ -854,10 +1260,11 @@ Create voucher (Admin only).
 
 ```json
 {
-  "timestamp": "2024-01-15T15:30:00",
-  "status": 400,
+  "success": false,
+  "message": "Mã giảm giá không hợp lệ",
   "errorCode": "INVALID_VOUCHER",
-  "message": "Mã giảm giá không hợp lệ"
+  "details": null,
+  "timestamp": 1710000000000
 }
 ```
 
@@ -1011,6 +1418,17 @@ async function handleApiError(response) {
 
 ---
 
+## Frontend Integration Alignment (May 2026 snapshot)
+
+- **Live API usage**: 0% (all services are mocked or TODO-commented).
+- **Route alignment (commented TODOs)**: ~25% (correct routes: `/auth/login`, `/auth/forgot-password`, `/movies`, `/showtimes/{id}/seats`).
+- **Mismatch**: `/auth/signup` should be `/auth/register`.
+- **Mismatch**: `/showtimes?movieId=...` should be `/showtimes/movie/{movieId}`.
+- **Mismatch**: `/bookings` should be `/orders`.
+- **Mismatch**: `/tickets/{ticketId}` should be `/tickets/code/{ticketCode}` or `/tickets/orders/{orderId}`.
+- **Mismatch**: `/admin/*` and `/staff/*` routes do not exist in backend.
+- **Data-shape alignment**: low. Backend wraps most responses in `ApiResponse` and login returns `accessToken`, `refreshToken`, and `user`. Frontend expects `{ token, user }` and stores `authToken`.
+
 ## Integration Checklist
 
 ### Frontend Readiness Status
@@ -1100,7 +1518,8 @@ export class ApiService {
       headers: this.getHeaders()
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json();
+    const payload = await response.json();
+    return payload.data ?? payload;
   }
   
   async post<T>(endpoint: string, body: unknown): Promise<T> {
@@ -1110,7 +1529,8 @@ export class ApiService {
       body: JSON.stringify(body)
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json();
+    const payload = await response.json();
+    return payload.data ?? payload;
   }
 }
 ```

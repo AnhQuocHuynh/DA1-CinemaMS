@@ -78,7 +78,7 @@ export const SignUp: React.FC = () => {
 
     // TODO: Uncomment for real implementation
     // try {
-    //   const response = await axios.post(`${API_BASE_URL}/auth/signup`, {
+    //   const response = await axios.post(`${API_BASE_URL}/auth/register`, {
     //     fullName: formData.fullName,
     //     email: formData.email,
     //     password: formData.password,
