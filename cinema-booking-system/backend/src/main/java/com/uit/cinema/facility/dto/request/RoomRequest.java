@@ -6,7 +6,7 @@ import lombok.Data;
 
 @Data
 public class RoomRequest {
-    @NotNull(message = "Cinema ID không được để trống")
+    @NotNull(message = "Cinema ID khong duoc de trong")
     private Long cinemaId;
 
     @NotBlank(message = "Tên phòng không được để trống")

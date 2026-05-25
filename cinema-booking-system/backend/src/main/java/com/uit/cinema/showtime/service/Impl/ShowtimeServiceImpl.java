@@ -1,5 +1,7 @@
 package com.uit.cinema.showtime.service.Impl;
 
+import com.uit.cinema.facility.entity.SeatTemplate;
+import jakarta.persistence.EntityManager;
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.showtime.dto.request.ShowtimeRequest;
 import com.uit.cinema.showtime.dto.response.ShowtimeResponse;
@@ -32,6 +34,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     private final ShowtimeSeatRepository showtimeSeatRepository;
     private final ShowtimeMapper showtimeMapper;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final EntityManager entityManager;
 
     @Override
     public List<ShowtimeResponse> getShowtimesByMovie(Long movieId) {
@@ -60,8 +63,36 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     @Override
     @Transactional
     public ShowtimeResponse createShowtime(ShowtimeRequest request) {
+        // Check room maintenance status
+        com.uit.cinema.facility.entity.Room room = entityManager.find(com.uit.cinema.facility.entity.Room.class, request.getRoomId());
+        if (room == null) {
+            throw new CustomException("Phòng chiếu không tồn tại", HttpStatus.NOT_FOUND, "ROOM_NOT_FOUND");
+        }
+        if (room.isUnderMaintenance()) {
+            throw new CustomException("Phòng chiếu đang bảo trì, không thể tạo suất chiếu", HttpStatus.BAD_REQUEST, "ROOM_UNDER_MAINTENANCE");
+        }
+
         Showtime showtime = showtimeMapper.toEntity(request);
         Showtime savedShowtime = showtimeRepository.save(showtime);
+
+        // Fetch seat templates for the showtime's room and generate showtime seats
+        List<SeatTemplate> templates = entityManager.createQuery(
+                "SELECT t FROM SeatTemplate t WHERE t.room.id = :roomId AND t.active = true",
+                SeatTemplate.class
+        )
+        .setParameter("roomId", savedShowtime.getRoomId())
+        .getResultList();
+
+        for (SeatTemplate template : templates) {
+            ShowtimeSeat seat = ShowtimeSeat.builder()
+                    .showtimeId(savedShowtime.getId())
+                    .seatTemplateId(template.getId())
+                    .price(savedShowtime.getBasePrice())
+                    .status(ShowtimeSeat.SeatStatus.AVAILABLE)
+                    .build();
+            showtimeSeatRepository.save(seat);
+        }
+
         return showtimeMapper.toResponse(savedShowtime);
     }
 

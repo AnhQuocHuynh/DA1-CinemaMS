@@ -1,5 +1,7 @@
 package com.uit.cinema.facility.service.Impl;
 
+import com.uit.cinema.facility.entity.SeatTemplate;
+import com.uit.cinema.facility.repository.SeatTemplateRepository;
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.core.exception.ErrorCode;
 import com.uit.cinema.facility.dto.request.RoomRequest;
@@ -25,6 +27,7 @@ public class RoomServiceImpl implements RoomService {
 
     private final RoomRepository roomRepository;
     private final CinemaRepository cinemaRepository;
+    private final SeatTemplateRepository seatTemplateRepository;
     private final RoomMapper roomMapper;
     private final EntityManager entityManager;
 
@@ -56,6 +59,23 @@ public class RoomServiceImpl implements RoomService {
         room.setCinema(cinema);
         
         Room savedRoom = roomRepository.save(room);
+
+        // Automatically generate SeatTemplates based on rows and columns
+        int rows = request.getRows() != null ? request.getRows() : 0;
+        int columns = request.getColumns() != null ? request.getColumns() : 0;
+        for (int r = 0; r < rows; r++) {
+            String rowLabel = String.valueOf((char) ('A' + r));
+            for (int c = 1; c <= columns; c++) {
+                SeatTemplate template = SeatTemplate.builder()
+                        .room(savedRoom)
+                        .rowLabel(rowLabel)
+                        .columnNumber(c)
+                        .active(true)
+                        .build();
+                seatTemplateRepository.save(template);
+            }
+        }
+
         return roomMapper.toResponse(savedRoom);
     }
 
