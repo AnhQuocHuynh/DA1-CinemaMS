@@ -2,6 +2,7 @@ package com.uit.cinema.booking.service;
 
 import com.uit.cinema.booking.entity.Ticket;
 import com.uit.cinema.booking.repository.TicketRepository;
+import com.uit.cinema.booking.service.Impl.TicketGenerationServiceImpl;
 import com.uit.cinema.core.exception.CustomException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,7 +63,7 @@ class TicketGenerationServiceImplTest {
 
         Ticket result = ticketService.checkIn("TK-ABCDEFGH");
 
-        assertEquals(Ticket.TicketStatus.USED, result.getStatus());
+        assertEquals(Ticket.TicketStatus.CHECKED_IN, result.getStatus());
         assertNotNull(result.getCheckedInAt());
         verify(ticketRepository).save(ticket);
     }
@@ -86,7 +87,7 @@ class TicketGenerationServiceImplTest {
             .ticketCode("TK-USED")
             .showtimeSeatId(55L)
             .price(new BigDecimal("80.00"))
-            .status(Ticket.TicketStatus.USED)
+            .status(Ticket.TicketStatus.CHECKED_IN)
             .build();
 
         when(ticketRepository.findByTicketCode("TK-USED")).thenReturn(Optional.of(ticket));

@@ -29,7 +29,7 @@ public class SecurityConfig {
         "/api/movies/**",
         "/api/events/**",
         "/api/showtimes/**",
-        "/api/catalog/**"
+        "/api/health/**"
     };
 
     @Bean

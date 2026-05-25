@@ -2,6 +2,7 @@ package com.uit.cinema.booking.service;
 
 import com.uit.cinema.booking.entity.Order;
 import com.uit.cinema.booking.repository.OrderRepository;
+import com.uit.cinema.booking.service.Impl.PaymentServiceImpl;
 import com.uit.cinema.core.exception.CustomException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
