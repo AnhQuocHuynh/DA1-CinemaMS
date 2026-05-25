@@ -1,5 +1,4 @@
 server:
-server:
   port: 8080
 
 spring:
@@ -25,8 +24,8 @@ spring:
   # ── Redis ────────────────────────────────────────────────────
   data:
     redis:
-      host: ${SPRING_REDIS_HOST:localhost}
-      port: ${SPRING_REDIS_PORT:6379}
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
       # password: your_redis_password   # uncomment if Redis requires auth
       timeout: 60000ms
 
