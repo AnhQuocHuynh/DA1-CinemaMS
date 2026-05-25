@@ -28,7 +28,8 @@ public class SecurityConfig {
         "/api/auth/**",
         "/api/movies/**",
         "/api/events/**",
-        "/api/showtimes/**"
+        "/api/showtimes/**",
+        "/api/catalog/**"
     };
 
     @Bean
