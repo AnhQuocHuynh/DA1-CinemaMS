@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, ArrowLeft, LogIn, AlertCircle } from 'lucide-react';
 import { InputField } from '../components/InputField';
 import { Header } from '../components/Header';
 import { authService } from '../services/authService';
-import { LoginFormData, AuthError } from '../types/auth';
+import { useAuthStore } from '../store/authStore';
+import { ApiErrorResponse, LoginFormData, AuthError } from '../types/auth';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
+  const { setUser, setToken } = useAuthStore();
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
@@ -68,6 +71,8 @@ export const Login: React.FC = () => {
 
       const response = await authService.login(formData);
       console.log('Login successful:', response);
+      setUser(response.user);
+      setToken(response.token);
       const role = response.user.role.toLowerCase();
       if (role === 'user') {
         navigate('/');
@@ -76,7 +81,14 @@ export const Login: React.FC = () => {
       }
     } catch (error) {
       console.error('Login error:', error);
-      if (error instanceof Error) {
+      if (axios.isAxiosError<ApiErrorResponse>(error)) {
+        const errorCode = error.response?.data?.errorCode;
+        if (errorCode === 'USER_LOCKED') {
+          setGeneralError('Your account is locked. Please contact support for more information.');
+        } else {
+          setGeneralError(error.response?.data?.message || 'Login failed. Please check your credentials and try again.');
+        }
+      } else if (error instanceof Error) {
         setGeneralError(error.message);
       } else {
         setGeneralError('Login failed. Please check your credentials and try again.');

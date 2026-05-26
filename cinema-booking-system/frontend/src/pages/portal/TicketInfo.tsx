@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { PortalTopNav } from '../../components/portal/PortalTopNav';
+import { SiteTopNav } from '../../components/SiteTopNav';
 import { useTicketDetails } from '../../hooks/useTicketDetails';
 
 export const TicketInfo: React.FC = () => {
@@ -17,7 +17,7 @@ export const TicketInfo: React.FC = () => {
 
   return (
     <div className="bg-surface text-on-surface min-h-screen">
-      <PortalTopNav activeLabel="My Tickets" />
+      <SiteTopNav activeLabel="My Tickets" showSearch={false} />
       <main className="pt-24 pb-32 px-4 md:px-6 max-w-4xl mx-auto min-h-screen">
         <div className="mb-8">
           <button className="flex items-center gap-2 text-sm font-medium text-on-surface-variant hover:text-primary transition-colors">

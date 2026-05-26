@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowRight, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { PortalTopNav } from '../../components/portal/PortalTopNav';
+import { SiteTopNav } from '../../components/SiteTopNav';
 import { SeatLegend } from '../../components/portal/SeatLegend';
 import { SeatMapGrid } from '../../components/portal/SeatMapGrid';
 import { useSeatSelection } from '../../hooks/useSeatSelection';
@@ -12,7 +12,7 @@ export const Booking: React.FC = () => {
 
   return (
     <div className="bg-surface text-on-surface min-h-screen">
-      <PortalTopNav activeLabel="Showtimes" />
+      <SiteTopNav activeLabel="Showtimes" showSearch={false} />
       <main className="pt-24 pb-20 px-6 max-w-7xl mx-auto flex flex-col lg:flex-row gap-12">
         <div className="flex-grow">
           <div className="mb-12">

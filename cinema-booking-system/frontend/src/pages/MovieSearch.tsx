@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { ArrowLeft, Search } from 'lucide-react';
 import { calculateEndTime, searchMovies } from '../utils/movieData';
 
 export const MovieSearch: React.FC = () => {
@@ -13,8 +13,10 @@ export const MovieSearch: React.FC = () => {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-200">
         <div className="max-w-[1280px] mx-auto h-16 px-6 flex items-center justify-between">
-          <Link to="/" className="font-black tracking-tight text-lg">The Digital Architect</Link>
-          <Link to="/" className="text-sm font-medium text-blue-700">Back to Home</Link>
+          <Link to="/" className="font-black tracking-tight text-lg">CinemaArchitect</Link>
+          <Link to="/" className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900">
+            <ArrowLeft size={16} /> Back
+          </Link>
         </div>
       </header>
 

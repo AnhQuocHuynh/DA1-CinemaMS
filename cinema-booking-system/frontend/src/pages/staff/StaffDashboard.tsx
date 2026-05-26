@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { LogOut, Clock, TrendingUp, Ticket } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { staffService } from '../../services/staffService';
+import { authService } from '../../services/authService';
 
 export const StaffDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -29,8 +30,9 @@ export const StaffDashboard: React.FC = () => {
     loadData();
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     console.log('👔 [STAFF] Logout clicked');
+    await authService.logout();
     logout();
     navigate('/');
   };
