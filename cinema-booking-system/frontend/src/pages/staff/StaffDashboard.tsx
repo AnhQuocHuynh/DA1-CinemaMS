@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Clock, TrendingUp, Ticket } from 'lucide-react';
+import { LogOut, Camera, Clock, TrendingUp, Ticket } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { staffService } from '../../services/staffService';
 import { authService } from '../../services/authService';
@@ -68,9 +68,18 @@ export const StaffDashboard: React.FC = () => {
       <main className="pt-20 px-8 pb-8">
         <div className="max-w-7xl mx-auto">
           {/* Title */}
-          <section className="mb-12">
-            <h1 className="text-4xl font-bold text-on-surface mb-2">Staff Dashboard 👔</h1>
-            <p className="text-on-surface-variant">Manage today's bookings and customer service</p>
+          <section className="mb-12 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-4xl font-bold text-on-surface mb-2">Staff Dashboard 👔</h1>
+              <p className="text-on-surface-variant">Manage today's bookings and customer service</p>
+            </div>
+            <button
+              onClick={() => navigate('/staff/qr-checker')}
+              className="bg-primary text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-blue-700 transition-all flex items-center gap-2"
+            >
+              <Camera className="w-4 h-4" />
+              Scan Tickets
+            </button>
           </section>
 
           {isLoading ? (

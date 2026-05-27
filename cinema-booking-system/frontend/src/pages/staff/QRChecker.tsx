@@ -1,9 +1,94 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { BrowserQRCodeReader, IScannerControls } from '@zxing/browser';
 import { Flashlight, Keyboard, X } from 'lucide-react';
-import { useQrScanner } from '../../hooks/useQrScanner';
+import { StaffScanResult } from '../../types/staff';
 
 export const QRChecker: React.FC = () => {
-  const { scanResult, isScanning, scanTicket, clearResult } = useQrScanner();
+  const navigate = useNavigate();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const readerRef = useRef<BrowserQRCodeReader | null>(null);
+  const controlsRef = useRef<IScannerControls | null>(null);
+  const [scanResult, setScanResult] = useState<StaffScanResult | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const stopScanner = () => {
+    if (controlsRef.current) {
+      controlsRef.current.stop();
+      controlsRef.current = null;
+    }
+    const video = videoRef.current;
+    if (video?.srcObject) {
+      const stream = video.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+      video.srcObject = null;
+    }
+  };
+
+  const startScanner = async () => {
+    if (!videoRef.current) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setIsScanning(true);
+
+    if (!readerRef.current) {
+      readerRef.current = new BrowserQRCodeReader();
+    }
+
+    try {
+      controlsRef.current = await readerRef.current.decodeFromVideoDevice(
+        undefined,
+        videoRef.current,
+        (result) => {
+          if (!result) {
+            return;
+          }
+
+          const ticketCode = result.getText();
+          console.log('✅ [STAFF] Check-in ticket:', ticketCode);
+          setScanResult({ status: 'valid', seatLabel: ticketCode, ticketType: 'QR' });
+          setIsScanning(false);
+          stopScanner();
+        }
+      );
+    } catch (error) {
+      console.error('Failed to start QR scanner:', error);
+      setErrorMessage('Unable to access the camera. Please check permissions and try again.');
+      setIsScanning(false);
+    }
+  };
+
+  useEffect(() => {
+    startScanner();
+    return () => stopScanner();
+  }, []);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopScanner();
+      }
+    };
+
+    const handlePageHide = () => {
+      stopScanner();
+    };
+
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('beforeunload', handlePageHide);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('beforeunload', handlePageHide);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  const clearResult = () => setScanResult(null);
 
   return (
     <div className="bg-inverse-surface text-on-surface min-h-screen overflow-hidden">
@@ -17,13 +102,26 @@ export const QRChecker: React.FC = () => {
             <h1 className="text-white text-2xl font-bold tracking-tight">Scan Tickets</h1>
             <p className="text-slate-300 text-sm font-medium mt-1 uppercase tracking-widest">Cinema 04 • Evening Show</p>
           </div>
-          <button className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-transform">
+          <button
+            onClick={() => {
+              stopScanner();
+              navigate('/staff/dashboard');
+            }}
+            className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-transform"
+            aria-label="Close scanner"
+          >
             <X className="w-5 h-5" />
           </button>
         </header>
 
         <main className="flex-grow flex flex-col items-center justify-center px-8">
           <div className="relative w-full aspect-square max-w-[320px]">
+            <video
+              ref={videoRef}
+              className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+              muted
+              playsInline
+            />
             <div className="absolute inset-0">
               <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-white rounded-tl-xl"></div>
               <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-white rounded-tr-xl"></div>
@@ -35,12 +133,15 @@ export const QRChecker: React.FC = () => {
               <p className="text-white/80 text-sm font-medium tracking-wide">Align QR code within the frame</p>
             </div>
           </div>
+          {errorMessage && (
+            <p className="mt-12 text-sm text-error text-center max-w-xs">{errorMessage}</p>
+          )}
         </main>
 
         <div className="px-6 pb-24 grid grid-cols-2 gap-4">
           <button
             className="bg-white/10 backdrop-blur-lg rounded-xl py-4 flex flex-col items-center gap-2 text-white active:bg-white/20 transition-all"
-            onClick={() => scanTicket('demo-ticket')}
+            onClick={() => startScanner()}
             disabled={isScanning}
           >
             <Flashlight className="w-6 h-6" />
