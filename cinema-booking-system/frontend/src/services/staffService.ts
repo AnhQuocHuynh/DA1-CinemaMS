@@ -1,3 +1,5 @@
+import { StaffBookingValidation, StaffScanResult } from '../types/staff';
+
 // Staff Service
 export const staffService = {
   getStaffDashboard: async () => {
@@ -35,13 +37,13 @@ export const staffService = {
     };
   },
 
-  getValidationBookings: async () => {
+  getValidationBookings: async (): Promise<StaffBookingValidation[]> => {
     // TODO: Uncomment for real implementation
     // const response = await axios.get(`${API_BASE_URL}/staff/validation/bookings`);
     // return response.data;
 
     console.log('✅ [STAFF] Fetching validation bookings...');
-    return [
+    const mockBookings: StaffBookingValidation[] = [
       {
         id: '#BK-90210',
         customerName: 'Adrian Miller',
@@ -57,33 +59,36 @@ export const staffService = {
         status: 'validated',
       },
     ];
+    return mockBookings;
   },
 
-  scanTicket: async (ticketCode: string) => {
+  scanTicket: async (ticketCode: string): Promise<StaffScanResult> => {
     // TODO: Uncomment for real implementation
     // const response = await axios.post(`${API_BASE_URL}/staff/scan`, { ticketCode });
     // return response.data;
 
     console.log('📷 [STAFF] Scanning ticket:', ticketCode);
-    return {
+    const scanResult: StaffScanResult = {
       status: 'valid',
       seatLabel: 'Row H, Seat 12',
       ticketType: 'Premium',
     };
+    return scanResult;
   },
 
-  lookupTicket: async (query: string) => {
+  lookupTicket: async (query: string): Promise<StaffBookingValidation> => {
     // TODO: Uncomment for real implementation
     // const response = await axios.get(`${API_BASE_URL}/staff/tickets?query=${query}`);
     // return response.data;
 
     console.log('🔎 [STAFF] Looking up ticket:', query);
-    return {
+    const mockTicket: StaffBookingValidation = {
       id: '#BK-90210',
       customerName: 'Adrian Miller',
       movieTitle: 'Oppenheimer: 70mm',
       showtime: 'Today, 19:45',
       status: 'pending',
     };
+    return mockTicket;
   },
 };

@@ -1,3 +1,5 @@
+import { BookingSummary, SeatMap, TicketDetails } from '../types/booking';
+
 // Booking Service
 export const bookingService = {
   createBooking: async (bookingData: any) => {
@@ -20,7 +22,7 @@ export const bookingService = {
     return mockBooking;
   },
 
-  getSeatMap: async (showtimeId: string) => {
+  getSeatMap: async (showtimeId: string): Promise<SeatMap> => {
     // TODO: Uncomment for real implementation
     // const response = await axios.get(`${API_BASE_URL}/showtimes/${showtimeId}/seats`);
     // return response.data;
@@ -29,7 +31,7 @@ export const bookingService = {
     const totalSeats = 14;
     const pathwayIndexes = new Set([2, totalSeats - 3]);
     const vipRows = new Set(['G', 'H']);
-    const mockSeatMap = {
+    const mockSeatMap: SeatMap = {
       rows: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((row) => ({
         rowLabel: row,
         seats: Array.from({ length: totalSeats }).map((_, index) => {
@@ -59,18 +61,18 @@ export const bookingService = {
     return mockSeatMap;
   },
 
-  getCheckoutSummary: async () => {
+  getCheckoutSummary: async (): Promise<BookingSummary> => {
     // TODO: Uncomment for real implementation
     // TODO: Backend does not expose a checkout summary endpoint yet.
     // const response = await axios.get(`${API_BASE_URL}/orders/checkout`);
     // return response.data;
 
     console.log('🧾 [BOOKING] Fetching checkout summary');
-    const mockSummary = {
+    const mockSummary: BookingSummary = {
       movieTitle: 'Oppenheimer',
       venue: 'Grand Architecture IMAX, Hall 4',
       showtime: 'Oct 24, 2023 | 07:30 PM',
-      seats: ['K12', 'K13', 'K14'],
+      seats: [],
       subtotal: 54,
       fees: 4.5,
       total: 58.5,
@@ -79,13 +81,13 @@ export const bookingService = {
     return mockSummary;
   },
 
-  getTicketById: async (ticketId: string) => {
+  getTicketById: async (ticketId: string): Promise<TicketDetails> => {
     // TODO: Uncomment for real implementation
     // const response = await axios.get(`${API_BASE_URL}/tickets/code/${ticketId}`);
     // return response.data;
 
     console.log('🎫 [BOOKING] Fetching ticket:', ticketId);
-    const mockTicket = {
+    const mockTicket: TicketDetails = {
       id: ticketId,
       movieTitle: 'Interstellar',
       director: 'Christopher Nolan',

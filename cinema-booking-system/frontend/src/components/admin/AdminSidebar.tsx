@@ -33,13 +33,11 @@ interface AdminSidebarProps {
 
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   activeItemId,
-  userName = 'Admin User',
-  userRole = 'System Management',
   onLogout,
   onSettings,
 }) => {
   return (
-    <aside className="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 bg-slate-50 font-inter text-sm font-medium border-r border-slate-200 z-40 pt-20">
+    <aside className="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 bg-slate-50 font-inter text-sm font-medium border-r border-slate-200 z-40">
       <div className="px-6 py-4 mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded bg-blue-600 flex items-center justify-center text-white">
@@ -95,21 +93,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               <LogOut className="w-4 h-4" />
               Logout
             </button>
-          </div>
-        </div>
-
-        <div className="mt-6 flex items-center gap-3 bg-white rounded-lg p-3 shadow-sm">
-          <div className="h-10 w-10 rounded-lg bg-slate-200 flex items-center justify-center text-slate-700 font-semibold">
-            {userName
-              .split(' ')
-              .map((part) => part[0])
-              .join('')
-              .slice(0, 2)
-              .toUpperCase()}
-          </div>
-          <div>
-            <div className="text-xs uppercase tracking-widest text-slate-400">{userName}</div>
-            <div className="text-sm font-semibold text-slate-900">{userRole}</div>
           </div>
         </div>
       </div>

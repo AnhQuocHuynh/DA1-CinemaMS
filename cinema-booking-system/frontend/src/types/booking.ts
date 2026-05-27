@@ -1,5 +1,5 @@
-export type SeatStatus = 'available' | 'selected' | 'sold' | 'holding';
-export type SeatType = 'normal' | 'vip';
+export type SeatStatus = 'available' | 'selected' | 'sold' | 'holding'; //will be changed to integrate with backend later
+export type SeatType = 'normal' | 'vip'; //double to come later
 
 export interface Seat {
   id: string;

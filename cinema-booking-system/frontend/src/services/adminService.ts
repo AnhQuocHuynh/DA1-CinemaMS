@@ -1,3 +1,11 @@
+import {
+  AdminMovieListItem,
+  AdminPermissionRule,
+  AdminTheater,
+  AdminUserPermission,
+  AdminVoucher,
+} from '../types/admin';
+
 // Admin Service
 export const adminService = {
   getDashboardStats: async () => {
@@ -81,9 +89,9 @@ export const adminService = {
     return mockPopular;
   },
 
-  getMovieManagement: async () => {
+  getMovieManagement: async (): Promise<AdminMovieListItem[]> => {
     console.log('🎬 [ADMIN] Fetching movies for management...');
-    const mockMovies = [
+    const mockMovies: AdminMovieListItem[] = [
       { id: 1, title: 'Interstellar', status: 'active', bookings: 345 },
       { id: 2, title: 'The Dark Knight', status: 'active', bookings: 298 },
       { id: 3, title: 'Inception', status: 'inactive', bookings: 156 },
@@ -134,13 +142,13 @@ export const adminService = {
     return mockSchedules;
   },
 
-  getTheaters: async () => {
+  getTheaters: async (): Promise<AdminTheater[]> => {
     // TODO: Uncomment for real implementation
     // const response = await axios.get(`${API_BASE_URL}/admin/theaters`);
     // return response.data;
 
     console.log('🏛️ [ADMIN] Fetching theaters...');
-    const mockTheaters = [
+    const mockTheaters: AdminTheater[] = [
       {
         id: 'theater-1',
         name: 'Grand Plaza Cineplex',
@@ -221,13 +229,13 @@ export const adminService = {
     return mockPricing;
   },
 
-  getVouchers: async () => {
+  getVouchers: async (): Promise<AdminVoucher[]> => {
     // TODO: Uncomment for real implementation
     // const response = await axios.get(`${API_BASE_URL}/admin/vouchers`);
     // return response.data;
 
     console.log('🎟️ [ADMIN] Fetching vouchers...');
-    const mockVouchers = [
+    const mockVouchers: AdminVoucher[] = [
       {
         id: 'voucher-1',
         code: 'SUMMER24',
@@ -269,13 +277,13 @@ export const adminService = {
     return mockVouchers;
   },
 
-  getUserPermissions: async () => {
+  getUserPermissions: async (): Promise<AdminUserPermission[]> => {
     // TODO: Uncomment for real implementation
     // const response = await axios.get(`${API_BASE_URL}/admin/permissions/users`);
     // return response.data;
 
     console.log('🧑‍💼 [ADMIN] Fetching user permissions...');
-    const mockUsers = [
+    const mockUsers: AdminUserPermission[] = [
       {
         id: 'user-1',
         name: 'Jordan Smith',
@@ -313,13 +321,13 @@ export const adminService = {
     return mockUsers;
   },
 
-  getPermissionRules: async () => {
+  getPermissionRules: async (): Promise<AdminPermissionRule[]> => {
     // TODO: Uncomment for real implementation
     // const response = await axios.get(`${API_BASE_URL}/admin/permissions/rules`);
     // return response.data;
 
     console.log('🧩 [ADMIN] Fetching permission rules...');
-    const mockRules = [
+    const mockRules: AdminPermissionRule[] = [
       {
         id: 'rule-1',
         title: 'Manage Financial Reports',

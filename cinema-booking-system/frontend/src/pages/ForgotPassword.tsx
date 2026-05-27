@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Mail, ArrowRight, AlertCircle } from 'lucide-react';
 import { InputField } from '../components/InputField';
 import { Header } from '../components/Header';
 
 export const ForgotPassword: React.FC = () => {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);

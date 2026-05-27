@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
-import { ApiResponse, BackendAuthResponse, LoginFormData, LoginResponse } from '../types/auth';
+import { ApiResponse, BackendAuthResponse, LoginFormData, LoginResponse, RegisterFormData } from '../types/auth';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
@@ -75,6 +75,10 @@ apiClient.interceptors.response.use(
 );
 
 export const authService = {
+  register: async (registerData: RegisterFormData): Promise<void> => {
+    const response = await apiClient.post('/auth/register', registerData);
+    return response.data;
+  },
   login: async (credentials: LoginFormData): Promise<LoginResponse> => {
     const response = await apiClient.post<ApiResponse<BackendAuthResponse>>('/auth/login', credentials);
     const payload = response.data?.data;

@@ -6,7 +6,7 @@ import { InputField } from '../components/InputField';
 import { Header } from '../components/Header';
 import { authService } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
-import { ApiErrorResponse, LoginFormData, AuthError } from '../types/auth';
+import { ApiErrorResponse, LoginFormData } from '../types/auth';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -63,11 +63,7 @@ export const Login: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // TODO: Uncomment for real implementation
-      // const response = await authService.login(formData);
-      // console.log('Login successful:', response);
-      // const role = response.user.role.toLowerCase();
-      // navigate(`/${role}/dashboard`);
+
 
       const response = await authService.login(formData);
       console.log('Login successful:', response);

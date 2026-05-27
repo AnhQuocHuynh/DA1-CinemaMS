@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, User, ArrowRight, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, ArrowLeft, AlertCircle, Phone } from 'lucide-react';
 import { InputField } from '../components/InputField';
-import { Header } from '../components/Header';
+import { authService } from '@/services/authService';
 
 interface SignUpFormData {
   fullName: string;
   email: string;
   password: string;
   confirmPassword: string;
+  phone: string;
 }
 
 export const SignUp: React.FC = () => {
@@ -18,6 +19,7 @@ export const SignUp: React.FC = () => {
     email: '',
     password: '',
     confirmPassword: '',
+    phone: '',
   });
   const [errors, setErrors] = useState<Partial<SignUpFormData>>({});
   const [generalError, setGeneralError] = useState('');
@@ -46,6 +48,9 @@ export const SignUp: React.FC = () => {
       newErrors.confirmPassword = 'Please confirm your password';
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
+    }
+    if (formData.phone && !/^\d{10}$/.test(formData.phone)) {
+      newErrors.phone = 'Please enter a valid 10-digit phone number';
     }
 
     setErrors(newErrors);
@@ -76,30 +81,22 @@ export const SignUp: React.FC = () => {
 
     setIsLoading(true);
 
-    // TODO: Uncomment for real implementation
-    // try {
-    //   const response = await axios.post(`${API_BASE_URL}/auth/register`, {
-    //     fullName: formData.fullName,
-    //     email: formData.email,
-    //     password: formData.password,
-    //   });
-    //   console.log('Account created successfully:', response.data);
-    //   navigate('/login');
-    // } catch (error) {
-    //   setGeneralError('Failed to create account. Email may already be in use.');
-    // }
-
-    console.log('📝 [SIGNUP] Creating account:', {
-      fullName: formData.fullName,
-      email: formData.email,
-    });
-    
-    setTimeout(() => {
+    try {
+      await authService.register({
+        fullName: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        phone: formData.phone,
+      });
       console.log('✅ [SIGNUP] Account created successfully');
       navigate('/login');
-    }, 1000);
-
-    setIsLoading(false);
+    } catch (error: any) {
+      console.error('❌ [SIGNUP] Error:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to create account. Email may already be in use.';
+      setGeneralError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -121,9 +118,6 @@ export const SignUp: React.FC = () => {
               <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">
                 Member Registration
               </span>
-              <h1 className="text-4xl md:text-5xl font-black tracking-tighter mt-3 text-on-surface">
-                Secure your cinema identity.
-              </h1>
               <p className="text-on-surface-variant text-sm md:text-base mt-4 max-w-xl">
                 Build a dedicated booking profile with faster checkout, protected seat holds, and a
                 consolidated ticket vault.
@@ -198,13 +192,7 @@ export const SignUp: React.FC = () => {
                   <p className="text-on-surface-variant text-sm mt-2">
                     Open a booking profile with verified access.
                   </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant">
-                    Step
-                  </div>
-                  <div className="text-lg font-semibold text-on-surface">1 / 1</div>
-                </div>
+                </div>                
               </div>
 
               {generalError && (
@@ -238,6 +226,16 @@ export const SignUp: React.FC = () => {
                     onChange={handleChange}
                     error={errors.email}
                     required
+                  />
+                  <InputField
+                    id="phone"
+                    label="Phone Number"
+                    type="tel"
+                    placeholder="123-456-7890"
+                    icon={Phone}
+                    value={formData.phone}
+                    onChange={handleChange}
+                    error={errors.phone}
                   />
                 </div>
 
