@@ -21,6 +21,7 @@ dist-ssr/
 *.local
 .pnp
 .pnp.js
+tsconfig.*.tsbuildinfo
 
 # ── Environment / Secrets ────────────────────────────────────
 .env
