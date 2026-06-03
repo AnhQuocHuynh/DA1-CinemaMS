@@ -13,8 +13,14 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class ShowtimeSeatResponse {
     private Long id;
+    private String seatId;
     private Long showtimeId;
     private Long seatTemplateId;
+    private String label;
+    private String rowLabel;
+    private Integer columnNumber;
+    private String seatType;
+    private Boolean isPathway;
     private BigDecimal price;
     private String status;
     private Long holdTtlSeconds;
