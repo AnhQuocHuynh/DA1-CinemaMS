@@ -1,7 +1,9 @@
 package com.uit.cinema.facility.service.Impl;
 
 import com.uit.cinema.facility.entity.SeatTemplate;
+import com.uit.cinema.facility.entity.SeatType;
 import com.uit.cinema.facility.repository.SeatTemplateRepository;
+import com.uit.cinema.facility.repository.SeatTypeRepository;
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.core.exception.ErrorCode;
 import com.uit.cinema.facility.dto.request.RoomRequest;
@@ -18,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,6 +31,7 @@ public class RoomServiceImpl implements RoomService {
     private final RoomRepository roomRepository;
     private final CinemaRepository cinemaRepository;
     private final SeatTemplateRepository seatTemplateRepository;
+    private final SeatTypeRepository seatTypeRepository;
     private final RoomMapper roomMapper;
     private final EntityManager entityManager;
 
@@ -61,6 +65,12 @@ public class RoomServiceImpl implements RoomService {
         Room savedRoom = roomRepository.save(room);
 
         // Automatically generate SeatTemplates based on rows and columns
+        SeatType normalSeatType = seatTypeRepository.findByNameIgnoreCase("normal")
+            .orElseGet(() -> seatTypeRepository.save(SeatType.builder()
+                .name("normal")
+                .priceMultiplier(BigDecimal.ONE)
+                .description("Default seat")
+                .build()));
         int rows = request.getRows() != null ? request.getRows() : 0;
         int columns = request.getColumns() != null ? request.getColumns() : 0;
         for (int r = 0; r < rows; r++) {
@@ -68,8 +78,10 @@ public class RoomServiceImpl implements RoomService {
             for (int c = 1; c <= columns; c++) {
                 SeatTemplate template = SeatTemplate.builder()
                         .room(savedRoom)
+                        .seatType(normalSeatType)
                         .rowLabel(rowLabel)
                         .columnNumber(c)
+                        .pathway(false)
                         .active(true)
                         .build();
                 seatTemplateRepository.save(template);

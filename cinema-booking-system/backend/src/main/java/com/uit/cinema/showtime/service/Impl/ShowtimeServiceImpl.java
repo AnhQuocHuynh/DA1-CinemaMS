@@ -1,6 +1,7 @@
 package com.uit.cinema.showtime.service.Impl;
 
 import com.uit.cinema.facility.entity.SeatTemplate;
+import com.uit.cinema.facility.repository.SeatTemplateRepository;
 import jakarta.persistence.EntityManager;
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.showtime.dto.request.ShowtimeRequest;
@@ -35,6 +36,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     private final ShowtimeMapper showtimeMapper;
     private final RedisTemplate<String, Object> redisTemplate;
     private final EntityManager entityManager;
+    private final SeatTemplateRepository seatTemplateRepository;
 
     @Override
     public List<ShowtimeResponse> getShowtimesByMovie(Long movieId) {
@@ -101,6 +103,33 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         String holdKey = SeatHoldPolicy.holdKey(showtimeId, seat.getId());
         Long ttlSeconds = redisTemplate.getExpire(holdKey);
         response.setHoldTtlSeconds((ttlSeconds != null && ttlSeconds > 0) ? ttlSeconds : null);
+        response.setSeatId(String.valueOf(seat.getId()));
+        response.setStatus(mapSeatStatus(seat.getStatus(), response.getHoldTtlSeconds()));
+
+        seatTemplateRepository.findById(seat.getSeatTemplateId()).ifPresent(template -> {
+            response.setRowLabel(template.getRowLabel());
+            response.setColumnNumber(template.getColumnNumber());
+            response.setLabel(template.getRowLabel() + template.getColumnNumber());
+            response.setIsPathway(template.isPathway());
+            response.setSeatType(template.getSeatType() != null ? template.getSeatType().getName().toLowerCase() : "normal");
+        });
+
+        if (response.getIsPathway() == null) {
+            response.setIsPathway(false);
+        }
+        if (response.getSeatType() == null) {
+            response.setSeatType("normal");
+        }
         return response;
+    }
+
+    private String mapSeatStatus(ShowtimeSeat.SeatStatus status, Long holdTtlSeconds) {
+        if (status == ShowtimeSeat.SeatStatus.BOOKED) {
+            return "sold";
+        }
+        if (status == ShowtimeSeat.SeatStatus.HELD || (holdTtlSeconds != null && holdTtlSeconds > 0)) {
+            return "holding";
+        }
+        return "available";
     }
 }
