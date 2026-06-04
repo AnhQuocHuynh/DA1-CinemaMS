@@ -1,22 +1,41 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { SiteTopNav } from '../components/SiteTopNav';
-
-const theaters = [
-  {
-    id: 'cgv-hung-vuong',
-    name: 'CGV Hung Vuong Plaza',
-    city: 'Ho Chi Minh City',
-    description: 'Premium rooms with IMAX and Dolby Atmos tuning.',
-  },
-  {
-    id: 'beta-thu-duc',
-    name: 'Beta Thu Duc',
-    city: 'Ho Chi Minh City',
-    description: 'Boutique halls with recliner seating and private pods.',
-  },
-];
+import { cinemaService, CinemaResponse } from '../services/cinemaService';
 
 export const Theaters: React.FC = () => {
+  const [theaters, setTheaters] = useState<CinemaResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTheaters = async () => {
+      try {
+        const data = await cinemaService.getCinemas();
+        if (isMounted) {
+          setTheaters(data);
+          setError(null);
+        }
+      } catch (err) {
+        console.error('Failed to load theaters', err);
+        if (isMounted) {
+          setError('Unable to load theaters right now. Please try again later.');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadTheaters();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <SiteTopNav activeLabel="Theaters" showSearch={false} />
@@ -26,23 +45,37 @@ export const Theaters: React.FC = () => {
           <p className="text-slate-600 mt-2">Find the best halls and formats for your next show.</p>
         </header>
 
-        <section className="grid gap-6 md:grid-cols-2">
-          {theaters.map((theater) => (
-            <article
-              key={theater.id}
-              className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-900">{theater.name}</h2>
-                  <p className="text-sm text-slate-500">{theater.city}</p>
+        {loading ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+            Loading theaters...
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-600">
+            {error}
+          </div>
+        ) : (
+          <section className="grid gap-6 md:grid-cols-2">
+            {theaters.map((theater) => (
+              <article
+                key={theater.id}
+                className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900">{theater.name}</h2>
+                    <p className="text-sm text-slate-500">{theater.city}</p>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-600">
+                    {theater.active ? 'Open' : 'Closed'}
+                  </span>
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-600">Open</span>
-              </div>
-              <p className="text-sm text-slate-600">{theater.description}</p>
-            </article>
-          ))}
-        </section>
+                <p className="text-sm text-slate-600">
+                  {theater.address || theater.phone || 'Now showing in multiple formats.'}
+                </p>
+              </article>
+            ))}
+          </section>
+        )}
       </main>
     </div>
   );

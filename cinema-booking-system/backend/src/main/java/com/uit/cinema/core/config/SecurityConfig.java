@@ -29,6 +29,7 @@ public class SecurityConfig {
         "/api/movies/**",
         "/api/events/**",
         "/api/showtimes/**",
+        "/api/cinemas/**",
         "/api/health/**"
     };
 
