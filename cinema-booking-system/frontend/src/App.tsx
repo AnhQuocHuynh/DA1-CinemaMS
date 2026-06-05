@@ -50,7 +50,7 @@ function App() {
         }
       />
       <Route path="/user/dashboard" element={<Navigate to="/my-tickets" replace />} />
-      <Route path="/user/booking" element={<Booking />} />
+      <Route path="/user/booking/:showtimeId" element={<Booking />} />
       <Route path="/user/checkout" element={<Checkout />} />
       <Route path="/user/checkout-success" element={<CheckoutSuccess />} />
       <Route path="/user/tickets/:ticketId" element={<TicketInfo />} />
