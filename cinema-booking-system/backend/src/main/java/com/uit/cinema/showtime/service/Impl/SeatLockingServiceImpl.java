@@ -34,19 +34,28 @@ public class SeatLockingServiceImpl implements SeatLockingService {
             String lockKey = SeatHoldPolicy.holdKey(showtimeId, seatId);
             Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, userId.toString(), SeatHoldPolicy.HOLD_TTL);
             if (!Boolean.TRUE.equals(acquired)) {
-                throw new CustomException(
-                    "Ghế " + seatId + " đang được người khác giữ, vui lòng chọn ghế khác",
-                    HttpStatus.CONFLICT, "SEAT_ALREADY_HELD"
-                );
-            }
-            showtimeSeatRepository.findById(seatId).ifPresent(seat -> {
-                if (seat.getStatus() != ShowtimeSeat.SeatStatus.AVAILABLE) {
-                    redisTemplate.delete(lockKey);
-                    throw new CustomException("Ghế không khả dụng", HttpStatus.CONFLICT, "SEAT_NOT_AVAILABLE");
+                // Key already exists — check if it belongs to the same user (re-hold)
+                Object existingHolder = redisTemplate.opsForValue().get(lockKey);
+                if (existingHolder != null && userId.toString().equals(existingHolder.toString())) {
+                    // Same user re-holding: just refresh the TTL
+                    redisTemplate.expire(lockKey, SeatHoldPolicy.HOLD_TTL);
+                } else {
+                    throw new CustomException(
+                        "Ghế " + seatId + " đang được người khác giữ, vui lòng chọn ghế khác",
+                        HttpStatus.CONFLICT, "SEAT_ALREADY_HELD"
+                    );
                 }
-                seat.setStatus(ShowtimeSeat.SeatStatus.HELD);
-                showtimeSeatRepository.save(seat);
-            });
+            } else {
+                // First-time hold: update seat status in DB
+                showtimeSeatRepository.findById(seatId).ifPresent(seat -> {
+                    if (seat.getStatus() != ShowtimeSeat.SeatStatus.AVAILABLE) {
+                        redisTemplate.delete(lockKey);
+                        throw new CustomException("Ghế không khả dụng", HttpStatus.CONFLICT, "SEAT_NOT_AVAILABLE");
+                    }
+                    seat.setStatus(ShowtimeSeat.SeatStatus.HELD);
+                    showtimeSeatRepository.save(seat);
+                });
+            }
         }
         log.info("User {} held {} seats for showtime {}", userId, seatIds.size(), showtimeId);
     }
