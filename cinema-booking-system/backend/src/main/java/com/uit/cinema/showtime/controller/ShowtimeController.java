@@ -56,6 +56,20 @@ public class ShowtimeController {
         return ResponseEntity.ok(ApiResponse.success(null, "Giữ ghế thành công"));
     }
 
+    @DeleteMapping("/{id}/hold")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> releaseHeldSeats(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, Object> request
+    ) {
+        @SuppressWarnings("unchecked")
+        List<Long> seatIds = ((List<Integer>) request.get("seatIds")).stream().map(Long::valueOf).toList();
+        for (Long seatId : seatIds) {
+            seatLockingService.releaseHold(id, seatId);
+        }
+        return ResponseEntity.ok(ApiResponse.success(null, "Hủy giữ ghế thành công"));
+    }
+
     @PostMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('STAFF')")
     public ResponseEntity<ApiResponse<ShowtimeResponse>> createShowtime(@Valid @RequestBody ShowtimeRequest request) {
