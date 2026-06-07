@@ -4,6 +4,7 @@ import { SignUp } from './pages/SignUp';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { Home } from './pages/Home';
 import { MovieDetails } from './pages/MovieDetails';
+import { MovieShowtimes } from './pages/MovieShowtimes';
 import { MovieSearch } from './pages/MovieSearch';
 import { HealthCheck } from './pages/HealthCheck';
 import { Theaters } from './pages/Theaters';
@@ -34,6 +35,7 @@ function App() {
       <Route path="/theaters" element={<Theaters />} />
       <Route path="/membership" element={<Membership />} />
       <Route path="/movies/:movieId" element={<MovieDetails />} />
+      <Route path="/movies/:movieId/showtimes" element={<MovieShowtimes />} />
       <Route path="/movies/search" element={<MovieSearch />} />
       <Route path="/health-check" element={<HealthCheck />} />
       <Route path="/login" element={<Login />} />
@@ -44,17 +46,17 @@ function App() {
       <Route
         path="/my-tickets"
         element={
-        //  <ProtectedRoute requiredRole="USER">
+          <ProtectedRoute requiredRole="USER">
             <UserDashboard />
-        //</ProtectedRoute>
+          </ProtectedRoute>
         }
       />
       <Route path="/user/dashboard" element={<Navigate to="/my-tickets" replace />} />
-      <Route path="/user/booking/:showtimeId" element={<Booking />} />
-      <Route path="/user/checkout" element={<Checkout />} />
-      <Route path="/user/checkout-success" element={<CheckoutSuccess />} />
-      <Route path="/user/tickets/:ticketId" element={<TicketInfo />} />
-      <Route path="/user/settings" element={<Settings />} />
+      <Route path="/user/booking/:showtimeId" element={<ProtectedRoute requiredRole="USER"><Booking /></ProtectedRoute>} />
+      <Route path="/user/checkout" element={<ProtectedRoute requiredRole="USER"><Checkout /></ProtectedRoute>} />
+      <Route path="/user/checkout-success" element={<ProtectedRoute requiredRole="USER"><CheckoutSuccess /></ProtectedRoute>} />
+      <Route path="/user/tickets/:ticketId" element={<ProtectedRoute requiredRole="USER"><TicketInfo /></ProtectedRoute>} />
+      <Route path="/user/settings" element={<ProtectedRoute requiredRole="USER"><Settings /></ProtectedRoute>} />
 
       {/* Protected Admin Routes */}
       <Route
@@ -76,9 +78,9 @@ function App() {
       <Route
         path="/staff/dashboard"
         element={
-        //  <ProtectedRoute requiredRole="STAFF">
-            <StaffDashboard />
-        //  </ProtectedRoute>
+          //  <ProtectedRoute requiredRole="STAFF">
+          <StaffDashboard />
+          //  </ProtectedRoute>
         }
       />
       <Route path="/staff/ticket-lookup" element={<TicketLookup />} />

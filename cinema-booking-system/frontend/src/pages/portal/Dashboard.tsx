@@ -31,11 +31,20 @@ export const UserDashboard: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [moviesData, bookingsData] = await Promise.all([
+        const userId = user?.id ? (typeof user.id === 'number' ? user.id : parseInt(String(user.id), 10)) : 0;
+        const [moviesData, rawTickets] = await Promise.all([
           movieService.getMovies(),
-          bookingService.getUserBookings(),
+          userId ? bookingService.getUserTickets(userId) : Promise.resolve([]),
         ]);
-        setMovies(moviesData);
+        // Map API ticket shape to local Booking interface for display
+        const bookingsData: Booking[] = rawTickets.map((t) => ({
+          id: t.ticketCode,
+          movieTitle: t.ticketCode,
+          date: new Date(t.createdAt).toLocaleDateString('vi-VN'),
+          status: t.status,
+          seats: [],
+        }));
+        setMovies(moviesData as unknown as Movie[]);
         setBookings(bookingsData);
       } catch (error) {
         console.error('Failed to load dashboard data:', error);
@@ -44,7 +53,7 @@ export const UserDashboard: React.FC = () => {
       }
     };
     loadData();
-  }, []);
+  }, [user]);
 
   const handleLogout = () => {
     console.log('👤 [USER] Logout clicked');
