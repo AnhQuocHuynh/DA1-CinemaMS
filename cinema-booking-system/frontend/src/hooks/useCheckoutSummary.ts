@@ -1,25 +1,84 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useBookingStore } from '../store/bookingStore';
-import { BookingSummary } from '../types/booking';
+import { bookingService } from '../services/bookingService';
+import { BackendVoucher } from '../types/booking';
+import { parseVND } from '../utils/formatters';
 
 export const useCheckoutSummary = () => {
-  const { selectedSeats } = useBookingStore();
-  const isLoading = false;
+  const {
+    selectedSeats,
+    showtimeData,
+    movieTitle,
+    voucher,
+    setVoucher,
+  } = useBookingStore();
 
-  const summary = useMemo<BookingSummary>(() => {
-    const subtotal = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
-    const fees = selectedSeats.length ? 4.5 : 0;
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherLoading, setVoucherLoading] = useState(false);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
 
-    return {
-      movieTitle: 'Interstellar: 10th Anniversary Re-release',
-      venue: 'IMAX 70mm',
-      showtime: '8:30 PM',
-      seats: selectedSeats,
-      fees,
-      subtotal,
-      total: subtotal + fees,
-    };
-  }, [selectedSeats]);
+  const subtotal = useMemo(
+    () => selectedSeats.reduce((sum, s) => sum + s.price, 0),
+    [selectedSeats]
+  );
 
-  return { summary, isLoading };
+  const discount = useMemo(() => {
+    if (!voucher) return 0;
+    if (voucher.discountType === 'PERCENTAGE') {
+      const pct = parseVND(voucher.discountValue) / 100;
+      const raw = Math.round(subtotal * pct);
+      const maxDiscount = voucher.maxDiscountAmount
+        ? parseVND(voucher.maxDiscountAmount)
+        : Infinity;
+      return Math.min(raw, maxDiscount);
+    }
+    return Math.min(parseVND(voucher.discountValue), subtotal);
+  }, [voucher, subtotal]);
+
+  const total = subtotal - discount;
+
+  const applyVoucher = useCallback(async () => {
+    if (!voucherCode.trim()) return;
+    setVoucherLoading(true);
+    setVoucherError(null);
+    try {
+      const v: BackendVoucher = await bookingService.validateVoucher(voucherCode.trim());
+      setVoucher(v);
+    } catch {
+      setVoucherError('Mã giảm giá không hợp lệ hoặc đã hết hạn.');
+      setVoucher(null);
+    } finally {
+      setVoucherLoading(false);
+    }
+  }, [voucherCode, setVoucher]);
+
+  const removeVoucher = useCallback(() => {
+    setVoucher(null);
+    setVoucherCode('');
+    setVoucherError(null);
+  }, [setVoucher]);
+
+  const summary = useMemo(() => ({
+    movieTitle: movieTitle ?? '',
+    cinemaName: '',
+    hallName: '',
+    showtime: showtimeData?.startTime ?? '',
+    seats: selectedSeats,
+    subtotal,
+    discount,
+    total,
+    voucherCode: voucher?.code ?? null,
+  }), [movieTitle, showtimeData, selectedSeats, subtotal, discount, total, voucher]);
+
+  return {
+    summary,
+    isLoading: false,
+    voucherCode,
+    setVoucherCode,
+    voucherLoading,
+    voucherError,
+    appliedVoucher: voucher,
+    applyVoucher,
+    removeVoucher,
+  };
 };

@@ -14,6 +14,9 @@ export interface ShowtimeResponse {
   basePrice: string; // decimal string e.g. "150000.00"
   status: ShowtimeStatus;
   createdAt: string;
+  roomName?: string;
+  cinemaId?: number;
+  cinemaName?: string;
 }
 
 /** One entry from GET /showtimes/{id}/seats */
