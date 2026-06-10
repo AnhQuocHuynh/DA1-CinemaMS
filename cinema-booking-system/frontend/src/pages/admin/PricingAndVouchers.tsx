@@ -13,8 +13,8 @@ export const PricingAndVouchers: React.FC = () => {
       <AdminTopBar title="Admin Console" searchPlaceholder="Search pricing rules..." />
       <main className="p-6 md:p-10 min-h-screen">
         <AdminPageHeader
-          title="Revenue Architecture"
-          subtitle="Configure global ticket tiers and manage promotional equity."
+          title="Pricing & Vouchers"
+          subtitle="Configure global ticket price and manage vouchers."
           actions={
             <>
               <button className="bg-surface-container-highest text-primary font-bold px-6 py-3 rounded-md text-sm transition-all hover:bg-surface-container-high flex items-center gap-2">
@@ -151,11 +151,10 @@ export const PricingAndVouchers: React.FC = () => {
                           </td>
                           <td className="py-4 px-4">
                             <span
-                              className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                voucher.status === 'active'
+                              className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${voucher.status === 'active'
                                   ? 'text-green-600 bg-green-50'
                                   : 'text-slate-400 bg-slate-100'
-                              }`}
+                                }`}
                             >
                               {voucher.status.toUpperCase()}
                             </span>
