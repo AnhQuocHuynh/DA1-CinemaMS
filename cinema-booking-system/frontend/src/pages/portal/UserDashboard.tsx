@@ -13,6 +13,9 @@ interface UserTicket {
   price: string;
   status: string;
   createdAt: string;
+  movieName?: string;
+  showtimeDateTime?: string;
+  cinemaName?: string;
 }
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
@@ -81,7 +84,12 @@ export const UserDashboard: React.FC = () => {
                         <Ticket className="w-5 h-5 text-primary" />
                       </div>
                       <div>
-                        <p className="font-mono text-sm font-bold text-on-surface mb-1">
+                        {t.movieName && (
+                          <p className="font-bold text-base text-on-surface mb-0.5">
+                            {t.movieName.toUpperCase()}
+                          </p>
+                        )}
+                        <p className="font-mono text-sm font-bold text-on-surface-variant mb-1">
                           {t.ticketCode}
                         </p>
                         <p className="text-xs text-on-surface-variant">
