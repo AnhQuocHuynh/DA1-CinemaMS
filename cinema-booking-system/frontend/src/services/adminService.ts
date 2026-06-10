@@ -1,3 +1,4 @@
+import apiClient from './authService';
 import {
   AdminMovieListItem,
   AdminPermissionRule,
@@ -8,6 +9,7 @@ import {
 
 // Admin Service
 export const adminService = {
+  // ── Dashboard Stats (Mocked) ────────────────────────────────────────────────
   getDashboardStats: async () => {
     console.log('📊 [ADMIN] Fetching dashboard stats...');
     const mockStats = {
@@ -16,15 +18,10 @@ export const adminService = {
       activeUsers: 487,
       totalMovies: 24,
     };
-    console.log('✅ [ADMIN] Stats fetched:', mockStats);
     return mockStats;
   },
 
   getDashboardOverview: async () => {
-    // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/admin/overview`);
-    // return response.data;
-
     console.log('📈 [ADMIN] Fetching dashboard overview...');
     const mockOverview = {
       totalRevenue: 248590,
@@ -33,15 +30,10 @@ export const adminService = {
       seatsSold: 1200,
       seatsAvailable: 420,
     };
-    console.log('✅ [ADMIN] Overview fetched:', mockOverview);
     return mockOverview;
   },
 
   getLiveSales: async () => {
-    // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/admin/live-sales`);
-    // return response.data;
-
     console.log('🧾 [ADMIN] Fetching live sales...');
     const mockSales = [
       {
@@ -60,52 +52,52 @@ export const adminService = {
         amount: 72,
         posterUrl: 'https://via.placeholder.com/80x80?text=GBH',
       },
-      {
-        id: 'sale-3',
-        movieTitle: 'Oppenheimer: 70mm',
-        screen: 'Screen 02',
-        tickets: 1,
-        amount: 24,
-        posterUrl: 'https://via.placeholder.com/80x80?text=70mm',
-      },
     ];
-    console.log('✅ [ADMIN] Live sales fetched');
     return mockSales;
   },
 
   getPopularMovies: async () => {
-    // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/admin/popular-movies`);
-    // return response.data;
-
     console.log('🎞️ [ADMIN] Fetching popular movies...');
     const mockPopular = [
       { id: 'movie-1', title: 'Dune: Part Two', score: 92 },
       { id: 'movie-2', title: 'Spider-Man: Across the Spider-Verse', score: 84 },
-      { id: 'movie-3', title: 'Poor Things', score: 71 },
-      { id: 'movie-4', title: 'Past Lives', score: 65 },
     ];
-    console.log('✅ [ADMIN] Popular movies fetched');
     return mockPopular;
   },
 
+  // ── Movies (CRUD) ─────────────────────────────────────────────────────────
   getMovieManagement: async (): Promise<AdminMovieListItem[]> => {
     console.log('🎬 [ADMIN] Fetching movies for management...');
-    const mockMovies: AdminMovieListItem[] = [
-      { id: 1, title: 'Interstellar', status: 'active', bookings: 345 },
-      { id: 2, title: 'The Dark Knight', status: 'active', bookings: 298 },
-      { id: 3, title: 'Inception', status: 'inactive', bookings: 156 },
-    ];
-    console.log('✅ [ADMIN] Movies fetched:', mockMovies);
-    return mockMovies;
+    const response = await apiClient.get<{ success: boolean; data: any[] }>('/movies');
+    return response.data.data.map(m => ({
+      id: m.id,
+      title: m.title,
+      status: m.active ? 'active' : 'inactive',
+      bookings: Math.floor(Math.random() * 500) // Mock booking count since BE doesn't provide it
+    }));
   },
 
-  getShowtimeSchedules: async () => {
-    // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/admin/showtimes`);
-    // return response.data;
+  createMovie: async (movieData: any) => {
+    console.log('🎬 [ADMIN] Creating movie:', movieData);
+    const response = await apiClient.post<{ success: boolean; data: any }>('/movies', movieData);
+    return response.data.data;
+  },
 
-    console.log('🗓️ [ADMIN] Fetching showtime schedules...');
+  updateMovie: async (id: number | string, movieData: any) => {
+    console.log(`🎬 [ADMIN] Updating movie ${id}:`, movieData);
+    const response = await apiClient.put<{ success: boolean; data: any }>(`/movies/${id}`, movieData);
+    return response.data.data;
+  },
+
+  deleteMovie: async (id: number | string) => {
+    console.log(`🎬 [ADMIN] Deleting movie ${id}...`);
+    const response = await apiClient.delete<{ success: boolean; data: any }>(`/movies/${id}`);
+    return response.data.data;
+  },
+
+  // ── Schedules (Skipped/Mocked) ────────────────────────────────────────────
+  getShowtimeSchedules: async () => {
+    console.log('🗓️ [ADMIN] Fetching showtime schedules (Mock)...');
     const mockSchedules = [
       {
         id: 'show-1',
@@ -117,95 +109,63 @@ export const adminService = {
         time: '19:30',
         posterUrl: 'https://via.placeholder.com/120x160?text=Neon',
       },
-      {
-        id: 'show-2',
-        movieTitle: 'The Last Architect',
-        genre: 'Drama',
-        duration: '1h 50m',
-        hall: 'Grand Hall A',
-        date: 'Oct 24, 2023',
-        time: '21:00',
-        posterUrl: 'https://via.placeholder.com/120x160?text=Architect',
-      },
-      {
-        id: 'show-3',
-        movieTitle: 'Echoes of Silence',
-        genre: 'Thriller',
-        duration: '2h 05m',
-        hall: 'Suite 04 (VIP)',
-        date: 'Oct 25, 2023',
-        time: '14:15',
-        posterUrl: 'https://via.placeholder.com/120x160?text=Echoes',
-      },
     ];
-    console.log('✅ [ADMIN] Showtime schedules fetched');
     return mockSchedules;
   },
 
+  // ── Theaters (CRUD) ───────────────────────────────────────────────────────
   getTheaters: async (): Promise<AdminTheater[]> => {
-    // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/admin/theaters`);
-    // return response.data;
-
     console.log('🏛️ [ADMIN] Fetching theaters...');
-    const mockTheaters: AdminTheater[] = [
-      {
-        id: 'theater-1',
-        name: 'Grand Plaza Cineplex',
-        region: 'Downtown District',
-        isExpanded: true,
-        rooms: [
-          {
-            id: 'room-1',
-            name: 'Screen 01 - Main Hall',
-            level: 'Level 1 • East Wing',
-            capacity: 450,
-            technologies: ['IMAX', 'Laser'],
-            status: 'operational',
-          },
-          {
-            id: 'room-2',
-            name: 'Screen 02 - Sensory Room',
-            level: 'Level 1 • North Wing',
-            capacity: 120,
-            technologies: ['4DX', 'Dolby Atmos'],
-            status: 'operational',
-          },
-          {
-            id: 'room-3',
-            name: 'Screen 03 - Boutique',
-            level: 'Level 2 • VIP Lounge',
-            capacity: 45,
-            technologies: ['VIP'],
-            status: 'maintenance',
-          },
-        ],
-      },
-      {
-        id: 'theater-2',
-        name: 'Metropolis Hub',
-        region: 'Uptown Corridor',
-        isExpanded: false,
-        rooms: [],
-      },
-      {
-        id: 'theater-3',
-        name: 'Starlight Open Air',
-        region: 'Park Side',
-        isExpanded: false,
-        rooms: [],
-      },
-    ];
-    console.log('✅ [ADMIN] Theaters fetched');
-    return mockTheaters;
+    const response = await apiClient.get<{ success: boolean; data: any[] }>('/cinemas');
+    const theaters = await Promise.all(response.data.data.map(async (c) => {
+       // Fetch rooms for each cinema
+       const roomsRes = await apiClient.get<{ success: boolean; data: any[] }>(`/cinemas/${c.id}/rooms`);
+       const rooms = roomsRes.data.data.map((r: any) => ({
+           id: String(r.id),
+           name: r.name,
+           level: r.type || 'Standard',
+           capacity: r.totalSeats || (r.rows * r.columns),
+           technologies: [r.type].filter(Boolean),
+           status: (r.underMaintenance ? 'maintenance' : 'operational') as 'maintenance' | 'operational',
+       }));
+       return {
+           id: String(c.id),
+           name: c.name,
+           region: c.city || 'Unknown',
+           isExpanded: false,
+           rooms: rooms
+       };
+    }));
+    return theaters;
   },
 
-  getPricingOverview: async () => {
-    // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/admin/pricing`);
-    // return response.data;
+  createTheater: async (theaterData: any) => {
+    console.log('🏛️ [ADMIN] Creating theater:', theaterData);
+    const response = await apiClient.post<{ success: boolean; data: any }>('/cinemas', theaterData);
+    return response.data.data;
+  },
 
-    console.log('💳 [ADMIN] Fetching pricing overview...');
+  updateTheater: async (id: number | string, theaterData: any) => {
+    console.log(`🏛️ [ADMIN] Updating theater ${id}:`, theaterData);
+    const response = await apiClient.put<{ success: boolean; data: any }>(`/cinemas/${id}`, theaterData);
+    return response.data.data;
+  },
+
+  deleteTheater: async (id: number | string) => {
+    console.log(`🏛️ [ADMIN] Deleting theater ${id}...`);
+    const response = await apiClient.delete<{ success: boolean; data: any }>(`/cinemas/${id}`);
+    return response.data.data;
+  },
+
+  deleteRoom: async (cinemaId: number | string, roomId: number | string) => {
+    console.log(`🏛️ [ADMIN] Deleting room ${roomId} in cinema ${cinemaId}...`);
+    const response = await apiClient.delete<{ success: boolean; data: any }>(`/cinemas/${cinemaId}/rooms/${roomId}`);
+    return response.data.data;
+  },
+
+  // ── Pricing (Skipped/Mocked) ──────────────────────────────────────────────
+  getPricingOverview: async () => {
+    console.log('💳 [ADMIN] Fetching pricing overview (Mock)...');
     const mockPricing = {
       baseRate: 14.5,
       tiers: [
@@ -216,117 +176,88 @@ export const adminService = {
           value: '+ $3.50',
           badge: 'WEEKEND PREMIUM',
         },
-        {
-          id: 'tier-2',
-          title: 'VIP Lounge',
-          description: 'Multiplier for luxury seating clusters',
-          value: '2.5x Base',
-          badge: 'VIP LOUNGE',
-        },
       ],
     };
-    console.log('✅ [ADMIN] Pricing overview fetched');
     return mockPricing;
   },
 
+  // ── Vouchers (CRUD with Mocked PUT/DELETE) ────────────────────────────────
   getVouchers: async (): Promise<AdminVoucher[]> => {
-    // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/admin/vouchers`);
-    // return response.data;
-
     console.log('🎟️ [ADMIN] Fetching vouchers...');
-    const mockVouchers: AdminVoucher[] = [
-      {
-        id: 'voucher-1',
-        code: 'SUMMER24',
-        discount: '20% OFF',
-        expiry: 'Aug 31, 2024',
-        usageUsed: 325,
-        usageLimit: 500,
-        status: 'active',
-      },
-      {
-        id: 'voucher-2',
-        code: 'WELCOMENEW',
-        discount: '$5.00 Flat',
-        expiry: 'No Expiry',
-        usageUsed: 1200,
-        usageLimit: null,
-        status: 'active',
-      },
-      {
-        id: 'voucher-3',
-        code: 'FLASH15',
-        discount: '15% OFF',
-        expiry: 'May 15, 2024',
-        usageUsed: 200,
-        usageLimit: 200,
-        status: 'inactive',
-      },
-      {
-        id: 'voucher-4',
-        code: 'VIPEXCLUSIVE',
-        discount: 'BOGO Free',
-        expiry: 'Dec 31, 2024',
-        usageUsed: 88,
-        usageLimit: 100,
-        status: 'active',
-      },
-    ];
-    console.log('✅ [ADMIN] Vouchers fetched');
-    return mockVouchers;
+    // Backend returns raw list (no ApiResponse wrapper)
+    const response = await apiClient.get<any[]>('/vouchers');
+    return response.data.map(v => ({
+      id: String(v.id),
+      code: v.code,
+      discount: v.discountType === 'PERCENTAGE' ? `${v.discountValue}% OFF` : `$${v.discountValue} Flat`,
+      expiry: new Date(v.validUntil).toLocaleDateString(),
+      usageUsed: v.usedCount || 0,
+      usageLimit: v.usageLimit || null,
+      status: v.active ? 'active' : 'inactive',
+    }));
+  },
+
+  createVoucher: async (voucherData: any) => {
+    console.log('🎟️ [ADMIN] Creating voucher:', voucherData);
+    const response = await apiClient.post<any>('/vouchers', voucherData);
+    return response.data;
+  },
+
+  updateVoucher: async (id: string | number, voucherData: any) => {
+    console.log(`🎟️ [ADMIN] Mock updating voucher ${id}...`, voucherData);
+    // Missing in backend; mock for now
+    return { id, ...voucherData, status: 'active' };
+  },
+
+  deleteVoucher: async (id: string | number) => {
+    console.log(`🎟️ [ADMIN] Mock deleting voucher ${id}...`);
+    // Missing in backend; mock for now
+    return { success: true };
+  },
+
+  // ── User Management & Permissions (CRUD with Mocked PUT/DELETE) ──────────
+  getUserManagement: async () => {
+    console.log('👥 [ADMIN] Fetching users for management...');
+    const response = await apiClient.get<{ success: boolean; data: any[] }>('/users');
+    return response.data.data.map(u => ({
+      id: u.id,
+      email: u.email,
+      role: u.roles && u.roles.length > 0 ? u.roles[0].replace('ROLE_', '') : 'USER',
+      bookings: Math.floor(Math.random() * 10) // Mock booking count
+    }));
   },
 
   getUserPermissions: async (): Promise<AdminUserPermission[]> => {
-    // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/admin/permissions/users`);
-    // return response.data;
-
     console.log('🧑‍💼 [ADMIN] Fetching user permissions...');
-    const mockUsers: AdminUserPermission[] = [
-      {
-        id: 'user-1',
-        name: 'Jordan Smith',
-        email: 'j.smith@cinemaops.com',
-        status: 'active',
-        lastActivity: '2 mins ago',
-        roles: { customer: true, staff: false, admin: false },
-      },
-      {
-        id: 'user-2',
-        name: 'Marcus Aurelius',
-        email: 'm.aurelius@cinemaops.com',
-        status: 'active',
-        lastActivity: '1 hour ago',
-        roles: { customer: true, staff: true, admin: false },
-      },
-      {
-        id: 'user-3',
-        name: 'Elena Loft',
-        email: 'e.loft@cinemaops.com',
-        status: 'on-leave',
-        lastActivity: '3 days ago',
-        roles: { customer: true, staff: true, admin: true },
-      },
-      {
-        id: 'user-4',
-        name: 'Kevin Chen',
-        email: 'k.chen@cinemaops.com',
-        status: 'deactivated',
-        lastActivity: 'Never',
-        roles: { customer: true, staff: false, admin: false },
-      },
-    ];
-    console.log('✅ [ADMIN] User permissions fetched');
-    return mockUsers;
+    const response = await apiClient.get<{ success: boolean; data: any[] }>('/users');
+    return response.data.data.map(u => ({
+      id: String(u.id),
+      name: u.fullName || u.email.split('@')[0],
+      email: u.email,
+      status: 'active', // Backend doesn't track user active status currently
+      lastActivity: 'Unknown',
+      roles: {
+         customer: u.roles?.includes('ROLE_CUSTOMER') || false,
+         staff: u.roles?.includes('ROLE_STAFF') || false,
+         admin: u.roles?.includes('ROLE_ADMIN') || false
+      }
+    }));
+  },
+
+  updateUser: async (id: string | number, userData: any) => {
+    console.log(`🧑‍💼 [ADMIN] Mock updating user ${id}...`, userData);
+    // Missing in backend; mock for now
+    return { id, ...userData };
+  },
+
+  deleteUser: async (id: string | number) => {
+    console.log(`🧑‍💼 [ADMIN] Mock deleting user ${id}...`);
+    // Missing in backend; mock for now
+    return { success: true };
   },
 
   getPermissionRules: async (): Promise<AdminPermissionRule[]> => {
-    // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/admin/permissions/rules`);
-    // return response.data;
-
-    console.log('🧩 [ADMIN] Fetching permission rules...');
+    console.log('🧩 [ADMIN] Fetching permission rules (Mock)...');
     const mockRules: AdminPermissionRule[] = [
       {
         id: 'rule-1',
@@ -334,37 +265,7 @@ export const adminService = {
         description: 'Allows access to revenue, tax, and payout data.',
         tags: ['Admin Only'],
       },
-      {
-        id: 'rule-2',
-        title: 'Edit Cinema Schedules',
-        description: 'Modify screening times and room assignments.',
-        tags: ['Staff', 'Admin'],
-      },
-      {
-        id: 'rule-3',
-        title: 'Access Global Logs',
-        description: 'View detailed system activity and audit trails.',
-        tags: ['Admin Only'],
-      },
     ];
-    console.log('✅ [ADMIN] Permission rules fetched');
     return mockRules;
-  },
-
-  createMovie: async (movieData: any) => {
-    console.log('🎬 [ADMIN] Creating movie:', movieData);
-    const mockMovie = { id: Math.random(), ...movieData, status: 'active' };
-    console.log('✅ [ADMIN] Movie created:', mockMovie);
-    return mockMovie;
-  },
-
-  getUserManagement: async () => {
-    console.log('👥 [ADMIN] Fetching users for management...');
-    const mockUsers = [
-      { id: 1, email: 'user1@example.com', role: 'USER', bookings: 5 },
-      { id: 2, email: 'user2@example.com', role: 'USER', bookings: 3 },
-    ];
-    console.log('✅ [ADMIN] Users fetched:', mockUsers);
-    return mockUsers;
   },
 };

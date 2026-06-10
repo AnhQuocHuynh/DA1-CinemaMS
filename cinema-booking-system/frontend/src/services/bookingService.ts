@@ -131,19 +131,24 @@ export const bookingService = {
       status: string;
       checkedInAt: string | null;
       createdAt: string;
+      movieName?: string;
+      showtimeDateTime?: string;
+      cinemaName?: string;
+      hallName?: string;
     }>(`/tickets/code/${ticketCode}`);
 
     const raw = response.data;
+    const dt = raw.showtimeDateTime ? new Date(raw.showtimeDateTime) : null;
 
     return {
       ticketCode: raw.ticketCode,
       orderId: raw.orderId,
-      movieTitle: '',       // enriched by hook from showtime/movie data
-      cinemaName: '',
-      hallName: '',
-      showtime: '',
-      date: '',
-      time: '',
+      movieTitle: raw.movieName || '',
+      cinemaName: raw.cinemaName || '',
+      hallName: raw.hallName || '',
+      showtime: raw.showtimeDateTime || '',
+      date: dt ? dt.toLocaleDateString('vi-VN') : '',
+      time: dt ? dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
       seats: [],
       qrCodeData: raw.qrCodeData,
       price: parseVND(raw.price),
@@ -162,6 +167,10 @@ export const bookingService = {
         price: string;
         status: string;
         createdAt: string;
+        movieName?: string;
+        showtimeDateTime?: string;
+        cinemaName?: string;
+        hallName?: string;
       }>
     >(`/tickets/users/${userId}`);
     return response.data ?? [];
@@ -180,6 +189,10 @@ export const bookingService = {
         price: string;
         status: string;
         createdAt: string;
+        movieName?: string;
+        showtimeDateTime?: string;
+        cinemaName?: string;
+        hallName?: string;
       }>
     >(`/tickets/orders/${orderId}`);
     return response.data ?? [];
