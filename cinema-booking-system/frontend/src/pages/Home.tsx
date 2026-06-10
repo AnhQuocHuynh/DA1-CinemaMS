@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Star, Film } from 'lucide-react';
+import { Star, Film, ChevronLeft, ChevronRight } from 'lucide-react';
 import { calculateEndTime, formatDuration, movies as mockMovies, searchMovies } from '../utils/movieData';
 import { SiteTopNav } from '../components/SiteTopNav';
 import { useMovies } from '../hooks/useMovies';
 import { MovieResponse } from '../services/movieService';
 import { Movie } from '../types/movie';
+import genericPoster from '../resources/generic_movie_poster.png';
 
 // ── Helpers to normalise backend movies into a card-friendly shape ──────────
 
@@ -65,6 +66,7 @@ function mockToCard(m: Movie): HomeMovieCard {
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
 
   // Fetch real movies from backend
   const { backendMovies, isLoading: isLoadingBackend } = useMovies();
@@ -103,8 +105,17 @@ export const Home: React.FC = () => {
     navigate(`/movies/search?q=${encodeURIComponent(query)}`);
   };
 
-  // Use the first card's backdrop for the hero (prefer backend)
-  const heroCard = allCards[0];
+  // ── Hero Movies ──────────────────────────────────────────────────────────
+  const heroMovies = allCards.slice(0, 5);
+  const heroCard = heroMovies[currentHeroIndex] || allCards[0];
+
+  const handlePrevHero = () => {
+    setCurrentHeroIndex((prev) => (prev === 0 ? Math.max(0, heroMovies.length - 1) : prev - 1));
+  };
+
+  const handleNextHero = () => {
+    setCurrentHeroIndex((prev) => (prev === heroMovies.length - 1 ? 0 : prev + 1));
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -122,41 +133,93 @@ export const Home: React.FC = () => {
         <section className="relative h-[620px] overflow-hidden bg-slate-900">
           {heroCard && (
             <img
-              src={heroCard.backdropUrl}
+              key={heroCard.id}
+              src={heroCard.backdropUrl || genericPoster}
               alt="Hero"
-              className="absolute inset-0 h-full w-full object-cover opacity-60"
+              className="absolute inset-0 h-full w-full object-cover opacity-50 transition-opacity duration-700"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.onerror = null;
+                target.src = genericPoster;
+              }}
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent" />
 
-          <div className="relative max-w-[1280px] mx-auto h-full px-6 flex flex-col justify-center">
-            <div className="max-w-2xl">
+          <div className="relative max-w-[1280px] mx-auto h-full px-6 flex items-center justify-between gap-8 xl:gap-12">
+            <div className="max-w-xl flex-shrink-0">
               <span className="inline-block px-3 py-1 rounded-sm bg-blue-600 text-white text-[10px] tracking-[0.2em] uppercase font-bold mb-6">
                 Now Premiering
               </span>
-              <h1 className="text-5xl md:text-6xl font-black text-white tracking-tight leading-tight mb-6">
+              <h1 className="text-5xl md:text-6xl font-black text-white tracking-tight leading-tight mb-6 line-clamp-2">
                 {heroCard?.title ?? 'CinemaArchitect'}
               </h1>
-              <p className="text-slate-200 text-lg leading-relaxed mb-8">
+              <p className="text-slate-200 text-lg leading-relaxed mb-8 line-clamp-3">
                 Experience cinema with precision acoustics, immersive projection, and curated comfort in every seat.
               </p>
               <div className="flex flex-wrap items-center gap-4">
                 {heroCard && (
                   <Link
                     to={`/movies/${heroCard.id}`}
-                    className="px-7 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500"
+                    className="px-7 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-colors"
                   >
                     Explore Featured Movie
                   </Link>
                 )}
                 <button
                   onClick={() => submitSearch('')}
-                  className="px-7 py-3 rounded-lg bg-white/10 border border-white/20 text-white font-semibold hover:bg-white/20"
+                  className="px-7 py-3 rounded-lg bg-white/10 border border-white/20 text-white font-semibold hover:bg-white/20 transition-colors"
                 >
                   Browse All Movies
                 </button>
               </div>
             </div>
+
+            {/* Carousel Posters (hidden on small screens) */}
+            {heroMovies.length > 0 && (
+              <div className="hidden lg:flex items-center gap-2 xl:gap-4 relative z-10 mt-12">
+                <button
+                  onClick={handlePrevHero}
+                  className="p-2 rounded-full bg-black/40 text-white hover:bg-blue-600 transition-colors backdrop-blur-sm border border-white/10 flex-shrink-0"
+                >
+                  <ChevronLeft size={24} />
+                </button>
+
+                <div className="flex items-center gap-2 xl:gap-4">
+                  {heroMovies.map((m, idx) => {
+                    const isActive = idx === currentHeroIndex;
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => setCurrentHeroIndex(idx)}
+                        className={`relative rounded-xl overflow-hidden transition-all duration-300 flex-shrink-0 ${isActive
+                            ? 'w-28 xl:w-36 aspect-[2/3] border-2 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)] scale-105 z-10'
+                            : 'w-16 xl:w-24 aspect-[2/3] border border-white/20 opacity-50 hover:opacity-100'
+                          }`}
+                      >
+                        <img
+                          src={m.posterUrl || genericPoster}
+                          alt={m.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.src = genericPoster;
+                          }}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={handleNextHero}
+                  className="p-2 rounded-full bg-black/40 text-white hover:bg-blue-600 transition-colors backdrop-blur-sm border border-white/10"
+                >
+                  <ChevronRight size={24} />
+                </button>
+              </div>
+            )}
           </div>
         </section>
 
@@ -202,17 +265,16 @@ export const Home: React.FC = () => {
                     <article key={card.id} className="group rounded-xl overflow-hidden bg-white border border-slate-200 hover:shadow-xl transition-shadow">
                       <Link to={`/movies/${card.id}`}>
                         <div className="relative aspect-[2/3] overflow-hidden">
-                          {card.posterUrl ? (
-                            <img
-                              src={card.posterUrl}
-                              alt={card.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-slate-200 flex items-center justify-center">
-                              <Film size={48} className="text-slate-400" />
-                            </div>
-                          )}
+                          <img
+                            src={card.posterUrl || genericPoster}
+                            alt={card.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.onerror = null;
+                              target.src = genericPoster;
+                            }}
+                          />
                           {movie.active && (
                             <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-green-600 text-white text-[10px] font-bold">
                               Đang chiếu
@@ -262,9 +324,14 @@ export const Home: React.FC = () => {
                   <Link to={`/movies/${movie.id}`}>
                     <div className="relative aspect-[2/3] overflow-hidden">
                       <img
-                        src={movie.posterUrl}
+                        src={movie.posterUrl || genericPoster}
                         alt={movie.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = genericPoster;
+                        }}
                       />
                     </div>
                   </Link>
