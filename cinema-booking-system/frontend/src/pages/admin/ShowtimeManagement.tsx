@@ -5,6 +5,7 @@ import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { useAdminShowtimes } from '../../hooks/useAdminShowtimes';
 import { AdminShowtimeItem } from '../../types/admin';
+import genericPoster from '../../resources/generic_movie_poster.png';
 
 export const ShowtimeManagement: React.FC = () => {
   const { showtimes, isLoading } = useAdminShowtimes();
@@ -78,7 +79,7 @@ export const ShowtimeManagement: React.FC = () => {
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-14 bg-slate-200 rounded-sm overflow-hidden flex-shrink-0">
-                          <img className="w-full h-full object-cover" src={showtime.posterUrl} alt={showtime.movieTitle} />
+                          <img className="w-full h-full object-cover" src={showtime.posterUrl || genericPoster} alt={showtime.movieTitle} onError={(e) => { const target = e.target as HTMLImageElement; target.onerror = null; target.src = genericPoster; }} />
                         </div>
                         <div>
                           <p className="font-medium text-on-surface">{showtime.movieTitle}</p>

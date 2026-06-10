@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Film, Search, Star } from 'lucide-react';
 import { calculateEndTime, formatDuration, searchMovies } from '../utils/movieData';
 import { useMovies } from '../hooks/useMovies';
+import genericPoster from '../resources/generic_movie_poster.png'
 
 export const MovieSearch: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -31,7 +32,7 @@ export const MovieSearch: React.FC = () => {
         <div className="max-w-[1280px] mx-auto h-16 px-6 flex items-center justify-between">
           <Link to="/" className="font-black tracking-tight text-lg">CinemaArchitect</Link>
           <Link to="/" className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900">
-            <ArrowLeft size={16} /> Back
+            <ArrowLeft size={16} /> Quay lại
           </Link>
         </div>
       </header>
@@ -44,9 +45,9 @@ export const MovieSearch: React.FC = () => {
               Showing {totalCount} results for <span className="font-semibold text-blue-700">"{query || 'all movies'}"</span>
             </p>
           </div>
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm text-slate-600">
+          {/* <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 text-sm text-slate-600">
             <Search size={16} /> Grid view
-          </div>
+          </div> */}
         </div>
 
         {totalCount === 0 && !isLoading ? (
@@ -86,13 +87,16 @@ export const MovieSearch: React.FC = () => {
                       className="rounded-xl overflow-hidden bg-white border border-slate-200 hover:shadow-lg transition-shadow"
                     >
                       <Link to={`/movies/${movie.id}`}>
-                        {movie.posterUrl ? (
-                          <img src={movie.posterUrl} alt={movie.title} className="w-full aspect-[2/3] object-cover" />
-                        ) : (
-                          <div className="w-full aspect-[2/3] bg-slate-200 flex items-center justify-center">
-                            <Film size={48} className="text-slate-400" />
-                          </div>
-                        )}
+                        <img
+                          src={movie.posterUrl || genericPoster}
+                          alt={movie.title}
+                          className="w-full aspect-[2/3] object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.src = genericPoster;
+                          }}
+                        />
                       </Link>
                       <div className="p-5 space-y-2">
                         <Link to={`/movies/${movie.id}`} className="block text-lg font-bold hover:text-blue-700 transition-colors">
@@ -133,7 +137,16 @@ export const MovieSearch: React.FC = () => {
                         className="rounded-xl overflow-hidden bg-white border border-slate-200 hover:shadow-lg transition-shadow"
                       >
                         <Link to={`/movies/${movie.id}`}>
-                          <img src={movie.posterUrl} alt={movie.title} className="w-full aspect-[2/3] object-cover" />
+                          <img
+                            src={movie.posterUrl || genericPoster}
+                            alt={movie.title}
+                            className="w-full aspect-[2/3] object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.onerror = null;
+                              target.src = genericPoster;
+                            }}
+                          />
                         </Link>
                         <div className="p-5 space-y-2">
                           <Link to={`/movies/${movie.id}`} className="block text-lg font-bold hover:text-blue-700 transition-colors">

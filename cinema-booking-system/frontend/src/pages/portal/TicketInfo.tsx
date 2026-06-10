@@ -5,6 +5,7 @@ import { useTicketDetails } from '../../hooks/useTicketDetails';
 import { bookingService } from '../../services/bookingService';
 import { formatVND } from '../../utils/formatters';
 import { AlertCircle, Download, Printer } from 'lucide-react';
+import genericPoster from '../../resources/generic_movie_poster.png';
 
 export const TicketInfo: React.FC = () => {
   const { ticketId: ticketCode = '' } = useParams<{ ticketId: string }>();
@@ -78,18 +79,16 @@ export const TicketInfo: React.FC = () => {
           {/* Left: poster placeholder or QR */}
           <div className="lg:col-span-5 space-y-8">
             <div className="aspect-[2/3] w-full rounded-xl overflow-hidden shadow-2xl relative bg-surface-container-high flex items-center justify-center">
-              {ticket.posterUrl ? (
-                <img
-                  alt={ticket.movieTitle || 'Movie'}
-                  className="w-full h-full object-cover"
-                  src={ticket.posterUrl}
-                />
-              ) : (
-                <div className="flex flex-col items-center gap-3 text-on-surface-variant">
-                  <Download className="w-12 h-12 opacity-30" />
-                  <span className="text-sm opacity-50">Không có poster</span>
-                </div>
-              )}
+              <img
+                alt={ticket.movieTitle || 'Movie'}
+                className="w-full h-full object-cover"
+                src={ticket.posterUrl || genericPoster}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.onerror = null;
+                  target.src = genericPoster;
+                }}
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-inverse-surface/80 to-transparent" />
               <div className="absolute bottom-6 left-6">
                 <span className={`inline-block px-3 py-1 text-[10px] font-bold tracking-widest uppercase mb-2 rounded ${statusColor}`}>

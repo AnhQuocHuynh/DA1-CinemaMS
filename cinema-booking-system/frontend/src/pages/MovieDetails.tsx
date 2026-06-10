@@ -6,6 +6,7 @@ import { showtimeService } from '../services/showtimeService';
 import { ShowtimeResponse } from '../types/showtime';
 import { useBookingStore } from '../store/bookingStore';
 import { formatVND, parseVND, formatShowtime } from '../utils/formatters';
+import genericPoster from '../resources/generic_movie_poster.png';
 
 export const MovieDetails: React.FC = () => {
   const navigate = useNavigate();
@@ -88,13 +89,16 @@ export const MovieDetails: React.FC = () => {
       <main className="pt-16">
         {/* Hero */}
         <section className="relative min-h-[540px] overflow-hidden">
-          {movie.posterUrl && (
-            <img
-              src={movie.posterUrl}
-              alt={movie.title}
-              className="absolute inset-0 h-full w-full object-cover brightness-[0.4]"
-            />
-          )}
+          <img
+            src={movie.posterUrl || genericPoster}
+            alt={movie.title}
+            className="absolute inset-0 h-full w-full object-cover brightness-[0.4]"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.onerror = null;
+              target.src = genericPoster;
+            }}
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-100 via-slate-900/30 to-transparent" />
 
           <div className="relative max-w-7xl mx-auto px-6 py-20 flex items-end min-h-[540px]">

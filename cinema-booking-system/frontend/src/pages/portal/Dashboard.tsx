@@ -4,6 +4,7 @@ import { LogOut, Film, Ticket, User } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { bookingService } from '../../services/bookingService';
 import { movieService } from '../../services/movieService';
+import genericPoster from '../../resources/generic_movie_poster.png';
 
 interface Movie {
   id: number;
@@ -121,9 +122,14 @@ export const UserDashboard: React.FC = () => {
                   {movies.map((movie) => (
                     <div key={movie.id} className="bg-surface-container rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
                       <img
-                        src={movie.poster}
+                        src={movie.poster || genericPoster}
                         alt={movie.title}
                         className="w-full h-64 object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = genericPoster;
+                        }}
                       />
                       <div className="p-4">
                         <h3 className="font-bold text-on-surface mb-1 line-clamp-2">{movie.title}</h3>

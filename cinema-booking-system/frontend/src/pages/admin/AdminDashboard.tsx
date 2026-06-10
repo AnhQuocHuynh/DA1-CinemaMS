@@ -6,6 +6,7 @@ import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { useAdminDashboard } from '../../hooks/useAdminDashboard';
 import { useAdminRooms } from '../../hooks/useAdminRooms';
+import genericPoster from '../../resources/generic_movie_poster.png';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -139,7 +140,7 @@ export const AdminDashboard: React.FC = () => {
                   {liveSales.map((sale) => (
                     <div key={sale.id} className="flex items-center space-x-4">
                       <div className="w-12 h-12 rounded bg-slate-700/50 flex items-center justify-center overflow-hidden">
-                        <img src={sale.posterUrl} alt={sale.movieTitle} className="w-full h-full object-cover opacity-80" />
+                        <img src={sale.posterUrl || genericPoster} alt={sale.movieTitle} className="w-full h-full object-cover opacity-80" onError={(e) => { const target = e.target as HTMLImageElement; target.onerror = null; target.src = genericPoster; }} />
                       </div>
                       <div className="flex-1">
                         <h4 className="text-sm font-bold truncate">{sale.movieTitle}</h4>
