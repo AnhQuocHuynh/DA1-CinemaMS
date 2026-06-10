@@ -66,6 +66,13 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     }
 
     @Override
+    public ShowtimeSeatResponse getSeatById(Long seatId) {
+        ShowtimeSeat seat = showtimeSeatRepository.findById(seatId)
+            .orElseThrow(() -> new CustomException("Seat not found", HttpStatus.NOT_FOUND, "SEAT_NOT_FOUND"));
+        return toRealtimeSeatResponse(seat.getShowtimeId(), seat);
+    }
+
+    @Override
     @Transactional
     public ShowtimeResponse createShowtime(ShowtimeRequest request) {
         // Check room maintenance status
