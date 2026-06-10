@@ -586,26 +586,44 @@ Get seat map (availability & pricing) for a showtime.
   "data": [
     {
       "id": 1,
+      "seatId": "1",
       "showtimeId": 5,
       "seatTemplateId": 10,
+      "label": "A1",
+      "rowLabel": "A",
+      "columnNumber": 1,
+      "seatType": "normal",
+      "isPathway": false,
       "price": "150000.00",
-      "status": "AVAILABLE",
+      "status": "available",
       "holdTtlSeconds": null
     },
     {
       "id": 2,
+      "seatId": "2",
       "showtimeId": 5,
       "seatTemplateId": 11,
+      "label": "A2",
+      "rowLabel": "A",
+      "columnNumber": 2,
+      "seatType": "vip",
+      "isPathway": false,
       "price": "180000.00",
-      "status": "HELD",
-      "holdTtlSeconds": 120
+      "status": "holding",
+      "holdTtlSeconds": 582
     },
     {
       "id": 3,
+      "seatId": "3",
       "showtimeId": 5,
       "seatTemplateId": 12,
+      "label": "A3",
+      "rowLabel": "A",
+      "columnNumber": 3,
+      "seatType": "normal",
+      "isPathway": false,
       "price": "150000.00",
-      "status": "BOOKED",
+      "status": "sold",
       "holdTtlSeconds": null
     }
   ],
@@ -614,9 +632,12 @@ Get seat map (availability & pricing) for a showtime.
 ```
 
 **Seat Status**:
-- `AVAILABLE`: Can be selected
-- `HELD`: Reserved by another user (temporary)
-- `BOOKED`: Already sold
+- `available`: Can be selected
+- `holding`: Temporarily held (see `holdTtlSeconds`)
+- `sold`: Already booked
+
+**Seat Hold TTL**:
+- Seats are held for 10 minutes. When TTL expires, the hold is released and the seat becomes `available` again.
 
 **Frontend Integration**:
 ```typescript
@@ -626,11 +647,73 @@ async function getSeatMap(showtimeId) {
   const seats = payload.data;
   
   // Map seats to UI grid based on room layout
-  const availableSeats = seats.filter(s => s.status === 'AVAILABLE');
-  const heldSeats = seats.filter(s => s.status === 'HELD');
-  const bookedSeats = seats.filter(s => s.status === 'BOOKED');
+  const availableSeats = seats.filter(s => s.status === 'available');
+  const heldSeats = seats.filter(s => s.status === 'holding');
+  const bookedSeats = seats.filter(s => s.status === 'sold');
   
   return { availableSeats, heldSeats, bookedSeats };
+}
+```
+
+---
+
+### POST /showtimes/{id}/hold
+
+Hold seats for a showtime (seat locking).
+
+**Headers**:
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body**:
+```json
+{
+  "seatIds": [10, 11, 12]
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Giữ ghế thành công",
+  "data": null,
+  "timestamp": 1710000000000
+}
+```
+
+**Error Cases**:
+- `409 CONFLICT`: Seat already held (`SEAT_ALREADY_HELD`)
+- `409 CONFLICT`: Seat not available (`SEAT_NOT_AVAILABLE`)
+
+---
+
+### DELETE /showtimes/{id}/hold
+
+Release held seats for a showtime.
+
+**Headers**:
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body**:
+```json
+{
+  "seatIds": [10, 11, 12]
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Hủy giữ ghế thành công",
+  "data": null,
+  "timestamp": 1710000000000
 }
 ```
 
@@ -715,7 +798,7 @@ Content-Type: application/json
   "id": 1,
   "userId": 1,
   "showtimeId": 5,
-  "seatIdsSnapshot": "[10,11,12]",
+  "seatIdsSnapshot": "10,11,12",
   "voucherId": 3,
   "totalAmount": "450000.00",
   "discountAmount": "45000.00",
@@ -744,15 +827,22 @@ Content-Type: application/json
 - `totalAmount`: Sum of all selected seats
 - `discountAmount`: Amount deducted from voucher
 - `finalAmount`: Amount to be paid (totalAmount - discountAmount)
-- `status`: PENDING (waiting for payment)
+- `status`: PENDING, PAID, CANCELLED, REFUNDED
 - `tickets`: Array of generated tickets with QR codes (base64 encoded PNG)
-- `seatIdsSnapshot`: Server snapshot of seat ids as a string
+- `seatIdsSnapshot`: Comma-separated string of seat ids
 - `voucherCode`: Optional (can be null)
+
+**Seat Hold Requirement**:
+- Seats must be in `holding` state and held by the same user before creating the order.
 
 **Error Cases**:
 - `401 UNAUTHORIZED`: Token missing or expired
-- `400 BAD_REQUEST`: Invalid seats or voucher
-- `409 CONFLICT`: Seats already booked or held
+- `400 BAD_REQUEST`: Seat list empty (`SEAT_LIST_EMPTY`)
+- `400 BAD_REQUEST`: Seat-showtime mismatch (`SEAT_SHOWTIME_MISMATCH`)
+- `404 NOT_FOUND`: Seat not found (`SEAT_NOT_FOUND`)
+- `409 CONFLICT`: Seat not held (`SEAT_NOT_HELD`)
+- `409 CONFLICT`: Seat hold invalid/expired (`SEAT_HOLD_INVALID`)
+- `400 BAD_REQUEST`: Invalid voucher (`INVALID_VOUCHER`)
 
 **Frontend Integration**:
 ```typescript
@@ -825,6 +915,15 @@ Process payment for an order.
 **Error Cases**:
 - `404 NOT_FOUND`: Order doesn't exist
 - `400 BAD_REQUEST`: Order already paid or invalid status
+- `404 NOT_FOUND`: Seat not found (`SEAT_NOT_FOUND`)
+- `400 BAD_REQUEST`: Seat-showtime mismatch (`SEAT_SHOWTIME_MISMATCH`)
+- `409 CONFLICT`: Seat hold expired (`SEAT_HOLD_EXPIRED`)
+- `409 CONFLICT`: Seat hold owner mismatch (`SEAT_HOLD_OWNER_MISMATCH`)
+- `409 CONFLICT`: Duplicate transaction id (`DUPLICATE_TRANSACTION`)
+
+**Payment Notes**:
+- `transactionId` is treated as idempotent. Reusing the same `transactionId` for the same paid order returns the existing order.
+- Seats are marked `BOOKED` and hold keys are removed after successful payment.
 
 **Frontend Integration**:
 ```typescript
@@ -873,6 +972,9 @@ Refund a completed order (must have PAID status).
 **Error Cases**:
 - `404 NOT_FOUND`: Order doesn't exist
 - `400 BAD_REQUEST`: Order not in PAID status
+- `404 NOT_FOUND`: Showtime not found (`SHOWTIME_NOT_FOUND`)
+- `400 BAD_REQUEST`: Refund window closed (`REFUND_WINDOW_CLOSED`)
+- `400 BAD_REQUEST`: Checked-in ticket cannot be refunded (`TICKET_ALREADY_CHECKED_IN`)
 
 ---
 
@@ -1293,6 +1395,18 @@ Get all users (Admin only).
 | `VOUCHER_EXHAUSTED` | 400 | Voucher usage limit reached |
 | `ORDER_NOT_FOUND` | 404 | Order doesn't exist |
 | `INVALID_ORDER_STATUS` | 400 | Can't transition order to this status |
+| `SEAT_ALREADY_HELD` | 409 | Seat is held by another user |
+| `SEAT_NOT_AVAILABLE` | 409 | Seat is not available for holding |
+| `SEAT_LIST_EMPTY` | 400 | Seat list is empty |
+| `SEAT_NOT_FOUND` | 404 | Seat not found |
+| `SEAT_SHOWTIME_MISMATCH` | 400 | Seat does not belong to showtime |
+| `SEAT_NOT_HELD` | 409 | Seat is not in held state |
+| `SEAT_HOLD_INVALID` | 409 | Seat hold invalid or expired |
+| `SEAT_HOLD_EXPIRED` | 409 | Seat hold expired before payment |
+| `SEAT_HOLD_OWNER_MISMATCH` | 409 | Hold owner mismatch |
+| `DUPLICATE_TRANSACTION` | 409 | Transaction id already used |
+| `REFUND_WINDOW_CLOSED` | 400 | Refund window has closed |
+| `TICKET_ALREADY_CHECKED_IN` | 400 | Ticket already checked in |
 | `ACCESS_DENIED` | 403 | User role insufficient |
 | `VALIDATION_FAILED` | 400 | Input validation error |
 | `INTERNAL_ERROR` | 500 | Server error |
@@ -1374,30 +1488,40 @@ async function handleApiError(response) {
 ```
 1. User selects seats from map
    Frontend: Store selected seatIds in state
-   
-2. User enters optional voucher code
-   GET /vouchers/validate/{code}
-   ↓
-   Display discount amount
-   
-3. User confirms and pays
-   POST /orders
-   {userId, showtimeId, seatIds, voucherCode}
-   ↓
-   Receive order with PENDING status & generated tickets
-   
-4. Process payment
-   POST /orders/{orderId}/pay
-   {paymentMethod, transactionId}
-   ↓
-   Receive order with PAID status
-   
-5. Display tickets
-   - Show ticket codes
-   - Display QR codes (use qrCodeData)
-   - Offer download/print option
-   
-6. User receives email with ticket details
+
+2. Hold seats (lock)
+  POST /showtimes/{showtimeId}/hold
+  {seatIds}
+  ↓
+  Seats are held for 10 minutes
+
+3. User enters optional voucher code
+  GET /vouchers/validate/{code}
+  ↓
+  Display discount amount
+
+4. Create order
+  POST /orders
+  {userId, showtimeId, seatIds, voucherCode}
+  ↓
+  Receive order with PENDING status
+
+5. Process payment
+  POST /orders/{orderId}/pay
+  {paymentMethod, transactionId}
+  ↓
+  Receive order with PAID status
+
+6. Route user on payment result
+  - Success: /user/checkout-success
+  - Failure: return to /user/checkout with error (no dedicated failure route yet)
+
+7. Display tickets
+  - Show ticket codes
+  - Display QR codes (use qrCodeData)
+  - Offer download/print option
+
+8. User receives email with ticket details
 ```
 
 ### Refund Flow
