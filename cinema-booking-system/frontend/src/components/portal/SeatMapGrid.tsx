@@ -8,10 +8,13 @@ interface SeatMapGridProps {
 }
 
 export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, onSeatToggle }) => {
+  // Infer column count from the widest row (backend can vary per room)
+  const colCount = seatMap.rows.reduce((max, row) => Math.max(max, row.seats.length), 1);
+
   return (
     <div
       className="grid gap-2 max-w-3xl mx-auto"
-      style={{ gridTemplateColumns: 'repeat(14, minmax(0, 1fr))' }}
+      style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}
     >
       {seatMap.rows.flatMap((row) =>
         row.seats.map((seat) => {
