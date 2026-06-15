@@ -9,9 +9,11 @@ import com.uit.cinema.catalog.repository.MovieRepository;
 import com.uit.cinema.facility.entity.Cinema;
 import com.uit.cinema.facility.entity.Room;
 import com.uit.cinema.facility.entity.SeatTemplate;
+import com.uit.cinema.facility.entity.SeatType;
 import com.uit.cinema.facility.repository.CinemaRepository;
 import com.uit.cinema.facility.repository.RoomRepository;
 import com.uit.cinema.facility.repository.SeatTemplateRepository;
+import com.uit.cinema.facility.repository.SeatTypeRepository;
 import com.uit.cinema.iam.entity.Role;
 import com.uit.cinema.iam.entity.User;
 import com.uit.cinema.iam.repository.RoleRepository;
@@ -45,6 +47,7 @@ public class DataInitializer implements CommandLineRunner {
     private final CinemaRepository cinemaRepository;
     private final RoomRepository roomRepository;
     private final SeatTemplateRepository seatTemplateRepository;
+    private final SeatTypeRepository seatTypeRepository;
     private final MovieRepository movieRepository;
     private final EventRepository eventRepository;
     private final ShowtimeRepository showtimeRepository;
@@ -63,12 +66,14 @@ public class DataInitializer implements CommandLineRunner {
 
         seedUsers(customerRole, staffRole, adminRole);
 
+        SeedSeatTypes seatTypes = seedSeatTypes();
+
         Cinema hcmCinema = seedCinema("CGV HUNG VUONG PLAZA", "126 Hung Vuong, Quan 5", "Ho Chi Minh", "02838350000");
         Cinema thuDucCinema = seedCinema("BETA THU DUC", "Vo Van Ngan, Thu Duc", "Ho Chi Minh", "02873000001");
 
-        Room roomA = seedRoom(hcmCinema, "Phong A1", "2D", 6, 8);
-        Room roomB = seedRoom(hcmCinema, "Phong A2", "IMAX", 5, 7);
-        Room roomC = seedRoom(thuDucCinema, "Phong B1", "3D", 6, 6);
+        Room roomA = seedRoom(hcmCinema, "Phong A1", "2D", 6, 8, seatTypes);
+        Room roomB = seedRoom(hcmCinema, "Phong A2", "IMAX", 5, 7, seatTypes);
+        Room roomC = seedRoom(thuDucCinema, "Phong B1", "3D", 6, 6, seatTypes);
 
         Movie movie1 = seedMovie("Lat Mat 9", "Movie seeded for FE booking flow", 125, LocalDate.now().minusDays(10), "T16");
         Movie movie2 = seedMovie("Avengers: Secret Wars", "Action blockbuster seeded for FE", 140, LocalDate.now().plusDays(20), "T13");
@@ -142,6 +147,66 @@ public class DataInitializer implements CommandLineRunner {
         });
     }
 
+    private SeedSeatTypes seedSeatTypes() {
+        SeatType standard = seedSeatType(
+            SeatType.SeatTypeCode.STANDARD,
+            "standard",
+            "Standard",
+            BigDecimal.ONE,
+            1,
+            "Standard single seat"
+        );
+        SeatType vip = seedSeatType(
+            SeatType.SeatTypeCode.VIP,
+            "vip",
+            "VIP",
+            BigDecimal.valueOf(1.30),
+            1,
+            "Premium single seat with better position"
+        );
+        SeatType couple = seedSeatType(
+            SeatType.SeatTypeCode.COUPLE,
+            "couple",
+            "Couple",
+            BigDecimal.valueOf(2.00),
+            2,
+            "Couple seat represented as one logical seat spanning two columns"
+        );
+        return new SeedSeatTypes(standard, vip, couple);
+    }
+
+    private SeatType seedSeatType(
+        SeatType.SeatTypeCode code,
+        String name,
+        String displayName,
+        BigDecimal priceMultiplier,
+        int defaultColumnSpan,
+        String description
+    ) {
+        return seatTypeRepository.findByCode(code)
+            .or(() -> seatTypeRepository.findByNameIgnoreCase(name))
+            .or(() -> code == SeatType.SeatTypeCode.STANDARD ? seatTypeRepository.findByNameIgnoreCase("normal") : java.util.Optional.empty())
+            .map(type -> {
+                type.setCode(code);
+                type.setName(name);
+                type.setDisplayName(displayName);
+                type.setPriceMultiplier(priceMultiplier);
+                type.setDefaultColumnSpan(defaultColumnSpan);
+                type.setDescription(description);
+                return seatTypeRepository.save(type);
+            })
+            .orElseGet(() -> seatTypeRepository.save(
+                SeatType.builder()
+                    .code(code)
+                    .name(name)
+                    .displayName(displayName)
+                    .priceMultiplier(priceMultiplier)
+                    .defaultColumnSpan(defaultColumnSpan)
+                    .description(description)
+                    .build()
+            ));
+    }
+
     private Cinema seedCinema(String name, String address, String city, String phone) {
         return cinemaRepository.findByActiveTrue().stream()
             .filter(c -> c.getName().equalsIgnoreCase(name))
@@ -151,7 +216,7 @@ public class DataInitializer implements CommandLineRunner {
             ));
     }
 
-    private Room seedRoom(Cinema cinema, String roomName, String type, int rows, int columns) {
+    private Room seedRoom(Cinema cinema, String roomName, String type, int rows, int columns, SeedSeatTypes seatTypes) {
         Room room = roomRepository.findByCinemaIdAndActiveTrue(cinema.getId()).stream()
             .filter(r -> r.getName().equalsIgnoreCase(roomName))
             .findFirst()
@@ -168,29 +233,63 @@ public class DataInitializer implements CommandLineRunner {
                     .build()
             ));
 
-        seedSeatTemplates(room, rows, columns);
+        seedSeatTemplates(room, rows, columns, seatTypes);
         return room;
     }
 
-    private void seedSeatTemplates(Room room, int rows, int columns) {
+    private void seedSeatTemplates(Room room, int rows, int columns, SeedSeatTypes seatTypes) {
         List<SeatTemplate> existing = seatTemplateRepository.findByRoomIdAndActiveTrue(room.getId());
         if (!existing.isEmpty()) {
+            normalizeExistingSeatTemplates(existing, rows, seatTypes);
             return;
         }
 
         for (int r = 0; r < rows; r++) {
             String rowLabel = String.valueOf((char) ('A' + r));
-            for (int c = 1; c <= columns; c++) {
+            int c = 1;
+            while (c <= columns) {
+                SeatType seatType = resolveSeatTypeForRow(r, rows, seatTypes);
+                int columnSpan = seatType.getDefaultColumnSpan() != null ? seatType.getDefaultColumnSpan() : 1;
                 seatTemplateRepository.save(
                     SeatTemplate.builder()
                         .room(room)
+                        .seatType(seatType)
                         .rowLabel(rowLabel)
                         .columnNumber(c)
+                        .columnSpan(columnSpan)
+                        .pathway(false)
                         .active(true)
                         .build()
                 );
+                c += columnSpan;
             }
         }
+    }
+
+    private void normalizeExistingSeatTemplates(List<SeatTemplate> existing, int rows, SeedSeatTypes seatTypes) {
+        existing.forEach(template -> {
+            int rowIndex = template.getRowLabel().charAt(0) - 'A';
+            SeatType seatType = resolveSeatTypeForRow(rowIndex, rows, seatTypes);
+            int columnSpan = seatType.getDefaultColumnSpan() != null ? seatType.getDefaultColumnSpan() : 1;
+            if (template.getSeatType() == null) {
+                template.setSeatType(seatType);
+            }
+            if (template.getColumnSpan() == null || template.getColumnSpan() < 1) {
+                template.setColumnSpan(columnSpan);
+            }
+            template.setPathway(false);
+        });
+        seatTemplateRepository.saveAll(existing);
+    }
+
+    private SeatType resolveSeatTypeForRow(int rowIndex, int totalRows, SeedSeatTypes seatTypes) {
+        if (rowIndex == totalRows - 1) {
+            return seatTypes.couple();
+        }
+        if (rowIndex >= Math.max(0, totalRows - 3)) {
+            return seatTypes.vip();
+        }
+        return seatTypes.standard();
     }
 
     private Movie seedMovie(String title, String description, int duration, LocalDate releaseDate, String ageRating) {
@@ -273,7 +372,7 @@ public class DataInitializer implements CommandLineRunner {
                 ShowtimeSeat.builder()
                     .showtimeId(showtime.getId())
                     .seatTemplateId(template.getId())
-                    .price(basePrice)
+                    .price(calculateSeatPrice(basePrice, template))
                     .status(ShowtimeSeat.SeatStatus.AVAILABLE)
                     .build()
             );
@@ -294,5 +393,16 @@ public class DataInitializer implements CommandLineRunner {
                 .active(true)
                 .build()
         ));
+    }
+
+    private BigDecimal calculateSeatPrice(BigDecimal basePrice, SeatTemplate template) {
+        BigDecimal multiplier = BigDecimal.ONE;
+        if (template.getSeatType() != null && template.getSeatType().getPriceMultiplier() != null) {
+            multiplier = template.getSeatType().getPriceMultiplier();
+        }
+        return basePrice.multiply(multiplier);
+    }
+
+    private record SeedSeatTypes(SeatType standard, SeatType vip, SeatType couple) {
     }
 }

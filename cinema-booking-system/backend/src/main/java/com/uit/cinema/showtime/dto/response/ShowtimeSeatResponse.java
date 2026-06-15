@@ -20,6 +20,10 @@ public class ShowtimeSeatResponse {
     private String rowLabel;
     private Integer columnNumber;
     private String seatType;
+    private String seatTypeCode;
+    private String seatTypeName;
+    private String seatKind;
+    private Integer columnSpan;
     private Boolean isPathway;
     private BigDecimal price;
     private String status;

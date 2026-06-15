@@ -1,13 +1,13 @@
-/**
+﻿/**
  * Cinema Booking System - Automated E2E System Integration Test Script
  * 
- * Yêu cầu: Node.js version 18+ (để sử dụng API fetch tích hợp sẵn).
- * Cách chạy: node test-api.js
+ * YÃªu cáº§u: Node.js version 18+ (Ä‘á»ƒ sá»­ dá»¥ng API fetch tÃ­ch há»£p sáºµn).
+ * CÃ¡ch cháº¡y: node test-api.js
  */
 
 const BASE_URL = 'http://localhost:8080';
 
-// Cấu hình tài khoản thử nghiệm
+// Cáº¥u hÃ¬nh tÃ i khoáº£n thá»­ nghiá»‡m
 const ADMIN_EMAIL = 'admin@cinema.com';
 const ADMIN_PASSWORD = 'admin123';
 
@@ -27,19 +27,32 @@ function logHeader(msg) {
 }
 
 function logSuccess(msg) {
-    console.log(`${COLORS.green}✔ [SUCCESS] ${msg}${COLORS.reset}`);
+    console.log(`${COLORS.green}âœ” [SUCCESS] ${msg}${COLORS.reset}`);
 }
 
 function logInfo(msg) {
-    console.log(`${COLORS.cyan}ℹ [INFO] ${msg}${COLORS.reset}`);
+    console.log(`${COLORS.cyan}â„¹ [INFO] ${msg}${COLORS.reset}`);
 }
 
 function logWarning(msg) {
-    console.log(`${COLORS.yellow}⚠ [WARNING] ${msg}${COLORS.reset}`);
+    console.log(`${COLORS.yellow}âš  [WARNING] ${msg}${COLORS.reset}`);
 }
 
 function logError(msg, err = '') {
-    console.log(`${COLORS.red}✘ [FAILED] ${msg} ${err}${COLORS.reset}`);
+    console.log(`${COLORS.red}âœ˜ [FAILED] ${msg} ${err}${COLORS.reset}`);
+}
+
+function unwrapData(payload) {
+    return payload && Object.prototype.hasOwnProperty.call(payload, 'data') ? payload.data : payload;
+}
+
+function isApiSuccess(res, payload) {
+    return res.ok && (payload.success === undefined || payload.success === true);
+}
+
+function formatLocalDateTime(date) {
+    const pad = (value) => String(value).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
 }
 
 async function runTests() {
@@ -57,7 +70,7 @@ async function runTests() {
 
     let adminToken = '';
     
-    // Siêu dữ liệu rạp/phòng/phim tạo ra trong lúc test
+    // SiÃªu dá»¯ liá»‡u ráº¡p/phÃ²ng/phim táº¡o ra trong lÃºc test
     let cinemaId = null;
     let roomId = null;
     let movieId = null;
@@ -65,15 +78,20 @@ async function runTests() {
     let seatId = null;
     let orderId = null;
     let ticketCode = '';
+    const futureStart = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    futureStart.setHours(19, 0, 0, 0);
+    const futureEnd = new Date(futureStart.getTime() + 2 * 60 * 60 * 1000);
+    const futureStartText = formatLocalDateTime(futureStart);
+    const futureEndText = formatLocalDateTime(futureEnd);
 
     // ==========================================
     // FLOW 1: AUTHENTICATION & PROFILE (CUSTOMER)
     // ==========================================
-    logHeader('FLOW 1: ĐĂNG KÝ & XÁC THỰC KHÁCH HÀNG');
+    logHeader('FLOW 1: ÄÄ‚NG KÃ & XÃC THá»°C KHÃCH HÃ€NG');
 
-    // 1. Đăng ký khách hàng mới
+    // 1. ÄÄƒng kÃ½ khÃ¡ch hÃ ng má»›i
     try {
-        logInfo(`Đăng ký khách hàng mới: ${customerEmail}`);
+        logInfo(`ÄÄƒng kÃ½ khÃ¡ch hÃ ng má»›i: ${customerEmail}`);
         const res = await fetch(`${BASE_URL}/api/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -86,18 +104,18 @@ async function runTests() {
         });
         const data = await res.json();
         if (res.ok && data.success) {
-            logSuccess('Đăng ký tài khoản khách hàng thành công!');
+            logSuccess('ÄÄƒng kÃ½ tÃ i khoáº£n khÃ¡ch hÃ ng thÃ nh cÃ´ng!');
         } else {
-            throw new Error(data.message || 'Đăng ký lỗi');
+            throw new Error(data.message || 'ÄÄƒng kÃ½ lá»—i');
         }
     } catch (e) {
-        logError('Đăng ký khách hàng thất bại!', e.message);
+        logError('ÄÄƒng kÃ½ khÃ¡ch hÃ ng tháº¥t báº¡i!', e.message);
         return;
     }
 
-    // 2. Đăng nhập khách hàng
+    // 2. ÄÄƒng nháº­p khÃ¡ch hÃ ng
     try {
-        logInfo(`Đăng nhập khách hàng: ${customerEmail}`);
+        logInfo(`ÄÄƒng nháº­p khÃ¡ch hÃ ng: ${customerEmail}`);
         const res = await fetch(`${BASE_URL}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -108,52 +126,52 @@ async function runTests() {
             customerToken = data.data.accessToken;
             customerRefreshToken = data.data.refreshToken;
             customerUserId = data.data.user.id;
-            logSuccess(`Đăng nhập thành công! User ID: ${customerUserId}`);
+            logSuccess(`ÄÄƒng nháº­p thÃ nh cÃ´ng! User ID: ${customerUserId}`);
             logInfo(`Access Token: Bearer ${customerToken.substring(0, 15)}...`);
             logInfo(`Refresh Token: ${customerRefreshToken.substring(0, 15)}...`);
         } else {
-            throw new Error(data.message || 'Đăng nhập lỗi');
+            throw new Error(data.message || 'ÄÄƒng nháº­p lá»—i');
         }
     } catch (e) {
-        logError('Đăng nhập khách hàng thất bại!', e.message);
+        logError('ÄÄƒng nháº­p khÃ¡ch hÃ ng tháº¥t báº¡i!', e.message);
         return;
     }
 
-    // 3. Lấy profile cá nhân (Bọc ApiResponse + DTO)
+    // 3. Láº¥y profile cÃ¡ nhÃ¢n (Bá»c ApiResponse + DTO)
     try {
-        logInfo(`Lấy thông tin tài khoản của chính mình (User ID: ${customerUserId})`);
+        logInfo(`Láº¥y thÃ´ng tin tÃ i khoáº£n cá»§a chÃ­nh mÃ¬nh (User ID: ${customerUserId})`);
         const res = await fetch(`${BASE_URL}/api/users/${customerUserId}`, {
             headers: { 'Authorization': `Bearer ${customerToken}` }
         });
         const data = await res.json();
         if (res.ok && data.success) {
-            logSuccess(`Lấy hồ sơ cá nhân thành công! Tên: ${data.data.fullName}`);
+            logSuccess(`Láº¥y há»“ sÆ¡ cÃ¡ nhÃ¢n thÃ nh cÃ´ng! TÃªn: ${data.data.fullName}`);
         } else {
-            throw new Error(data.message || 'Lấy hồ sơ lỗi');
+            throw new Error(data.message || 'Láº¥y há»“ sÆ¡ lá»—i');
         }
     } catch (e) {
-        logError('Lấy hồ sơ cá nhân thất bại!', e.message);
+        logError('Láº¥y há»“ sÆ¡ cÃ¡ nhÃ¢n tháº¥t báº¡i!', e.message);
     }
 
-    // 4. Thử lấy danh sách toàn bộ User (Yêu cầu ADMIN -> Phải bị chặn 403 Forbidden)
+    // 4. Thá»­ láº¥y danh sÃ¡ch toÃ n bá»™ User (YÃªu cáº§u ADMIN -> Pháº£i bá»‹ cháº·n 403 Forbidden)
     try {
-        logInfo('Kiểm tra Role Guard: Khách hàng thường thử lấy danh sách toàn bộ User...');
+        logInfo('Kiá»ƒm tra Role Guard: KhÃ¡ch hÃ ng thÆ°á»ng thá»­ láº¥y danh sÃ¡ch toÃ n bá»™ User...');
         const res = await fetch(`${BASE_URL}/api/users`, {
             headers: { 'Authorization': `Bearer ${customerToken}` }
         });
         const data = await res.json();
         if (res.status === 403 || !data.success) {
-            logSuccess('Role Guard hoạt động tốt! Hệ thống từ chối quyền truy cập (403 Forbidden).');
+            logSuccess('Role Guard hoáº¡t Ä‘á»™ng tá»‘t! Há»‡ thá»‘ng tá»« chá»‘i quyá»n truy cáº­p (403 Forbidden).');
         } else {
-            logWarning('CẢNH BÁO: Khách hàng thường có thể lấy danh sách User! Cần xem lại phân quyền.');
+            logWarning('Cáº¢NH BÃO: KhÃ¡ch hÃ ng thÆ°á»ng cÃ³ thá»ƒ láº¥y danh sÃ¡ch User! Cáº§n xem láº¡i phÃ¢n quyá»n.');
         }
     } catch (e) {
-        logError('Kiểm thử Role Guard thất bại!', e.message);
+        logError('Kiá»ƒm thá»­ Role Guard tháº¥t báº¡i!', e.message);
     }
 
-    // 5. Thử làm mới Token (Refresh Token Lifecycle)
+    // 5. Thá»­ lÃ m má»›i Token (Refresh Token Lifecycle)
     try {
-        logInfo('Kiểm tra làm mới Access Token bằng Refresh Token...');
+        logInfo('Kiá»ƒm tra lÃ m má»›i Access Token báº±ng Refresh Token...');
         const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -162,23 +180,23 @@ async function runTests() {
         const data = await res.json();
         if (res.ok && data.success) {
             customerToken = data.data.accessToken;
-            logSuccess('Làm mới Token thành công! Đã cập nhật Access Token mới.');
+            logSuccess('LÃ m má»›i Token thÃ nh cÃ´ng! ÄÃ£ cáº­p nháº­t Access Token má»›i.');
         } else {
-            throw new Error(data.message || 'Refresh lỗi');
+            throw new Error(data.message || 'Refresh lá»—i');
         }
     } catch (e) {
-        logError('Làm mới Token thất bại!', e.message);
+        logError('LÃ m má»›i Token tháº¥t báº¡i!', e.message);
     }
 
 
     // ==========================================
     // FLOW 2: ADMIN SETUP (CINEMA, ROOM, MOVIE, SHOWTIME)
     // ==========================================
-    logHeader('FLOW 2: THIẾT LẬP DỮ LIỆU RAP/PHÒNG/PHIM (ADMIN)');
+    logHeader('FLOW 2: THIáº¾T Láº¬P Dá»® LIá»†U RAP/PHÃ’NG/PHIM (ADMIN)');
 
-    // 1. Đăng nhập Admin
+    // 1. ÄÄƒng nháº­p Admin
     try {
-        logInfo(`Đăng nhập tài khoản Admin: ${ADMIN_EMAIL}`);
+        logInfo(`ÄÄƒng nháº­p tÃ i khoáº£n Admin: ${ADMIN_EMAIL}`);
         const res = await fetch(`${BASE_URL}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -187,20 +205,20 @@ async function runTests() {
         const data = await res.json();
         if (res.ok && data.success) {
             adminToken = data.data.accessToken;
-            logSuccess('Đăng nhập Admin thành công!');
+            logSuccess('ÄÄƒng nháº­p Admin thÃ nh cÃ´ng!');
         } else {
-            logWarning(`Đăng nhập Admin thất bại (Lỗi: ${data.message}). Vui lòng chắc chắn đã seed tài khoản Admin.`);
-            logWarning('Bỏ qua các bước Admin nhạy cảm. Tiếp tục test các API Public.');
+            logWarning(`ÄÄƒng nháº­p Admin tháº¥t báº¡i (Lá»—i: ${data.message}). Vui lÃ²ng cháº¯c cháº¯n Ä‘Ã£ seed tÃ i khoáº£n Admin.`);
+            logWarning('Bá» qua cÃ¡c bÆ°á»›c Admin nháº¡y cáº£m. Tiáº¿p tá»¥c test cÃ¡c API Public.');
             return;
         }
     } catch (e) {
-        logError('Không thể kết nối API Đăng nhập Admin!', e.message);
+        logError('KhÃ´ng thá»ƒ káº¿t ná»‘i API ÄÄƒng nháº­p Admin!', e.message);
         return;
     }
 
-    // 2. Tạo rạp mới (Cinema)
+    // 2. Táº¡o ráº¡p má»›i (Cinema)
     try {
-        logInfo('Tạo rạp chiếu mới...');
+        logInfo('Táº¡o ráº¡p chiáº¿u má»›i...');
         const res = await fetch(`${BASE_URL}/api/cinemas`, {
             method: 'POST',
             headers: {
@@ -208,27 +226,27 @@ async function runTests() {
                 'Authorization': `Bearer ${adminToken}`
             },
             body: JSON.stringify({
-                name: `CGV Hùng Vương Plaza #${randomSuffix}`,
-                address: '126 Hùng Vương, Quận 5, TP. HCM',
-                city: 'Hồ Chí Minh',
+                name: `CGV HÃ¹ng VÆ°Æ¡ng Plaza #${randomSuffix}`,
+                address: '126 HÃ¹ng VÆ°Æ¡ng, Quáº­n 5, TP. HCM',
+                city: 'Há»“ ChÃ­ Minh',
                 phone: '02838350000'
             })
         });
         const data = await res.json();
         if (res.ok && data.success) {
             cinemaId = data.data.id;
-            logSuccess(`Tạo rạp thành công! Cinema ID: ${cinemaId}`);
+            logSuccess(`Táº¡o ráº¡p thÃ nh cÃ´ng! Cinema ID: ${cinemaId}`);
         } else {
-            throw new Error(data.message || 'Tạo rạp lỗi');
+            throw new Error(data.message || 'Táº¡o ráº¡p lá»—i');
         }
     } catch (e) {
-        logError('Tạo rạp chiếu thất bại!', e.message);
+        logError('Táº¡o ráº¡p chiáº¿u tháº¥t báº¡i!', e.message);
         return;
     }
 
-    // 3. Tạo phòng chiếu mới (Room)
+    // 3. Táº¡o phÃ²ng chiáº¿u má»›i (Room)
     try {
-        logInfo(`Tạo phòng chiếu cho Rạp ID: ${cinemaId}`);
+        logInfo(`Táº¡o phÃ²ng chiáº¿u cho Ráº¡p ID: ${cinemaId}`);
         const res = await fetch(`${BASE_URL}/api/cinemas/${cinemaId}/rooms`, {
             method: 'POST',
             headers: {
@@ -236,7 +254,7 @@ async function runTests() {
                 'Authorization': `Bearer ${adminToken}`
             },
             body: JSON.stringify({
-                name: 'Phòng IMAX VIP',
+                name: 'PhÃ²ng IMAX VIP',
                 type: 'IMAX',
                 totalSeats: 2,
                 rows: 1,
@@ -246,18 +264,18 @@ async function runTests() {
         const data = await res.json();
         if (res.ok && data.success) {
             roomId = data.data.id;
-            logSuccess(`Tạo phòng thành công! Room ID: ${roomId}`);
+            logSuccess(`Táº¡o phÃ²ng thÃ nh cÃ´ng! Room ID: ${roomId}`);
         } else {
-            throw new Error(data.message || 'Tạo phòng lỗi');
+            throw new Error(data.message || 'Táº¡o phÃ²ng lá»—i');
         }
     } catch (e) {
-        logError('Tạo phòng chiếu thất bại!', e.message);
+        logError('Táº¡o phÃ²ng chiáº¿u tháº¥t báº¡i!', e.message);
         return;
     }
 
-    // 4. Tạo phim mới (Movie)
+    // 4. Táº¡o phim má»›i (Movie)
     try {
-        logInfo('Tạo phim mới trong danh mục...');
+        logInfo('Táº¡o phim má»›i trong danh má»¥c...');
         const res = await fetch(`${BASE_URL}/api/movies`, {
             method: 'POST',
             headers: {
@@ -265,33 +283,33 @@ async function runTests() {
                 'Authorization': `Bearer ${adminToken}`
             },
             body: JSON.stringify({
-                title: `Hành trình vô tận #${randomSuffix}`,
-                description: 'Một tác phẩm điện ảnh bom tấn xuất sắc.',
+                title: `HÃ nh trÃ¬nh vÃ´ táº­n #${randomSuffix}`,
+                description: 'Má»™t tÃ¡c pháº©m Ä‘iá»‡n áº£nh bom táº¥n xuáº¥t sáº¯c.',
                 durationMinutes: 120,
-                releaseDate: '2026-05-24',
+                releaseDate: futureStartText.substring(0, 10),
                 ageRating: 'T16',
                 posterUrl: 'http://example.com/poster.jpg',
                 trailerUrl: 'http://example.com/trailer.mp4',
-                language: 'Tiếng Việt',
+                language: 'Tiáº¿ng Viá»‡t',
                 genreIds: []
             })
         });
         const data = await res.json();
         if (res.ok && data.success) {
             movieId = data.data.id;
-            logSuccess(`Tạo phim thành công! Movie ID: ${movieId}`);
+            logSuccess(`Táº¡o phim thÃ nh cÃ´ng! Movie ID: ${movieId}`);
         } else {
-            throw new Error(data.message || 'Tạo phim lỗi');
+            throw new Error(data.message || 'Táº¡o phim lá»—i');
         }
     } catch (e) {
-        logError('Tạo phim thất bại!', e.message);
+        logError('Táº¡o phim tháº¥t báº¡i!', e.message);
         return;
     }
 
-    // 5. Kiểm tra phòng bảo trì (Maintenance Status Constraints)
+    // 5. Kiá»ƒm tra phÃ²ng báº£o trÃ¬ (Maintenance Status Constraints)
     try {
-        logInfo('Kiểm tra tính năng bảo trì phòng chiếu...');
-        // Đặt phòng sang trạng thái bảo trì
+        logInfo('Kiá»ƒm tra tÃ­nh nÄƒng báº£o trÃ¬ phÃ²ng chiáº¿u...');
+        // Äáº·t phÃ²ng sang tráº¡ng thÃ¡i báº£o trÃ¬
         await fetch(`${BASE_URL}/api/cinemas/${cinemaId}/rooms/${roomId}`, {
             method: 'PUT',
             headers: {
@@ -299,7 +317,7 @@ async function runTests() {
                 'Authorization': `Bearer ${adminToken}`
             },
             body: JSON.stringify({
-                name: 'Phòng IMAX VIP',
+                name: 'PhÃ²ng IMAX VIP',
                 type: 'IMAX',
                 totalSeats: 2,
                 rows: 1,
@@ -307,10 +325,10 @@ async function runTests() {
                 underMaintenance: true
             })
         });
-        logInfo('Đã chuyển phòng sang trạng thái underMaintenance = true.');
+        logInfo('ÄÃ£ chuyá»ƒn phÃ²ng sang tráº¡ng thÃ¡i underMaintenance = true.');
 
-        // Thử tạo lịch chiếu trong phòng đang bảo trì -> Phải bị chặn!
-        logInfo('Thử tạo suất chiếu mới trong phòng đang bảo trì...');
+        // Thá»­ táº¡o lá»‹ch chiáº¿u trong phÃ²ng Ä‘ang báº£o trÃ¬ -> Pháº£i bá»‹ cháº·n!
+        logInfo('Thá»­ táº¡o suáº¥t chiáº¿u má»›i trong phÃ²ng Ä‘ang báº£o trÃ¬...');
         const res = await fetch(`${BASE_URL}/api/showtimes`, {
             method: 'POST',
             headers: {
@@ -320,19 +338,19 @@ async function runTests() {
             body: JSON.stringify({
                 roomId: roomId,
                 movieId: movieId,
-                startTime: '2026-05-24T19:00:00',
-                endTime: '2026-05-24T21:00:00',
+                startTime: futureStartText,
+                endTime: futureEndText,
                 basePrice: 80000
             })
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
-            logSuccess('Ràng buộc bảo trì hoạt động tốt! Hệ thống từ chối lên lịch cho phòng bảo trì.');
+            logSuccess('RÃ ng buá»™c báº£o trÃ¬ hoáº¡t Ä‘á»™ng tá»‘t! Há»‡ thá»‘ng tá»« chá»‘i lÃªn lá»‹ch cho phÃ²ng báº£o trÃ¬.');
         } else {
-            logWarning('CẢNH BÁO: Vẫn tạo được suất chiếu trong phòng đang bảo trì! Cần kiểm tra logic validator.');
+            logWarning('Cáº¢NH BÃO: Váº«n táº¡o Ä‘Æ°á»£c suáº¥t chiáº¿u trong phÃ²ng Ä‘ang báº£o trÃ¬! Cáº§n kiá»ƒm tra logic validator.');
         }
 
-        // Khôi phục phòng hoạt động bình thường
+        // KhÃ´i phá»¥c phÃ²ng hoáº¡t Ä‘á»™ng bÃ¬nh thÆ°á»ng
         await fetch(`${BASE_URL}/api/cinemas/${cinemaId}/rooms/${roomId}`, {
             method: 'PUT',
             headers: {
@@ -340,7 +358,7 @@ async function runTests() {
                 'Authorization': `Bearer ${adminToken}`
             },
             body: JSON.stringify({
-                name: 'Phòng IMAX VIP',
+                name: 'PhÃ²ng IMAX VIP',
                 type: 'IMAX',
                 totalSeats: 2,
                 rows: 1,
@@ -348,14 +366,14 @@ async function runTests() {
                 underMaintenance: false
             })
         });
-        logInfo('Đã khôi phục phòng sang trạng thái hoạt động bình thường (underMaintenance = false).');
+        logInfo('ÄÃ£ khÃ´i phá»¥c phÃ²ng sang tráº¡ng thÃ¡i hoáº¡t Ä‘á»™ng bÃ¬nh thÆ°á»ng (underMaintenance = false).');
     } catch (e) {
-        logError('Kiểm tra ràng buộc phòng bảo trì thất bại!', e.message);
+        logError('Kiá»ƒm tra rÃ ng buá»™c phÃ²ng báº£o trÃ¬ tháº¥t báº¡i!', e.message);
     }
 
-    // 6. Tạo suất chiếu mới hợp lệ (Showtime)
+    // 6. Táº¡o suáº¥t chiáº¿u má»›i há»£p lá»‡ (Showtime)
     try {
-        logInfo('Tạo suất chiếu hợp lệ cho phim...');
+        logInfo('Táº¡o suáº¥t chiáº¿u há»£p lá»‡ cho phim...');
         const res = await fetch(`${BASE_URL}/api/showtimes`, {
             method: 'POST',
             headers: {
@@ -365,20 +383,20 @@ async function runTests() {
             body: JSON.stringify({
                 roomId: roomId,
                 movieId: movieId,
-                startTime: '2026-05-24T19:00:00',
-                endTime: '2026-05-24T21:00:00',
+                startTime: futureStartText,
+                endTime: futureEndText,
                 basePrice: 80000
             })
         });
         const data = await res.json();
         if (res.ok && data.success) {
             showtimeId = data.data.id;
-            logSuccess(`Tạo suất chiếu thành công! Showtime ID: ${showtimeId}`);
+            logSuccess(`Táº¡o suáº¥t chiáº¿u thÃ nh cÃ´ng! Showtime ID: ${showtimeId}`);
         } else {
-            throw new Error(data.message || 'Tạo suất chiếu lỗi');
+            throw new Error(data.message || 'Táº¡o suáº¥t chiáº¿u lá»—i');
         }
     } catch (e) {
-        logError('Tạo suất chiếu thất bại!', e.message);
+        logError('Táº¡o suáº¥t chiáº¿u tháº¥t báº¡i!', e.message);
         return;
     }
 
@@ -386,41 +404,45 @@ async function runTests() {
     // ==========================================
     // FLOW 3: REAL-TIME SEAT HOLDING & SEARCH
     // ==========================================
-    logHeader('FLOW 3: TÌM KIẾM DANH MỤC & GIỮ GHẾ THỜI GIAN THỰC');
+    logHeader('FLOW 3: TÃŒM KIáº¾M DANH Má»¤C & GIá»® GHáº¾ THá»œI GIAN THá»°C');
 
-    // 1. Kiểm tra tìm kiếm phim và sự kiện (Catalog Search)
+    // 1. Kiá»ƒm tra tÃ¬m kiáº¿m phim vÃ  sá»± kiá»‡n (Catalog Search)
     try {
-        logInfo(`Tìm kiếm danh mục phim với từ khóa: "${randomSuffix}"`);
+        logInfo(`TÃ¬m kiáº¿m danh má»¥c phim vá»›i tá»« khÃ³a: "${randomSuffix}"`);
         const res = await fetch(`${BASE_URL}/api/catalog/search?keyword=${randomSuffix}`);
         const data = await res.json();
         if (res.ok && data.success) {
-            logSuccess(`Tìm kiếm thành công! Số lượng phim khớp: ${data.data.movies.length}`);
+            logSuccess(`TÃ¬m kiáº¿m thÃ nh cÃ´ng! Sá»‘ lÆ°á»£ng phim khá»›p: ${data.data.movies.length}`);
         } else {
-            throw new Error(data.message || 'Tìm kiếm lỗi');
+            throw new Error(data.message || 'TÃ¬m kiáº¿m lá»—i');
         }
     } catch (e) {
-        logError('Tìm kiếm danh mục thất bại!', e.message);
+        logError('TÃ¬m kiáº¿m danh má»¥c tháº¥t báº¡i!', e.message);
     }
 
-    // 2. Lấy sơ đồ ghế của suất chiếu (Showtime Seat Map)
+    // 2. Láº¥y sÆ¡ Ä‘á»“ gháº¿ cá»§a suáº¥t chiáº¿u (Showtime Seat Map)
     try {
-        logInfo(`Lấy sơ đồ ghế của suất chiếu ID: ${showtimeId}`);
+        logInfo(`Láº¥y sÆ¡ Ä‘á»“ gháº¿ cá»§a suáº¥t chiáº¿u ID: ${showtimeId}`);
         const res = await fetch(`${BASE_URL}/api/showtimes/${showtimeId}/seats`);
         const data = await res.json();
-        if (res.ok && data.success && data.data.length > 0) {
-            seatId = data.data[0].id;
-            logSuccess(`Lấy sơ đồ ghế thành công! Ghế trống ID đầu tiên tìm thấy: ${seatId}`);
+        const seats = unwrapData(data);
+        const availableSeat = Array.isArray(seats)
+            ? seats.find(seat => !seat.isPathway && (seat.status === 'available' || seat.status === 'AVAILABLE'))
+            : null;
+        if (isApiSuccess(res, data) && availableSeat) {
+            seatId = Number(availableSeat.seatId || availableSeat.id);
+            logSuccess(`Lay so do ghe thanh cong! Ghe trong dau tien: ${availableSeat.label || seatId}, loai: ${availableSeat.seatTypeCode || availableSeat.seatType}`);
         } else {
-            throw new Error(data.message || 'Lấy ghế lỗi');
+            throw new Error(data.message || 'Lay ghe loi');
         }
     } catch (e) {
-        logError('Lấy sơ đồ ghế thất bại!', e.message);
+        logError('Láº¥y sÆ¡ Ä‘á»“ gháº¿ tháº¥t báº¡i!', e.message);
         return;
     }
 
-    // 3. Giữ ghế thời gian thực bằng Redis (Hold Seat)
+    // 3. Giá»¯ gháº¿ thá»i gian thá»±c báº±ng Redis (Hold Seat)
     try {
-        logInfo(`Khách hàng giữ ghế ID: ${seatId} trong 10 phút...`);
+        logInfo(`KhÃ¡ch hÃ ng giá»¯ gháº¿ ID: ${seatId} trong 10 phÃºt...`);
         const res = await fetch(`${BASE_URL}/api/showtimes/${showtimeId}/hold`, {
             method: 'POST',
             headers: {
@@ -433,12 +455,12 @@ async function runTests() {
         });
         const data = await res.json();
         if (res.ok && data.success) {
-            logSuccess('Giữ ghế bằng Redis thành công! Ghế đã chuyển sang trạng thái HELD.');
+            logSuccess('Giá»¯ gháº¿ báº±ng Redis thÃ nh cÃ´ng! Gháº¿ Ä‘Ã£ chuyá»ƒn sang tráº¡ng thÃ¡i HELD.');
         } else {
-            throw new Error(data.message || 'Giữ ghế lỗi');
+            throw new Error(data.message || 'Giá»¯ gháº¿ lá»—i');
         }
     } catch (e) {
-        logError('Giữ ghế thời gian thực thất bại!', e.message);
+        logError('Giá»¯ gháº¿ thá»i gian thá»±c tháº¥t báº¡i!', e.message);
         return;
     }
 
@@ -446,11 +468,11 @@ async function runTests() {
     // ==========================================
     // FLOW 4: ORDER & PAYMENT & TICKET CHECK-IN
     // ==========================================
-    logHeader('FLOW 4: ĐẶT VÉ, THANH TOÁN & KIỂM TRA VÉ');
+    logHeader('FLOW 4: Äáº¶T VÃ‰, THANH TOÃN & KIá»‚M TRA VÃ‰');
 
-    // 1. Tạo đơn hàng (Create Order)
+    // 1. Táº¡o Ä‘Æ¡n hÃ ng (Create Order)
     try {
-        logInfo('Tạo đơn hàng mua vé...');
+        logInfo('Táº¡o Ä‘Æ¡n hÃ ng mua vÃ©...');
         const res = await fetch(`${BASE_URL}/api/orders`, {
             method: 'POST',
             headers: { 
@@ -465,23 +487,23 @@ async function runTests() {
             })
         });
         
-        // Nhận trực tiếp thực thể Order
         if (res.ok) {
             const data = await res.json();
-            orderId = data.id;
-            logSuccess(`Tạo đơn hàng thành công! Order ID: ${orderId}, Tổng tiền: ${data.finalAmount} VND`);
+            const order = unwrapData(data);
+            orderId = order.id;
+            logSuccess(`Táº¡o Ä‘Æ¡n hÃ ng thÃ nh cÃ´ng! Order ID: ${orderId}, Tá»•ng tiá»n: ${order.finalAmount} VND, gháº¿: ${(order.seatLabels || []).join(', ')}`);
         } else {
             const errData = await res.json();
-            throw new Error(errData.message || 'Tạo đơn hàng lỗi');
+            throw new Error(errData.message || 'Táº¡o Ä‘Æ¡n hÃ ng lá»—i');
         }
     } catch (e) {
-        logError('Tạo đơn hàng thất bại!', e.message);
+        logError('Táº¡o Ä‘Æ¡n hÃ ng tháº¥t báº¡i!', e.message);
         return;
     }
 
-    // 2. Thanh toán hóa đơn (Pay Order)
+    // 2. Thanh toÃ¡n hÃ³a Ä‘Æ¡n (Pay Order)
     try {
-        logInfo(`Thanh toán đơn hàng ID: ${orderId} bằng ví điện tử ZALOPAY...`);
+        logInfo(`Thanh toÃ¡n Ä‘Æ¡n hÃ ng ID: ${orderId} báº±ng vÃ­ Ä‘iá»‡n tá»­ ZALOPAY...`);
         const res = await fetch(`${BASE_URL}/api/orders/${orderId}/pay`, {
             method: 'POST',
             headers: { 
@@ -495,43 +517,48 @@ async function runTests() {
         });
         if (res.ok) {
             const data = await res.json();
-            logSuccess(`Thanh toán thành công! Trạng thái đơn hàng: ${data.status}`);
+            const paidOrder = unwrapData(data);
+            if (paidOrder.tickets && paidOrder.tickets.length > 0) {
+                ticketCode = paidOrder.tickets[0].ticketCode;
+            }
+            logSuccess(`Thanh toÃ¡n thÃ nh cÃ´ng! Tráº¡ng thÃ¡i Ä‘Æ¡n hÃ ng: ${paidOrder.status}, sá»‘ vÃ©: ${(paidOrder.tickets || []).length}`);
         } else {
             const errData = await res.json();
-            throw new Error(errData.message || 'Thanh toán lỗi');
+            throw new Error(errData.message || 'Thanh toÃ¡n lá»—i');
         }
     } catch (e) {
-        logError('Thanh toán đơn hàng thất bại!', e.message);
+        logError('Thanh toÃ¡n Ä‘Æ¡n hÃ ng tháº¥t báº¡i!', e.message);
         return;
     }
 
-    // 3. Lấy vé đã phát hành của đơn hàng
+    // 3. Láº¥y vÃ© Ä‘Ã£ phÃ¡t hÃ nh cá»§a Ä‘Æ¡n hÃ ng
     try {
-        logInfo(`Lấy danh sách vé đã phát hành của đơn hàng ID: ${orderId}`);
+        logInfo(`Láº¥y danh sÃ¡ch vÃ© Ä‘Ã£ phÃ¡t hÃ nh cá»§a Ä‘Æ¡n hÃ ng ID: ${orderId}`);
         const res = await fetch(`${BASE_URL}/api/tickets/orders/${orderId}`, {
             headers: { 
                 'Authorization': `Bearer ${customerToken}`
             }
         });
         if (res.ok) {
-            const tickets = await res.json();
+            const data = await res.json();
+            const tickets = unwrapData(data);
             if (tickets.length > 0) {
-                ticketCode = tickets[0].ticketCode;
-                logSuccess(`Phát hành vé thành công! Mã vé QR của bạn là: ${ticketCode}`);
+                ticketCode = ticketCode || tickets[0].ticketCode;
+                logSuccess(`PhÃ¡t hÃ nh vÃ© thÃ nh cÃ´ng! MÃ£ vÃ© QR cá»§a báº¡n lÃ : ${ticketCode}`);
             } else {
-                throw new Error('Đơn hàng không có vé nào');
+                throw new Error('ÄÆ¡n hÃ ng khÃ´ng cÃ³ vÃ© nÃ o');
             }
         } else {
-            throw new Error('Không thể lấy danh sách vé');
+            throw new Error('KhÃ´ng thá»ƒ láº¥y danh sÃ¡ch vÃ©');
         }
     } catch (e) {
-        logError('Lấy thông tin vé phát hành thất bại!', e.message);
+        logError('Láº¥y thÃ´ng tin vÃ© phÃ¡t hÃ nh tháº¥t báº¡i!', e.message);
         return;
     }
 
-    // 4. Kiểm tra vé và Check-in (Check-in QR Code)
+    // 4. Kiá»ƒm tra vÃ© vÃ  Check-in (Check-in QR Code)
     try {
-        logInfo(`Nhân viên rạp quét QR code check-in cho mã vé: ${ticketCode}`);
+        logInfo(`NhÃ¢n viÃªn ráº¡p quÃ©t QR code check-in cho mÃ£ vÃ©: ${ticketCode}`);
         const res = await fetch(`${BASE_URL}/api/tickets/check-in`, {
             method: 'POST',
             headers: {
@@ -542,58 +569,59 @@ async function runTests() {
         });
         if (res.ok) {
             const ticket = await res.json();
-            logSuccess(`Check-in thành công! Trạng thái vé: ${ticket.status}, Giờ quét: ${ticket.checkedInAt}`);
+            logSuccess(`Check-in thÃ nh cÃ´ng! Tráº¡ng thÃ¡i vÃ©: ${ticket.status}, Giá» quÃ©t: ${ticket.checkedInAt}`);
         } else {
             const errData = await res.json();
-            throw new Error(errData.message || 'Quét vé lỗi');
+            throw new Error(errData.message || 'QuÃ©t vÃ© lá»—i');
         }
     } catch (e) {
-        logError('Quét vé check-in thất bại!', e.message);
+        logError('QuÃ©t vÃ© check-in tháº¥t báº¡i!', e.message);
     }
 
 
     // ==========================================
     // FLOW 5: SAFETY CONSTRAINTS & CLEANUP
     // ==========================================
-    logHeader('FLOW 5: RÀNG BUỘC TOÀN VẸN DỮ LIỆU PHÒNG/RẠP CHIẾU');
+    logHeader('FLOW 5: RÃ€NG BUá»˜C TOÃ€N Váº¸N Dá»® LIá»†U PHÃ’NG/Ráº P CHIáº¾U');
 
-    // 1. Thử ngừng hoạt động Rạp có suất chiếu hoạt động trong tương lai -> Phải bị chặn!
+    // 1. Thá»­ ngá»«ng hoáº¡t Ä‘á»™ng Ráº¡p cÃ³ suáº¥t chiáº¿u hoáº¡t Ä‘á»™ng trong tÆ°Æ¡ng lai -> Pháº£i bá»‹ cháº·n!
     try {
-        logInfo(`Yêu cầu ngừng hoạt động (xóa) Rạp ID: ${cinemaId} đang có suất chiếu tương lai...`);
+        logInfo(`YÃªu cáº§u ngá»«ng hoáº¡t Ä‘á»™ng (xÃ³a) Ráº¡p ID: ${cinemaId} Ä‘ang cÃ³ suáº¥t chiáº¿u tÆ°Æ¡ng lai...`);
         const res = await fetch(`${BASE_URL}/api/cinemas/${cinemaId}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${adminToken}` }
         });
         const data = await res.json();
         if (res.status === 409 || !data.success) {
-            logSuccess(`Ràng buộc toàn vẹn hoạt động tốt! Hệ thống từ chối xóa Rạp vì lý do: "${data.message}"`);
+            logSuccess(`RÃ ng buá»™c toÃ n váº¹n hoáº¡t Ä‘á»™ng tá»‘t! Há»‡ thá»‘ng tá»« chá»‘i xÃ³a Ráº¡p vÃ¬ lÃ½ do: "${data.message}"`);
         } else {
-            logWarning('CẢNH BÁO: Rạp chiếu có suất chiếu tương lai đã bị xóa! Cần kiểm tra logic EntityManager check showtimes.');
+            logWarning('Cáº¢NH BÃO: Ráº¡p chiáº¿u cÃ³ suáº¥t chiáº¿u tÆ°Æ¡ng lai Ä‘Ã£ bá»‹ xÃ³a! Cáº§n kiá»ƒm tra logic EntityManager check showtimes.');
         }
     } catch (e) {
-        logError('Kiểm thử ràng buộc xóa rạp thất bại!', e.message);
+        logError('Kiá»ƒm thá»­ rÃ ng buá»™c xÃ³a ráº¡p tháº¥t báº¡i!', e.message);
     }
 
-    // 2. Thử ngừng hoạt động Phòng chiếu có suất chiếu hoạt động trong tương lai -> Phải bị chặn!
+    // 2. Thá»­ ngá»«ng hoáº¡t Ä‘á»™ng PhÃ²ng chiáº¿u cÃ³ suáº¥t chiáº¿u hoáº¡t Ä‘á»™ng trong tÆ°Æ¡ng lai -> Pháº£i bá»‹ cháº·n!
     try {
-        logInfo(`Yêu cầu ngừng hoạt động (xóa) Phòng ID: ${roomId} đang có suất chiếu tương lai...`);
+        logInfo(`YÃªu cáº§u ngá»«ng hoáº¡t Ä‘á»™ng (xÃ³a) PhÃ²ng ID: ${roomId} Ä‘ang cÃ³ suáº¥t chiáº¿u tÆ°Æ¡ng lai...`);
         const res = await fetch(`${BASE_URL}/api/cinemas/${cinemaId}/rooms/${roomId}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${adminToken}` }
         });
         const data = await res.json();
         if (res.status === 409 || !data.success) {
-            logSuccess(`Ràng buộc toàn vẹn hoạt động tốt! Hệ thống từ chối xóa Phòng chiếu vì lý do: "${data.message}"`);
+            logSuccess(`RÃ ng buá»™c toÃ n váº¹n hoáº¡t Ä‘á»™ng tá»‘t! Há»‡ thá»‘ng tá»« chá»‘i xÃ³a PhÃ²ng chiáº¿u vÃ¬ lÃ½ do: "${data.message}"`);
         } else {
-            logWarning('CẢNH BÁO: Phòng chiếu có suất chiếu tương lai đã bị xóa! Cần kiểm tra logic EntityManager check showtimes.');
+            logWarning('Cáº¢NH BÃO: PhÃ²ng chiáº¿u cÃ³ suáº¥t chiáº¿u tÆ°Æ¡ng lai Ä‘Ã£ bá»‹ xÃ³a! Cáº§n kiá»ƒm tra logic EntityManager check showtimes.');
         }
     } catch (e) {
-        logError('Kiểm thử ràng buộc xóa phòng chiếu thất bại!', e.message);
+        logError('Kiá»ƒm thá»­ rÃ ng buá»™c xÃ³a phÃ²ng chiáº¿u tháº¥t báº¡i!', e.message);
     }
 
     console.log(`\n${COLORS.bright}${COLORS.magenta}=============================================================`);
-    console.log('      HOÀN TẤT KỊCH BẢN THỬ NGHIỆM HỆ THỐNG ĐẶT VÉ           ');
+    console.log('      HOÃ€N Táº¤T Ká»ŠCH Báº¢N THá»¬ NGHIá»†M Há»† THá»NG Äáº¶T VÃ‰           ');
     console.log(`=============================================================${COLORS.reset}`);
 }
 
 runTests();
+

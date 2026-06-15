@@ -4,10 +4,7 @@ import java.math.BigDecimal;
 
 /**
  * Lightweight seat projection returned to booking module.
- *
- * TODO:
- * - Add only the properties required by order pricing and ticket creation.
- * - Avoid exposing internal mutable entity state.
+ * Keeps booking logic decoupled from mutable showtime entities.
  */
 public record SeatView(
     Long seatId,
