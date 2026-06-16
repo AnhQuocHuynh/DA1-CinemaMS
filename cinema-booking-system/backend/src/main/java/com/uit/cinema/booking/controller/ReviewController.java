@@ -1,6 +1,7 @@
 package com.uit.cinema.booking.controller;
 
 import com.uit.cinema.booking.dto.request.CreateReviewRequest;
+import com.uit.cinema.booking.dto.response.ReviewEligibilityResponse;
 import com.uit.cinema.booking.dto.response.ReviewInsightResponse;
 import com.uit.cinema.booking.dto.response.ReviewResponse;
 import com.uit.cinema.booking.service.ReviewService;
@@ -41,5 +42,21 @@ public class ReviewController {
     @GetMapping("/events/{eventId}/insight")
     public ResponseEntity<ReviewInsightResponse> getEventInsight(@PathVariable Long eventId) {
         return ResponseEntity.ok(reviewService.getEventInsight(eventId));
+    }
+
+    @GetMapping("/movies/{movieId}/eligibility")
+    public ResponseEntity<ReviewEligibilityResponse> getMovieEligibility(
+        @PathVariable Long movieId,
+        @RequestParam Long userId
+    ) {
+        return ResponseEntity.ok(reviewService.getMovieEligibility(userId, movieId));
+    }
+
+    @GetMapping("/events/{eventId}/eligibility")
+    public ResponseEntity<ReviewEligibilityResponse> getEventEligibility(
+        @PathVariable Long eventId,
+        @RequestParam Long userId
+    ) {
+        return ResponseEntity.ok(reviewService.getEventEligibility(userId, eventId));
     }
 }

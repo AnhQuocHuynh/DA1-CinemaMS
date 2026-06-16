@@ -19,23 +19,16 @@ public interface SeatReservationService {
 
     /**
      * Validate the seat list for booking before order is created.
-     *
-     * TODO: Return all seat details needed by booking module for pricing,
-     * while avoiding direct repository/entity coupling across modules.
      */
     SeatHoldValidationResult validateHeldSeats(SeatBookingRequest request);
 
     /**
      * Confirm seats as BOOKED in one logical operation.
-     *
-     * TODO: Use an atomic bulk update in implementation and verify updated row count.
      */
     SeatBookingResult confirmHeldSeats(SeatBookingRequest request);
 
     /**
      * Optional compensating action if order flow fails after seat validation.
-     *
-     * TODO: Implement only if your use case needs hold-release on booking failure.
      */
     void releaseHeldSeats(SeatBookingRequest request);
 }

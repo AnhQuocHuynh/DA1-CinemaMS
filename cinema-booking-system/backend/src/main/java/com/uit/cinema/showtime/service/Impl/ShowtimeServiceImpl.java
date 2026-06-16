@@ -1,6 +1,7 @@
 package com.uit.cinema.showtime.service.Impl;
 
 import com.uit.cinema.facility.entity.SeatTemplate;
+import com.uit.cinema.facility.entity.SeatType;
 import com.uit.cinema.facility.repository.SeatTemplateRepository;
 import jakarta.persistence.EntityManager;
 import com.uit.cinema.core.exception.CustomException;
@@ -22,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -102,7 +104,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             ShowtimeSeat seat = ShowtimeSeat.builder()
                     .showtimeId(savedShowtime.getId())
                     .seatTemplateId(template.getId())
-                    .price(savedShowtime.getBasePrice())
+                    .price(calculateSeatPrice(savedShowtime.getBasePrice(), template))
                     .status(ShowtimeSeat.SeatStatus.AVAILABLE)
                     .build();
             showtimeSeatRepository.save(seat);
@@ -147,16 +149,55 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             response.setColumnNumber(template.getColumnNumber());
             response.setLabel(template.getRowLabel() + template.getColumnNumber());
             response.setIsPathway(template.isPathway());
-            response.setSeatType(template.getSeatType() != null ? template.getSeatType().getName().toLowerCase() : "normal");
+            applySeatTypeContract(response, template);
         });
 
         if (response.getIsPathway() == null) {
             response.setIsPathway(false);
         }
         if (response.getSeatType() == null) {
-            response.setSeatType("normal");
+            response.setSeatType("standard");
+            response.setSeatTypeCode(SeatType.SeatTypeCode.STANDARD.name());
+            response.setSeatTypeName("Standard");
+            response.setSeatKind(SeatType.SeatTypeCode.STANDARD.name());
+            response.setColumnSpan(1);
         }
         return response;
+    }
+
+    private BigDecimal calculateSeatPrice(BigDecimal basePrice, SeatTemplate template) {
+        BigDecimal multiplier = BigDecimal.ONE;
+        if (template.getSeatType() != null && template.getSeatType().getPriceMultiplier() != null) {
+            multiplier = template.getSeatType().getPriceMultiplier();
+        }
+        return basePrice.multiply(multiplier);
+    }
+
+    private void applySeatTypeContract(ShowtimeSeatResponse response, SeatTemplate template) {
+        SeatType seatType = template.getSeatType();
+        SeatType.SeatTypeCode code = seatType != null && seatType.getCode() != null
+            ? seatType.getCode()
+            : SeatType.SeatTypeCode.STANDARD;
+        String displayName = seatType != null && seatType.getDisplayName() != null
+            ? seatType.getDisplayName()
+            : toDisplayName(code);
+        Integer columnSpan = template.getColumnSpan() != null
+            ? template.getColumnSpan()
+            : seatType != null && seatType.getDefaultColumnSpan() != null ? seatType.getDefaultColumnSpan() : 1;
+
+        response.setSeatType(code.name().toLowerCase());
+        response.setSeatTypeCode(code.name());
+        response.setSeatTypeName(displayName);
+        response.setSeatKind(code.name());
+        response.setColumnSpan(columnSpan);
+    }
+
+    private String toDisplayName(SeatType.SeatTypeCode code) {
+        return switch (code) {
+            case VIP -> "VIP";
+            case COUPLE -> "Couple";
+            case STANDARD -> "Standard";
+        };
     }
 
     private String mapSeatStatus(ShowtimeSeat.SeatStatus status, Long holdTtlSeconds) {

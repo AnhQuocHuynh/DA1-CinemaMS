@@ -1,6 +1,7 @@
 package com.uit.cinema.booking.service;
 
 import com.uit.cinema.booking.dto.request.CreateReviewRequest;
+import com.uit.cinema.booking.dto.response.ReviewEligibilityResponse;
 import com.uit.cinema.booking.dto.response.ReviewInsightResponse;
 import com.uit.cinema.booking.dto.response.ReviewResponse;
 
@@ -12,4 +13,6 @@ public interface ReviewService {
     List<ReviewResponse> getEventReviews(Long eventId);
     ReviewInsightResponse getMovieInsight(Long movieId);
     ReviewInsightResponse getEventInsight(Long eventId);
+    ReviewEligibilityResponse getMovieEligibility(Long userId, Long movieId);
+    ReviewEligibilityResponse getEventEligibility(Long userId, Long eventId);
 }

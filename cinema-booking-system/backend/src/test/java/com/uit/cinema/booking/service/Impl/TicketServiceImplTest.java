@@ -6,6 +6,9 @@ import com.uit.cinema.booking.entity.Ticket;
 import com.uit.cinema.booking.mapper.TicketMapper;
 import com.uit.cinema.booking.repository.TicketRepository;
 import com.uit.cinema.booking.service.TicketGenerationService;
+import com.uit.cinema.catalog.repository.MovieRepository;
+import com.uit.cinema.facility.repository.RoomRepository;
+import com.uit.cinema.facility.repository.SeatTemplateRepository;
 import com.uit.cinema.showtime.entity.Showtime;
 import com.uit.cinema.showtime.entity.ShowtimeSeat;
 import com.uit.cinema.showtime.repository.ShowtimeRepository;
@@ -38,6 +41,12 @@ class TicketServiceImplTest {
     private ShowtimeSeatRepository showtimeSeatRepository;
     @Mock
     private ShowtimeRepository showtimeRepository;
+    @Mock
+    private SeatTemplateRepository seatTemplateRepository;
+    @Mock
+    private MovieRepository movieRepository;
+    @Mock
+    private RoomRepository roomRepository;
 
     @InjectMocks
     private TicketServiceImpl ticketService;

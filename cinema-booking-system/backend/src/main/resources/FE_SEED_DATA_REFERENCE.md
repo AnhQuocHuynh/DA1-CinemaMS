@@ -39,8 +39,39 @@ Tai lieu nay tong hop seed data de Frontend dev test nhanh cac flow chinh ma kho
 2. `Phong A2` (IMAX, 5x7)
 3. `Phong B1` (3D, 6x6)
 
+- Seat types:
+1. `STANDARD`: ghe don thuong, `columnSpan=1`, `priceMultiplier=1.00`.
+2. `VIP`: ghe don vi tri tot hon, `columnSpan=1`, `priceMultiplier=1.30`.
+3. `COUPLE`: ghe doi, la mot ghe logic duy nhat, `columnSpan=2`, `priceMultiplier=2.00`.
+
 - Seat templates:
-Tu dong tao theo `rows x columns` (A1.., A2.., ...), active=true.
+1. Cac hang dau la `STANDARD`.
+2. Hai hang gan cuoi la `VIP`.
+3. Hang cuoi la `COUPLE`; moi ghe doi chi co mot `seatId`, FE render rong 2 cot dua vao `columnSpan=2`.
+4. `isPathway` hien duoc tra ve de FE danh dau loai cell khong phai ghe neu co.
+
+## Seat map contract cho FE
+Endpoint: `GET /api/showtimes/{showtimeId}/seats`
+
+Moi item seat map co cac field quan trong:
+1. `id` / `seatId`: id ghe theo suat chieu, dung de hold/order/pay.
+2. `seatTemplateId`: id layout ghe trong phong.
+3. `label`: nhan hien thi, vi du `A1`, `B4`.
+4. `rowLabel`, `columnNumber`: dung de build grid.
+5. `seatType`: lowercase (`standard`, `vip`, `couple`) de FE style nhanh.
+6. `seatTypeCode`: uppercase (`STANDARD`, `VIP`, `COUPLE`) de FE so sanh on dinh.
+7. `seatTypeName`: ten hien thi.
+8. `seatKind`: hien bang `seatTypeCode`, giu de FE co field doc ro nghia.
+9. `columnSpan`: `1` voi ghe don, `2` voi ghe doi.
+10. `isPathway`: `true/false`.
+11. `price`: gia ghe da nhan multiplier theo loai ghe.
+12. `status`: `available`, `holding`, `sold`.
+13. `holdTtlSeconds`: TTL con lai neu ghe dang duoc hold.
+
+Ghe doi duoc xu ly nhu mot ghe logic duy nhat:
+1. FE chon mot `seatId`.
+2. BE hold/order/payment/ticket theo mot `seatId`.
+3. FE render ghe rong 2 cot bang `columnSpan=2`, khong can ghe con ben trai/phai.
 
 ## Du lieu movie/event
 - Movies:
@@ -66,6 +97,17 @@ Seed cac showtime trong tuong lai, status `SCHEDULED`, da co day du `showtime_se
 5. Pay order.
 6. Vao My Tickets de xem QR/ticket status.
 7. Login staff/admin de check-in ticket.
+
+## Order/payment response cho FE
+`POST /api/orders` va `POST /api/orders/{id}/pay` tra ve `OrderResponse`, khong tra entity thuan.
+
+Field chinh:
+1. `id`, `userId`, `showtimeId`, `status`.
+2. `movieTitle`, `roomName`, `cinemaName`, `startTime`, `endTime`.
+3. `seatIds`, `seatLabels`, `seats`.
+4. `totalAmount`, `discountAmount`, `finalAmount`.
+5. `paymentMethod`, `paymentTransactionId`.
+6. `tickets`: co du lieu sau khi payment thanh cong, gom `ticketCode`, `qrCodeData`, `seatLabel`, `status`.
 
 ## Mapping role -> man hinh FE
 - `ROLE_ADMIN`: Admin dashboard, quan tri danh muc.

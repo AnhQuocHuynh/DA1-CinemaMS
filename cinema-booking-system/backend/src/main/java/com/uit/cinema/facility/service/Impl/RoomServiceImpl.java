@@ -65,12 +65,7 @@ public class RoomServiceImpl implements RoomService {
         Room savedRoom = roomRepository.save(room);
 
         // Automatically generate SeatTemplates based on rows and columns
-        SeatType normalSeatType = seatTypeRepository.findByNameIgnoreCase("normal")
-            .orElseGet(() -> seatTypeRepository.save(SeatType.builder()
-                .name("normal")
-                .priceMultiplier(BigDecimal.ONE)
-                .description("Default seat")
-                .build()));
+        SeatType standardSeatType = getOrCreateStandardSeatType();
         int rows = request.getRows() != null ? request.getRows() : 0;
         int columns = request.getColumns() != null ? request.getColumns() : 0;
         for (int r = 0; r < rows; r++) {
@@ -78,9 +73,10 @@ public class RoomServiceImpl implements RoomService {
             for (int c = 1; c <= columns; c++) {
                 SeatTemplate template = SeatTemplate.builder()
                         .room(savedRoom)
-                        .seatType(normalSeatType)
+                        .seatType(standardSeatType)
                         .rowLabel(rowLabel)
                         .columnNumber(c)
+                        .columnSpan(1)
                         .pathway(false)
                         .active(true)
                         .build();
@@ -89,6 +85,28 @@ public class RoomServiceImpl implements RoomService {
         }
 
         return roomMapper.toResponse(savedRoom);
+    }
+
+    private SeatType getOrCreateStandardSeatType() {
+        return seatTypeRepository.findByCode(SeatType.SeatTypeCode.STANDARD)
+            .or(() -> seatTypeRepository.findByNameIgnoreCase("standard"))
+            .or(() -> seatTypeRepository.findByNameIgnoreCase("normal"))
+            .map(type -> {
+                type.setCode(SeatType.SeatTypeCode.STANDARD);
+                type.setName("standard");
+                type.setDisplayName("Standard");
+                type.setPriceMultiplier(BigDecimal.ONE);
+                type.setDefaultColumnSpan(1);
+                return seatTypeRepository.save(type);
+            })
+            .orElseGet(() -> seatTypeRepository.save(SeatType.builder()
+                .code(SeatType.SeatTypeCode.STANDARD)
+                .name("standard")
+                .displayName("Standard")
+                .priceMultiplier(BigDecimal.ONE)
+                .defaultColumnSpan(1)
+                .description("Standard single seat")
+                .build()));
     }
 
     @Override

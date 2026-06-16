@@ -30,6 +30,9 @@ public class SeatTemplate {
     private Integer columnNumber;
 
     @Builder.Default
+    private Integer columnSpan = 1;
+
+    @Builder.Default
     private boolean pathway = false;
 
     @Builder.Default

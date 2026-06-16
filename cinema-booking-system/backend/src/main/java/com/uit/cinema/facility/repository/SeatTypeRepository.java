@@ -10,4 +10,6 @@ import java.util.Optional;
 public interface SeatTypeRepository extends JpaRepository<SeatType, Long> {
 
     Optional<SeatType> findByNameIgnoreCase(String name);
+
+    Optional<SeatType> findByCode(SeatType.SeatTypeCode code);
 }
