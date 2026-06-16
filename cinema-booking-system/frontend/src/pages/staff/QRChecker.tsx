@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { BrowserQRCodeReader, IScannerControls } from '@zxing/browser';
 import { Flashlight, Keyboard, X } from 'lucide-react';
 import { StaffScanResult } from '../../types/staff';
+import { bookingService } from '../../services/bookingService';
 
 export const QRChecker: React.FC = () => {
   const navigate = useNavigate();
@@ -43,15 +44,36 @@ export const QRChecker: React.FC = () => {
         undefined,
         videoRef.current,
         (result) => {
-          if (!result) {
+          if (!result) return;
+
+          const decodedText = result.getText();
+          const parts = decodedText.split('|');
+
+          if (parts.length < 2 || parts[0] !== 'CINEMA') {
+            setScanResult({ status: 'invalid', seatLabel: 'Unknown', ticketType: 'QR' });
+            setIsScanning(false);
+            stopScanner();
             return;
           }
 
-          const ticketCode = result.getText();
-          console.log('✅ [STAFF] Check-in ticket:', ticketCode);
-          setScanResult({ status: 'valid', seatLabel: ticketCode, ticketType: 'QR' });
-          setIsScanning(false);
-          stopScanner();
+          const ticketCode = parts[1];
+          const seatLabel = parts.length >= 3 ? parts[2].replace('SEAT:', '') : ticketCode;
+
+          bookingService.checkInTicket(ticketCode)
+            .then(() => {
+              console.log('✅ [STAFF] Check-in ticket:', ticketCode);
+              setScanResult({ status: 'valid', seatLabel: seatLabel, ticketType: 'QR' });
+            })
+            .catch((error) => {
+              console.error('Failed to check in:', error);
+              setScanResult({ status: 'invalid', seatLabel: seatLabel, ticketType: 'QR' });
+              const e = error as { response?: { data?: { message?: string } } };
+              setErrorMessage(e.response?.data?.message || 'Lỗi khi check-in');
+            })
+            .finally(() => {
+              setIsScanning(false);
+              stopScanner();
+            });
         }
       );
     } catch (error) {
@@ -147,7 +169,28 @@ export const QRChecker: React.FC = () => {
             <Flashlight className="w-6 h-6" />
             <span className="text-[10px] font-bold uppercase tracking-widest">{isScanning ? 'Scanning' : 'Flash Off'}</span>
           </button>
-          <button className="bg-white/10 backdrop-blur-lg rounded-xl py-4 flex flex-col items-center gap-2 text-white active:bg-white/20 transition-all">
+          <button
+            className="bg-white/10 backdrop-blur-lg rounded-xl py-4 flex flex-col items-center gap-2 text-white active:bg-white/20 transition-all"
+            onClick={() => {
+              const code = window.prompt('Nhập mã vé thủ công (VD: TK-12345678):');
+              if (code) {
+                setIsScanning(true);
+                stopScanner();
+                bookingService.checkInTicket(code)
+                  .then(() => {
+                    setScanResult({ status: 'valid', seatLabel: code, ticketType: 'MANUAL' });
+                  })
+                  .catch((error) => {
+                    setScanResult({ status: 'invalid', seatLabel: code, ticketType: 'MANUAL' });
+                    const e = error as { response?: { data?: { message?: string } } };
+                    setErrorMessage(e.response?.data?.message || 'Lỗi khi check-in');
+                  })
+                  .finally(() => {
+                    setIsScanning(false);
+                  });
+              }
+            }}
+          >
             <Keyboard className="w-6 h-6" />
             <span className="text-[10px] font-bold uppercase tracking-widest">Manual Entry</span>
           </button>

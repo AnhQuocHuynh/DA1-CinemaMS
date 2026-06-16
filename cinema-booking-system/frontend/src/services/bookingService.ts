@@ -204,4 +204,11 @@ export const bookingService = {
     const response = await apiClient.post<BackendOrder>(`/orders/${orderId}/refund`, { reason });
     return response.data;
   },
+
+  // ── Check-in ──────────────────────────────────────────────────────────────
+
+  checkInTicket: async (ticketCode: string) => {
+    const response = await apiClient.post(`/tickets/check-in`, { ticketCode });
+    return response.data;
+  },
 };
