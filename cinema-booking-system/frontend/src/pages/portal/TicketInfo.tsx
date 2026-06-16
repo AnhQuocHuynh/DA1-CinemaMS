@@ -6,6 +6,7 @@ import { bookingService } from '../../services/bookingService';
 import { formatVND } from '../../utils/formatters';
 import { AlertCircle, Download, Printer } from 'lucide-react';
 import genericPoster from '../../resources/generic_movie_poster.png';
+import { QRCodeSVG } from 'qrcode.react';
 
 export const TicketInfo: React.FC = () => {
   const { ticketId: ticketCode = '' } = useParams<{ ticketId: string }>();
@@ -154,20 +155,33 @@ export const TicketInfo: React.FC = () => {
                       <p className="text-lg font-semibold text-on-surface">{ticket.hallName}</p>
                     </div>
                   )}
-                  {ticket.seats.length > 0 && (
+                  {(ticket.seatLabel || ticket.seats.length > 0) && (
                     <div>
                       <label className="text-[10px] font-bold tracking-widest uppercase text-outline mb-2 block">
                         Ghế
                       </label>
-                      <div className="flex gap-2 flex-wrap">
-                        {ticket.seats.map((seat) => (
-                          <span
-                            key={seat}
-                            className="px-3 py-1 bg-surface-container-high rounded font-bold text-on-primary-fixed-variant"
-                          >
-                            {seat}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex gap-2 flex-wrap">
+                          {ticket.seatLabel ? (
+                            <span className="px-3 py-1 bg-surface-container-high rounded font-bold text-on-primary-fixed-variant">
+                              {ticket.seatLabel}
+                            </span>
+                          ) : (
+                            ticket.seats.map((seat) => (
+                              <span
+                                key={seat}
+                                className="px-3 py-1 bg-surface-container-high rounded font-bold text-on-primary-fixed-variant"
+                              >
+                                {seat}
+                              </span>
+                            ))
+                          )}
+                        </div>
+                        {ticket.seatTypeName && (
+                          <span className="text-xs font-medium text-on-surface-variant mt-1">
+                            Loại ghế: <span className="text-primary">{ticket.seatTypeName}</span>
                           </span>
-                        ))}
+                        )}
                       </div>
                     </div>
                   )}
@@ -190,11 +204,12 @@ export const TicketInfo: React.FC = () => {
               {/* QR section */}
               <div className="p-10 bg-surface-container-low flex flex-col items-center justify-center">
                 {ticket.qrCodeData ? (
-                  <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-                    <img
-                      alt={`QR code cho vé ${ticket.ticketCode}`}
-                      className="w-40 h-40"
-                      src={`data:image/png;base64,${ticket.qrCodeData}`}
+                  <div className="bg-white p-4 rounded-lg shadow-sm mb-6 flex justify-center">
+                    <QRCodeSVG 
+                      value={ticket.qrCodeData}
+                      size={160}
+                      level="H"
+                      includeMargin={true}
                     />
                   </div>
                 ) : (
