@@ -20,24 +20,35 @@ export const useAdminPricing = () => {
   const [vouchers, setVouchers] = useState<AdminVoucher[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const loadPricing = async () => {
-      try {
-        const [pricingData, voucherData] = await Promise.all([
-          adminService.getPricingOverview(),
-          adminService.getVouchers(),
-        ]);
-        setPricing(pricingData);
-        setVouchers(voucherData);
-      } catch (error) {
-        console.error('Failed to load pricing data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const loadPricing = async () => {
+    setIsLoading(true);
+    try {
+      const [pricingData, voucherData] = await Promise.all([
+        adminService.getPricingOverview(),
+        adminService.getVouchers(),
+      ]);
+      setPricing(pricingData);
+      setVouchers(voucherData);
+    } catch (error) {
+      console.error('Failed to load pricing data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadPricing();
   }, []);
 
-  return { pricing, vouchers, isLoading };
+  const addVoucher = async (data: any) => {
+    await adminService.createVoucher(data);
+    await loadPricing();
+  };
+
+  const deleteVoucher = async (id: number | string) => {
+    await adminService.deleteVoucher(id);
+    await loadPricing();
+  };
+
+  return { pricing, vouchers, isLoading, refetchPricing: loadPricing, addVoucher, deleteVoucher };
 };
