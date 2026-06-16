@@ -45,7 +45,7 @@ public class TicketServiceImpl implements TicketService {
     @Transactional
     public TicketResponse checkIn(String ticketCode) {
         TicketResponse response = ticketMapper.toResponse(ticketGenerationService.checkIn(ticketCode));
-        enrichTicketInfo(response);
+        enrichRefundInfo(response);
         return response;
     }
 
@@ -54,7 +54,7 @@ public class TicketServiceImpl implements TicketService {
         Ticket ticket = ticketRepository.findByTicketCode(ticketCode)
             .orElseThrow(() -> new CustomException("Ticket not found", HttpStatus.NOT_FOUND, "TICKET_NOT_FOUND"));
         TicketResponse response = ticketMapper.toResponse(ticket);
-        enrichTicketInfo(response);
+        enrichRefundInfo(response);
         return response;
     }
 
@@ -62,7 +62,7 @@ public class TicketServiceImpl implements TicketService {
     public List<TicketResponse> getByUserId(Long userId) {
         List<TicketResponse> responses = ticketRepository.findByOrderUserIdOrderByCreatedAtDesc(userId)
             .stream().map(ticketMapper::toResponse).toList();
-        responses.forEach(this::enrichTicketInfo);
+        responses.forEach(this::enrichRefundInfo);
         return responses;
     }
 
@@ -70,7 +70,7 @@ public class TicketServiceImpl implements TicketService {
     public List<TicketResponse> getByOrderId(Long orderId) {
         List<TicketResponse> responses = ticketRepository.findByOrderIdOrderByCreatedAtDesc(orderId)
             .stream().map(ticketMapper::toResponse).toList();
-        responses.forEach(this::enrichTicketInfo);
+        responses.forEach(this::enrichRefundInfo);
         return responses;
     }
 
