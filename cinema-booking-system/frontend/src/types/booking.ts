@@ -93,6 +93,8 @@ export interface TicketDetails {
   date: string;
   time: string;
   seats: string[];            // seat labels e.g. ["A3", "A4"]
+  seatLabel?: string;
+  seatTypeName?: string;
   qrCodeData: string;         // base64 PNG (render as data: URI)
   price: number;              // VND per ticket
   status: string;

@@ -132,13 +132,16 @@ export const bookingService = {
       checkedInAt: string | null;
       createdAt: string;
       movieName?: string;
-      showtimeDateTime?: string;
+      startTime?: string;
+      endTime?: string;
       cinemaName?: string;
       hallName?: string;
+      seatLabel?: string;
+      seatTypeName?: string;
     }>(`/tickets/code/${ticketCode}`);
 
     const raw = response.data;
-    const dt = raw.showtimeDateTime ? new Date(raw.showtimeDateTime) : null;
+    const dt = raw.startTime ? new Date(raw.startTime) : (raw.showtimeDateTime ? new Date(raw.showtimeDateTime) : null);
 
     return {
       ticketCode: raw.ticketCode,
@@ -146,10 +149,12 @@ export const bookingService = {
       movieTitle: raw.movieName || '',
       cinemaName: raw.cinemaName || '',
       hallName: raw.hallName || '',
-      showtime: raw.showtimeDateTime || '',
+      showtime: raw.startTime || raw.showtimeDateTime || '',
       date: dt ? dt.toLocaleDateString('vi-VN') : '',
       time: dt ? dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
-      seats: [],
+      seats: raw.seatLabel ? [raw.seatLabel] : [],
+      seatLabel: raw.seatLabel,
+      seatTypeName: raw.seatTypeName,
       qrCodeData: raw.qrCodeData,
       price: parseVND(raw.price),
       status: raw.status,
@@ -168,6 +173,8 @@ export const bookingService = {
         status: string;
         createdAt: string;
         movieName?: string;
+        startTime?: string;
+        endTime?: string;
         showtimeDateTime?: string;
         cinemaName?: string;
         hallName?: string;
@@ -190,6 +197,8 @@ export const bookingService = {
         status: string;
         createdAt: string;
         movieName?: string;
+        startTime?: string;
+        endTime?: string;
         showtimeDateTime?: string;
         cinemaName?: string;
         hallName?: string;
