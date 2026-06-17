@@ -28,8 +28,10 @@ export interface ShowtimeSeatResponse {
   label: string;        // e.g. "A1"
   rowLabel: string;     // e.g. "A"
   columnNumber: number;
+  columnSpan: number;
   seatType: ShowtimeSeatType;
-  isPathway: boolean;
+  isPathway?: boolean;
+  pathway?: boolean;
   price: string;        // decimal string e.g. "150000.00"
   status: ShowtimeSeatStatus;
   holdTtlSeconds: number | null;
