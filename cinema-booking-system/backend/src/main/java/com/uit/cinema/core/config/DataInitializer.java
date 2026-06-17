@@ -74,6 +74,7 @@ public class DataInitializer implements CommandLineRunner {
         Room roomA = seedRoom(hcmCinema, "Phong A1", "2D", 6, 8, seatTypes);
         Room roomB = seedRoom(hcmCinema, "Phong A2", "IMAX", 5, 7, seatTypes);
         Room roomC = seedRoom(thuDucCinema, "Phong B1", "3D", 6, 6, seatTypes);
+        Room roomD = seedRoomWithPathway(hcmCinema, "Phong A3 (Pathway)", "2D", 6, 9, seatTypes);
 
         Movie movie1 = seedMovie("Lat Mat 9", "Movie seeded for FE booking flow", 125, LocalDate.now().minusDays(10), "T16");
         Movie movie2 = seedMovie("Avengers: Secret Wars", "Action blockbuster seeded for FE", 140, LocalDate.now().plusDays(20), "T13");
@@ -114,6 +115,13 @@ public class DataInitializer implements CommandLineRunner {
             LocalDateTime.now().plusDays(4).withHour(18).withMinute(0).withSecond(0).withNano(0),
             120,
             BigDecimal.valueOf(70000)
+        );
+        seedShowtimeWithSeats(
+            roomD,
+            movie1,
+            LocalDateTime.now().plusDays(1).withHour(20).withMinute(0).withSecond(0).withNano(0),
+            120,
+            BigDecimal.valueOf(80000)
         );
 
         seedVoucher("WELCOME10", Voucher.DiscountType.PERCENTAGE, BigDecimal.valueOf(10), BigDecimal.valueOf(50000), 500);
@@ -266,6 +274,58 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
+    private Room seedRoomWithPathway(Cinema cinema, String roomName, String type, int rows, int columns, SeedSeatTypes seatTypes) {
+        Room room = roomRepository.findByCinemaIdAndActiveTrue(cinema.getId()).stream()
+            .filter(r -> r.getName().equalsIgnoreCase(roomName))
+            .findFirst()
+            .orElseGet(() -> roomRepository.save(
+                Room.builder()
+                    .cinema(cinema)
+                    .name(roomName)
+                    .type(type)
+                    .rows(rows)
+                    .columns(columns)
+                    .totalSeats(rows * columns)
+                    .active(true)
+                    .underMaintenance(false)
+                    .build()
+            ));
+
+        seedSeatTemplatesWithPathway(room, rows, columns, seatTypes);
+        return room;
+    }
+
+    private void seedSeatTemplatesWithPathway(Room room, int rows, int columns, SeedSeatTypes seatTypes) {
+        List<SeatTemplate> existing = seatTemplateRepository.findByRoomIdAndActiveTrue(room.getId());
+        if (!existing.isEmpty()) {
+            normalizeExistingSeatTemplates(existing, rows, seatTypes);
+            return;
+        }
+
+        for (int r = 0; r < rows; r++) {
+            String rowLabel = String.valueOf((char) ('A' + r));
+            int c = 1;
+            while (c <= columns) {
+                boolean isPathway = (c == 5 && r < rows - 1);
+                SeatType seatType = resolveSeatTypeForRow(r, rows, seatTypes);
+                int columnSpan = seatType.getDefaultColumnSpan() != null ? seatType.getDefaultColumnSpan() : 1;
+
+                seatTemplateRepository.save(
+                    SeatTemplate.builder()
+                        .room(room)
+                        .seatType(seatType)
+                        .rowLabel(rowLabel)
+                        .columnNumber(c)
+                        .columnSpan(isPathway ? 1 : columnSpan)
+                        .pathway(isPathway)
+                        .active(true)
+                        .build()
+                );
+                c += isPathway ? 1 : columnSpan;
+            }
+        }
+    }
+
     private void normalizeExistingSeatTemplates(List<SeatTemplate> existing, int rows, SeedSeatTypes seatTypes) {
         existing.forEach(template -> {
             int rowIndex = template.getRowLabel().charAt(0) - 'A';
@@ -277,7 +337,10 @@ public class DataInitializer implements CommandLineRunner {
             if (template.getColumnSpan() == null || template.getColumnSpan() < 1) {
                 template.setColumnSpan(columnSpan);
             }
-            template.setPathway(false);
+            // Restore pathway correctly for rooms that are supposed to have it
+            boolean isPathwayRoom = template.getRoom().getName().toLowerCase().contains("pathway");
+            boolean isPathway = isPathwayRoom && (template.getColumnNumber() == 5 && rowIndex < rows - 1);
+            template.setPathway(isPathway);
         });
         seatTemplateRepository.saveAll(existing);
     }
