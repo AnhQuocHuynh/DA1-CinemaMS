@@ -17,6 +17,14 @@ export const SeatLegend: React.FC = () => {
           </span>
         </div>
       ))}
+      <div className="flex items-center gap-3">
+        <div className="w-5 h-5 rounded-sm bg-gradient-to-br from-amber-200 to-amber-500 border border-amber-600" />
+        <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">VIP</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-5 rounded-md bg-surface-container-high border border-outline-variant/30" />
+        <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">Couple Seat</span>
+      </div>
     </div>
   );
 };

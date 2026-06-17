@@ -3,6 +3,7 @@ import { bookingService } from '../services/bookingService';
 import { showtimeService } from '../services/showtimeService';
 import { useBookingStore } from '../store/bookingStore';
 import { Seat, SeatMap } from '../types/booking';
+import { useToast } from '../contexts/ToastContext';
 
 export const useSeatSelection = (showtimeId: string) => {
   const [seatMap, setSeatMap] = useState<SeatMap | null>(null);
@@ -10,6 +11,7 @@ export const useSeatSelection = (showtimeId: string) => {
   const [error, setError] = useState<string | null>(null);
   const [holdError, setHoldError] = useState<string | null>(null);
   const [isHolding, setIsHolding] = useState(false);
+  const { addToast } = useToast();
 
   const {
     selectedSeats,
@@ -70,6 +72,17 @@ export const useSeatSelection = (showtimeId: string) => {
     [selectedSeats]
   );
 
+  const handleToggleSeat = useCallback(
+    (seat: Seat) => {
+      try {
+        toggleSeat(seat);
+      } catch (err: any) {
+        addToast(err.message, 'error');
+      }
+    },
+    [toggleSeat, addToast]
+  );
+
   /** Call POST /showtimes/{id}/hold for all currently selected seats */
   const holdSelectedSeats = useCallback(async (): Promise<boolean> => {
     if (selectedSeats.length === 0) {
@@ -100,7 +113,7 @@ export const useSeatSelection = (showtimeId: string) => {
     seatMap,
     selectedSeats,
     isSelected,
-    toggleSeat,
+    toggleSeat: handleToggleSeat,
     summary,
     isLoading,
     error,
