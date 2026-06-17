@@ -58,11 +58,23 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   toggleSeat: (seat) => {
     const current = get().selectedSeats;
     const exists = current.some((item) => item.id === seat.id);
-    set({
-      selectedSeats: exists
-        ? current.filter((item) => item.id !== seat.id)
-        : [...current, { ...seat, status: 'selected' }],
-    });
+    
+    if (exists) {
+      set({ selectedSeats: current.filter((item) => item.id !== seat.id) });
+    } else {
+      const maxSeats = 6;
+      const currentPhysicalCount = current.reduce(
+        (total, s) => total + (s.type === 'couple' ? 2 : 1),
+        0
+      );
+      const addingPhysicalCount = seat.type === 'couple' ? 2 : 1;
+      
+      if (currentPhysicalCount + addingPhysicalCount > maxSeats) {
+        throw new Error(`Booking limit exceeded. You can select a maximum of ${maxSeats} physical seats.`);
+      }
+
+      set({ selectedSeats: [...current, { ...seat, status: 'selected' }] });
+    }
   },
 
   clearSelection: () =>

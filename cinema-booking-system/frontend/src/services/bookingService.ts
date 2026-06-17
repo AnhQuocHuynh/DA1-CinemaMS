@@ -33,10 +33,11 @@ export const bookingService = {
         label: s.label,
         row: s.rowLabel,
         number: s.columnNumber,
-        status: s.isPathway ? 'available' : (s.status as Seat['status']),
+        status: (s.pathway || s.isPathway) ? 'available' : (s.status as Seat['status']),
         type: s.seatType as Seat['type'],
+        columnSpan: s.columnSpan || 1,
         price: parseVND(s.price),
-        isPathway: s.isPathway,
+        isPathway: s.pathway || s.isPathway,
       };
 
       if (!rowMap.has(s.rowLabel)) {
@@ -141,15 +142,14 @@ export const bookingService = {
     }>(`/tickets/code/${ticketCode}`);
 
     const raw = response.data;
-    const dt = raw.startTime ? new Date(raw.startTime) : (raw.showtimeDateTime ? new Date(raw.showtimeDateTime) : null);
-
+    const dt = raw.startTime ? new Date(raw.startTime) : null;
     return {
       ticketCode: raw.ticketCode,
       orderId: raw.orderId,
       movieTitle: raw.movieName || '',
       cinemaName: raw.cinemaName || '',
       hallName: raw.hallName || '',
-      showtime: raw.startTime || raw.showtimeDateTime || '',
+      showtime: raw.startTime || '',
       date: dt ? dt.toLocaleDateString('vi-VN') : '',
       time: dt ? dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
       seats: raw.seatLabel ? [raw.seatLabel] : [],
@@ -175,7 +175,6 @@ export const bookingService = {
         movieName?: string;
         startTime?: string;
         endTime?: string;
-        showtimeDateTime?: string;
         cinemaName?: string;
         hallName?: string;
       }>
@@ -199,7 +198,6 @@ export const bookingService = {
         movieName?: string;
         startTime?: string;
         endTime?: string;
-        showtimeDateTime?: string;
         cinemaName?: string;
         hallName?: string;
       }>

@@ -13,6 +13,7 @@ export interface Seat {
   status: SeatStatus;
   type: SeatType;
   price: number;       // in VND (parsed from decimal string)
+  columnSpan: number;
   isPathway?: boolean;
 }
 
