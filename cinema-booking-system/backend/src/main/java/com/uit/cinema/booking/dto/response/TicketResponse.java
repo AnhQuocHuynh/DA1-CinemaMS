@@ -37,10 +37,4 @@ public class TicketResponse {
     private LocalDateTime createdAt;
     private Boolean refundable;
     private Integer refundPercent;
-
-    //Thông tin phim và suất chiếu
-    private String movieName;
-    private LocalDateTime showtimeDateTime;
-    private String cinemaName;
-    private String hallName;
 }
