@@ -1,12 +1,42 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { useAdminMovies } from '../../hooks/useAdminMovies';
+import { MovieModal } from '../../components/admin/modals/MovieModal';
 
 export const MovieManagement: React.FC = () => {
-  const { movies, isLoading } = useAdminMovies();
+  const { movies, isLoading, addMovie, updateMovie, deleteMovie } = useAdminMovies();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedMovie, setSelectedMovie] = useState<any>(null);
+
+  const handleAddClick = () => {
+    setSelectedMovie(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditClick = async (id: number) => {
+    // In a real app we might fetch the full movie details first
+    // For now we pass the basic info we have
+    const movie = movies.find(m => m.id === id);
+    setSelectedMovie(movie);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteClick = async (id: number) => {
+    if (window.confirm('Are you sure you want to delete this movie?')) {
+      await deleteMovie(id);
+    }
+  };
+
+  const handleModalSubmit = async (data: any) => {
+    if (selectedMovie) {
+      await updateMovie(selectedMovie.id, data);
+    } else {
+      await addMovie(data);
+    }
+  };
 
   return (
     <AdminLayout activeItemId="movies">
@@ -17,7 +47,7 @@ export const MovieManagement: React.FC = () => {
           title="Movie Management"
           subtitle="Curate releases, adjust availability, and maintain the lineup."
           actions={
-            <button className="px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-blue-700 flex items-center gap-2">
+            <button onClick={handleAddClick} className="px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-blue-700 flex items-center gap-2">
               <Plus className="w-4 h-4" />
               Add Movie
             </button>
@@ -76,8 +106,8 @@ export const MovieManagement: React.FC = () => {
                     <td className="px-6 py-4 text-sm text-on-surface">{movie.bookings}</td>
                     <td className="px-6 py-4 text-sm text-on-surface">{movie.rating ?? '4.7'}</td>
                     <td className="px-6 py-4 text-right space-x-2">
-                      <button className="px-3 py-1 bg-primary text-white rounded text-xs hover:bg-blue-700">Edit</button>
-                      <button className="px-3 py-1 bg-error text-white rounded text-xs hover:bg-red-700">Archive</button>
+                      <button onClick={() => handleEditClick(movie.id)} className="px-3 py-1 bg-primary text-white rounded text-xs hover:bg-blue-700">Edit</button>
+                      <button onClick={() => handleDeleteClick(movie.id)} className="px-3 py-1 bg-error text-white rounded text-xs hover:bg-red-700">Delete</button>
                     </td>
                   </tr>
                 ))}
@@ -86,6 +116,13 @@ export const MovieManagement: React.FC = () => {
           )}
         </section>
       </main>
+
+      <MovieModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleModalSubmit}
+        initialData={selectedMovie}
+      />
     </AdminLayout>
   );
 };

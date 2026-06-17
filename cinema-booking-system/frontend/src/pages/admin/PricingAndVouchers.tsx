@@ -1,12 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Download, Filter, Search } from 'lucide-react';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { useAdminPricing } from '../../hooks/useAdminPricing';
+import { VoucherModal } from '../../components/admin/modals/VoucherModal';
 
 export const PricingAndVouchers: React.FC = () => {
-  const { pricing, vouchers, isLoading } = useAdminPricing();
+  const { pricing, vouchers, isLoading, addVoucher, deleteVoucher } = useAdminPricing();
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
+
+  const handleAddVoucherClick = () => {
+    setIsVoucherModalOpen(true);
+  };
+
+  const handleDeleteVoucherClick = async (id: string | number) => {
+    if (window.confirm('Are you sure you want to delete this voucher?')) {
+      await deleteVoucher(id);
+    }
+  };
+
+  const handleVoucherSubmit = async (data: any) => {
+    await addVoucher(data);
+  };
 
   return (
     <AdminLayout activeItemId="pricing">
@@ -21,7 +37,7 @@ export const PricingAndVouchers: React.FC = () => {
                 <Download className="w-4 h-4" />
                 Download Report
               </button>
-              <button className="bg-primary text-white font-bold px-6 py-3 rounded-md text-sm transition-all hover:opacity-90 shadow-lg shadow-primary/10">
+              <button onClick={handleAddVoucherClick} className="bg-primary text-white font-bold px-6 py-3 rounded-md text-sm transition-all hover:opacity-90 shadow-lg shadow-primary/10">
                 + Create Voucher
               </button>
             </>
@@ -160,7 +176,7 @@ export const PricingAndVouchers: React.FC = () => {
                             </span>
                           </td>
                           <td className="py-4 px-4 text-right">
-                            <button className="text-slate-300 hover:text-slate-600 transition-colors">•••</button>
+                            <button onClick={() => handleDeleteVoucherClick(voucher.id)} className="text-slate-300 hover:text-error transition-colors uppercase tracking-widest text-[10px] font-bold">Delete</button>
                           </td>
                         </tr>
                       );
@@ -172,6 +188,12 @@ export const PricingAndVouchers: React.FC = () => {
           </>
         )}
       </main>
+
+      <VoucherModal
+        isOpen={isVoucherModalOpen}
+        onClose={() => setIsVoucherModalOpen(false)}
+        onSubmit={handleVoucherSubmit}
+      />
     </AdminLayout>
   );
 };
