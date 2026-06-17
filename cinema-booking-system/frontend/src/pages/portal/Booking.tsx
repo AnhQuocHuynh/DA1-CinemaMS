@@ -103,12 +103,14 @@ export const Booking: React.FC = () => {
 
     // If seats are already held (e.g. coming back from checkout), skip re-holding
     if (holdExpiresAt && holdExpiresAt.getTime() > Date.now()) {
+      isNavigatingAwayRef.current = true;
       navigate('/user/checkout');
       return;
     }
 
     const success = await holdSelectedSeats();
     if (success) {
+      isNavigatingAwayRef.current = true;
       navigate('/user/checkout');
     }
   }, [selectedSeats.length, holdSelectedSeats, holdExpiresAt, navigate]);
@@ -120,7 +122,87 @@ export const Booking: React.FC = () => {
   // ── Leave / go-back confirmation ────────────────────────────────────────
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [isReleasing, setIsReleasing] = useState(false);
+  // Store the intended navigation target when intercepting a nav-link click
+  const pendingNavRef = useRef<string | null>(null);
+  // Flag so the popstate cleanup never fights an intentional forward navigation
+  const isNavigatingAwayRef = useRef(false);
+  // Counts how many guard history entries have been pushed this mount
+  const guardCountRef = useRef(0);
   const { clearSelection } = useBookingStore();
+
+  // ── Back-button guard (popstate + dummy history entry) ───────────────
+  // When seats are held, push a "guard" history entry so the first Back press
+  // hits it instead of actually leaving. Then we open the modal.
+  useEffect(() => {
+    if (!holdExpiresAt) return;
+
+    // Push a guard entry on top of the current URL
+    window.history.pushState({ guardEntry: true }, '');
+    guardCountRef.current += 1;
+
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state?.guardEntry) return; // already processed
+      // User pressed back and consumed our guard entry—intercept!
+      // Re-push the guard so repeated presses are also caught
+      window.history.pushState({ guardEntry: true }, '');
+      pendingNavRef.current = null;
+      setShowLeaveConfirm(true);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      // Only remove the guard entry if we are NOT intentionally navigating
+      // away; otherwise history.go(-1) would undo the forward navigation.
+      if (!isNavigatingAwayRef.current) {
+        window.history.go(-1);
+        guardCountRef.current = Math.max(0, guardCountRef.current - 1);
+      }
+    };
+  }, [holdExpiresAt]);
+
+  // ── In-app nav-link click interceptor ────────────────────────────
+  useEffect(() => {
+    if (!holdExpiresAt) return;
+
+    const handleClick = (event: MouseEvent) => {
+      const anchor = (event.target as Element).closest('a');
+      if (!anchor || !anchor.href) return;
+
+      // Only intercept same-origin links that would navigate away from booking
+      const targetUrl = new URL(anchor.href, window.location.origin);
+      if (targetUrl.origin !== window.location.origin) return;
+      if (targetUrl.pathname === window.location.pathname) return;
+
+      event.preventDefault();
+      pendingNavRef.current = targetUrl.pathname + targetUrl.search;
+      setShowLeaveConfirm(true);
+    };
+
+    document.addEventListener('click', handleClick, true); // capture phase
+    return () => document.removeEventListener('click', handleClick, true);
+  }, [holdExpiresAt]);
+
+  // ── Tab-close / hard-refresh guard (sendBeacon) ───────────────────
+  useEffect(() => {
+    if (!holdExpiresAt || selectedSeats.length === 0) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      const seatIds = selectedSeats.map((s) => s.numericId);
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+      const url = `${apiBase}/v1/showtimes/${showtimeId}/hold`;
+      const token = localStorage.getItem('authToken');
+      const payload = new Blob(
+        [JSON.stringify({ seatIds, _token: token })],
+        { type: 'application/json' }
+      );
+      navigator.sendBeacon(url, payload);
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [holdExpiresAt, selectedSeats, showtimeId]);
 
   const handleLeaveConfirm = useCallback(async () => {
     setIsReleasing(true);
@@ -136,11 +218,22 @@ export const Booking: React.FC = () => {
       clearSelection();
       setIsReleasing(false);
       setShowLeaveConfirm(false);
-      navigate(-1);
+      // Navigate to the intercepted link target, or fall back to going back
+      const target = pendingNavRef.current;
+      pendingNavRef.current = null;
+      isNavigatingAwayRef.current = true;
+      if (target) {
+        navigate(target);
+      } else {
+        // Go back past every guard entry (guardCountRef) AND the original
+        // booking page history entry (+1) to land on the actual previous page.
+        navigate(-(1 + guardCountRef.current));
+      }
     }
   }, [holdExpiresAt, selectedSeats, showtimeId, clearSelection, navigate]);
 
   const handleLeaveCancel = useCallback(() => {
+    pendingNavRef.current = null;
     setShowLeaveConfirm(false);
   }, []);
 
