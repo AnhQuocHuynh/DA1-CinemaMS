@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Star, Film, ChevronLeft, ChevronRight } from 'lucide-react';
 import { calculateEndTime, formatDuration, movies as mockMovies, searchMovies } from '../utils/movieData';
@@ -116,6 +116,15 @@ export const Home: React.FC = () => {
   const handleNextHero = () => {
     setCurrentHeroIndex((prev) => (prev === heroMovies.length - 1 ? 0 : prev + 1));
   };
+
+  // Auto-scroll hero carousel
+  useEffect(() => {
+    if (heroMovies.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentHeroIndex((prev) => (prev === heroMovies.length - 1 ? 0 : prev + 1));
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [heroMovies.length, currentHeroIndex]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
