@@ -12,8 +12,9 @@ interface SeatConfiguratorSidebarProps {
 }
 
 const tools = [
-  { id: 'normal', label: 'Standard Seat', hint: 'Green tile', border: 'border-transparent' },
-  { id: 'vip', label: 'VIP Seat', hint: 'Amber rim', border: 'border-amber-400' },
+  { id: 'standard', label: 'Standard Seat', hint: 'Green tile', border: 'border-transparent', bg: 'bg-green-500' },
+  { id: 'vip', label: 'VIP Seat', hint: 'Gold tile', border: 'border-transparent', bg: 'bg-amber-400' },
+  { id: 'couple', label: 'Couple Seat', hint: 'Pink tile, 2 cols', border: 'border-transparent', bg: 'bg-pink-500' },
 ] as const;
 
 export const SeatConfiguratorSidebar: React.FC<SeatConfiguratorSidebarProps> = ({
@@ -39,7 +40,7 @@ export const SeatConfiguratorSidebar: React.FC<SeatConfiguratorSidebarProps> = (
               className={`w-full flex items-center justify-between p-4 rounded-xl border ${activeTool === tool.id ? 'border-primary bg-surface-container-low' : 'border-outline-variant/30 bg-white'} transition-colors`}
             >
               <div className="flex items-center gap-3">
-                <span className={`w-6 h-6 rounded-sm bg-green-500 border-2 ${tool.border} shadow-sm`}></span>
+                <span className={`w-6 h-6 rounded-sm ${tool.bg} border-2 ${tool.border} shadow-sm`}></span>
                 <div>
                   <div className="text-sm font-semibold text-on-surface">{tool.label}</div>
                   <div className="text-[10px] uppercase tracking-widest text-outline">{tool.hint}</div>

@@ -127,6 +127,8 @@ export const adminService = {
            capacity: r.totalSeats || (r.rows * r.columns),
            technologies: [r.type].filter(Boolean),
            status: (r.underMaintenance ? 'maintenance' : 'operational') as 'maintenance' | 'operational',
+           rows: r.rows || 10,
+           columns: r.columns || 14,
        }));
        return {
            id: String(c.id),
@@ -157,9 +159,27 @@ export const adminService = {
     return response.data.data;
   },
 
+  createRoom: async (cinemaId: number | string, roomData: any) => {
+    console.log(`🏛️ [ADMIN] Creating room for cinema ${cinemaId}:`, roomData);
+    const response = await apiClient.post<{ success: boolean; data: any }>(`/cinemas/${cinemaId}/rooms`, roomData);
+    return response.data.data;
+  },
+
   deleteRoom: async (cinemaId: number | string, roomId: number | string) => {
     console.log(`🏛️ [ADMIN] Deleting room ${roomId} in cinema ${cinemaId}...`);
     const response = await apiClient.delete<{ success: boolean; data: any }>(`/cinemas/${cinemaId}/rooms/${roomId}`);
+    return response.data.data;
+  },
+
+  getRoomSeatMap: async (cinemaId: number | string, roomId: number | string) => {
+    console.log(`💺 [ADMIN] Fetching seat map for room ${roomId}...`);
+    const response = await apiClient.get<{ success: boolean; data: any[] }>(`/cinemas/${cinemaId}/rooms/${roomId}/seats`);
+    return response.data.data;
+  },
+
+  updateRoomSeatMap: async (cinemaId: number | string, roomId: number | string, data: any) => {
+    console.log(`💺 [ADMIN] Updating seat map for room ${roomId}...`, data);
+    const response = await apiClient.put<{ success: boolean; data: any }>(`/cinemas/${cinemaId}/rooms/${roomId}/seats`, data);
     return response.data.data;
   },
 

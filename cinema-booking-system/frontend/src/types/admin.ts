@@ -47,6 +47,8 @@ export interface AdminRoom {
   capacity: number;
   technologies: string[];
   status: 'operational' | 'maintenance';
+  rows: number;
+  columns: number;
 }
 
 export interface AdminTheater {

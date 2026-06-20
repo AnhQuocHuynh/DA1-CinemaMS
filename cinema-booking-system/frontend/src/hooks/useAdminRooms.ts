@@ -38,21 +38,11 @@ export const useAdminRooms = () => {
   };
 
   const addRoom = async (cinemaId: number | string, data: any) => {
-    // Actually adminService currently does not have createRoom, so I will need to mock or add it
-    // Wait, the API docs say POST /cinemas/{cinemaId}/rooms exists. Let me add it to adminService inline or mock it if it fails.
     try {
-      const response = await fetch(`/api/cinemas/${cinemaId}/rooms`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error('Failed to create room');
+      await adminService.createRoom(cinemaId, { ...data, cinemaId: Number(cinemaId) });
     } catch (e) {
-      console.error(e);
-      // Fallback to mock behavior if real endpoint fails
+      console.error('Failed to create room:', e);
+      throw e;
     }
     await loadRooms();
   };

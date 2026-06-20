@@ -12,19 +12,6 @@ export const SeatConfigurator: React.FC = () => {
   const navigate = useNavigate();
   const { roomId } = useParams();
   const { theaters } = useAdminRooms();
-  const {
-    rows,
-    columns,
-    activeTool,
-    grid,
-    seatCounts,
-    setActiveTool,
-    updateGridSize,
-    handleCellUpdate,
-    handleDrop,
-    handleDragOver,
-    clearGrid,
-  } = useSeatConfigurator();
 
   const room = useMemo(() => {
     for (const theater of theaters) {
@@ -35,6 +22,33 @@ export const SeatConfigurator: React.FC = () => {
     }
     return null;
   }, [theaters, roomId]);
+
+  const {
+    rows,
+    columns,
+    activeTool,
+    grid,
+    seatCounts,
+    isLoading,
+    isSaving,
+    setActiveTool,
+    updateGridSize,
+    handleCellUpdate,
+    handleDrop,
+    handleDragOver,
+    clearGrid,
+    loadGrid,
+    saveGrid,
+  } = useSeatConfigurator(
+    room?.theater.id?.toString(),
+    roomId,
+    room?.room.rows,
+    room?.room.columns
+  );
+
+  React.useEffect(() => {
+    loadGrid();
+  }, [loadGrid]);
 
   const roomName = room?.room.name ?? (roomId ? `Room ${roomId}` : 'Room');
 
@@ -69,8 +83,12 @@ export const SeatConfigurator: React.FC = () => {
               >
                 Reset Grid
               </button>
-              <button className="bg-primary text-on-primary px-4 py-3 rounded-lg text-sm font-semibold">
-                Save Configuration
+              <button 
+                onClick={saveGrid}
+                disabled={isSaving}
+                className="bg-primary text-on-primary px-4 py-3 rounded-lg text-sm font-semibold disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : 'Save Configuration'}
               </button>
             </>
           }
@@ -87,25 +105,33 @@ export const SeatConfigurator: React.FC = () => {
 
             <div className="perspective-container">
               <div className="perspective-map">
-                <SeatConfiguratorGrid
-                  grid={grid}
-                  columns={columns}
-                  activeTool={activeTool}
-                  onCellUpdate={handleCellUpdate}
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                />
+                {isLoading ? (
+                  <div className="flex justify-center items-center h-64 text-outline">Loading seat map...</div>
+                ) : (
+                  <SeatConfiguratorGrid
+                    grid={grid}
+                    columns={columns}
+                    activeTool={activeTool}
+                    onCellUpdate={handleCellUpdate}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                  />
+                )}
               </div>
             </div>
 
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-surface-container-low p-4 rounded-xl">
                 <div className="text-[10px] uppercase tracking-widest text-outline">Standard Seats</div>
-                <div className="text-2xl font-bold text-on-surface mt-2">{seatCounts.normal}</div>
+                <div className="text-2xl font-bold text-on-surface mt-2">{seatCounts.standard}</div>
               </div>
               <div className="bg-surface-container-low p-4 rounded-xl">
                 <div className="text-[10px] uppercase tracking-widest text-outline">VIP Seats</div>
                 <div className="text-2xl font-bold text-on-surface mt-2">{seatCounts.vip}</div>
+              </div>
+              <div className="bg-surface-container-low p-4 rounded-xl">
+                <div className="text-[10px] uppercase tracking-widest text-outline">Couple Seats</div>
+                <div className="text-2xl font-bold text-on-surface mt-2">{seatCounts.couple}</div>
               </div>
               <div className="bg-surface-container-low p-4 rounded-xl">
                 <div className="text-[10px] uppercase tracking-widest text-outline">Total Capacity</div>
