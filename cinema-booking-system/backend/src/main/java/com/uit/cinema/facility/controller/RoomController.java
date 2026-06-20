@@ -54,4 +54,17 @@ public class RoomController {
         roomService.deleteRoom(roomId);
         return ResponseEntity.ok(ApiResponse.success(null, "Xóa phòng chiếu thành công"));
     }
+
+    @GetMapping("/{roomId}/seats")
+    public ResponseEntity<ApiResponse<List<com.uit.cinema.facility.dto.response.SeatTemplateResponse>>> getSeatMap(@PathVariable Long cinemaId, @PathVariable Long roomId) {
+        List<com.uit.cinema.facility.dto.response.SeatTemplateResponse> seats = roomService.getSeatMapByRoomId(roomId);
+        return ResponseEntity.ok(ApiResponse.success(seats, "Lấy sơ đồ ghế thành công"));
+    }
+
+    @PutMapping("/{roomId}/seats")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> updateSeatMap(@PathVariable Long cinemaId, @PathVariable Long roomId, @Valid @RequestBody com.uit.cinema.facility.dto.request.SeatMapUpdateRequest request) {
+        roomService.updateSeatMap(roomId, request);
+        return ResponseEntity.ok(ApiResponse.success(null, "Cập nhật sơ đồ ghế thành công"));
+    }
 }

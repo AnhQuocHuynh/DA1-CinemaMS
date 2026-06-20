@@ -14,6 +14,8 @@ import com.uit.cinema.facility.mapper.RoomMapper;
 import com.uit.cinema.facility.repository.CinemaRepository;
 import com.uit.cinema.facility.repository.RoomRepository;
 import com.uit.cinema.facility.service.RoomService;
+import com.uit.cinema.facility.dto.response.SeatTemplateResponse;
+import com.uit.cinema.facility.dto.request.SeatMapUpdateRequest;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -147,5 +149,51 @@ public class RoomServiceImpl implements RoomService {
         
         room.setActive(false);
         roomRepository.save(room);
+    }
+
+    @Override
+    public List<SeatTemplateResponse> getSeatMapByRoomId(Long id) {
+        Room room = getRoomEntityById(id);
+        return seatTemplateRepository.findByRoomIdAndActiveTrue(id).stream()
+                .map(seat -> SeatTemplateResponse.builder()
+                        .id(seat.getId())
+                        .rowLabel(seat.getRowLabel())
+                        .columnNumber(seat.getColumnNumber())
+                        .seatTypeCode(seat.getSeatType() != null ? seat.getSeatType().getCode().name() : null)
+                        .columnSpan(seat.getColumnSpan())
+                        .active(seat.isActive())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void updateSeatMap(Long id, SeatMapUpdateRequest request) {
+        Room room = getRoomEntityById(id);
+        room.setRows(request.getRows());
+        room.setColumns(request.getColumns());
+        roomRepository.save(room);
+
+        seatTemplateRepository.deleteByRoomId(id);
+
+        if (request.getSeats() != null) {
+            for (var seatReq : request.getSeats()) {
+                SeatType type = seatTypeRepository.findByCode(SeatType.SeatTypeCode.valueOf(seatReq.getSeatTypeCode().toUpperCase()))
+                        .orElseThrow(() -> new CustomException("Invalid seat type", HttpStatus.BAD_REQUEST, "INVALID_SEAT_TYPE"));
+                
+                int span = type.getCode() == SeatType.SeatTypeCode.COUPLE ? 2 : 1;
+
+                SeatTemplate template = SeatTemplate.builder()
+                        .room(room)
+                        .seatType(type)
+                        .rowLabel(seatReq.getRowLabel())
+                        .columnNumber(seatReq.getColumnNumber())
+                        .columnSpan(span)
+                        .pathway(false)
+                        .active(true)
+                        .build();
+                seatTemplateRepository.save(template);
+            }
+        }
     }
 }
