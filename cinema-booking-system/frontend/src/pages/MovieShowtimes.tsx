@@ -228,22 +228,38 @@ export const MovieShowtimes: React.FC = () => {
                   </h2>
                 </div>
                 <div className="flex flex-wrap gap-4">
-                  {group.showtimes.map((st) => (
-                    <button
-                      key={st.id}
-                      onClick={() => handleBookShowtime(st)}
-                      className="group relative flex flex-col items-center justify-center w-24 h-16 bg-surface-container-lowest border-2 border-surface-container-highest rounded-xl hover:border-primary hover:bg-primary/5 transition-all"
-                    >
-                      <span className="text-lg font-bold text-on-surface group-hover:text-primary transition-colors">
-                        {formatTime(st.startTime)}
-                      </span>
-                      {st.roomName && (
-                        <span className="text-[10px] font-semibold text-outline uppercase tracking-widest">
-                          {st.roomName}
+                  {group.showtimes.map((st) => {
+                    const now = Date.now();
+                    const isClosed = new Date(st.startTime).getTime() - now < 5 * 60 * 1000;
+                    return (
+                      <button
+                        key={st.id}
+                        onClick={() => handleBookShowtime(st)}
+                        disabled={isClosed}
+                        className={`group relative flex flex-col items-center justify-center w-24 h-16 rounded-xl transition-all ${
+                          isClosed
+                            ? 'bg-surface-container-highest border-2 border-surface-container-highest opacity-50 cursor-not-allowed'
+                            : 'bg-surface-container-lowest border-2 border-surface-container-highest hover:border-primary hover:bg-primary/5'
+                        }`}
+                      >
+                        <span className={`text-lg font-bold transition-colors ${
+                          isClosed ? 'text-on-surface-variant' : 'text-on-surface group-hover:text-primary'
+                        }`}>
+                          {formatTime(st.startTime)}
                         </span>
-                      )}
-                    </button>
-                  ))}
+                        {st.roomName && (
+                          <span className="text-[10px] font-semibold text-outline uppercase tracking-widest mt-0.5">
+                            {st.roomName}
+                          </span>
+                        )}
+                        {isClosed && (
+                          <div className="absolute -top-2 -right-2 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm uppercase tracking-wider">
+                            Đã đóng
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ))

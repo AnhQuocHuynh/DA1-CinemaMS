@@ -201,26 +201,50 @@ export const MovieDetails: React.FC = () => {
             {/* Showtimes */}
             <div className="bg-slate-900 text-white rounded-xl p-6 space-y-4">
               <h3 className="font-semibold">Suất chiếu</h3>
-              {showtimes.length === 0 ? (
-                <p className="text-sm text-white/60">Chưa có suất chiếu nào.</p>
-              ) : (
-                <div className="grid grid-cols-1 gap-2">
-                  {showtimes.map((st) => (
-                    <button
-                      key={st.id}
-                      onClick={() => handleBookShowtime(st)}
-                      className="text-left px-4 py-3 rounded-md bg-white/10 hover:bg-white/20 transition-colors"
-                    >
-                      <span className="block text-sm font-semibold">
-                        {formatShowtime(st.startTime)}
-                      </span>
-                      <span className="block text-xs text-white/60 mt-0.5">
-                        {formatVND(parseVND(st.basePrice))} / ghế
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              {(() => {
+                const now = Date.now();
+                const validShowtimes = showtimes.filter(st => new Date(st.startTime).getTime() >= now);
+                
+                if (validShowtimes.length === 0) {
+                  return <p className="text-sm text-white/60">Chưa có suất chiếu nào.</p>;
+                }
+
+                return (
+                  <div className="grid grid-cols-1 gap-2">
+                    {validShowtimes.map((st) => {
+                      const isClose = new Date(st.startTime).getTime() - now < 5 * 60 * 1000;
+                      return (
+                        <button
+                          key={st.id}
+                          onClick={() => handleBookShowtime(st)}
+                          disabled={isClose}
+                          className={`text-left px-4 py-3 rounded-md transition-colors ${
+                            isClose 
+                              ? 'bg-white/5 opacity-50 cursor-not-allowed' 
+                              : 'bg-white/10 hover:bg-white/20'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <span className="block text-sm font-semibold">
+                                {formatShowtime(st.startTime)}
+                              </span>
+                              <span className="block text-xs text-white/60 mt-0.5">
+                                {formatVND(parseVND(st.basePrice))} / ghế
+                              </span>
+                            </div>
+                            {isClose && (
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 bg-red-400/10 px-2 py-1 rounded">
+                                Đã đóng
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </aside>
         </section>
