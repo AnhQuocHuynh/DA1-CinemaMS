@@ -2,7 +2,7 @@
 
 export type ShowtimeStatus = 'SCHEDULED' | 'ONGOING' | 'FINISHED' | 'CANCELLED';
 export type ShowtimeSeatStatus = 'available' | 'holding' | 'sold';
-export type ShowtimeSeatType = 'normal' | 'vip' | 'couple';
+export type ShowtimeSeatType = 'standard' | 'vip' | 'couple';
 
 export interface ShowtimeResponse {
   id: number;

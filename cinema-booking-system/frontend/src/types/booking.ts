@@ -1,7 +1,7 @@
 // Booking flow frontend types — kept in sync with the backend API contract
 
 export type SeatStatus = 'available' | 'selected' | 'sold' | 'holding';
-export type SeatType = 'normal' | 'vip' | 'couple';
+export type SeatType = 'standard' | 'vip' | 'couple';
 
 /** UI-layer seat model (converted from ShowtimeSeatResponse) */
 export interface Seat {
