@@ -34,9 +34,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: cinema-booking-system/frontend
-        run: |
-          rm -rf node_modules package-lock.json
-          npm install
+        run: npm install
 
       - name: Build frontend
         working-directory: cinema-booking-system/frontend
