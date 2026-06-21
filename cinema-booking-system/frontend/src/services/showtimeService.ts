@@ -10,6 +10,13 @@ export const showtimeService = {
     );
     return response.data?.data ?? [];
   },
+  /** GET /showtimes/event/{eventId} */
+  getShowtimesByEvent: async (eventId: number): Promise<ShowtimeResponse[]> => {
+    const response = await apiClient.get<{ success: boolean; data: ShowtimeResponse[] }>(
+      `/showtimes/event/${eventId}`
+    );
+    return response.data?.data ?? [];
+  },
 
   /** GET /showtimes/{id} */
   getShowtime: async (showtimeId: number | string): Promise<ShowtimeResponse> => {

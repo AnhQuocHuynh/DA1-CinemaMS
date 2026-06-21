@@ -4,6 +4,7 @@ import { Star, Film, ChevronLeft, ChevronRight } from 'lucide-react';
 import { calculateEndTime, formatDuration, movies as mockMovies, searchMovies } from '../utils/movieData';
 import { SiteTopNav } from '../components/SiteTopNav';
 import { useMovies } from '../hooks/useMovies';
+import { eventService, EventResponse } from '../services/eventService';
 import { MovieResponse } from '../services/movieService';
 import { Movie } from '../types/movie';
 import genericPoster from '../resources/generic_movie_poster.png';
@@ -67,9 +68,14 @@ export const Home: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
+  const [events, setEvents] = useState<EventResponse[]>([]);
 
   // Fetch real movies from backend
   const { backendMovies, isLoading: isLoadingBackend } = useMovies();
+
+  useEffect(() => {
+    eventService.getEvents().then(setEvents).catch(console.error);
+  }, []);
 
   // ── Build a unified card list ────────────────────────────────────────────
   // Backend movies first, then mock movies below them.
@@ -370,6 +376,52 @@ export const Home: React.FC = () => {
             })}
           </div>
           {/* ── END mock movies ─────────────────────────────────────────── */}
+
+          {/* ── Upcoming Events ───────────────────────────────────────── */}
+          {events.length > 0 && (
+            <div className="mt-16">
+              <div className="flex items-center gap-2 mb-4">
+                <Star size={16} className="text-amber-500" />
+                <span className="text-xs font-bold tracking-widest uppercase text-amber-600">Upcoming Events</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7">
+                {events.map((event) => (
+                  <article key={event.id} className="group rounded-xl overflow-hidden bg-white border border-slate-200 hover:shadow-xl transition-shadow">
+                    <Link to={`/events/${event.id}`}>
+                      <div className="relative aspect-[2/3] overflow-hidden">
+                        <img
+                          src={event.imageUrl || genericPoster}
+                          alt={event.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.src = genericPoster;
+                          }}
+                        />
+                      </div>
+                    </Link>
+
+                    <div className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <Link to={`/events/${event.id}`} className="font-bold leading-tight hover:text-amber-600 transition-colors">
+                          {event.name}
+                        </Link>
+                      </div>
+                      <p className="text-xs text-slate-500">Sự kiện đặc biệt</p>
+                      <p className="text-sm text-slate-700">{new Date(event.startTime).toLocaleDateString('vi-VN')} - {new Date(event.endTime).toLocaleDateString('vi-VN')}</p>
+                      <p className="text-sm text-slate-600">{event.venue}</p>
+                      <div className="pt-2 flex items-center justify-between">
+                        <Link to={`/events/${event.id}`} className="text-sm font-semibold text-amber-600 hover:underline">
+                          Chi tiết & Đặt vé
+                        </Link>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
 
         </section>
 

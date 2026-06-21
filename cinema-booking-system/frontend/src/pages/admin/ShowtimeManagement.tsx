@@ -10,6 +10,7 @@ import genericPoster from '../../resources/generic_movie_poster.png';
 export const ShowtimeManagement: React.FC = () => {
   const { showtimes, isLoading } = useAdminShowtimes();
   const [activeEdit, setActiveEdit] = useState<AdminShowtimeItem | null>(null);
+  const [isEvent, setIsEvent] = useState(false);
 
   return (
     <AdminLayout activeItemId="showtimes">
@@ -118,8 +119,19 @@ export const ShowtimeManagement: React.FC = () => {
                 </button>
               </header>
               <form className="p-8 space-y-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-secondary">Type</label>
+                  <select 
+                    value={isEvent ? 'event' : 'movie'} 
+                    onChange={(e) => setIsEvent(e.target.value === 'event')}
+                    className="bg-surface-container-highest border-0 focus:ring-0 text-sm rounded-lg px-3 py-1.5"
+                  >
+                    <option value="movie">Movie</option>
+                    <option value="event">Event</option>
+                  </select>
+                </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-bold tracking-widest text-secondary block">Movie Title</label>
+                  <label className="text-[10px] uppercase font-bold tracking-widest text-secondary block">{isEvent ? 'Event Title' : 'Movie Title'}</label>
                   <input
                     className="w-full bg-surface-container-highest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 transition-all px-4 py-3 rounded-t-lg font-medium text-on-surface"
                     type="text"

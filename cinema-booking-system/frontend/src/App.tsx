@@ -6,6 +6,7 @@ import { Home } from './pages/Home';
 import { MovieDetails } from './pages/MovieDetails';
 import { MovieShowtimes } from './pages/MovieShowtimes';
 import { MovieSearch } from './pages/MovieSearch';
+import { EventDetails } from './pages/EventDetails';
 import { HealthCheck } from './pages/HealthCheck';
 import { Theaters } from './pages/Theaters';
 import { Membership } from './pages/Membership';
@@ -17,6 +18,7 @@ import { TicketInfo } from './pages/portal/TicketInfo';
 import { Settings } from './pages/portal/Settings';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { MovieManagement } from './pages/admin/MovieManagement';
+import { EventManagement } from './pages/admin/EventManagement';
 import { PermissionManagement } from './pages/admin/PermissionManagement';
 import { PricingAndVouchers } from './pages/admin/PricingAndVouchers';
 import { RoomManagement } from './pages/admin/RoomManagement';
@@ -36,6 +38,8 @@ function App() {
       <Route path="/membership" element={<Membership />} />
       <Route path="/movies/:movieId" element={<MovieDetails />} />
       <Route path="/movies/:movieId/showtimes" element={<MovieShowtimes />} />
+      <Route path="/events/:eventId" element={<EventDetails />} />
+      <Route path="/events/:eventId/showtimes" element={<MovieShowtimes />} />
       <Route path="/movies/search" element={<MovieSearch />} />
       <Route path="/health-check" element={<HealthCheck />} />
       <Route path="/login" element={<Login />} />
@@ -67,24 +71,25 @@ function App() {
           </ProtectedRoute>
         }
       />
-      <Route path="/admin/movies" element={<MovieManagement />} />
-      <Route path="/admin/permissions" element={<PermissionManagement />} />
-      <Route path="/admin/pricing" element={<PricingAndVouchers />} />
-      <Route path="/admin/rooms" element={<RoomManagement />} />
-      <Route path="/admin/rooms/:roomId/seats" element={<SeatConfigurator />} />
-      <Route path="/admin/showtimes" element={<ShowtimeManagement />} />
+      <Route path="/admin/movies" element={<ProtectedRoute requiredRole="ADMIN"><MovieManagement /></ProtectedRoute>} />
+      <Route path="/admin/events" element={<ProtectedRoute requiredRole="ADMIN"><EventManagement /></ProtectedRoute>} />
+      <Route path="/admin/permissions" element={<ProtectedRoute requiredRole="ADMIN"><PermissionManagement /></ProtectedRoute>} />
+      <Route path="/admin/pricing" element={<ProtectedRoute requiredRole="ADMIN"><PricingAndVouchers /></ProtectedRoute>} />
+      <Route path="/admin/rooms" element={<ProtectedRoute requiredRole="ADMIN"><RoomManagement /></ProtectedRoute>} />
+      <Route path="/admin/rooms/:roomId/seats" element={<ProtectedRoute requiredRole="ADMIN"><SeatConfigurator /></ProtectedRoute>} />
+      <Route path="/admin/showtimes" element={<ProtectedRoute requiredRole="ADMIN"><ShowtimeManagement /></ProtectedRoute>} />
 
       {/* Protected Staff Routes */}
       <Route
         path="/staff/dashboard"
         element={
-          //  <ProtectedRoute requiredRole="STAFF">
-          <StaffDashboard />
-          //  </ProtectedRoute>
+          <ProtectedRoute requiredRole="STAFF">
+            <StaffDashboard />
+          </ProtectedRoute>
         }
       />
-      <Route path="/staff/ticket-lookup" element={<TicketLookup />} />
-      <Route path="/staff/qr-checker" element={<QRChecker />} />
+      <Route path="/staff/ticket-lookup" element={<ProtectedRoute requiredRole="STAFF"><TicketLookup /></ProtectedRoute>} />
+      <Route path="/staff/qr-checker" element={<ProtectedRoute requiredRole="STAFF"><QRChecker /></ProtectedRoute>} />
 
       {/* Catch-all redirect */}
       <Route path="*" element={<Navigate to="/" replace />} />

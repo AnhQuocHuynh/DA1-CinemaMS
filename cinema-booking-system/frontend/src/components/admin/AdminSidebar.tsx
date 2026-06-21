@@ -16,6 +16,7 @@ import {
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3, to: '/admin/dashboard' },
   { id: 'movies', label: 'Movies', icon: Film, to: '/admin/movies' },
+  { id: 'events', label: 'Events', icon: Film, to: '/admin/events' },
   { id: 'showtimes', label: 'Showtimes', icon: MonitorPlay, to: '/admin/showtimes' },
   { id: 'rooms', label: 'Rooms', icon: LayoutGrid, to: '/admin/rooms' },
   { id: 'pricing', label: 'Pricing', icon: Ticket, to: '/admin/pricing' },
@@ -59,10 +60,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               key={item.id}
               to={item.to}
               className={({ isActive: navActive }) =>
-                `w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-all duration-200 ease-in-out ${
-                  navActive || isActive
-                    ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-700'
-                    : 'text-slate-500 hover:bg-slate-200'
+                `w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-all duration-200 ease-in-out ${navActive || isActive
+                  ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-700'
+                  : 'text-slate-500 hover:bg-slate-200'
                 }`
               }
             >
