@@ -30,6 +30,12 @@ public class ShowtimeController {
         return ResponseEntity.ok(ApiResponse.success(showtimes, "Lấy danh sách suất chiếu thành công"));
     }
 
+    @GetMapping("/event/{eventId}")
+    public ResponseEntity<ApiResponse<List<ShowtimeResponse>>> getShowtimesByEvent(@PathVariable Long eventId) {
+        List<ShowtimeResponse> showtimes = showtimeService.getShowtimesByEvent(eventId);
+        return ResponseEntity.ok(ApiResponse.success(showtimes, "Lấy danh sách suất chiếu thành công"));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ShowtimeResponse>> getShowtimeById(@PathVariable Long id) {
         ShowtimeResponse showtime = showtimeService.getShowtimeById(id);

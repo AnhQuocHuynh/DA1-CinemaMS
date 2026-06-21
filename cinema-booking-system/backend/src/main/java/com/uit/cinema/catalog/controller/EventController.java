@@ -25,6 +25,13 @@ public class EventController {
         return ResponseEntity.ok(ApiResponse.success(events, "Lấy danh sách sự kiện sắp tới thành công"));
     }
 
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<EventResponse>>> getAllEvents() {
+        List<EventResponse> events = eventService.getAllEvents();
+        return ResponseEntity.ok(ApiResponse.success(events, "Lấy toàn bộ danh sách sự kiện thành công"));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<EventResponse>> getEventById(@PathVariable Long id) {
         EventResponse event = eventService.getEventById(id);
