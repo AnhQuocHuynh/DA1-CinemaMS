@@ -29,12 +29,14 @@ public class SecurityConfig {
         "/api/movies/**",
         "/api/events/**",
         "/api/showtimes/**",
-        "/api/catalog/**"
+        "/api/cinemas/**",
+        "/api/health/**"
     };
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+            .cors(org.springframework.security.config.Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth

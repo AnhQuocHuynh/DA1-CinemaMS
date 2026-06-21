@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CinemaArchitect - Admin Console</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary": "#784b00",
+              "on-surface-variant": "#434655",
+              "secondary": "#545f73",
+              "surface-variant": "#d8e3fb",
+              "primary-fixed-dim": "#b4c5ff",
+              "outline": "#737686",
+              "on-tertiary-fixed-variant": "#653e00",
+              "surface-dim": "#cfdaf2",
+              "surface-container-lowest": "#ffffff",
+              "on-tertiary": "#ffffff",
+              "on-primary-fixed-variant": "#003ea8",
+              "surface-container-highest": "#d8e3fb",
+              "inverse-surface": "#263143",
+              "secondary-fixed-dim": "#bcc7de",
+              "on-tertiary-container": "#ffeedd",
+              "error": "#ba1a1a",
+              "surface": "#f9f9ff",
+              "primary": "#004ac6",
+              "inverse-on-surface": "#ecf1ff",
+              "secondary-fixed": "#d8e3fb",
+              "on-error-container": "#93000a",
+              "on-surface": "#111c2d",
+              "secondary-container": "#d5e0f8",
+              "on-error": "#ffffff",
+              "surface-container": "#e7eeff",
+              "on-primary": "#ffffff",
+              "on-secondary-container": "#586377",
+              "inverse-primary": "#b4c5ff",
+              "surface-tint": "#0053db",
+              "surface-container-low": "#f0f3ff",
+              "on-secondary-fixed": "#111c2d",
+              "tertiary-fixed": "#ffddb8",
+              "outline-variant": "#c3c6d7",
+              "surface-container-high": "#dee8ff",
+              "primary-container": "#2563eb",
+              "tertiary-container": "#996100",
+              "surface-bright": "#f9f9ff",
+              "tertiary-fixed-dim": "#ffb95f",
+              "on-secondary-fixed-variant": "#3c475a",
+              "on-primary-fixed": "#00174b",
+              "on-secondary": "#ffffff",
+              "primary-fixed": "#dbe1ff",
+              "on-background": "#111c2d",
+              "on-tertiary-fixed": "#2a1700",
+              "error-container": "#ffdad6",
+              "background": "#f9f9ff",
+              "on-primary-container": "#eeefff"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased">
+<!-- Side Navigation Shell -->
+<aside class="bg-slate-50 dark:bg-slate-950 h-screen w-64 fixed left-0 top-0 overflow-y-auto flex flex-col py-6 pl-4 space-y-2 z-40">
+<div class="text-lg font-black text-slate-900 dark:text-white mb-8 tracking-tighter">
+            Admin Portal
+            <div class="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 mt-1">HQ Terminal - London</div>
+</div>
+<nav class="flex-1 space-y-1 pr-4">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-transform hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-inter text-xs uppercase tracking-widest font-semibold">Dashboard</span>
+</a>
+<!-- Active Tab: Schedules (Showtime Management) -->
+<a class="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm rounded-r-full -mr-4" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_month">calendar_month</span>
+<span class="font-inter text-xs uppercase tracking-widest font-semibold">Schedules</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-transform hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-inter text-xs uppercase tracking-widest font-semibold">Revenue</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-transform hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="confirmation_number">confirmation_number</span>
+<span class="font-inter text-xs uppercase tracking-widest font-semibold">Inventory</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-transform hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-inter text-xs uppercase tracking-widest font-semibold">Staff</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-transform hover:translate-x-1" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-inter text-xs uppercase tracking-widest font-semibold">Settings</span>
+</a>
+</nav>
+<div class="mt-auto pr-4 pt-6 border-t border-slate-200 dark:border-slate-800">
+<button class="w-full mb-6 bg-primary text-on-primary py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest hover:opacity-90 transition-all">
+                Quick Export
+            </button>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-slate-500 text-xs font-semibold uppercase tracking-widest hover:text-slate-900 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span> Help Center
+                </a>
+<a class="flex items-center gap-3 px-4 py-2 text-error text-xs font-semibold uppercase tracking-widest hover:opacity-80 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span> Logout
+                </a>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 min-h-screen p-8 lg:p-12 bg-surface">
+<!-- Header Section -->
+<header class="flex justify-between items-end mb-12">
+<div class="space-y-1">
+<h1 class="text-3xl font-medium text-on-surface tracking-tight leading-none">Showtime Management</h1>
+<p class="text-secondary text-sm">Configure schedules and screen allocations for current movie runs.</p>
+</div>
+<button class="bg-primary hover:bg-surface-tint text-on-primary px-6 py-3 rounded shadow-sm transition-all duration-200 active:scale-95 flex items-center gap-2 font-medium">
+<span class="material-symbols-outlined text-lg" data-icon="add">add</span>
+                Add New Showtime
+            </button>
+</header>
+<!-- Stats Overview (Bento Style) -->
+<section class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+<div class="md:col-span-2 bg-surface-container-lowest p-8 rounded-xl border border-transparent shadow-sm flex flex-col justify-between">
+<label class="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">Total Screenings Today</label>
+<div class="flex items-end justify-between">
+<span class="text-5xl font-bold tracking-tighter text-on-surface">42</span>
+<span class="text-primary bg-primary/10 px-2 py-1 rounded text-xs font-bold">+12% vs yest.</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-8 rounded-xl flex flex-col justify-between">
+<label class="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">Avg. Occupancy</label>
+<span class="text-4xl font-bold tracking-tighter text-on-surface">68%</span>
+</div>
+<div class="bg-surface-container-high p-8 rounded-xl flex flex-col justify-between">
+<label class="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">Active Halls</label>
+<span class="text-4xl font-bold tracking-tighter text-on-surface">09</span>
+</div>
+</section>
+<!-- Data Table Section -->
+<section class="bg-surface-container-lowest rounded-xl overflow-hidden">
+<div class="px-8 py-6 flex items-center justify-between bg-surface-container-low/30">
+<div class="flex items-center gap-4 bg-surface-container-highest px-4 py-2 rounded-lg w-96">
+<span class="material-symbols-outlined text-outline" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline" placeholder="Search movies or halls..." type="text"/>
+</div>
+<div class="flex gap-2">
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-secondary transition-colors">
+<span class="material-symbols-outlined" data-icon="filter_list">filter_list</span>
+</button>
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-secondary transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low/50">
+<tr>
+<th class="px-8 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Movie Title</th>
+<th class="px-8 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Hall</th>
+<th class="px-8 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Date</th>
+<th class="px-8 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Time</th>
+<th class="px-8 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-8 py-5">
+<div class="flex items-center gap-4">
+<div class="w-10 h-14 bg-slate-200 rounded-sm overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Cinematic movie poster with high contrast blue and orange lighting featuring a silhouette of a person standing against a futuristic city" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAlswhWJ4rvJ4xEPbIS3bVy82yu0oS3aObPbtFTZxHn--S02yDQpj5dOc0lg3eYDkvspHimjWqgRRyawmu-UAK0kyIb97UWeYH7BFt_6cYauvJZClqITryB2MAYZWpsBWXtPNafayIcXY9FnbWb-mcpes65MFkPVZuiMkeoa0u2_bAmf9Nop7tecC9q04OCMzlUJbKkB3rv4FwB55hApsREFGe_gCj9lYiExooMNUSv6M9AMQrXQNUecUvFYncHMi-IuKK-_tOGLDw"/>
+</div>
+<div>
+<p class="font-medium text-on-surface">Neon Horizon: Part II</p>
+<p class="text-xs text-secondary">Sci-Fi • 2h 15m</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-5 text-sm font-medium text-on-surface">IMAX Theater 01</td>
+<td class="px-8 py-5 text-sm text-secondary">Oct 24, 2023</td>
+<td class="px-8 py-5">
+<span class="px-3 py-1 bg-primary/5 text-primary rounded-full text-xs font-bold">19:30</span>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="p-2 text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="edit">edit</span>
+</button>
+<button class="p-2 text-outline hover:text-error transition-colors">
+<span class="material-symbols-outlined" data-icon="delete">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="px-8 py-5">
+<div class="flex items-center gap-4">
+<div class="w-10 h-14 bg-slate-200 rounded-sm overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Dramatic close-up of a vintage film reel and a spotlight beam in a dark theater setting with subtle dust particles" src="https://lh3.googleusercontent.com/aida-public/AB6AXuADr4Bf-3ihQI6fpTrgKYxRVs-lBE9OfgnrWaVPjO9RrEis4E8oyJ6CD6NHxxKnr8J2Ke8PubwKyIYVtAPGcD74U8FnZKoJtij7jbMerCrog8OZjvtJZ_uTueu9vP5ruWe2lx-q9Gm6k3cgK9Dqqw62RaELDzlpG_p19JN1EDfkp2I-3_FzUHXC-6uaI6kpeIfwN-_Wng8ObLrQk8Dk5A6xUZsyITbaWjbeu5hZz_svtpg1SHXgkwvg7TqADksrrCKEUygQSa8JQiA"/>
+</div>
+<div>
+<p class="font-medium text-on-surface">The Last Architect</p>
+<p class="text-xs text-secondary">Drama • 1h 50m</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-5 text-sm font-medium text-on-surface">Grand Hall A</td>
+<td class="px-8 py-5 text-sm text-secondary">Oct 24, 2023</td>
+<td class="px-8 py-5">
+<span class="px-3 py-1 bg-primary/5 text-primary rounded-full text-xs font-bold">21:00</span>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="p-2 text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="edit">edit</span>
+</button>
+<button class="p-2 text-outline hover:text-error transition-colors">
+<span class="material-symbols-outlined" data-icon="delete">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="px-8 py-5">
+<div class="flex items-center gap-4">
+<div class="w-10 h-14 bg-slate-200 rounded-sm overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Abstract art of a cinema ticket and popcorn bucket rendered in a minimalist 3D isometric style with professional studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkYSnxoyJYaN-dXFExkWQxMFY2gSOE7ufXSvmHrZxBR5UnuMPaf26BVynVFcLk48AZu_FTqlrSIt3TaTlXWxad9iwC_X6pehqDWhIdTRvl4LS7wSvmhCqjBDxiN5kvgRilVS-nER2Ojzbz4lQMCWg9ln0-NBlQ4Mp1hWhNRqbOUzWBsssXYHI6NDJpkCdgHOAoQScrti8dksLUP6502Kx9PX0SiP0uIXeHpdIkz4TS20xdHDL4KJtdMc1M4C_1wLEk0DoLlnZ6eVY"/>
+</div>
+<div>
+<p class="font-medium text-on-surface">Echoes of Silence</p>
+<p class="text-xs text-secondary">Thriller • 2h 05m</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-5 text-sm font-medium text-on-surface">Suite 04 (VIP)</td>
+<td class="px-8 py-5 text-sm text-secondary">Oct 25, 2023</td>
+<td class="px-8 py-5">
+<span class="px-3 py-1 bg-primary/5 text-primary rounded-full text-xs font-bold">14:15</span>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="p-2 text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="edit">edit</span>
+</button>
+<button class="p-2 text-outline hover:text-error transition-colors">
+<span class="material-symbols-outlined" data-icon="delete">delete</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+<footer class="px-8 py-4 border-t border-surface-container flex items-center justify-between text-xs font-medium text-secondary bg-surface-container-low/20">
+<span>Showing 1-3 of 28 schedules</span>
+<div class="flex gap-4">
+<button class="hover:text-primary disabled:opacity-30" disabled="">Previous</button>
+<button class="hover:text-primary">Next</button>
+</div>
+</footer>
+</section>
+</main>
+<!-- Overlay / Edit Showtime Modal (Visible for Mockup) -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+<div class="bg-surface-container-lowest w-full max-w-xl rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+<header class="px-8 py-6 border-b border-surface-container flex justify-between items-center">
+<h2 class="text-xl font-bold tracking-tight">Edit Showtime</h2>
+<button class="text-secondary hover:text-on-surface">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</header>
+<form class="p-8 space-y-6">
+<div class="space-y-2">
+<label class="text-[10px] uppercase font-bold tracking-widest text-secondary block">Movie Title</label>
+<div class="relative">
+<input class="w-full bg-surface-container-highest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 transition-all px-4 py-3 rounded-t-lg font-medium text-on-surface" type="text" value="Neon Horizon: Part II"/>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-[10px] uppercase font-bold tracking-widest text-secondary block">Theater Hall</label>
+<select class="w-full bg-surface-container-highest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 transition-all px-4 py-3 rounded-t-lg font-medium text-on-surface appearance-none">
+<option>IMAX Theater 01</option>
+<option>Grand Hall A</option>
+<option>Suite 04 (VIP)</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] uppercase font-bold tracking-widest text-secondary block">Seat Map Version</label>
+<select class="w-full bg-surface-container-highest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 transition-all px-4 py-3 rounded-t-lg font-medium text-on-surface appearance-none">
+<option>Standard 120-Seat</option>
+<option>Premium 80-Seat</option>
+</select>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-[10px] uppercase font-bold tracking-widest text-secondary block">Date</label>
+<input class="w-full bg-surface-container-highest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 transition-all px-4 py-3 rounded-t-lg font-medium text-on-surface" type="date" value="2023-10-24"/>
+</div>
+<div class="space-y-2">
+<label class="text-[10px] uppercase font-bold tracking-widest text-secondary block">Start Time</label>
+<input class="w-full bg-surface-container-highest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 transition-all px-4 py-3 rounded-t-lg font-medium text-on-surface" type="time" value="19:30"/>
+</div>
+</div>
+<div class="pt-6 flex gap-4 justify-end">
+<button class="px-6 py-2.5 rounded text-sm font-bold uppercase tracking-widest text-secondary hover:bg-surface-container transition-colors" type="button">Cancel</button>
+<button class="px-8 py-2.5 rounded bg-primary text-on-primary text-sm font-bold uppercase tracking-widest shadow-md hover:opacity-90 transition-all active:scale-95" type="submit">Update Showtime</button>
+</div>
+</form>
+</div>
+</div>
+</body></html>

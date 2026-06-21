@@ -22,4 +22,7 @@ public class ShowtimeResponse {
     private BigDecimal basePrice;
     private String status;
     private LocalDateTime createdAt;
+    private String roomName;
+    private Long cinemaId;
+    private String cinemaName;
 }

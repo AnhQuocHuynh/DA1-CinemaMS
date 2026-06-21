@@ -13,6 +13,8 @@ import com.uit.cinema.showtime.entity.ShowtimeSeat;
 import com.uit.cinema.showtime.mapper.ShowtimeMapper;
 import com.uit.cinema.showtime.repository.ShowtimeRepository;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.facility.dto.response.RoomResponse;
+import com.uit.cinema.facility.service.RoomService;
 import com.uit.cinema.showtime.service.SeatHoldPolicy;
 import com.uit.cinema.showtime.service.ShowtimeService;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +41,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final EntityManager entityManager;
     private final SeatTemplateRepository seatTemplateRepository;
+    private final RoomService roomService;
 
     @Override
     public List<ShowtimeResponse> getShowtimesByMovie(Long movieId) {
@@ -46,7 +49,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         return showtimeRepository.findByMovieIdAndStartTimeAfterOrderByStartTimeAsc(movieId, minStartTime)
             .stream()
             .filter(showtime -> showtime.getStatus() == Showtime.Status.SCHEDULED)
-            .map(showtimeMapper::toResponse)
+            .map(this::enrichWithRoomData)
             .collect(Collectors.toList());
     }
 
@@ -54,7 +57,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     public ShowtimeResponse getShowtimeById(Long id) {
         Showtime showtime = showtimeRepository.findById(id)
             .orElseThrow(() -> new CustomException("Showtime not found", HttpStatus.NOT_FOUND, "SHOWTIME_NOT_FOUND"));
-        return showtimeMapper.toResponse(showtime);
+        return enrichWithRoomData(showtime);
     }
 
     @Override
@@ -65,13 +68,23 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     }
 
     @Override
+    public ShowtimeSeatResponse getSeatById(Long seatId) {
+        ShowtimeSeat seat = showtimeSeatRepository.findById(seatId)
+            .orElseThrow(() -> new CustomException("Seat not found", HttpStatus.NOT_FOUND, "SEAT_NOT_FOUND"));
+        return toRealtimeSeatResponse(seat.getShowtimeId(), seat);
+    }
+
+    @Override
     @Transactional
     public ShowtimeResponse createShowtime(ShowtimeRequest request) {
         // Check room maintenance status
-        com.uit.cinema.facility.entity.Room room = entityManager.find(com.uit.cinema.facility.entity.Room.class, request.getRoomId());
-        if (room == null) {
+        RoomResponse room = null;
+        try {
+            room = roomService.getRoomById(request.getRoomId());
+        } catch (CustomException e) {
             throw new CustomException("Phòng chiếu không tồn tại", HttpStatus.NOT_FOUND, "ROOM_NOT_FOUND");
         }
+        
         if (room.isUnderMaintenance()) {
             throw new CustomException("Phòng chiếu đang bảo trì, không thể tạo suất chiếu", HttpStatus.BAD_REQUEST, "ROOM_UNDER_MAINTENANCE");
         }
@@ -97,7 +110,30 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             showtimeSeatRepository.save(seat);
         }
 
-        return showtimeMapper.toResponse(savedShowtime);
+        ShowtimeResponse response = showtimeMapper.toResponse(savedShowtime);
+        if (room != null) {
+            response.setRoomName(room.getName());
+            if (room.getCinemaId() != null) {
+                response.setCinemaId(room.getCinemaId());
+                response.setCinemaName(room.getCinemaName());
+            }
+        }
+        return response;
+    }
+
+    private ShowtimeResponse enrichWithRoomData(Showtime showtime) {
+        ShowtimeResponse response = showtimeMapper.toResponse(showtime);
+        if (showtime.getRoomId() != null) {
+            try {
+                RoomResponse room = roomService.getRoomById(showtime.getRoomId());
+                response.setRoomName(room.getName());
+                response.setCinemaId(room.getCinemaId());
+                response.setCinemaName(room.getCinemaName());
+            } catch (Exception e) {
+                // Room not found or other error, just return basic response
+            }
+        }
+        return response;
     }
 
     private ShowtimeSeatResponse toRealtimeSeatResponse(Long showtimeId, ShowtimeSeat seat) {
