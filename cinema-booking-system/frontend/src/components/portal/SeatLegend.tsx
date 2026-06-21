@@ -2,7 +2,7 @@ import React from 'react';
 
 const legendItems = [
   { label: 'Available', className: 'bg-green-500' },
-  { label: 'Holding', className: 'bg-yellow-400 ring-2 ring-gray-400' },
+  { label: 'Holding', className: 'bg-yellow-200 ring-2 ring-gray-400' },
   { label: 'Sold', className: 'bg-gray-400' },
 ];
 
