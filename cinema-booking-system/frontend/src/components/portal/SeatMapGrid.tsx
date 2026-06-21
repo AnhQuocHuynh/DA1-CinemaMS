@@ -28,9 +28,9 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
             if (seat.status === 'sold') {
               baseClass = 'bg-gray-400 cursor-not-allowed text-gray-200';
             } else if (seat.status === 'holding') {
-              baseClass = 'bg-yellow-400 ring-2 ring-gray-400 cursor-wait text-gray-800';
+              baseClass = 'bg-yellow-200 ring-2 ring-gray-400 cursor-wait text-gray-800';
             } else if (selected) {
-              baseClass = 'bg-yellow-400 ring-2 ring-gray-400 text-gray-900 shadow-md';
+              baseClass = 'bg-yellow-200 ring-2 ring-gray-400 text-gray-900 shadow-md';
             } else if (seat.type === 'vip') {
               baseClass = 'bg-gradient-to-br from-amber-200 to-amber-500 hover:from-amber-300 hover:to-amber-600 text-amber-950 border border-amber-600 shadow-sm transition-all cursor-pointer';
             } else {
@@ -49,7 +49,7 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
 
             const isCouple = seat.type === 'couple';
             const spanClass = isCouple ? 'col-span-2' : 'col-span-1';
-            const shapeClass = isCouple ? 'rounded-lg aspect-[2/1] w-full' : 'rounded-sm w-full aspect-square';
+            const shapeClass = isCouple ? 'bg-pink-500 hover:bg-pink-600 rounded-lg aspect-[2/1] w-full' : 'rounded-sm w-full aspect-square';
 
             const isDisabled = seat.status === 'sold' || seat.status === 'holding';
             return (
