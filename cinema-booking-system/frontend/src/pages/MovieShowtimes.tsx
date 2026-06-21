@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, MapPin } from 'lucide-react';
 import { movieService, MovieResponse } from '../services/movieService';
+import { eventService, EventResponse } from '../services/eventService';
 import { showtimeService } from '../services/showtimeService';
 import { ShowtimeResponse } from '../types/showtime';
 import { useBookingStore } from '../store/bookingStore';
@@ -9,9 +10,10 @@ import genericPoster from '../resources/generic_movie_poster.png';
 
 export const MovieShowtimes: React.FC = () => {
   const navigate = useNavigate();
-  const { movieId } = useParams<{ movieId: string }>();
+  const { movieId, eventId } = useParams<{ movieId?: string, eventId?: string }>();
 
   const [movie, setMovie] = useState<MovieResponse | null>(null);
+  const [event, setEvent] = useState<EventResponse | null>(null);
   const [showtimes, setShowtimes] = useState<ShowtimeResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,15 +22,32 @@ export const MovieShowtimes: React.FC = () => {
   const { setMovieTitle, setMoviePosterUrl } = useBookingStore();
 
   useEffect(() => {
-    if (!movieId) return;
+    if (!movieId && !eventId) return;
     setIsLoading(true);
-    Promise.all([
-      movieService.getMovieById(movieId),
-      showtimeService.getShowtimes(parseInt(movieId, 10)),
-    ])
-      .then(([m, s]) => {
-        setMovie(m);
-        const scheduled = s.filter((st) => st.status === 'SCHEDULED');
+
+    const fetchDetailsAndShowtimes = async () => {
+      try {
+        let showtimesResponse: ShowtimeResponse[];
+
+        if (movieId) {
+          const [m, s] = await Promise.all([
+            movieService.getMovieById(movieId),
+            showtimeService.getShowtimes(parseInt(movieId, 10)),
+          ]);
+          showtimesResponse = s;
+          setMovie(m);
+        } else if (eventId) {
+          const [e, s] = await Promise.all([
+            eventService.getEventById(eventId),
+            showtimeService.getShowtimesByEvent(parseInt(eventId, 10)),
+          ]);
+          showtimesResponse = s;
+          setEvent(e);
+        } else {
+          throw new Error('No id provided');
+        }
+
+        const scheduled = showtimesResponse.filter((st) => st.status === 'SCHEDULED');
         setShowtimes(scheduled);
 
         // Pre-select the earliest date available, or today
@@ -38,15 +57,23 @@ export const MovieShowtimes: React.FC = () => {
         } else {
           setSelectedDateStr(new Date().toISOString().split('T')[0]);
         }
-      })
-      .catch(() => setError('Không thể tải thông tin lịch chiếu.'))
-      .finally(() => setIsLoading(false));
-  }, [movieId]);
+      } catch (err) {
+        setError('Không thể tải thông tin lịch chiếu.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDetailsAndShowtimes();
+  }, [movieId, eventId]);
 
   const handleBookShowtime = (showtime: ShowtimeResponse) => {
     if (movie) {
       setMovieTitle(movie.title);
       setMoviePosterUrl(movie.posterUrl);
+    } else if (event) {
+      setMovieTitle(event.name);
+      setMoviePosterUrl(event.imageUrl);
     }
     navigate(`/user/booking/${showtime.id}`);
   };
@@ -99,12 +126,12 @@ export const MovieShowtimes: React.FC = () => {
     );
   }
 
-  if (error || !movie) {
+  if (error || (!movie && !event)) {
     return (
       <div className="min-h-screen bg-surface text-on-surface flex items-center justify-center px-6">
         <div className="text-center space-y-6">
           <h1 className="text-4xl font-bold">Lỗi</h1>
-          <p className="text-on-surface-variant">{error ?? 'Không tìm thấy phim.'}</p>
+          <p className="text-on-surface-variant">{error ?? 'Không tìm thấy thông tin.'}</p>
           <button
             onClick={() => navigate(-1)}
             className="px-6 py-3 rounded-lg bg-primary text-white font-semibold hover:bg-blue-700 transition-colors"
@@ -138,12 +165,12 @@ export const MovieShowtimes: React.FC = () => {
       </header>
 
       <main className="pt-16 pb-20">
-        {/* Movie Header Info */}
+        {/* Movie/Event Header Info */}
         <section className="bg-surface-container-lowest border-b border-surface-container-low py-8 px-6">
           <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-start md:items-center gap-6">
               <img
-                src={movie.posterUrl || genericPoster}
-                alt={movie.title}
+                src={(movie?.posterUrl || event?.imageUrl) || genericPoster}
+                alt={movie?.title || event?.name}
                 className="w-24 h-36 object-cover rounded-lg shadow-md"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
@@ -153,16 +180,26 @@ export const MovieShowtimes: React.FC = () => {
               />
             <div className="space-y-2">
               <div className="flex items-center gap-3">
-                <span className="px-2 py-1 bg-primary text-white rounded text-xs font-bold">
-                  {movie.ageRating}
-                </span>
-                <span className="text-sm font-medium text-on-surface-variant">
-                  {movie.durationMinutes} phút
-                </span>
+                {movie && (
+                  <span className="px-2 py-1 bg-primary text-white rounded text-xs font-bold">
+                    {movie.ageRating}
+                  </span>
+                )}
+                {event && (
+                  <span className="px-2 py-1 bg-amber-600 text-white rounded text-xs font-bold">
+                    Sự kiện
+                  </span>
+                )}
+                {movie && (
+                  <span className="text-sm font-medium text-on-surface-variant">
+                    {movie.durationMinutes} phút
+                  </span>
+                )}
               </div>
-              <h1 className="text-3xl font-black tracking-tight text-on-surface">{movie.title}</h1>
+              <h1 className="text-3xl font-black tracking-tight text-on-surface">{movie?.title || event?.name}</h1>
               <div className="flex flex-wrap gap-2 text-sm text-on-surface-variant font-medium">
-                {movie.genres.join(', ')}
+                {movie && movie.genres.join(', ')}
+                {event && <span className="flex items-center gap-1"><MapPin size={14}/> {event.venue}</span>}
               </div>
             </div>
           </div>
