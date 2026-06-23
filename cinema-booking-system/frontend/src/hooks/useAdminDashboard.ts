@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { adminService } from '../services/adminService';
-import { AdminDashboardOverview, AdminLiveSale, AdminPopularMovie } from '../types/admin';
+import { AdminDashboardOverview, AdminLiveSale, AdminPopularMovie, AdminRevenuePoint } from '../types/admin';
 
 export const useAdminDashboard = () => {
   const [overview, setOverview] = useState<AdminDashboardOverview | null>(null);
+  const [revenueSeries, setRevenueSeries] = useState<AdminRevenuePoint[]>([]);
   const [liveSales, setLiveSales] = useState<AdminLiveSale[]>([]);
   const [popularMovies, setPopularMovies] = useState<AdminPopularMovie[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -11,12 +12,14 @@ export const useAdminDashboard = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [overviewData, liveSalesData, popularMoviesData] = await Promise.all([
+        const [overviewData, revenueSeriesData, liveSalesData, popularMoviesData] = await Promise.all([
           adminService.getDashboardOverview(),
+          adminService.getRevenueSeries(),
           adminService.getLiveSales(),
           adminService.getPopularMovies(),
         ]);
         setOverview(overviewData);
+        setRevenueSeries(revenueSeriesData);
         setLiveSales(liveSalesData);
         setPopularMovies(popularMoviesData);
       } catch (error) {
@@ -29,5 +32,5 @@ export const useAdminDashboard = () => {
     loadData();
   }, []);
 
-  return { overview, liveSales, popularMovies, isLoading };
+  return { overview, revenueSeries, liveSales, popularMovies, isLoading };
 };
