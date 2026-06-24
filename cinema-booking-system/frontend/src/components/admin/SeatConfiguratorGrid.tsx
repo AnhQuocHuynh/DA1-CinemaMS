@@ -32,12 +32,14 @@ export const SeatConfiguratorGrid: React.FC<SeatConfiguratorGridProps> = ({
           const isCouple = cell.type === 'couple';
           const cellLabel = cell.type ? `${getRowLabel(rowIndex)}${colIndex + 1}` : '';
           
-          let cellClass = 'bg-surface-container-lowest/70 border border-dashed border-outline-variant/40 aspect-square';
+          let cellClass = 'bg-surface-container-lowest/70 border border-dashed border-outline-variant/40 aspect-square text-outline-variant';
           if (cell.type) {
             if (isCouple) {
-               cellClass = 'bg-pink-500 hover:bg-pink-600 border border-transparent col-span-2 aspect-[2/1] w-full';
+               cellClass = 'bg-pink-500 hover:bg-pink-600 border border-transparent col-span-2 aspect-[2/1] w-full text-white';
+            } else if (isVip) {
+               cellClass = 'bg-gradient-to-br from-amber-200 to-amber-500 hover:from-amber-300 hover:to-amber-600 border border-amber-600 shadow-sm w-full aspect-square text-amber-950';
             } else {
-               cellClass = `bg-green-500 hover:bg-green-600 w-full aspect-square ${isVip ? 'border-2 border-amber-400' : 'border border-transparent'}`;
+               cellClass = 'bg-green-500 hover:bg-green-600 border border-transparent w-full aspect-square text-white';
             }
           }
 
@@ -48,7 +50,7 @@ export const SeatConfiguratorGrid: React.FC<SeatConfiguratorGridProps> = ({
               onClick={() => onCellUpdate(rowIndex, colIndex, activeTool)}
               onDragOver={onDragOver}
               onDrop={(event) => onDrop(rowIndex, colIndex, event)}
-              className={`${cellClass} rounded-sm flex items-center justify-center text-[8px] font-bold text-white/90 transition-colors`}
+              className={`${cellClass} rounded-sm flex items-center justify-center text-[8px] font-bold transition-colors`}
               title={cell.type ? `${cellLabel} • ${cell.type.toUpperCase()}` : 'Empty'}
             >
               <span className={cell.type ? 'opacity-100' : 'opacity-0'}>{cellLabel}</span>

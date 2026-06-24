@@ -1,15 +1,141 @@
-import React, { useState } from 'react';
-import { Plus, Search } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ChevronDown, ChevronRight, Loader2, Search, Trash2, Wand2 } from 'lucide-react';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
-import { useAdminShowtimes } from '../../hooks/useAdminShowtimes';
-import { AdminShowtimeItem } from '../../types/admin';
+import { AutoShowtimeCreator } from '../../components/admin/AutoShowtimeCreator';
+import { adminService } from '../../services/adminService';
+import { showtimeService } from '../../services/showtimeService';
+import { movieService } from '../../services/movieService';
+import { eventService } from '../../services/eventService';
+import { ShowtimeResponse } from '../../types/showtime';
+import { formatShowtime, formatVND, parseVND } from '../../utils/formatters';
 import genericPoster from '../../resources/generic_movie_poster.png';
 
+// ── helper: flatten all rooms across all theaters ─────────────────────────────
+interface FlatRoom { roomId: number; roomName: string; theaterName: string }
+
 export const ShowtimeManagement: React.FC = () => {
-  const { showtimes, isLoading } = useAdminShowtimes();
-  const [activeEdit, setActiveEdit] = useState<AdminShowtimeItem | null>(null);
+  const [showtimes, setShowtimes] = useState<ShowtimeResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [showCreator, setShowCreator] = useState(false);
+  const [flatRooms, setFlatRooms] = useState<FlatRoom[]>([]);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const [expandedRooms, setExpandedRooms] = useState<Record<number, boolean>>({});
+  const [roomDates, setRoomDates] = useState<Record<number, string>>({});
+
+  const [movieMap, setMovieMap] = useState<Record<number, string>>({});
+  const [eventMap, setEventMap] = useState<Record<number, string>>({});
+
+  // ── Load all showtimes (all rooms across all theaters) ─────────────────────
+  const loadAllShowtimes = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [theaters, movies, events] = await Promise.all([
+        adminService.getTheaters(),
+        movieService.getMovies(),
+        eventService.getEvents()
+      ]);
+
+      const rooms: FlatRoom[] = [];
+      theaters.forEach((t) =>
+        t.rooms.forEach((r) =>
+          rooms.push({ roomId: Number(r.id), roomName: r.name, theaterName: t.name }),
+        ),
+      );
+      setFlatRooms(rooms);
+
+      const mMap: Record<number, string> = {};
+      movies.forEach(m => mMap[m.id] = m.title);
+      setMovieMap(mMap);
+
+      const eMap: Record<number, string> = {};
+      events.forEach(e => eMap[e.id] = e.name);
+      setEventMap(eMap);
+
+      const allShowtimes = await Promise.all(
+        rooms.map((r) => showtimeService.getShowtimesByRoom(r.roomId)),
+      );
+      const merged = allShowtimes.flat().sort(
+        (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+      );
+      setShowtimes(merged);
+
+      // Initialize first room as expanded if any
+      if (rooms.length > 0) {
+        setExpandedRooms({ [rooms[0].roomId]: true });
+      }
+    } catch (err) {
+      console.error('Failed to load showtimes:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAllShowtimes();
+  }, [loadAllShowtimes]);
+
+  // ── Delete handler ─────────────────────────────────────────────────────────
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('Delete this showtime? This action cannot be undone.')) return;
+    setDeletingId(id);
+    try {
+      await showtimeService.deleteShowtime(id);
+      setShowtimes((prev) => prev.filter((s) => s.id !== id));
+    } catch (err) {
+      console.error('Failed to delete showtime:', err);
+      alert('Failed to delete. The showtime may have associated tickets.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const toggleRoom = (roomId: number) => {
+    setExpandedRooms(prev => ({ ...prev, [roomId]: !prev[roomId] }));
+  };
+
+  const handleDateChange = (roomId: number, date: string) => {
+    setRoomDates(prev => ({ ...prev, [roomId]: date }));
+  };
+
+  // ── Filter helper ──────────────────────────────────────────────────────────
+  const matchesQuery = (st: ShowtimeResponse) => {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    const movieTitle = st.movieId ? movieMap[st.movieId] || `Movie #${st.movieId}` : '';
+    const eventName = st.eventId ? eventMap[st.eventId] || `Event #${st.eventId}` : '';
+
+    return (
+      movieTitle.toLowerCase().includes(q) ||
+      eventName.toLowerCase().includes(q) ||
+      st.startTime.includes(q) ||
+      st.status.toLowerCase().includes(q)
+    );
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  const q = query.toLowerCase();
+
+  const filteredRooms = flatRooms.filter((room) => {
+    if (!query) return true;
+
+    // Check if room name or theater name matches
+    const roomLabel = `${room.theaterName} ${room.roomName}`.toLowerCase();
+    if (roomLabel.includes(q)) return true;
+
+    // Check if any showtime for the selected date matches the query
+    const selectedDate = roomDates[room.roomId] || today;
+    const roomShowtimes = showtimes.filter(st =>
+      st.roomId === room.roomId &&
+      st.startTime.startsWith(selectedDate)
+    );
+
+    return roomShowtimes.some(matchesQuery);
+  });
 
   return (
     <AdminLayout activeItemId="showtimes">
@@ -19,166 +145,215 @@ export const ShowtimeManagement: React.FC = () => {
           title="Showtime Management"
           subtitle="Configure schedules and screen allocations for current movie runs."
           actions={
-            <button className="bg-primary hover:bg-surface-tint text-on-primary px-6 py-3 rounded shadow-sm transition-all duration-200 active:scale-95 flex items-center gap-2 font-medium">
-              <Plus className="w-4 h-4" />
-              Add New Showtime
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowCreator(true)}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm"
+              >
+                <Wand2 className="w-4 h-4" />
+                Add Showtimes
+              </button>
+            </div>
           }
         />
 
+        {/* Metrics strip */}
         <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-10 mb-12">
           <div className="md:col-span-2 bg-surface-container-lowest p-8 rounded-xl border border-transparent shadow-sm flex flex-col justify-between">
-            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">Total Screenings Today</label>
+            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">
+              Total Showtimes (loaded)
+            </label>
             <div className="flex items-end justify-between">
-              <span className="text-5xl font-bold tracking-tighter text-on-surface">42</span>
-              <span className="text-primary bg-primary/10 px-2 py-1 rounded text-xs font-bold">+12% vs yest.</span>
+              <span className="text-5xl font-bold tracking-tighter text-on-surface">
+                {isLoading ? '…' : showtimes.length}
+              </span>
             </div>
           </div>
           <div className="bg-surface-container-low p-8 rounded-xl flex flex-col justify-between">
-            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">Avg. Occupancy</label>
-            <span className="text-4xl font-bold tracking-tighter text-on-surface">68%</span>
+            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">Scheduled</label>
+            <span className="text-4xl font-bold tracking-tighter text-on-surface">
+              {isLoading ? '…' : showtimes.filter((s) => s.status === 'SCHEDULED').length}
+            </span>
           </div>
           <div className="bg-surface-container-high p-8 rounded-xl flex flex-col justify-between">
-            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">Active Halls</label>
-            <span className="text-4xl font-bold tracking-tighter text-on-surface">09</span>
+            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">Rooms</label>
+            <span className="text-4xl font-bold tracking-tighter text-on-surface">
+              {isLoading ? '…' : flatRooms.length}
+            </span>
           </div>
         </section>
 
-        <section className="bg-surface-container-lowest rounded-xl overflow-hidden">
-          <div className="px-8 py-6 flex items-center justify-between bg-surface-container-low/30">
-            <div className="flex items-center gap-4 bg-surface-container-highest px-4 py-2 rounded-lg w-80">
-              <Search className="w-4 h-4 text-outline" />
-              <input
-                className="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline"
-                placeholder="Search movies or halls..."
-                type="text"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button className="p-2 hover:bg-surface-container-high rounded-lg text-secondary transition-colors">Filter</button>
-              <button className="p-2 hover:bg-surface-container-high rounded-lg text-secondary transition-colors">More</button>
-            </div>
+        {/* List of Rooms */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-3 bg-surface-container-lowest px-4 py-3 rounded-xl border border-surface-container-low">
+            <Search className="w-4 h-4 text-outline" />
+            <input
+              className="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline"
+              placeholder="Search by room name..."
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {isLoading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
           </div>
 
           {isLoading ? (
-            <div className="p-8 text-center text-on-surface-variant">Loading schedules...</div>
+            <div className="p-12 text-center text-on-surface-variant flex flex-col items-center gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+              <span>Loading schedules…</span>
+            </div>
+          ) : filteredRooms.length === 0 ? (
+            <div className="p-12 text-center text-on-surface-variant bg-surface-container-lowest rounded-xl">
+              No rooms or showtimes match your search.
+            </div>
           ) : (
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-surface-container-low/50">
-                <tr>
-                  <th className="px-8 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Movie Title</th>
-                  <th className="px-8 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Hall</th>
-                  <th className="px-8 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Date</th>
-                  <th className="px-8 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Time</th>
-                  <th className="px-8 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-container">
-                {showtimes.map((showtime) => (
-                  <tr key={showtime.id} className="hover:bg-surface-container-low transition-colors">
-                    <td className="px-8 py-5">
+            <div className="space-y-4">
+              {filteredRooms.map((room) => {
+                const isExpanded = expandedRooms[room.roomId] || false;
+                const selectedDate = roomDates[room.roomId] || today;
+
+                const roomLabel = `${room.theaterName} ${room.roomName}`.toLowerCase();
+                const isRoomMatch = query && roomLabel.includes(q);
+
+                // filter showtimes for this room and date
+                const roomShowtimes = showtimes.filter(st =>
+                  st.roomId === room.roomId &&
+                  st.startTime.startsWith(selectedDate)
+                );
+
+                const filteredRoomShowtimes = isRoomMatch ? roomShowtimes : roomShowtimes.filter(matchesQuery);
+
+                return (
+                  <div key={room.roomId} className="bg-surface-container-lowest border border-surface-container rounded-xl overflow-hidden shadow-sm">
+                    {/* Header */}
+                    <div
+                      className="px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-surface-container-low transition-colors"
+                      onClick={() => toggleRoom(room.roomId)}
+                    >
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-14 bg-slate-200 rounded-sm overflow-hidden flex-shrink-0">
-                          <img className="w-full h-full object-cover" src={showtime.posterUrl || genericPoster} alt={showtime.movieTitle} onError={(e) => { const target = e.target as HTMLImageElement; target.onerror = null; target.src = genericPoster; }} />
+                        <div className="text-secondary">
+                          {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                         </div>
-                        <div>
-                          <p className="font-medium text-on-surface">{showtime.movieTitle}</p>
-                          <p className="text-xs text-secondary">{showtime.genre} • {showtime.duration}</p>
-                        </div>
+                        <h3 className="font-bold text-on-surface text-lg">
+                          {room.theaterName} <span className="text-secondary mx-1">›</span> {room.roomName}
+                        </h3>
+                        <span className="text-xs bg-surface-container-high px-2 py-1 rounded-md text-secondary font-medium">
+                          {showtimes.filter(st => st.roomId === room.roomId).length} total
+                        </span>
                       </div>
-                    </td>
-                    <td className="px-8 py-5 text-sm font-medium text-on-surface">{showtime.hall}</td>
-                    <td className="px-8 py-5 text-sm text-secondary">{showtime.date}</td>
-                    <td className="px-8 py-5">
-                      <span className="px-3 py-1 bg-primary/5 text-primary rounded-full text-xs font-bold">{showtime.time}</span>
-                    </td>
-                    <td className="px-8 py-5 text-right">
-                      <button
-                        className="p-2 text-outline hover:text-primary transition-colors"
-                        onClick={() => setActiveEdit(showtime)}
-                      >
-                        Edit
-                      </button>
-                      <button className="p-2 text-outline hover:text-error transition-colors">Delete</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+                      {/* Date picker */}
+                      <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                        <label className="text-xs font-semibold text-secondary uppercase tracking-wider">Date</label>
+                        <input
+                          type="date"
+                          value={selectedDate}
+                          onChange={(e) => handleDateChange(room.roomId, e.target.value)}
+                          className="bg-surface border border-surface-container-high rounded-lg px-3 py-1.5 text-sm font-medium text-on-surface focus:outline-none focus:border-blue-400 transition-colors"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    {isExpanded && (
+                      <div className="border-t border-surface-container bg-surface">
+                        {filteredRoomShowtimes.length === 0 ? (
+                          <div className="p-8 text-center text-secondary text-sm">
+                            No showtimes found for <span className="font-semibold">{selectedDate}</span>.
+                          </div>
+                        ) : (
+                          <table className="w-full text-left border-collapse">
+                            <thead className="bg-surface-container-low/30">
+                              <tr>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">Movie / Event</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">Start</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">End</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">Base Price</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">Status</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-surface-container/50">
+                              {filteredRoomShowtimes.map((st) => (
+                                <tr key={st.id} className="hover:bg-surface-container-lowest transition-colors">
+                                  <td className="px-8 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-10 bg-slate-200 rounded overflow-hidden flex-shrink-0">
+                                        <img
+                                          src={genericPoster}
+                                          alt=""
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                      <div>
+                                        {st.movieId ? (
+                                          <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
+                                            {movieMap[st.movieId] || `Movie #${st.movieId}`}
+                                          </span>
+                                        ) : st.eventId ? (
+                                          <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
+                                            {eventMap[st.eventId] || `Event #${st.eventId}`}
+                                          </span>
+                                        ) : (
+                                          <span className="text-xs text-slate-400">—</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-8 py-4 text-sm text-on-surface font-medium">{formatShowtime(st.startTime)}</td>
+                                  <td className="px-8 py-4 text-sm text-secondary">{formatShowtime(st.endTime)}</td>
+                                  <td className="px-8 py-4 text-sm text-on-surface">
+                                    {formatVND(parseVND(st.basePrice))}
+                                  </td>
+                                  <td className="px-8 py-4">
+                                    <span
+                                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border
+                                        ${st.status === 'SCHEDULED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                          st.status === 'ONGOING' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                            st.status === 'CANCELLED' ? 'bg-red-50 text-red-600 border-red-200' :
+                                              'bg-slate-100 text-slate-500 border-slate-200'}`}
+                                    >
+                                      {st.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-8 py-4 text-right">
+                                    <button
+                                      onClick={() => handleDelete(st.id)}
+                                      disabled={deletingId === st.id}
+                                      className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                                      title="Delete Showtime"
+                                    >
+                                      {deletingId === st.id ? (
+                                        <Loader2 size={16} className="animate-spin" />
+                                      ) : (
+                                        <Trash2 size={16} />
+                                      )}
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </section>
-
-        {activeEdit && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <div className="bg-surface-container-lowest w-full max-w-xl rounded-xl shadow-2xl overflow-hidden">
-              <header className="px-8 py-6 border-b border-surface-container flex justify-between items-center">
-                <h2 className="text-xl font-bold tracking-tight">Edit Showtime</h2>
-                <button className="text-secondary hover:text-on-surface" onClick={() => setActiveEdit(null)}>
-                  Close
-                </button>
-              </header>
-              <form className="p-8 space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-bold tracking-widest text-secondary block">Movie Title</label>
-                  <input
-                    className="w-full bg-surface-container-highest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 transition-all px-4 py-3 rounded-t-lg font-medium text-on-surface"
-                    type="text"
-                    defaultValue={activeEdit.movieTitle}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase font-bold tracking-widest text-secondary block">Theater Hall</label>
-                    <input
-                      className="w-full bg-surface-container-highest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 transition-all px-4 py-3 rounded-t-lg font-medium text-on-surface"
-                      type="text"
-                      defaultValue={activeEdit.hall}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase font-bold tracking-widest text-secondary block">Seat Map Version</label>
-                    <select className="w-full bg-surface-container-highest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 transition-all px-4 py-3 rounded-t-lg font-medium text-on-surface">
-                      <option>Standard 120-Seat</option>
-                      <option>Premium 80-Seat</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase font-bold tracking-widest text-secondary block">Date</label>
-                    <input
-                      className="w-full bg-surface-container-highest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 transition-all px-4 py-3 rounded-t-lg font-medium text-on-surface"
-                      type="date"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] uppercase font-bold tracking-widest text-secondary block">Start Time</label>
-                    <input
-                      className="w-full bg-surface-container-highest border-0 border-b-2 border-transparent focus:border-primary focus:ring-0 transition-all px-4 py-3 rounded-t-lg font-medium text-on-surface"
-                      type="time"
-                    />
-                  </div>
-                </div>
-                <div className="pt-6 flex gap-4 justify-end">
-                  <button
-                    className="px-6 py-2.5 rounded text-sm font-bold uppercase tracking-widest text-secondary hover:bg-surface-container transition-colors"
-                    type="button"
-                    onClick={() => setActiveEdit(null)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="px-8 py-2.5 rounded bg-primary text-on-primary text-sm font-bold uppercase tracking-widest shadow-md hover:opacity-90 transition-all active:scale-95"
-                    type="submit"
-                  >
-                    Update Showtime
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </main>
+
+      {/* Auto Showtime Creator modal */}
+      {showCreator && (
+        <AutoShowtimeCreator
+          onClose={() => {
+            setShowCreator(false);
+            loadAllShowtimes(); // Refresh list after creator closes
+          }}
+        />
+      )}
     </AdminLayout>
   );
 };

@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Star, Film, ChevronLeft, ChevronRight } from 'lucide-react';
-import { calculateEndTime, formatDuration, movies as mockMovies, searchMovies } from '../utils/movieData';
+import { RatingBadge } from '../components/Review/RatingBadge';
+import { calculateEndTime, formatDuration, movies as mockMovies } from '../utils/movieData';
 import { SiteTopNav } from '../components/SiteTopNav';
 import { useMovies } from '../hooks/useMovies';
+import { eventService, EventResponse } from '../services/eventService';
 import { MovieResponse } from '../services/movieService';
+import { catalogService } from '../services/catalogService';
 import { Movie } from '../types/movie';
 import genericPoster from '../resources/generic_movie_poster.png';
 
@@ -67,9 +70,14 @@ export const Home: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
+  const [events, setEvents] = useState<EventResponse[]>([]);
 
   // Fetch real movies from backend
   const { backendMovies, isLoading: isLoadingBackend } = useMovies();
+
+  useEffect(() => {
+    eventService.getEvents().then(setEvents).catch(console.error);
+  }, []);
 
   // ── Build a unified card list ────────────────────────────────────────────
   // Backend movies first, then mock movies below them.
@@ -80,25 +88,67 @@ export const Home: React.FC = () => {
     return [...backendCards, ...mockCards];
   }, [backendMovies]);
 
-  // ── Search suggestions (uses mock util for now, augmented with backend) ──
-  const suggestions = useMemo(() => {
-    if (!searchTerm.trim()) {
-      // Mix backend + mock for dropdown
-      const backendSuggestions = backendMovies.map((m) => ({
+  // ── Search suggestions (uses catalog API) ──
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
+  const [suggestions, setSuggestions] = useState<{ id: string | number; title: string; genre?: string; type: 'movie' | 'event'; imageUrl?: string; url: string }[]>([]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedSearchTerm(searchTerm), 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (!debouncedSearchTerm.trim()) {
+      // Show default top movies if empty
+      const backendSuggestions = backendMovies.slice(0, 3).map((m) => ({
         id: m.id,
         title: m.title,
         genre: m.genres.join(', '),
+        type: 'movie' as const,
+        imageUrl: m.posterUrl || '',
+        url: `/movies/${m.id}`
       }));
-      const mockSuggestions = mockMovies.slice(0, 6).map((m) => ({
+      const mockSuggestions = mockMovies.slice(0, 3).map((m) => ({
         id: m.id,
         title: m.title,
         genre: m.genre,
+        type: 'movie' as const,
+        imageUrl: m.posterUrl || '',
+        url: `/movies/${m.id}`
       }));
-      return [...backendSuggestions, ...mockSuggestions].slice(0, 6);
+      setSuggestions([...backendSuggestions, ...mockSuggestions]);
+      return;
     }
-    // For keyword search fall back to existing mock util
-    return searchMovies(searchTerm).slice(0, 6);
-  }, [searchTerm, backendMovies]);
+
+    let isSubscribed = true;
+    catalogService.search({ keyword: debouncedSearchTerm, size: 4 })
+      .then((data) => {
+        if (!isSubscribed) return;
+        
+        const moviesResult = data.movies.map(m => ({
+          id: m.id,
+          title: m.title,
+          genre: m.genres.join(', '),
+          type: 'movie' as const,
+          imageUrl: m.posterUrl || '',
+          url: `/movies/${m.id}`
+        }));
+        
+        const eventsResult = data.events.map(e => ({
+          id: e.id,
+          title: e.name,
+          genre: '',
+          type: 'event' as const,
+          imageUrl: e.imageUrl || '',
+          url: `/events/${e.id}`
+        }));
+        
+        setSuggestions([...moviesResult, ...eventsResult].slice(0, 5));
+      })
+      .catch(console.error);
+
+    return () => { isSubscribed = false; };
+  }, [debouncedSearchTerm, backendMovies]);
 
   const submitSearch = (keyword: string) => {
     const query = keyword.trim();
@@ -304,6 +354,7 @@ export const Home: React.FC = () => {
                         <p className="text-sm text-slate-600">{card.theaterName}</p>
                         <div className="pt-2 flex items-center justify-between">
                           <span className="text-xs font-semibold text-slate-500">{movie.ageRating}</span>
+                          <RatingBadge type="movie" id={movie.id} />
                           <Link to={`/movies/${card.id}`} className="text-sm font-semibold text-blue-700 hover:underline">
                             Chi tiết & Đặt vé
                           </Link>
@@ -370,6 +421,53 @@ export const Home: React.FC = () => {
             })}
           </div>
           {/* ── END mock movies ─────────────────────────────────────────── */}
+
+          {/* ── Upcoming Events ───────────────────────────────────────── */}
+          {events.length > 0 && (
+            <div className="mt-16">
+              <div className="flex items-center gap-2 mb-4">
+                <Star size={16} className="text-amber-500" />
+                <span className="text-xs font-bold tracking-widest uppercase text-amber-600">Upcoming Events</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7">
+                {events.map((event) => (
+                  <article key={event.id} className="group rounded-xl overflow-hidden bg-white border border-slate-200 hover:shadow-xl transition-shadow">
+                    <Link to={`/events/${event.id}`}>
+                      <div className="relative aspect-[2/3] overflow-hidden">
+                        <img
+                          src={event.imageUrl || genericPoster}
+                          alt={event.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.src = genericPoster;
+                          }}
+                        />
+                      </div>
+                    </Link>
+
+                    <div className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <Link to={`/events/${event.id}`} className="font-bold leading-tight hover:text-amber-600 transition-colors">
+                          {event.name}
+                        </Link>
+                      </div>
+                      <p className="text-xs text-slate-500">Sự kiện đặc biệt</p>
+                      <RatingBadge type="event" id={event.id} />
+                      <p className="text-sm text-slate-700">{new Date(event.startTime).toLocaleDateString('vi-VN')} - {new Date(event.endTime).toLocaleDateString('vi-VN')}</p>
+                      <p className="text-sm text-slate-600">{event.venue}</p>
+                      <div className="pt-2 flex items-center justify-between">
+                        <Link to={`/events/${event.id}`} className="text-sm font-semibold text-amber-600 hover:underline">
+                          Chi tiết & Đặt vé
+                        </Link>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
 
         </section>
 

@@ -8,21 +8,36 @@ interface SeatMapGridProps {
 }
 
 export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, onSeatToggle }) => {
-  // Infer column count from the widest row considering columnSpan
+  // Infer column count from the widest seat number
   const colCount = seatMap.rows.reduce(
-    (max, row) => Math.max(max, row.seats.reduce((sum, s) => sum + (s.columnSpan || 1), 0)),
+    (max, row) => Math.max(
+      max,
+      row.seats.reduce((rowMax, s) => Math.max(rowMax, s.number), 0)
+    ),
     1
   );
 
   return (
-    <div className="flex flex-col gap-2 max-w-3xl mx-auto">
-      {seatMap.rows.map((row) => (
-        <div
-          key={row.rowLabel}
-          className="grid gap-2"
-          style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}
-        >
-          {row.seats.map((seat) => {
+    <div
+      className="grid gap-2 max-w-3xl mx-auto w-full"
+      style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}
+    >
+      {seatMap.rows.flatMap((row) => {
+        const cells = [];
+        let skipUntil = 0;
+        for (let i = 1; i <= colCount; i++) {
+          if (i < skipUntil) continue;
+          const seat = row.seats.find((s) => s.number === i);
+          if (seat) {
+            cells.push(seat);
+            skipUntil = i + (seat.columnSpan || 1);
+          } else {
+            cells.push({ id: `gap-${row.rowLabel}-${i}`, isPathway: true } as any);
+            skipUntil = i + 1;
+          }
+        }
+        return cells;
+      }).map((seat: Seat) => {
             const selected = isSelected(seat);
             let baseClass = '';
             if (seat.status === 'sold') {
@@ -58,17 +73,16 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
                 type="button"
                 disabled={isDisabled}
                 onClick={() => onSeatToggle(seat)}
-                className={`${baseClass} ${shapeClass} ${spanClass} flex flex-col items-center justify-center text-[8px] font-bold`}
+                className={`${baseClass} ${shapeClass} ${spanClass} flex flex-col items-center justify-center text-[8px] font-bold min-w-0 overflow-hidden px-1`}
                 title={`${seat.label} • ${seat.type.toUpperCase()}`}
               >
-                <span className={`${selected || seat.status === 'available' ? 'opacity-100' : 'opacity-40'} transition-opacity`}>
-                  {seat.label} {isCouple && '(Couple)'}
+                <span className={`${selected || seat.status === 'available' ? 'opacity-100' : 'opacity-40'} transition-opacity truncate w-full text-center leading-tight`}>
+                  {seat.label}
+                  {isCouple && <span className="block text-[6px] opacity-80">(Couple)</span>}
                 </span>
               </button>
             );
-          })}
-        </div>
-      ))}
+      })}
     </div>
   );
 };

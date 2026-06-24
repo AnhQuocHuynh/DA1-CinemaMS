@@ -54,6 +54,24 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     }
 
     @Override
+    public List<ShowtimeResponse> getShowtimesByEvent(Long eventId) {
+        LocalDateTime minStartTime = LocalDateTime.now().plus(BOOKING_CUTOFF_BEFORE_START);
+        return showtimeRepository.findByEventIdAndStartTimeAfterOrderByStartTimeAsc(eventId, minStartTime)
+            .stream()
+            .filter(showtime -> showtime.getStatus() == Showtime.Status.SCHEDULED)
+            .map(this::enrichWithRoomData)
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ShowtimeResponse> getShowtimesByRoom(Long roomId) {
+        return showtimeRepository.findByRoomIdOrderByStartTimeAsc(roomId)
+            .stream()
+            .map(this::enrichWithRoomData)
+            .collect(Collectors.toList());
+    }
+
+    @Override
     public ShowtimeResponse getShowtimeById(Long id) {
         Showtime showtime = showtimeRepository.findById(id)
             .orElseThrow(() -> new CustomException("Showtime not found", HttpStatus.NOT_FOUND, "SHOWTIME_NOT_FOUND"));
@@ -77,6 +95,10 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     @Override
     @Transactional
     public ShowtimeResponse createShowtime(ShowtimeRequest request) {
+        if (request.getMovieId() == null && request.getEventId() == null) {
+            throw new CustomException("Phải cung cấp Movie ID hoặc Event ID", HttpStatus.BAD_REQUEST, "MISSING_REFERENCE_ID");
+        }
+
         // Check room maintenance status
         RoomResponse room = null;
         try {
@@ -119,6 +141,16 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             }
         }
         return response;
+    }
+
+    @Override
+    @Transactional
+    public void deleteShowtime(Long id) {
+        if (!showtimeRepository.existsById(id)) {
+            throw new CustomException("Showtime not found", HttpStatus.NOT_FOUND, "SHOWTIME_NOT_FOUND");
+        }
+        showtimeSeatRepository.deleteByShowtimeId(id);
+        showtimeRepository.deleteById(id);
     }
 
     private ShowtimeResponse enrichWithRoomData(Showtime showtime) {

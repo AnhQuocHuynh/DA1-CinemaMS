@@ -1,0 +1,80 @@
+services:
+  # ── PostgreSQL Database Service ──────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: cinema-db
+    environment:
+      POSTGRES_DB: cinema_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cinema_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cinema-network
+
+  # ── Redis Cache Service ─────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: cinema-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cinema-network
+
+  # ── Spring Boot Backend Service ─────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cinema-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/cinema_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=123
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - APP_JWT_SECRET=U0VDUkVUX0tFWV9GT1JfQ0lORU1BX0JPT0tJTkdfU1lTVEVNX0RFVl9PTkxZXzMyQl9NSU4=
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cinema-network
+
+  # ── React Frontend Service ──────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cinema-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - cinema-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  cinema-network:
+    driver: bridge

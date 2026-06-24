@@ -133,8 +133,10 @@ export const Booking: React.FC = () => {
   // ── Back-button guard (popstate + dummy history entry) ───────────────
   // When seats are held, push a "guard" history entry so the first Back press
   // hits it instead of actually leaving. Then we open the modal.
+  const hasHold = !!holdExpiresAt;
+
   useEffect(() => {
-    if (!holdExpiresAt) return;
+    if (!hasHold) return;
 
     // Push a guard entry on top of the current URL
     window.history.pushState({ guardEntry: true }, '');
@@ -159,11 +161,11 @@ export const Booking: React.FC = () => {
         guardCountRef.current = Math.max(0, guardCountRef.current - 1);
       }
     };
-  }, [holdExpiresAt]);
+  }, [hasHold]);
 
   // ── In-app nav-link click interceptor ────────────────────────────
   useEffect(() => {
-    if (!holdExpiresAt) return;
+    if (!hasHold) return;
 
     const handleClick = (event: MouseEvent) => {
       const anchor = (event.target as Element).closest('a');
@@ -181,11 +183,11 @@ export const Booking: React.FC = () => {
 
     document.addEventListener('click', handleClick, true); // capture phase
     return () => document.removeEventListener('click', handleClick, true);
-  }, [holdExpiresAt]);
+  }, [hasHold]);
 
   // ── Tab-close / hard-refresh guard (sendBeacon) ───────────────────
   useEffect(() => {
-    if (!holdExpiresAt || selectedSeats.length === 0) return;
+    if (!hasHold || selectedSeats.length === 0) return;
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
@@ -202,7 +204,7 @@ export const Booking: React.FC = () => {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [holdExpiresAt, selectedSeats, showtimeId]);
+  }, [hasHold, selectedSeats, showtimeId]);
 
   const handleLeaveConfirm = useCallback(async () => {
     setIsReleasing(true);

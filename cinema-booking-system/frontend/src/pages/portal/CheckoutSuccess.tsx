@@ -3,10 +3,25 @@ import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle, Download, Share2, Ticket } from 'lucide-react';
 import { useBookingStore } from '../../store/bookingStore';
 import { formatVND, formatShowtime } from '../../utils/formatters';
+import { downloadElementAsPDF } from '../../utils/pdfGenerator';
+import { useState } from 'react';
 
 export const CheckoutSuccess: React.FC = () => {
   const navigate = useNavigate();
   const { completedOrder, showtimeData, movieTitle, clearSelection } = useBookingStore();
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    if (!completedOrder) return;
+    setIsDownloading(true);
+    try {
+      await downloadElementAsPDF('checkout-summary', `order-${completedOrder.id}.pdf`);
+    } catch (err) {
+      console.error('Failed to download PDF:', err);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   // Clear selection on unmount so the store is ready for the next booking
   useEffect(() => {
@@ -45,7 +60,7 @@ export const CheckoutSuccess: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-surface flex items-center justify-center px-6 py-20">
-      <div className="max-w-2xl w-full bg-surface-container-lowest rounded-2xl shadow-xl p-10 text-center">
+      <div id="checkout-summary" className="max-w-2xl w-full bg-surface-container-lowest rounded-2xl shadow-xl p-10 text-center">
         {/* Success icon */}
         <div className="flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 text-primary mx-auto mb-2 animate-bounce-once">
           <CheckCircle className="w-10 h-10" />
@@ -124,10 +139,11 @@ export const CheckoutSuccess: React.FC = () => {
           ) : null}
           <button
             className="flex-1 flex items-center justify-center gap-2 bg-white border border-outline-variant py-3 rounded-lg font-semibold hover:bg-surface-container-low transition-colors"
-            onClick={() => window.print()}
+            onClick={handleDownloadPDF}
+            disabled={isDownloading}
           >
             <Download className="w-4 h-4" />
-            Tải PDF
+            {isDownloading ? 'Đang tải...' : 'Tải PDF'}
           </button>
           <button
             className="flex-1 flex items-center justify-center gap-2 bg-white border border-outline-variant py-3 rounded-lg font-semibold hover:bg-surface-container-low transition-colors"

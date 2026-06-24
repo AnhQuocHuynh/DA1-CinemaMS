@@ -1,7 +1,10 @@
 package com.uit.cinema.catalog.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+
+import java.math.BigDecimal;
 
 import java.time.LocalDateTime;
 
@@ -16,4 +19,10 @@ public class EventRequest {
     private String venue;
     private String imageUrl;
     private boolean active = true;
+
+    @NotNull(message = "Room ID không được để trống")
+    private Long roomId;
+
+    @NotNull(message = "Giá cơ bản không được để trống")
+    private BigDecimal basePrice;
 }

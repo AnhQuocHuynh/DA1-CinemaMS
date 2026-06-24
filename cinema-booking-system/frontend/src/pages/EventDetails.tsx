@@ -1,19 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { ReviewSection } from '../components/Review/ReviewSection';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Play, Calendar, Clock, Globe } from 'lucide-react';
-import { movieService, MovieResponse } from '../services/movieService';
+import { ArrowLeft, Calendar, MapPin } from 'lucide-react';
+import { eventService, EventResponse } from '../services/eventService';
 import { showtimeService } from '../services/showtimeService';
 import { ShowtimeResponse } from '../types/showtime';
 import { useBookingStore } from '../store/bookingStore';
 import { formatVND, parseVND, formatShowtime } from '../utils/formatters';
 import genericPoster from '../resources/generic_movie_poster.png';
 
-export const MovieDetails: React.FC = () => {
+export const EventDetails: React.FC = () => {
   const navigate = useNavigate();
-  const { movieId } = useParams<{ movieId: string }>();
+  const { eventId } = useParams<{ eventId: string }>();
 
-  const [movie, setMovie] = useState<MovieResponse | null>(null);
+  const [event, setEvent] = useState<EventResponse | null>(null);
   const [showtimes, setShowtimes] = useState<ShowtimeResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,27 +21,28 @@ export const MovieDetails: React.FC = () => {
   const { setMovieTitle, setMoviePosterUrl } = useBookingStore();
 
   useEffect(() => {
-    if (!movieId) return;
+    if (!eventId) return;
     setIsLoading(true);
     Promise.all([
-      movieService.getMovieById(movieId),
-      showtimeService.getShowtimes(parseInt(movieId, 10)),
+      eventService.getEventById(eventId),
+      showtimeService.getShowtimesByEvent(parseInt(eventId, 10)),
     ])
-      .then(([m, s]) => {
-        setMovie(m);
+      .then(([e, s]) => {
+        setEvent(e);
         setShowtimes(s.filter((st) => st.status === 'SCHEDULED'));
       })
-      .catch(() => setError('Không thể tải thông tin phim.'))
+      .catch(() => setError('Không thể tải thông tin sự kiện.'))
       .finally(() => setIsLoading(false));
-  }, [movieId]);
+  }, [eventId]);
+
   const handleBookNow = () => {
-    navigate(`/movies/${movieId}/showtimes`);
+    navigate(`/events/${eventId}/showtimes`);
   };
 
   const handleBookShowtime = (showtime: ShowtimeResponse) => {
-    if (movie) {
-      setMovieTitle(movie.title);
-      setMoviePosterUrl(movie.posterUrl);
+    if (event) {
+      setMovieTitle(event.name);
+      setMoviePosterUrl(event.imageUrl);
     }
     navigate(`/user/booking/${showtime.id}`);
   };
@@ -54,15 +55,15 @@ export const MovieDetails: React.FC = () => {
     );
   }
 
-  if (error || !movie) {
+  if (error || !event) {
     return (
       <div className="min-h-screen bg-slate-100 text-slate-900 flex items-center justify-center px-6">
         <div className="text-center space-y-6">
-          <h1 className="text-4xl font-bold">Không tìm thấy phim</h1>
-          <p className="text-slate-600">{error ?? 'Phim không tồn tại.'}</p>
+          <h1 className="text-4xl font-bold">Không tìm thấy sự kiện</h1>
+          <p className="text-slate-600">{error ?? 'Sự kiện không tồn tại.'}</p>
           <button
             onClick={() => navigate('/')}
-            className="px-6 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+            className="px-6 py-3 rounded-lg bg-amber-600 text-white hover:bg-amber-500 transition-colors"
           >
             Về trang chủ
           </button>
@@ -91,8 +92,8 @@ export const MovieDetails: React.FC = () => {
         {/* Hero */}
         <section className="relative min-h-[540px] overflow-hidden">
           <img
-            src={movie.posterUrl || genericPoster}
-            alt={movie.title}
+            src={event.imageUrl || genericPoster}
+            alt={event.name}
             className="absolute inset-0 h-full w-full object-cover brightness-[0.4]"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
@@ -105,39 +106,25 @@ export const MovieDetails: React.FC = () => {
           <div className="relative max-w-7xl mx-auto px-6 py-20 flex items-end min-h-[540px]">
             <div className="max-w-3xl space-y-6">
               <div className="flex flex-wrap items-center gap-3 text-sm text-white">
-                <span className="px-3 py-1 rounded-sm bg-blue-600 font-semibold">
-                  {movie.active ? 'Đang chiếu' : 'Ngừng chiếu'}
+                <span className="px-3 py-1 rounded-sm bg-amber-600 font-semibold">
+                  Sự kiện
                 </span>
-                <span className="px-2 py-1 bg-white/20 rounded text-xs font-bold">
-                  {movie.ageRating}
+                <span className="px-3 py-1 bg-white/20 rounded font-semibold text-white/90 flex items-center gap-2">
+                  <MapPin size={14} />
+                  {event.venue}
                 </span>
-                {movie.genres.map((g) => (
-                  <span key={g} className="text-white/70">
-                    {g}
-                  </span>
-                ))}
               </div>
 
               <h1 className="text-5xl md:text-7xl font-black tracking-tight text-white">
-                {movie.title}
+                {event.name}
               </h1>
-              <p className="text-white/80 text-lg leading-relaxed">{movie.description}</p>
+              <p className="text-white/80 text-lg leading-relaxed">{event.description}</p>
 
               <div className="flex flex-wrap gap-3">
-                {movie.trailerUrl && (
-                  <a
-                    href={movie.trailerUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-white text-slate-900 font-semibold hover:bg-slate-100 transition-colors"
-                  >
-                    <Play size={16} /> Xem trailer
-                  </a>
-                )}
                 {showtimes.length > 0 && (
                   <button
                     onClick={handleBookNow}
-                    className="px-6 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-colors"
+                    className="px-6 py-3 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-500 transition-colors"
                   >
                     Đặt vé ngay
                   </button>
@@ -151,66 +138,53 @@ export const MovieDetails: React.FC = () => {
         <section className="max-w-7xl mx-auto px-6 py-14 grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-8 space-y-10">
             <div>
-              <h2 className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-4">Nội dung phim</h2>
-              <p className="text-slate-700 leading-relaxed text-lg">{movie.description}</p>
+              <h2 className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-4">Mô tả sự kiện</h2>
+              <p className="text-slate-700 leading-relaxed text-lg">{event.description}</p>
             </div>
 
             {/* Reviews */}
-            <ReviewSection type="movie" id={parseInt(movieId!, 10)} />
+            <ReviewSection type="event" id={parseInt(eventId!, 10)} />
           </div>
 
           <aside className="lg:col-span-4 space-y-6">
-            {/* Movie meta */}
+            {/* Event meta */}
             <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4 shadow-sm">
               <div className="flex items-center gap-2">
                 <Calendar size={14} className="text-slate-400" />
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-slate-500">Ngày phát hành</p>
+                  <p className="text-xs uppercase tracking-widest text-slate-500">Thời gian bắt đầu</p>
                   <p className="font-semibold">
-                    {new Date(movie.releaseDate).toLocaleDateString('vi-VN')}
+                    {new Date(event.startTime).toLocaleString('vi-VN')}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Clock size={14} className="text-slate-400" />
+                <Calendar size={14} className="text-slate-400" />
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-slate-500">Thời lượng</p>
-                  <p className="font-semibold">{movie.durationMinutes} phút</p>
+                  <p className="text-xs uppercase tracking-widest text-slate-500">Thời gian kết thúc</p>
+                  <p className="font-semibold">
+                    {new Date(event.endTime).toLocaleString('vi-VN')}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Globe size={14} className="text-slate-400" />
+                <MapPin size={14} className="text-slate-400" />
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-slate-500">Ngôn ngữ</p>
-                  <p className="font-semibold">{movie.language}</p>
+                  <p className="text-xs uppercase tracking-widest text-slate-500">Địa điểm</p>
+                  <p className="font-semibold">{event.venue}</p>
                 </div>
               </div>
-              {movie.genres.length > 0 && (
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-slate-500 mb-2">Thể loại</p>
-                  <div className="flex flex-wrap gap-2">
-                    {movie.genres.map((g) => (
-                      <span
-                        key={g}
-                        className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded"
-                      >
-                        {g}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Showtimes */}
             <div className="bg-slate-900 text-white rounded-xl p-6 space-y-4">
-              <h3 className="font-semibold">Suất chiếu</h3>
+              <h3 className="font-semibold">Suất chiếu / Tham gia</h3>
               {(() => {
                 const now = Date.now();
                 const validShowtimes = showtimes.filter(st => new Date(st.startTime).getTime() >= now);
                 
                 if (validShowtimes.length === 0) {
-                  return <p className="text-sm text-white/60">Chưa có suất chiếu nào.</p>;
+                  return <p className="text-sm text-white/60">Chưa có suất nào.</p>;
                 }
 
                 return (
@@ -218,7 +192,7 @@ export const MovieDetails: React.FC = () => {
                     {validShowtimes.map((st) => {
                       const isClose = new Date(st.startTime).getTime() - now < 5 * 60 * 1000;
                       return (
-                        <button
+                         <button
                           key={st.id}
                           onClick={() => handleBookShowtime(st)}
                           disabled={isClose}
@@ -234,7 +208,7 @@ export const MovieDetails: React.FC = () => {
                                 {formatShowtime(st.startTime)}
                               </span>
                               <span className="block text-xs text-white/60 mt-0.5">
-                                {formatVND(parseVND(st.basePrice))} / ghế
+                                {formatVND(parseVND(st.basePrice))} / vé
                               </span>
                             </div>
                             {isClose && (

@@ -8,8 +8,11 @@ import java.util.List;
 
 public interface ShowtimeService {
     List<ShowtimeResponse> getShowtimesByMovie(Long movieId);
+    List<ShowtimeResponse> getShowtimesByEvent(Long eventId);
+    List<ShowtimeResponse> getShowtimesByRoom(Long roomId);
     ShowtimeResponse getShowtimeById(Long id);
     List<ShowtimeSeatResponse> getSeatMap(Long showtimeId);
     ShowtimeSeatResponse getSeatById(Long seatId);
     ShowtimeResponse createShowtime(ShowtimeRequest request);
+    void deleteShowtime(Long id);
 }

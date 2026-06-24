@@ -30,6 +30,18 @@ public class ShowtimeController {
         return ResponseEntity.ok(ApiResponse.success(showtimes, "Lấy danh sách suất chiếu thành công"));
     }
 
+    @GetMapping("/event/{eventId}")
+    public ResponseEntity<ApiResponse<List<ShowtimeResponse>>> getShowtimesByEvent(@PathVariable Long eventId) {
+        List<ShowtimeResponse> showtimes = showtimeService.getShowtimesByEvent(eventId);
+        return ResponseEntity.ok(ApiResponse.success(showtimes, "Lấy danh sách suất chiếu thành công"));
+    }
+
+    @GetMapping("/room/{roomId}")
+    public ResponseEntity<ApiResponse<List<ShowtimeResponse>>> getShowtimesByRoom(@PathVariable Long roomId) {
+        List<ShowtimeResponse> showtimes = showtimeService.getShowtimesByRoom(roomId);
+        return ResponseEntity.ok(ApiResponse.success(showtimes, "Lấy danh sách suất chiếu thành công"));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ShowtimeResponse>> getShowtimeById(@PathVariable Long id) {
         ShowtimeResponse showtime = showtimeService.getShowtimeById(id);
@@ -75,5 +87,12 @@ public class ShowtimeController {
     public ResponseEntity<ApiResponse<ShowtimeResponse>> createShowtime(@Valid @RequestBody ShowtimeRequest request) {
         ShowtimeResponse showtime = showtimeService.createShowtime(request);
         return ResponseEntity.ok(ApiResponse.success(showtime, "Tạo suất chiếu thành công"));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteShowtime(@PathVariable Long id) {
+        showtimeService.deleteShowtime(id);
+        return ResponseEntity.ok(ApiResponse.success(null, "Xóa suất chiếu thành công"));
     }
 }

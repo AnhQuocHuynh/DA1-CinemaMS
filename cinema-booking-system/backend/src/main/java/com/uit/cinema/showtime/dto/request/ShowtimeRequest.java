@@ -11,7 +11,6 @@ public class ShowtimeRequest {
     @NotNull(message = "Room ID không được để trống")
     private Long roomId;
 
-    @NotNull(message = "Movie ID không được để trống")
     private Long movieId;
 
     private Long eventId;

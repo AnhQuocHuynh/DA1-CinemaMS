@@ -7,6 +7,7 @@ import java.util.List;
 
 public interface EventService {
     List<EventResponse> getUpcomingEvents();
+    List<EventResponse> getAllEvents();
     EventResponse getEventById(Long id);
     EventResponse createEvent(EventRequest request);
     void deleteEvent(Long id);
