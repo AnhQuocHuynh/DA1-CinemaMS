@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { adminService } from '../../../services/adminService';
 import { AdminTheater } from '../../../types/admin';
+import { useToast } from '../../../contexts/ToastContext';
+import { uploadImageToCloudinary } from '../../../utils/cloudinary';
 
 interface EventModalProps {
   isOpen: boolean;
@@ -16,6 +18,8 @@ export const EventModal: React.FC<EventModalProps> = ({
   onSubmit,
   initialData,
 }) => {
+  const { addToast } = useToast();
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -74,6 +78,22 @@ export const EventModal: React.FC<EventModalProps> = ({
   }, [initialData, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingImage(true);
+    try {
+      const url = await uploadImageToCloudinary(file);
+      setFormData((prev) => ({ ...prev, imageUrl: url }));
+      addToast('Image uploaded successfully', 'success');
+    } catch (err: any) {
+      addToast(err?.message || 'Failed to upload image', 'error');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,12 +230,18 @@ export const EventModal: React.FC<EventModalProps> = ({
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-slate-700 mb-2">Image URL</label>
-                <input
-                  type="url"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="url"
+                    value={formData.imageUrl}
+                    onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <label className="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold text-sm flex items-center justify-center hover:bg-blue-700 transition-colors whitespace-nowrap h-full">
+                    {isUploadingImage ? 'Uploading...' : 'Upload Image'}
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploadingImage} />
+                  </label>
+                </div>
               </div>
               
               <div className="md:col-span-2">
