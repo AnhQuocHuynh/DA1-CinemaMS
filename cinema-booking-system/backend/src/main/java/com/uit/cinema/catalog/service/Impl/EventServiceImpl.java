@@ -9,6 +9,7 @@ import com.uit.cinema.catalog.service.EventService;
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.showtime.dto.request.ShowtimeRequest;
 import com.uit.cinema.showtime.service.ShowtimeService;
+import com.uit.cinema.showtime.dto.response.ShowtimeResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -75,5 +76,10 @@ public class EventServiceImpl implements EventService {
         Event event = getEventEntityById(id);
         event.setActive(false);
         eventRepository.save(event);
+
+        List<ShowtimeResponse> showtimes = showtimeService.getShowtimesByEvent(id);
+        for (ShowtimeResponse st : showtimes) {
+            showtimeService.deleteShowtime(st.getId());
+        }
     }
 }

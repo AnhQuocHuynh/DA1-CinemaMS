@@ -64,6 +64,14 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     }
 
     @Override
+    public List<ShowtimeResponse> getShowtimesByRoom(Long roomId) {
+        return showtimeRepository.findByRoomIdOrderByStartTimeAsc(roomId)
+            .stream()
+            .map(this::enrichWithRoomData)
+            .collect(Collectors.toList());
+    }
+
+    @Override
     public ShowtimeResponse getShowtimeById(Long id) {
         Showtime showtime = showtimeRepository.findById(id)
             .orElseThrow(() -> new CustomException("Showtime not found", HttpStatus.NOT_FOUND, "SHOWTIME_NOT_FOUND"));
@@ -133,6 +141,16 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             }
         }
         return response;
+    }
+
+    @Override
+    @Transactional
+    public void deleteShowtime(Long id) {
+        if (!showtimeRepository.existsById(id)) {
+            throw new CustomException("Showtime not found", HttpStatus.NOT_FOUND, "SHOWTIME_NOT_FOUND");
+        }
+        showtimeSeatRepository.deleteByShowtimeId(id);
+        showtimeRepository.deleteById(id);
     }
 
     private ShowtimeResponse enrichWithRoomData(Showtime showtime) {

@@ -14,5 +14,7 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
 
     List<Showtime> findByRoomIdAndStartTimeBetween(Long roomId, LocalDateTime from, LocalDateTime to);
 
+    List<Showtime> findByRoomIdOrderByStartTimeAsc(Long roomId);
+
     List<Showtime> findByEventIdAndStartTimeAfterOrderByStartTimeAsc(Long eventId, LocalDateTime after);
 }
