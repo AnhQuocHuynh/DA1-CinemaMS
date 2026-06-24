@@ -2,6 +2,13 @@ package com.uit.cinema.iam.service;
 
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.core.security.JwtTokenProvider;
+import com.uit.cinema.iam.dto.request.LoginRequest;
+import com.uit.cinema.iam.dto.request.TokenRefreshRequest;
+import com.uit.cinema.iam.dto.response.AuthResponse;
+import com.uit.cinema.iam.entity.RefreshToken;
+import com.uit.cinema.core.security.CustomUserDetails;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import com.uit.cinema.iam.dto.request.ForgotPasswordRequest;
 import com.uit.cinema.iam.dto.request.RegisterRequest;
 import com.uit.cinema.iam.dto.request.ResetPasswordRequest;
@@ -148,5 +155,90 @@ class AuthServiceImplTest {
 
         assertThrows(CustomException.class, () -> authService.resetPassword(request));
         verify(userRepository, never()).save(any());
+    }
+    @Test
+    void login_Success() {
+        LoginRequest request = new LoginRequest();
+        request.setEmail("test@test.com");
+        request.setPassword("password");
+
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("test@test.com");
+        user.setActive(true);
+
+        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(user));
+        
+        Authentication authentication = mock(Authentication.class);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(authentication);
+        
+        when(jwtTokenProvider.generateAccessToken(authentication)).thenReturn("access_token");
+        when(jwtTokenProvider.generateRefreshToken(user.getEmail())).thenReturn("refresh_token");
+        
+        AuthResponse response = authService.login(request);
+        
+        assertEquals("access_token", response.getAccessToken());
+        assertEquals("refresh_token", response.getRefreshToken());
+        verify(refreshTokenRepository).save(any(RefreshToken.class));
+    }
+
+    @Test
+    void login_InvalidCredentials_ThrowsException() {
+        LoginRequest request = new LoginRequest();
+        request.setEmail("test@test.com");
+        request.setPassword("password");
+
+        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
+
+        assertThrows(CustomException.class, () -> authService.login(request));
+    }
+
+    @Test
+    void refreshToken_Success() {
+        TokenRefreshRequest request = new TokenRefreshRequest();
+        request.setRefreshToken("valid_refresh_token");
+
+        User user = new User();
+        user.setId(1L);
+        user.setActive(true);
+
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setToken("valid_refresh_token");
+        refreshToken.setRevoked(false);
+        refreshToken.setExpiryDate(Instant.now().plusSeconds(3600));
+        refreshToken.setUser(user);
+
+        when(jwtTokenProvider.validateToken("valid_refresh_token")).thenReturn(true);
+        when(refreshTokenRepository.findByToken("valid_refresh_token")).thenReturn(Optional.of(refreshToken));
+        when(jwtTokenProvider.generateAccessToken(any())).thenReturn("new_access_token");
+
+        AuthResponse response = authService.refreshToken(request);
+
+        assertEquals("new_access_token", response.getAccessToken());
+        assertEquals("valid_refresh_token", response.getRefreshToken());
+    }
+
+    @Test
+    void refreshToken_InvalidToken_ThrowsException() {
+        TokenRefreshRequest request = new TokenRefreshRequest();
+        request.setRefreshToken("invalid_refresh_token");
+
+        when(jwtTokenProvider.validateToken("invalid_refresh_token")).thenReturn(false);
+
+        assertThrows(CustomException.class, () -> authService.refreshToken(request));
+    }
+
+    @Test
+    void logout_Success() {
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setToken("refresh_token");
+        refreshToken.setRevoked(false);
+
+        when(refreshTokenRepository.findByToken("refresh_token")).thenReturn(Optional.of(refreshToken));
+
+        authService.logout("refresh_token");
+
+        assertTrue(refreshToken.isRevoked());
+        verify(refreshTokenRepository).save(refreshToken);
     }
 }

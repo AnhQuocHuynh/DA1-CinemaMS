@@ -111,6 +111,19 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             throw new CustomException("Phòng chiếu đang bảo trì, không thể tạo suất chiếu", HttpStatus.BAD_REQUEST, "ROOM_UNDER_MAINTENANCE");
         }
 
+        Long overlapCount = entityManager.createQuery(
+            "SELECT COUNT(s) FROM Showtime s WHERE s.roomId = :roomId " +
+            "AND s.status <> 'CANCELLED' " +
+            "AND s.startTime < :endTime AND s.endTime > :startTime", Long.class)
+            .setParameter("roomId", request.getRoomId())
+            .setParameter("startTime", request.getStartTime())
+            .setParameter("endTime", request.getEndTime())
+            .getSingleResult();
+            
+        if (overlapCount > 0) {
+            throw new CustomException("Suất chiếu bị trùng lặp thời gian", HttpStatus.CONFLICT, "CONFLICT");
+        }
+
         Showtime showtime = showtimeMapper.toEntity(request);
         Showtime savedShowtime = showtimeRepository.save(showtime);
 

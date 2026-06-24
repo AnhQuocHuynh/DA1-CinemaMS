@@ -152,6 +152,57 @@ class PaymentServiceImplTest {
         assertEquals("INVALID_ORDER_STATUS", ex.getErrorCode());
     }
 
+    @Test
+    void refund_when4To24Hours_refunds50Percent() {
+        Order order = buildOrder(1L, Order.OrderStatus.PAID);
+        Showtime showtime = Showtime.builder()
+            .id(100L)
+            .startTime(LocalDateTime.now().plusHours(10)) // Between 4 and 24 hours
+            .endTime(LocalDateTime.now().plusHours(12))
+            .build();
+        Ticket ticket = Ticket.builder()
+            .id(9L)
+            .order(order)
+            .showtimeSeatId(55L)
+            .status(Ticket.TicketStatus.VALID)
+            .price(BigDecimal.TEN)
+            .build();
+        ShowtimeSeat seat = ShowtimeSeat.builder().id(55L).status(ShowtimeSeat.SeatStatus.BOOKED).build();
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(showtimeRepository.findById(100L)).thenReturn(Optional.of(showtime));
+        when(ticketRepository.findByOrderIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(ticket));
+        when(showtimeSeatRepository.findById(55L)).thenReturn(Optional.of(seat));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Order result = paymentService.refund(1L, "user request");
+
+        assertEquals(Order.OrderStatus.REFUNDED, result.getStatus());
+        assertEquals(Ticket.TicketStatus.REFUNDED, ticket.getStatus());
+        assertEquals(ShowtimeSeat.SeatStatus.AVAILABLE, seat.getStatus());
+    }
+
+    @Test
+    void refund_whenLessThan4Hours_throwsException() {
+        Order order = buildOrder(1L, Order.OrderStatus.PAID);
+        Showtime showtime = Showtime.builder()
+            .id(100L)
+            .startTime(LocalDateTime.now().plusHours(2)) // Less than 4 hours
+            .endTime(LocalDateTime.now().plusHours(4))
+            .build();
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(showtimeRepository.findById(100L)).thenReturn(Optional.of(showtime));
+
+        CustomException ex = assertThrows(
+            CustomException.class,
+            () -> paymentService.refund(1L, "user request")
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+        assertEquals("REFUND_WINDOW_CLOSED", ex.getErrorCode());
+    }
+
     private Order buildOrder(Long id, Order.OrderStatus status) {
         return Order.builder()
             .id(id)

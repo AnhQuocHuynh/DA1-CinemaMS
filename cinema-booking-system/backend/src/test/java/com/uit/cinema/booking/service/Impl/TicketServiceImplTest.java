@@ -22,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -105,5 +106,68 @@ class TicketServiceImplTest {
         TicketResponse result = ticketService.getByCode("TK-2");
         assertFalse(result.getRefundable());
         assertEquals(0, result.getRefundPercent());
+    }
+    @Test
+    void checkIn_Success() {
+        Ticket ticket = Ticket.builder()
+            .id(1L)
+            .status(Ticket.TicketStatus.CHECKED_IN)
+            .showtimeSeatId(11L)
+            .build();
+            
+        TicketResponse mapped = new TicketResponse();
+        mapped.setId(1L);
+        mapped.setStatus(Ticket.TicketStatus.CHECKED_IN);
+        mapped.setShowtimeSeatId(11L);
+
+        when(ticketGenerationService.checkIn("TK-1")).thenReturn(ticket);
+        when(ticketMapper.toResponse(ticket)).thenReturn(mapped);
+
+        TicketResponse result = ticketService.checkIn("TK-1");
+
+        assertEquals(Ticket.TicketStatus.CHECKED_IN, result.getStatus());
+        assertFalse(result.getRefundable());
+    }
+
+    @Test
+    void getByUserId_ReturnsList() {
+        Ticket ticket = Ticket.builder()
+            .id(1L)
+            .status(Ticket.TicketStatus.VALID)
+            .showtimeSeatId(11L)
+            .build();
+            
+        TicketResponse mapped = new TicketResponse();
+        mapped.setId(1L);
+        mapped.setStatus(Ticket.TicketStatus.VALID);
+        mapped.setShowtimeSeatId(11L);
+
+        when(ticketRepository.findByOrderUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(ticket));
+        when(ticketMapper.toResponse(ticket)).thenReturn(mapped);
+
+        List<TicketResponse> result = ticketService.getByUserId(1L);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void getByOrderId_ReturnsList() {
+        Ticket ticket = Ticket.builder()
+            .id(1L)
+            .status(Ticket.TicketStatus.VALID)
+            .showtimeSeatId(11L)
+            .build();
+            
+        TicketResponse mapped = new TicketResponse();
+        mapped.setId(1L);
+        mapped.setStatus(Ticket.TicketStatus.VALID);
+        mapped.setShowtimeSeatId(11L);
+
+        when(ticketRepository.findByOrderIdOrderByCreatedAtDesc(101L)).thenReturn(List.of(ticket));
+        when(ticketMapper.toResponse(ticket)).thenReturn(mapped);
+
+        List<TicketResponse> result = ticketService.getByOrderId(101L);
+
+        assertEquals(1, result.size());
     }
 }
