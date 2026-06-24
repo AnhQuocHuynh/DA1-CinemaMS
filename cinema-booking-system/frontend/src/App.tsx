@@ -23,6 +23,7 @@ import { RoomManagement } from './pages/admin/RoomManagement';
 import { SeatConfigurator } from './pages/admin/SeatConfigurator';
 import { ShowtimeManagement } from './pages/admin/ShowtimeManagement';
 import { StaffDashboard } from './pages/staff/StaffDashboard';
+import { CounterBooking } from './pages/staff/CounterBooking';
 import { TicketLookup } from './pages/staff/TicketLookup';
 import { QRChecker } from './pages/staff/QRChecker';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -84,6 +85,7 @@ function App() {
         }
       />
       <Route path="/staff/ticket-lookup" element={<TicketLookup />} />
+      <Route path="/staff/bookings/new" element={<CounterBooking />} />
       <Route path="/staff/qr-checker" element={<QRChecker />} />
 
       {/* Catch-all redirect */}

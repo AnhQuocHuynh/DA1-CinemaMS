@@ -21,7 +21,6 @@ public class Showtime {
     @Column(nullable = false)
     private Long roomId;
 
-    @Column(nullable = false)
     private Long movieId;
 
     private Long eventId;

@@ -9,6 +9,9 @@ export interface ShowtimeResponse {
   roomId: number;
   movieId: number | null;
   eventId: number | null;
+  eventName?: string;
+  displayTitle?: string;
+  displayType?: 'MOVIE' | 'EVENT' | 'SHOWTIME';
   startTime: string; // ISO 8601 datetime
   endTime: string;
   basePrice: string; // decimal string e.g. "150000.00"

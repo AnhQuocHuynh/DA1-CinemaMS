@@ -8,20 +8,19 @@ import java.time.LocalDateTime;
 
 @Data
 public class ShowtimeRequest {
-    @NotNull(message = "Room ID không được để trống")
+    @NotNull(message = "Room ID is required")
     private Long roomId;
 
-    @NotNull(message = "Movie ID không được để trống")
     private Long movieId;
 
     private Long eventId;
 
-    @NotNull(message = "Thời gian bắt đầu không được để trống")
+    @NotNull(message = "Start time is required")
     private LocalDateTime startTime;
 
-    @NotNull(message = "Thời gian kết thúc không được để trống")
+    @NotNull(message = "End time is required")
     private LocalDateTime endTime;
 
-    @NotNull(message = "Giá cơ bản không được để trống")
+    @NotNull(message = "Base price is required")
     private BigDecimal basePrice;
 }

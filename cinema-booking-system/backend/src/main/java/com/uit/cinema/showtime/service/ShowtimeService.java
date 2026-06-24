@@ -8,6 +8,7 @@ import java.util.List;
 
 public interface ShowtimeService {
     List<ShowtimeResponse> getShowtimesByMovie(Long movieId);
+    List<ShowtimeResponse> getShowtimesByEvent(Long eventId);
     ShowtimeResponse getShowtimeById(Long id);
     List<ShowtimeSeatResponse> getSeatMap(Long showtimeId);
     ShowtimeSeatResponse getSeatById(Long seatId);
