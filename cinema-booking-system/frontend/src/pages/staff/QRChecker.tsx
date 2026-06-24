@@ -10,6 +10,7 @@ export const QRChecker: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const readerRef = useRef<BrowserQRCodeReader | null>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
+  const processingRef = useRef(false);
   const [scanResult, setScanResult] = useState<StaffScanResult | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -44,7 +45,8 @@ export const QRChecker: React.FC = () => {
         undefined,
         videoRef.current,
         (result) => {
-          if (!result) return;
+          if (!result || processingRef.current) return;
+          processingRef.current = true;
 
           const decodedText = result.getText();
           const parts = decodedText.split('|');
@@ -83,6 +85,12 @@ export const QRChecker: React.FC = () => {
     }
   };
 
+  const restartScanner = () => {
+    processingRef.current = false;
+    setScanResult(null);
+    startScanner();
+  };
+
   useEffect(() => {
     startScanner();
     return () => stopScanner();
@@ -110,7 +118,10 @@ export const QRChecker: React.FC = () => {
     };
   }, []);
 
-  const clearResult = () => setScanResult(null);
+  const clearResult = () => {
+    setScanResult(null);
+    restartScanner();
+  };
 
   return (
     <div className="bg-inverse-surface text-on-surface min-h-screen overflow-hidden">
@@ -163,7 +174,7 @@ export const QRChecker: React.FC = () => {
         <div className="px-6 pb-24 grid grid-cols-2 gap-4">
           <button
             className="bg-white/10 backdrop-blur-lg rounded-xl py-4 flex flex-col items-center gap-2 text-white active:bg-white/20 transition-all"
-            onClick={() => startScanner()}
+            onClick={() => restartScanner()}
             disabled={isScanning}
           >
             <Flashlight className="w-6 h-6" />
