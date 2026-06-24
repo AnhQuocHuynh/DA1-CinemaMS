@@ -5,6 +5,7 @@ import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { useAdminEvents } from '../../hooks/useAdminEvents';
 import { EventModal } from '../../components/admin/modals/EventModal';
+import { RatingBadge } from '../../components/Review/RatingBadge';
 
 export const EventManagement: React.FC = () => {
   const { events, isLoading, addEvent, deleteEvent } = useAdminEvents();
@@ -70,6 +71,7 @@ export const EventManagement: React.FC = () => {
                   <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Start Time</th>
                   <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">End Time</th>
                   <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Status</th>
+                  <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Rating</th>
                   <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary text-right">Actions</th>
                 </tr>
               </thead>
@@ -87,6 +89,7 @@ export const EventManagement: React.FC = () => {
                         <span className="bg-slate-100 text-slate-500 border border-slate-200 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider">Deleted</span>
                       )}
                     </td>
+                    <td className="px-6 py-4 text-sm text-on-surface"><RatingBadge type="event" id={event.id} /></td>
                     <td className="px-6 py-4 text-right space-x-2">
                       {event.active && (
                         <button onClick={() => handleDeleteClick(event.id)} className="px-3 py-1 bg-error text-white rounded text-xs hover:bg-red-700">Delete</button>

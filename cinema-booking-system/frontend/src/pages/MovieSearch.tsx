@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Film, Search, Calendar, MapPin } from 'lucide-react';
+import { RatingBadge } from '../components/Review/RatingBadge';
 import { formatDuration } from '../utils/movieData';
 import { catalogService, CatalogSearchResponse } from '../services/catalogService';
 import genericPoster from '../resources/generic_movie_poster.png'
@@ -110,6 +111,7 @@ export const MovieSearch: React.FC = () => {
                         </p>
                         <div className="pt-2 flex items-center justify-between">
                           <span className="text-xs font-semibold text-slate-500">{movie.ageRating}</span>
+                          <RatingBadge type="movie" id={movie.id} />
                           <Link to={`/movies/${movie.id}`} className="text-sm font-semibold text-blue-700 hover:underline">
                             Chi tiết & Đặt vé
                           </Link>
@@ -161,6 +163,7 @@ export const MovieSearch: React.FC = () => {
                           </div>
                           <div className="pt-2 flex items-center justify-between">
                             <span className="text-xs font-semibold text-slate-500">Sự kiện đặc biệt</span>
+                            <RatingBadge type="event" id={event.id} />
                             <Link to={`/events/${event.id}`} className="text-sm font-semibold text-amber-600 hover:underline">
                               View Details
                             </Link>

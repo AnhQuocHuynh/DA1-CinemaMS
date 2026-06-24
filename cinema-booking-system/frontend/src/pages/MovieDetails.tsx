@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { ReviewSection } from '../components/Review/ReviewSection';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Play, Calendar, Clock, Globe } from 'lucide-react';
 import { movieService, MovieResponse } from '../services/movieService';
@@ -153,6 +154,9 @@ export const MovieDetails: React.FC = () => {
               <h2 className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-4">Nội dung phim</h2>
               <p className="text-slate-700 leading-relaxed text-lg">{movie.description}</p>
             </div>
+
+            {/* Reviews */}
+            <ReviewSection type="movie" id={parseInt(movieId!, 10)} />
           </div>
 
           <aside className="lg:col-span-4 space-y-6">

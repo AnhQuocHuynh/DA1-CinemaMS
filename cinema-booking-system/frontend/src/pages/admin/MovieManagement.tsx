@@ -5,6 +5,7 @@ import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { useAdminMovies } from '../../hooks/useAdminMovies';
 import { MovieModal } from '../../components/admin/modals/MovieModal';
+import { RatingBadge } from '../../components/Review/RatingBadge';
 
 export const MovieManagement: React.FC = () => {
   const { movies, isLoading, addMovie, updateMovie, deleteMovie } = useAdminMovies();
@@ -104,7 +105,7 @@ export const MovieManagement: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-on-surface">{movie.bookings}</td>
-                    <td className="px-6 py-4 text-sm text-on-surface">{movie.rating ?? '4.7'}</td>
+                    <td className="px-6 py-4 text-sm text-on-surface"><RatingBadge type="movie" id={movie.id} /></td>
                     <td className="px-6 py-4 text-right space-x-2">
                       <button onClick={() => handleEditClick(movie.id)} className="px-3 py-1 bg-primary text-white rounded text-xs hover:bg-blue-700">Edit</button>
                       <button onClick={() => handleDeleteClick(movie.id)} className="px-3 py-1 bg-error text-white rounded text-xs hover:bg-red-700">Delete</button>

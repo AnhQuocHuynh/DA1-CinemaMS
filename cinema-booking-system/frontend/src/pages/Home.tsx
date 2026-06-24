@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Star, Film, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RatingBadge } from '../components/Review/RatingBadge';
 import { calculateEndTime, formatDuration, movies as mockMovies, searchMovies } from '../utils/movieData';
 import { SiteTopNav } from '../components/SiteTopNav';
 import { useMovies } from '../hooks/useMovies';
@@ -310,6 +311,7 @@ export const Home: React.FC = () => {
                         <p className="text-sm text-slate-600">{card.theaterName}</p>
                         <div className="pt-2 flex items-center justify-between">
                           <span className="text-xs font-semibold text-slate-500">{movie.ageRating}</span>
+                          <RatingBadge type="movie" id={movie.id} />
                           <Link to={`/movies/${card.id}`} className="text-sm font-semibold text-blue-700 hover:underline">
                             Chi tiết & Đặt vé
                           </Link>
@@ -409,6 +411,7 @@ export const Home: React.FC = () => {
                         </Link>
                       </div>
                       <p className="text-xs text-slate-500">Sự kiện đặc biệt</p>
+                      <RatingBadge type="event" id={event.id} />
                       <p className="text-sm text-slate-700">{new Date(event.startTime).toLocaleDateString('vi-VN')} - {new Date(event.endTime).toLocaleDateString('vi-VN')}</p>
                       <p className="text-sm text-slate-600">{event.venue}</p>
                       <div className="pt-2 flex items-center justify-between">
