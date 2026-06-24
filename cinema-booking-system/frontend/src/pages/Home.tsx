@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Star, Film, ChevronLeft, ChevronRight } from 'lucide-react';
 import { RatingBadge } from '../components/Review/RatingBadge';
-import { calculateEndTime, formatDuration, movies as mockMovies, searchMovies } from '../utils/movieData';
+import { calculateEndTime, formatDuration, movies as mockMovies } from '../utils/movieData';
 import { SiteTopNav } from '../components/SiteTopNav';
 import { useMovies } from '../hooks/useMovies';
 import { eventService, EventResponse } from '../services/eventService';

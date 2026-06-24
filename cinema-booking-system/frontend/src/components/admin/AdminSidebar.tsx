@@ -10,7 +10,6 @@ import {
   Settings,
   Ticket,
   Users,
-  Video,
 } from 'lucide-react';
 
 const navItems = [

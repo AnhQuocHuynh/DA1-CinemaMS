@@ -26,7 +26,6 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
 import { MovieResponse, movieService } from '../../services/movieService';
 import { showtimeService } from '../../services/showtimeService';
 import { adminService } from '../../services/adminService';

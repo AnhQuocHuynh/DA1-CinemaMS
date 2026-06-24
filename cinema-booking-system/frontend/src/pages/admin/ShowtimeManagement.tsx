@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight, Loader2, Plus, Search, Trash2, Wand2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, Search, Trash2, Wand2 } from 'lucide-react';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
