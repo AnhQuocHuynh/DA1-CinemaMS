@@ -69,6 +69,7 @@ export const EventManagement: React.FC = () => {
                   <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Venue</th>
                   <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Start Time</th>
                   <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">End Time</th>
+                  <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Status</th>
                   <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary text-right">Actions</th>
                 </tr>
               </thead>
@@ -79,8 +80,17 @@ export const EventManagement: React.FC = () => {
                     <td className="px-6 py-4 text-sm text-on-surface">{event.venue}</td>
                     <td className="px-6 py-4 text-sm text-on-surface">{new Date(event.startTime).toLocaleString('vi-VN')}</td>
                     <td className="px-6 py-4 text-sm text-on-surface">{new Date(event.endTime).toLocaleString('vi-VN')}</td>
+                    <td className="px-6 py-4">
+                      {event.active ? (
+                        <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider">Active</span>
+                      ) : (
+                        <span className="bg-slate-100 text-slate-500 border border-slate-200 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider">Deleted</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-right space-x-2">
-                      <button onClick={() => handleDeleteClick(event.id)} className="px-3 py-1 bg-error text-white rounded text-xs hover:bg-red-700">Delete</button>
+                      {event.active && (
+                        <button onClick={() => handleDeleteClick(event.id)} className="px-3 py-1 bg-error text-white rounded text-xs hover:bg-red-700">Delete</button>
+                      )}
                     </td>
                   </tr>
                 ))}
