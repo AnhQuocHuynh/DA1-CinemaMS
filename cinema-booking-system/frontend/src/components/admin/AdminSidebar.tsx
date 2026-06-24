@@ -19,8 +19,7 @@ const navItems = [
   { id: 'events', label: 'Events', icon: Film, to: '/admin/events' },
   { id: 'showtimes', label: 'Showtimes', icon: MonitorPlay, to: '/admin/showtimes' },
   { id: 'rooms', label: 'Rooms', icon: LayoutGrid, to: '/admin/rooms' },
-  { id: 'pricing', label: 'Pricing', icon: Ticket, to: '/admin/pricing' },
-  { id: 'vouchers', label: 'Vouchers', icon: Video, to: '/admin/pricing' },
+  { id: 'pricing', label: 'Pricing & Vouchers', icon: Ticket, to: '/admin/pricing' },
   { id: 'permissions', label: 'Permissions', icon: Users, to: '/admin/permissions' },
 ];
 
