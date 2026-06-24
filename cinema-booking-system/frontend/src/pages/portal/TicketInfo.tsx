@@ -7,6 +7,7 @@ import { formatVND } from '../../utils/formatters';
 import { AlertCircle, Download, Printer } from 'lucide-react';
 import genericPoster from '../../resources/generic_movie_poster.png';
 import { QRCodeSVG } from 'qrcode.react';
+import { downloadElementAsPDF } from '../../utils/pdfGenerator';
 
 export const TicketInfo: React.FC = () => {
   const { ticketId: ticketCode = '' } = useParams<{ ticketId: string }>();
@@ -14,6 +15,18 @@ export const TicketInfo: React.FC = () => {
   const { ticket, isLoading, error } = useTicketDetails(ticketCode);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    setIsDownloading(true);
+    try {
+      await downloadElementAsPDF('ticket-content', `ticket-${ticketCode}.pdf`);
+    } catch (err) {
+      console.error('Failed to download PDF:', err);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const handleCancel = useCallback(async () => {
     if (!ticket?.orderId) return;
@@ -76,7 +89,7 @@ export const TicketInfo: React.FC = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+        <div id="ticket-content" className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start p-4 bg-surface -m-4 rounded-xl">
           {/* Left: poster placeholder or QR */}
           <div className="lg:col-span-5 space-y-8">
             <div className="aspect-[2/3] w-full rounded-xl overflow-hidden shadow-2xl relative bg-surface-container-high flex items-center justify-center">
@@ -230,10 +243,11 @@ export const TicketInfo: React.FC = () => {
                   </button>
                   <button
                     className="flex-1 flex items-center justify-center gap-2 bg-white border border-outline-variant text-on-surface py-3 rounded-lg font-semibold text-sm hover:bg-surface-container-lowest transition-all"
-                    onClick={() => window.print()}
+                    onClick={handleDownloadPDF}
+                    disabled={isDownloading}
                   >
                     <Download className="w-4 h-4" />
-                    Tải xuống
+                    {isDownloading ? 'Đang tải...' : 'Tải xuống'}
                   </button>
                 </div>
               </div>
