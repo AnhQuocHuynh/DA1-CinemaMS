@@ -21,46 +21,46 @@ export const useSeatSelection = (showtimeId: string) => {
     setHoldExpiresAt,
   } = useBookingStore();
 
-  useEffect(() => {
-    if (!showtimeId) return;
+  const fetchSeatMap = useCallback(async () => {
+    try {
+      const [seatData, showtimeData] = await Promise.all([
+        bookingService.getSeatMap(showtimeId),
+        showtimeService.getShowtime(showtimeId),
+      ]);
 
-    const loadSeatMap = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const [seatData, showtimeData] = await Promise.all([
-          bookingService.getSeatMap(showtimeId),
-          showtimeService.getShowtime(showtimeId),
-        ]);
-
-        // If the user already has seats selected/held for this showtime
-        // (e.g. navigated back from checkout), remap those seats from
-        // 'holding' → 'available' so they remain interactive.
-        const heldByMe = new Set(selectedSeats.map((s) => s.id));
-        if (heldByMe.size > 0) {
-          for (const row of seatData.rows) {
-            for (const seat of row.seats) {
-              if (heldByMe.has(seat.id) && seat.status === 'holding') {
-                seat.status = 'available';
-              }
+      const heldByMe = new Set(selectedSeats.map((s) => s.id));
+      if (heldByMe.size > 0) {
+        for (const row of seatData.rows) {
+          for (const seat of row.seats) {
+            if (heldByMe.has(seat.id) && seat.status === 'holding') {
+              seat.status = 'available';
             }
           }
         }
-
-        setSeatMap(seatData);
-        setShowtimeId(showtimeId);
-        setShowtimeData(showtimeData);
-      } catch (err) {
-        console.error('Failed to load seat map:', err);
-        setError('Unable to load seat map. Please try again.');
-      } finally {
-        setIsLoading(false);
       }
+
+      setSeatMap(seatData);
+      setShowtimeId(showtimeId);
+      setShowtimeData(showtimeData);
+    } catch (err) {
+      console.error('Failed to load seat map:', err);
+      setError('Unable to load seat map. Please try again.');
+    }
+  }, [showtimeId, selectedSeats, setShowtimeId, setShowtimeData]);
+
+  useEffect(() => {
+    if (!showtimeId) return;
+
+    const init = async () => {
+      setIsLoading(true);
+      setError(null);
+      await fetchSeatMap();
+      setIsLoading(false);
     };
 
-    loadSeatMap();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedSeats intentionally excluded to avoid re-fetch loops
-  }, [showtimeId, setShowtimeId, setShowtimeData]);
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showtimeId]);
 
   const summary = useMemo(() => {
     const subtotal = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
@@ -73,14 +73,43 @@ export const useSeatSelection = (showtimeId: string) => {
   );
 
   const handleToggleSeat = useCallback(
-    (seat: Seat) => {
+    async (seat: Seat) => {
       try {
-        toggleSeat(seat);
+        const isCurrentlySelected = selectedSeats.some((s) => s.id === seat.id);
+
+        if (isCurrentlySelected) {
+          await bookingService.releaseHeldSeats(showtimeId, [seat.numericId]);
+          toggleSeat(seat);
+          if (selectedSeats.length === 1) {
+            setHoldExpiresAt(null);
+          }
+        } else {
+          const maxSeats = 6;
+          const currentPhysicalCount = selectedSeats.reduce(
+            (total, s) => total + (s.type === 'couple' ? 2 : 1),
+            0
+          );
+          const addingPhysicalCount = seat.type === 'couple' ? 2 : 1;
+          
+          if (currentPhysicalCount + addingPhysicalCount > maxSeats) {
+            throw new Error(`Booking limit exceeded. You can select a maximum of ${maxSeats} physical seats.`);
+          }
+
+          await bookingService.holdSeats(showtimeId, [seat.numericId]);
+          toggleSeat(seat);
+          setHoldExpiresAt(new Date(Date.now() + 10 * 60 * 1000));
+        }
       } catch (err: any) {
-        addToast(err.message, 'error');
+        const msg =
+          err?.response?.data?.message ||
+          err?.message ||
+          'Could not update seat status. It may have just been taken.';
+        addToast(msg, 'error');
+        // Reload seat map to show the actual status of the seat
+        fetchSeatMap();
       }
     },
-    [toggleSeat, addToast]
+    [selectedSeats, showtimeId, toggleSeat, setHoldExpiresAt, addToast, fetchSeatMap]
   );
 
   /** Call POST /showtimes/{id}/hold for all currently selected seats */
