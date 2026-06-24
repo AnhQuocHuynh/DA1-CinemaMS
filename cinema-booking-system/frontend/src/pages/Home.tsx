@@ -7,6 +7,7 @@ import { SiteTopNav } from '../components/SiteTopNav';
 import { useMovies } from '../hooks/useMovies';
 import { eventService, EventResponse } from '../services/eventService';
 import { MovieResponse } from '../services/movieService';
+import { catalogService } from '../services/catalogService';
 import { Movie } from '../types/movie';
 import genericPoster from '../resources/generic_movie_poster.png';
 
@@ -87,25 +88,67 @@ export const Home: React.FC = () => {
     return [...backendCards, ...mockCards];
   }, [backendMovies]);
 
-  // ── Search suggestions (uses mock util for now, augmented with backend) ──
-  const suggestions = useMemo(() => {
-    if (!searchTerm.trim()) {
-      // Mix backend + mock for dropdown
-      const backendSuggestions = backendMovies.map((m) => ({
+  // ── Search suggestions (uses catalog API) ──
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
+  const [suggestions, setSuggestions] = useState<{ id: string | number; title: string; genre?: string; type: 'movie' | 'event'; imageUrl?: string; url: string }[]>([]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedSearchTerm(searchTerm), 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (!debouncedSearchTerm.trim()) {
+      // Show default top movies if empty
+      const backendSuggestions = backendMovies.slice(0, 3).map((m) => ({
         id: m.id,
         title: m.title,
         genre: m.genres.join(', '),
+        type: 'movie' as const,
+        imageUrl: m.posterUrl || '',
+        url: `/movies/${m.id}`
       }));
-      const mockSuggestions = mockMovies.slice(0, 6).map((m) => ({
+      const mockSuggestions = mockMovies.slice(0, 3).map((m) => ({
         id: m.id,
         title: m.title,
         genre: m.genre,
+        type: 'movie' as const,
+        imageUrl: m.posterUrl || '',
+        url: `/movies/${m.id}`
       }));
-      return [...backendSuggestions, ...mockSuggestions].slice(0, 6);
+      setSuggestions([...backendSuggestions, ...mockSuggestions]);
+      return;
     }
-    // For keyword search fall back to existing mock util
-    return searchMovies(searchTerm).slice(0, 6);
-  }, [searchTerm, backendMovies]);
+
+    let isSubscribed = true;
+    catalogService.search({ keyword: debouncedSearchTerm, size: 4 })
+      .then((data) => {
+        if (!isSubscribed) return;
+        
+        const moviesResult = data.movies.map(m => ({
+          id: m.id,
+          title: m.title,
+          genre: m.genres.join(', '),
+          type: 'movie' as const,
+          imageUrl: m.posterUrl || '',
+          url: `/movies/${m.id}`
+        }));
+        
+        const eventsResult = data.events.map(e => ({
+          id: e.id,
+          title: e.name,
+          genre: '',
+          type: 'event' as const,
+          imageUrl: e.imageUrl || '',
+          url: `/events/${e.id}`
+        }));
+        
+        setSuggestions([...moviesResult, ...eventsResult].slice(0, 5));
+      })
+      .catch(console.error);
+
+    return () => { isSubscribed = false; };
+  }, [debouncedSearchTerm, backendMovies]);
 
   const submitSearch = (keyword: string) => {
     const query = keyword.trim();

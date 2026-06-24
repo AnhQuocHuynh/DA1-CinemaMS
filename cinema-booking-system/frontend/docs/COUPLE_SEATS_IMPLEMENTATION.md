@@ -1,51 +1,51 @@
-# Frontend Implementation Guide: Couple Seats (Double Assets)
-This guide provides the technical design and reference implementation details for incorporating **Couple Seats** (Double Assets/Cozy Couches) into the frontend seat map and checkout workflow.
+# Frontend Implementation Guide: Couple Seats (Column Span)
+# Done
+This guide provides the technical design and reference implementation details for incorporating **Couple Seats** (Double Assets/Cozy Couches) into the frontend seat map and checkout workflow, based on the backend's data model.
 
 ---
 
-## 1. Core Data Strategy: "The Ghost Twin"
+## 1. Core Data Strategy: "Single Entity, Column Span"
 
-Instead of forcing a single double seat to occupy multiple coordinates or span columns (which complicates grid layouts, mapping logic, and backend matching), we use **"The Ghost Twin"** strategy:
-- Every double seat consists of **two distinct data points (seats)** in the grid.
-- They are explicitly linked using a `pairId` reference pointing to each other.
-- They are designated with unique seat types: `'couple_left'` and `'couple_right'`.
+The backend database and ticketing engine treat a couple seat as **one logical seat** that spans two physical columns. Therefore, the frontend receives a single seat object for each couple seat with a `columnSpan` property of `2` and `seatTypeCode` of `'COUPLE'`.
+
+There is no "Ghost Twin" or linked `pairId`. A couple seat is a single selectable entity that maps to a single Ticket and single ShowtimeSeat on the backend.
 
 ### Mock JSON Representation:
 ```json
 [
-  { "id": "A1", "label": "A1", "row": "A", "number": 1, "type": "single", "status": "available", "price": 24 },
-  { "id": "A2", "label": "A2", "row": "A", "number": 2, "type": "couple_left", "status": "available", "price": 30, "pairId": "A3" },
-  { "id": "A3", "label": "A3", "row": "A", "number": 3, "type": "couple_right", "status": "available", "price": 30, "pairId": "A2" }
+  { "id": 1, "seatId": "1", "label": "H1", "rowLabel": "H", "columnNumber": 1, "seatTypeCode": "COUPLE", "columnSpan": 2, "status": "AVAILABLE", "price": 100000 },
+  { "id": 2, "seatId": "2", "label": "H3", "rowLabel": "H", "columnNumber": 3, "seatTypeCode": "COUPLE", "columnSpan": 2, "status": "AVAILABLE", "price": 100000 }
 ]
 ```
 
 ### Why this works:
-1. **Grid Integrity**: Keeps the React CSS grid mapping strictly $1 \times 1$ without complex `col-span` logic.
-2. **Backend Alignment**: The backend database and ticketing engine treats every seat as a separate ticketable ID anyway.
+1. **Backend Alignment**: The backend sends one `ShowtimeSeatResponse` per couple seat, completely matching the frontend representation.
+2. **Simplified State**: We don't need complex `pairId` resolution or atomic toggle logic. Clicking the couple seat toggles exactly one item in the cart.
+3. **True Atomicity**: Seat-locking and booking requests only require sending one seat ID. The backend locks the entire couple seat intrinsically.
 
 ---
 
 ## 2. Type System Updates
 
-Update the type definitions in [src/types/booking.ts](file:///c:/Users/Nguyen/OneDrive/M%C3%A1y%20t%C3%ADnh/DoAn1/DA1-CinemaMS/cinema-booking-system/frontend/src/types/booking.ts) to support the new seat types and the linking identifier.
+Update the type definitions in `src/types/booking.ts` to reflect the backend DTO structure, specifically adding `columnSpan` and matching `seatTypeCode`.
 
 ```typescript
 // src/types/booking.ts
-export type SeatStatus = 'available' | 'selected' | 'sold' | 'holding';
+export type SeatStatus = 'AVAILABLE' | 'SELECTED' | 'SOLD' | 'HOLDING';
 
-// Add 'couple_left' and 'couple_right'
-export type SeatType = 'normal' | 'vip' | 'couple_left' | 'couple_right';
+export type SeatTypeCode = 'STANDARD' | 'VIP' | 'COUPLE';
 
 export interface Seat {
-  id: string;
+  id: number; // The numeric ID from backend
+  seatId: string; // The UUID or identifier from backend
   label: string;
-  row: string;
-  number: number;
+  rowLabel: string;
+  columnNumber: number;
+  columnSpan: number;
   status: SeatStatus;
-  type: SeatType;
+  seatTypeCode: SeatTypeCode;
   price: number;
   isPathway?: boolean;
-  pairId?: string; // Links couple seats together
 }
 ```
 
@@ -53,7 +53,7 @@ export interface Seat {
 
 ## 3. State Management (Zustand Store)
 
-Modify [src/store/bookingStore.ts](file:///c:/Users/Nguyen/OneDrive/M%C3%A1y%20t%C3%ADnh/DoAn1/DA1-CinemaMS/cinema-booking-system/frontend/src/store/bookingStore.ts) to support batch-toggling of seats. Instead of toggling seats individually, we introduce a `toggleSeats` action that accepts an array of seats. This allows atomic atomic selection/deselection of couple pairs and enforces the seat limits accurately.
+Modify `src/store/bookingStore.ts` to handle simple toggling of single entities while still accurately calculating seat counts (since a couple seat might count as 2 physical seats against a limit of 6 max seats per booking).
 
 ```typescript
 // src/store/bookingStore.ts
@@ -67,7 +67,7 @@ interface BookingState {
 
   setShowtimeId: (showtimeId: string | null) => void;
   setHoldExpiresAt: (value: string | null) => void;
-  toggleSeats: (seats: Seat[], maxSeats: number) => void;
+  toggleSeat: (seat: Seat, maxSeats: number) => void;
   clearSelection: () => void;
 }
 
@@ -79,34 +79,29 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   setShowtimeId: (showtimeId) => set({ showtimeId }),
   setHoldExpiresAt: (value) => set({ holdExpiresAt: value }),
   
-  toggleSeats: (seats, maxSeats = 6) => {
+  toggleSeat: (seat, maxSeats = 6) => {
     const current = get().selectedSeats;
-    
-    // Check if ALL seats in the input array are already selected
-    const allSelected = seats.every((seat) => 
-      current.some((item) => item.id === seat.id)
-    );
+    const isSelected = current.some((s) => s.id === seat.id);
 
-    if (allSelected) {
-      // DESELECT: Remove all seats in the array
-      const idsToRemove = seats.map((s) => s.id);
-      set({
-        selectedSeats: current.filter((item) => !idsToRemove.includes(item.id)),
-      });
+    if (isSelected) {
+      // DESELECT
+      set({ selectedSeats: current.filter((s) => s.id !== seat.id) });
     } else {
-      // SELECT: Filter out seats already in cart, prepare to add the rest
-      const toAdd = seats.filter((s) => !current.some((item) => item.id === s.id));
-      
-      // Enforce the ticket booking limit (e.g. max 6)
-      if (current.length + toAdd.length > maxSeats) {
-        throw new Error(`Booking limit exceeded. You can select a maximum of ${maxSeats} seats.`);
+      // SELECT
+      // Calculate current total physical seats selected
+      const currentPhysicalCount = current.reduce(
+        (total, s) => total + (s.seatTypeCode === 'COUPLE' ? 2 : 1), 
+        0
+      );
+      const addingPhysicalCount = seat.seatTypeCode === 'COUPLE' ? 2 : 1;
+
+      // Enforce the ticket booking limit (e.g. max 6 physical seats)
+      if (currentPhysicalCount + addingPhysicalCount > maxSeats) {
+        throw new Error(`Booking limit exceeded. You can select a maximum of ${maxSeats} physical seats.`);
       }
 
       set({
-        selectedSeats: [
-          ...current,
-          ...toAdd.map((s) => ({ ...s, status: 'selected' as const })),
-        ],
+        selectedSeats: [...current, { ...seat, status: 'SELECTED' }],
       });
     }
   },
@@ -119,7 +114,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
 ## 4. Custom Hook Logic (`useSeatSelection`)
 
-Update the custom hook in [src/hooks/useSeatSelection.ts](file:///c:/Users/Nguyen/OneDrive/M%C3%A1y%20t%C3%ADnh/DoAn1/DA1-CinemaMS/cinema-booking-system/frontend/src/hooks/useSeatSelection.ts) to orchestrate finding and toggling the partner "Ghost Twin" seat when a couple seat is clicked.
+The hook in `src/hooks/useSeatSelection.ts` becomes much simpler since we no longer need to look up "Ghost Twins". We simply pass the single seat object to the store.
 
 ```typescript
 // src/hooks/useSeatSelection.ts
@@ -133,30 +128,21 @@ export const useSeatSelection = (showtimeId: string) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const { selectedSeats, toggleSeats, setShowtimeId } = useBookingStore();
+  const { selectedSeats, toggleSeat, setShowtimeId } = useBookingStore();
 
   useEffect(() => {
-    const loadSeatMap = async () => {
-      try {
-        const data = await bookingService.getSeatMap(showtimeId);
-        setSeatMap(data);
-        setShowtimeId(showtimeId);
-      } catch (err) {
-        console.error('Failed to load seat map:', err);
-        setError('Could not load seat layout. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadSeatMap();
+    // ... data fetching logic ...
   }, [showtimeId, setShowtimeId]);
 
   const summary = useMemo(() => {
     const subtotal = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
-    // Flat convenience fee per ticket
+    // Flat convenience fee per PHYSICAL ticket
+    const physicalSeatCount = selectedSeats.reduce(
+        (total, s) => total + (s.seatTypeCode === 'COUPLE' ? 2 : 1), 
+        0
+    );
     const feePerTicket = 1.5;
-    const fees = selectedSeats.length * feePerTicket;
+    const fees = physicalSeatCount * feePerTicket;
     
     return {
       subtotal,
@@ -167,29 +153,11 @@ export const useSeatSelection = (showtimeId: string) => {
 
   const isSelected = (seat: Seat) => selectedSeats.some((item) => item.id === seat.id);
 
-  // Wrapper function to resolve Ghost Twins before triggering store state change
   const handleToggleSeat = (seat: Seat) => {
-    if (!seatMap) return;
-
-    let seatsToToggle = [seat];
-
-    if (seat.pairId) {
-      // Find the partner twin seat in the grid layout
-      const partner = seatMap.rows
-        .flatMap((r) => r.seats)
-        .find((s) => s.id === seat.pairId);
-
-      if (partner) {
-        // Enforce atomic pairs: left & right must toggle together
-        seatsToToggle = [seat, partner];
-      }
-    }
-
     try {
-      // Enforce standard cinema max ticket limit of 6
-      toggleSeats(seatsToToggle, 6);
+      // Toggle single entity
+      toggleSeat(seat, 6);
     } catch (err: any) {
-      // Propagate the validation message to the page component
       alert(err.message); 
     }
   };
@@ -210,20 +178,15 @@ export const useSeatSelection = (showtimeId: string) => {
 
 ## 5. UI Integration & Styling (`SeatMapGrid`)
 
-To make two adjacent grid cells look like a cohesive cozy sofa, we must style them dynamically and eliminate the CSS Grid gap.
+Because a couple seat is represented as a single entity spanning 2 columns, our CSS Grid implementation must leverage `grid-column: span 2` to physically widen the button to fill the space of two standard seats plus the grid gap.
 
-### The CSS Bridging Trick
-If the parent container utilizes a grid layout with a gap (e.g. `gap-2` which translates to `8px`), the seats will be separated. We can bridge this gap using standard Tailwind utilities:
-- **`couple_left`**: Applies a negative right margin: `-mr-[4px]` (half the grid gap). It rounds the left corners and squares the right: `rounded-l-lg rounded-r-none`.
-- **`couple_right`**: Applies a negative left margin: `-ml-[4px]` (half the grid gap). It rounds the right corners and squares the left: `rounded-r-lg rounded-l-none`.
-- **Spacing Adjustment**: This causes the two buttons to stretch and overlap border-to-border, combining into a seamless $2 \times 1$ visual component.
-
-### The Hover Effect & Visual Sync
-We track which seat is hovered locally in `SeatMapGrid` so we can apply the hover class to both twin seats simultaneously.
+### The CSS `col-span` approach
+- We use Tailwind's `col-span-2` dynamically if `seat.columnSpan === 2`.
+- This ensures the button spans exactly two columns in the `gridTemplateColumns`.
 
 ```tsx
 // src/components/portal/SeatMapGrid.tsx
-import React, { useState } from 'react';
+import React from 'react';
 import { SeatMap, Seat } from '../../types/booking';
 
 interface SeatMapGridProps {
@@ -233,9 +196,6 @@ interface SeatMapGridProps {
 }
 
 export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, onSeatToggle }) => {
-  // Track hovered seat to sync couple seats hover states
-  const [hoveredSeat, setHoveredSeat] = useState<Seat | null>(null);
-
   return (
     <div
       className="grid gap-2 max-w-3xl mx-auto"
@@ -254,41 +214,25 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
           }
 
           const selected = isSelected(seat);
-          const isDisabled = seat.status === 'sold' || seat.status === 'holding';
+          const isDisabled = seat.status === 'SOLD' || seat.status === 'HOLDING';
 
-          // Determine if this seat should show hover highlight (synced with its twin)
-          const isHovered = hoveredSeat && (
-            hoveredSeat.id === seat.id || 
-            (seat.pairId && seat.pairId === hoveredSeat.id)
-          );
-
-          // 1. Core Background Styles using theme tokens
           let baseClass = '';
-          if (seat.status === 'sold') {
+          if (seat.status === 'SOLD') {
             baseClass = 'bg-surface-container-low text-outline/30 cursor-not-allowed border border-outline-variant/10 opacity-40 line-through';
-          } else if (seat.status === 'holding') {
+          } else if (seat.status === 'HOLDING') {
             baseClass = 'bg-secondary-container text-on-secondary-container border border-dashed border-secondary/50 cursor-wait animate-pulse';
           } else if (selected) {
             baseClass = 'bg-primary text-white border border-primary-container font-bold shadow-sm';
           } else {
-            // Available: base + synchronized hover styles
-            baseClass = `bg-surface-container-high text-on-surface-variant border border-outline-variant/30 transition-all cursor-pointer ${
-              isHovered 
-                ? 'bg-surface-container-highest border-primary/50 text-on-surface scale-[1.03]' 
-                : 'hover:bg-surface-container-highest hover:text-on-surface hover:scale-[1.02]'
-            }`;
+            baseClass = 'bg-surface-container-high text-on-surface-variant border border-outline-variant/30 transition-all cursor-pointer hover:bg-surface-container-highest hover:text-on-surface hover:scale-[1.02]';
           }
 
-          // 2. Corner rounding and gap elimination for Couple Seats
-          let shapeClass = 'rounded-sm';
-          if (seat.type === 'couple_left') {
-            shapeClass = 'rounded-l-lg rounded-r-none border-r-0 -mr-[4px] relative z-10';
-          } else if (seat.type === 'couple_right') {
-            shapeClass = 'rounded-r-lg rounded-l-none border-l-0 -ml-[4px] relative z-10';
-          }
+          // Apply grid column spanning and custom shape for Couple Seats
+          const isCouple = seat.seatTypeCode === 'COUPLE';
+          const spanClass = isCouple ? 'col-span-2' : 'col-span-1';
+          const shapeClass = isCouple ? 'rounded-lg aspect-auto h-full w-full' : 'rounded-sm w-full aspect-square';
 
-          // 3. VIP seat border highlight
-          const vipClass = seat.type === 'vip' ? 'border-2 border-amber-400/80' : '';
+          const vipClass = seat.seatTypeCode === 'VIP' ? 'border-2 border-amber-400/80' : '';
 
           return (
             <button
@@ -296,14 +240,11 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
               type="button"
               disabled={isDisabled}
               onClick={() => onSeatToggle(seat)}
-              onMouseEnter={() => !isDisabled && setHoveredSeat(seat)}
-              onMouseLeave={() => setHoveredSeat(null)}
-              className={`${baseClass} ${shapeClass} ${vipClass} w-full aspect-square flex flex-col items-center justify-center text-[9px] font-bold select-none focus:outline-none focus:ring-1 focus:ring-primary/40`}
-              title={`${seat.label} • ${seat.type.replace('_', ' ').toUpperCase()}`}
+              className={`${baseClass} ${shapeClass} ${spanClass} ${vipClass} flex flex-col items-center justify-center text-[9px] font-bold select-none focus:outline-none focus:ring-1 focus:ring-primary/40`}
+              title={`${seat.label} • ${seat.seatTypeCode}`}
             >
-              {/* Show label if selected, hovered, or normally available */}
-              <span className={`transition-opacity duration-150 ${(selected || isHovered || seat.status === 'available') ? 'opacity-100' : 'opacity-40'}`}>
-                {seat.label}
+              <span className={`transition-opacity duration-150 ${(selected || seat.status === 'AVAILABLE') ? 'opacity-100' : 'opacity-40'}`}>
+                {seat.label} {isCouple && '(Couple)'}
               </span>
             </button>
           );
@@ -318,7 +259,7 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
 
 ## 6. Legend Updates (`SeatLegend`)
 
-Add visual representation of VIP and Couple seats in [src/components/portal/SeatLegend.tsx](file:///c:/Users/Nguyen/OneDrive/M%C3%A1y%20t%C3%ADnh/DoAn1/DA1-CinemaMS/cinema-booking-system/frontend/src/components/portal/SeatLegend.tsx) so users understand what they represent on the grid layout.
+Update `src/components/portal/SeatLegend.tsx` to reflect the unified, spanned couple seat instead of two bridged seats.
 
 ```tsx
 // src/components/portal/SeatLegend.tsx
@@ -327,36 +268,16 @@ import React from 'react';
 export const SeatLegend: React.FC = () => {
   return (
     <div className="mt-16 flex flex-wrap justify-center gap-8 py-6 bg-surface-container-low rounded-xl border border-outline-variant/10">
-      <div className="flex items-center gap-3">
-        <div className="w-5 h-5 rounded-sm bg-surface-container-high border border-outline-variant/30" />
-        <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">Available</span>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <div className="w-5 h-5 rounded-sm bg-primary border border-primary-container" />
-        <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">Selected</span>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <div className="w-5 h-5 rounded-sm bg-secondary-container border border-dashed border-secondary/50" />
-        <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">Holding</span>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <div className="w-5 h-5 rounded-sm bg-surface-container-low border border-outline-variant/10 opacity-40 line-through" />
-        <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">Sold</span>
-      </div>
-
+      {/* ... other legend items ... */}
+      
       <div className="flex items-center gap-3">
         <div className="w-5 h-5 rounded-sm bg-surface-container-high border-2 border-amber-400/80" />
         <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">VIP</span>
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="flex -space-x-1">
-          <div className="w-5 h-5 rounded-l-md bg-surface-container-high border border-outline-variant/30 border-r-0" />
-          <div className="w-5 h-5 rounded-r-md bg-surface-container-high border border-outline-variant/30 border-l-0" />
-        </div>
+        {/* Render a wide rectangle to represent the column span 2 */}
+        <div className="w-11 h-5 rounded-md bg-surface-container-high border border-outline-variant/30" />
         <span className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">Couple Seat</span>
       </div>
     </div>
@@ -368,45 +289,44 @@ export const SeatLegend: React.FC = () => {
 
 ## 7. Mock Data & Backend Adaptor Setup
 
-Ensure the server API responses (simulated in [src/services/bookingService.ts](file:///c:/Users/Nguyen/OneDrive/M%C3%A1y%20t%C3%ADnh/DoAn1/DA1-CinemaMS/cinema-booking-system/frontend/src/services/bookingService.ts)) return matching `pairId` linkages and custom `type` fields for designated couple seat rows (commonly the last row in the cinema theatre, e.g., Row H).
+When testing with mock data before the API integration is complete, make sure to simulate the `columnSpan` correctly.
 
 ```typescript
 // Example mockup configuration inside getSeatMap in src/services/bookingService.ts
 const mockSeatMap = {
   rows: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((row) => {
-    const isCoupleRow = row === 'H'; // Designate last row for double assets
+    const isCoupleRow = row === 'H';
+    const seats = [];
     
-    return {
-      rowLabel: row,
-      seats: Array.from({ length: 14 }).map((_, index) => {
-        const isPathway = !isCoupleRow && (index === 2 || index === 11);
-        const seatId = `${row}${index + 1}`;
-        
-        let type: SeatType = row === 'G' ? 'vip' : 'normal';
-        let pairId: string | undefined;
+    // For normal rows, generate 14 seats
+    // For couple row, generate 7 seats spanning 2 columns each
+    const seatCount = isCoupleRow ? 7 : 14;
 
-        if (isCoupleRow) {
-          // Pair consecutive indexes: (1,2), (3,4), (5,6), (7,8), (9,10), (11,12), (13,14)
-          const isEven = index % 2 === 0;
-          type = isEven ? 'couple_left' : 'couple_right';
-          pairId = isEven 
-            ? `${row}${index + 2}` // points to odd right neighbor
-            : `${row}${index}`;     // points to even left neighbor
-        }
+    for (let index = 0; index < seatCount; index++) {
+      const isPathway = !isCoupleRow && (index === 2 || index === 11);
+      
+      // Calculate true column number. Normal: 1, 2, 3... Couple: 1, 3, 5...
+      const columnNumber = isCoupleRow ? (index * 2) + 1 : index + 1;
+      const seatId = `${row}${columnNumber}`;
+      
+      const type: SeatTypeCode = isCoupleRow ? 'COUPLE' : (row === 'G' ? 'VIP' : 'STANDARD');
+      const columnSpan = isCoupleRow ? 2 : 1;
 
-        return {
-          id: seatId,
-          label: isPathway ? '' : seatId,
-          row,
-          number: index + 1,
-          status: 'available',
-          type,
-          price: isCoupleRow ? 35 : (row === 'G' ? 30 : 24),
-          isPathway,
-          pairId,
-        };
-      }),
-    };
+      seats.push({
+        id: index,
+        seatId: seatId,
+        label: isPathway ? '' : seatId,
+        rowLabel: row,
+        columnNumber: columnNumber,
+        status: 'AVAILABLE',
+        seatTypeCode: type,
+        columnSpan: columnSpan,
+        price: isCoupleRow ? 200000 : (row === 'G' ? 120000 : 75000),
+        isPathway,
+      });
+    }
+
+    return { rowLabel: row, seats };
   }),
 };
 ```
@@ -415,8 +335,8 @@ const mockSeatMap = {
 
 ## 8. UX Guidelines & Edge Case Handling
 
-1. **Atomic Releases**: When a hold timer expires, make sure the hold release API payload contains both seat IDs (`[seat.id, seat.pairId]`) so they become available to other guests simultaneously.
+1. **Holding and Releasing**: With this column-span approach, releasing a hold only requires sending the single seat `id` back to the backend.
 2. **Checkout Summary UI**:
-   - In the Checkout sidebar or order confirmation screen, display couple seats clearly. Group them using parenthetical tags: `H1 - H2 (Couple)`.
-   - Ensure the ticket count displays 2 for a single booking of a couple seat, preventing booking total mismatches.
-3. **Responsive Scaling**: On small screens, keep the seat grid elements compact. Use CSS perspective or standard overflow horizontal scrolling (`overflow-x-auto`) to let users easily pan around the layout on mobile devices.
+   - In the Checkout sidebar or order confirmation screen, display couple seats clearly: `H1 (Couple)`.
+   - The ticket count visually should reflect the physical count (i.e. 2 persons for 1 couple seat) if your business logic dictates that pricing/fees are per person. If pricing is strictly per-seat-entity, make sure to display it clearly so users understand the couple seat costs X.
+3. **Responsive Scaling**: Since `col-span-2` naturally fits into a grid and resizes with the layout, responsive scaling is significantly smoother than the "bridged gap" approach. Ensure horizontal scrolling (`overflow-x-auto`) is still available for narrow mobile screens.

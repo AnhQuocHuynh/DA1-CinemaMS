@@ -3,11 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { LogOut, Search, Settings, User } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
+import genericPoster from '../resources/generic_movie_poster.png';
 
 interface SearchSuggestion {
   id: string | number;
   title: string;
   genre?: string;
+  type: 'movie' | 'event';
+  imageUrl?: string;
+  url: string;
 }
 
 interface SiteTopNavProps {
@@ -119,14 +123,38 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
 
               {visibleSuggestions.length > 0 && (
                 <div className="absolute top-full mt-2 w-full bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
-                  {visibleSuggestions.map((movie) => (
+                  {visibleSuggestions.map((suggestion) => (
                     <button
-                      key={movie.id}
-                      onMouseDown={() => handleSubmit(movie.title)}
-                      className="w-full px-3 py-2 text-left hover:bg-slate-100"
+                      key={`${suggestion.type}-${suggestion.id}`}
+                      onMouseDown={() => {
+                        navigate(suggestion.url);
+                        setShowAutocomplete(false);
+                      }}
+                      className="w-full px-3 py-2 text-left hover:bg-slate-100 flex items-center gap-3"
                     >
-                      <p className="text-sm font-medium">{movie.title}</p>
-                      {movie.genre && <p className="text-xs text-slate-500">{movie.genre}</p>}
+                      <div className="w-10 h-14 bg-slate-200 flex-shrink-0 rounded overflow-hidden">
+                        <img
+                          src={suggestion.imageUrl || genericPoster}
+                          alt={suggestion.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.src = genericPoster;
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{suggestion.title}</p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            suggestion.type === 'movie' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {suggestion.type === 'movie' ? 'Phim' : 'Sự kiện'}
+                          </span>
+                          {suggestion.genre && <span className="text-xs text-slate-500 truncate">{suggestion.genre}</span>}
+                        </div>
+                      </div>
                     </button>
                   ))}
                 </div>
