@@ -4,6 +4,16 @@ export interface AdminDashboardOverview {
   occupancyRate: number;
   seatsSold: number;
   seatsAvailable: number;
+  totalBookings?: number;
+  activeUsers?: number;
+  totalMovies?: number;
+}
+
+export interface AdminRevenuePoint {
+  label: string;
+  revenue: number;
+  orders: number;
+  tickets: number;
 }
 
 export interface AdminLiveSale {
@@ -12,13 +22,15 @@ export interface AdminLiveSale {
   screen: string;
   tickets: number;
   amount: number;
-  posterUrl: string;
+  posterUrl?: string;
 }
 
 export interface AdminPopularMovie {
   id: string;
   title: string;
   score: number;
+  ticketsSold?: number;
+  revenue?: number;
 }
 
 export interface AdminMovieListItem {

@@ -1,94 +1,82 @@
-import { StaffBookingValidation, StaffScanResult } from '../types/staff';
+import apiClient from './authService';
+import {
+  StaffBookingListItem,
+  StaffBookingValidation,
+  StaffDashboardSummary,
+  StaffScanResult,
+  StaffValidationStats,
+} from '../types/staff';
 
-// Staff Service
 export const staffService = {
-  getStaffDashboard: async () => {
-    console.log('👔 [STAFF] Fetching staff dashboard...');
-    const mockData = {
-      todayBookings: 47,
-      totalTicketsSold: 98,
-      peakHour: '7:30 PM',
-    };
-    console.log('✅ [STAFF] Dashboard data fetched:', mockData);
-    return mockData;
+  getStaffDashboard: async (): Promise<StaffDashboardSummary> => {
+    const response = await apiClient.get<{ success: boolean; data: StaffDashboardSummary }>(
+      '/staff/dashboard/summary'
+    );
+    return response.data.data;
   },
 
-  getBookingsList: async () => {
-    console.log('📋 [STAFF] Fetching bookings list...');
-    const mockBookings = [
-      { id: 'booking-1', customer: 'John Doe', movieTitle: 'Interstellar', time: '10:00 AM', seats: 2 },
-      { id: 'booking-2', customer: 'Jane Smith', movieTitle: 'Inception', time: '1:30 PM', seats: 3 },
-    ];
-    console.log('✅ [STAFF] Bookings list fetched:', mockBookings);
-    return mockBookings;
+  getBookingsList: async (): Promise<StaffBookingListItem[]> => {
+    const response = await apiClient.get<{ success: boolean; data: StaffBookingListItem[] }>(
+      '/staff/dashboard/bookings/today?limit=10'
+    );
+    return response.data.data ?? [];
   },
 
-  getValidationStats: async () => {
-    // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/staff/validation/stats`);
-    // return response.data;
-
-    console.log('✅ [STAFF] Fetching validation stats...');
-    return {
-      totalValidated: 1284,
-      pendingCheckIns: 452,
-      totalBookings: 1736,
-      validatorsOnline: 14,
-    };
+  getValidationStats: async (): Promise<StaffValidationStats> => {
+    const response = await apiClient.get<{ success: boolean; data: StaffValidationStats }>(
+      '/staff/dashboard/validation/stats'
+    );
+    return response.data.data;
   },
 
   getValidationBookings: async (): Promise<StaffBookingValidation[]> => {
-    // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/staff/validation/bookings`);
-    // return response.data;
-
-    console.log('✅ [STAFF] Fetching validation bookings...');
-    const mockBookings: StaffBookingValidation[] = [
-      {
-        id: '#BK-90210',
-        customerName: 'Adrian Miller',
-        movieTitle: 'Oppenheimer: 70mm',
-        showtime: 'Today, 19:45',
-        status: 'pending',
-      },
-      {
-        id: '#BK-90441',
-        customerName: 'Sarah Higgins',
-        movieTitle: 'Killers of the Flower Moon',
-        showtime: 'Today, 20:15',
-        status: 'validated',
-      },
-    ];
-    return mockBookings;
+    const response = await apiClient.get<{ success: boolean; data: StaffBookingValidation[] }>(
+      '/staff/dashboard/validation/bookings?limit=20'
+    );
+    return response.data.data ?? [];
   },
 
   scanTicket: async (ticketCode: string): Promise<StaffScanResult> => {
-    // TODO: Uncomment for real implementation
-    // const response = await axios.post(`${API_BASE_URL}/staff/scan`, { ticketCode });
-    // return response.data;
+    const response = await apiClient.post<{
+      ticketCode: string;
+      seatLabel?: string;
+      seatTypeName?: string;
+      status: string;
+    }>('/tickets/check-in', { ticketCode });
 
-    console.log('📷 [STAFF] Scanning ticket:', ticketCode);
-    const scanResult: StaffScanResult = {
-      status: 'valid',
-      seatLabel: 'Row H, Seat 12',
-      ticketType: 'Premium',
+    return {
+      status: response.data.status === 'CHECKED_IN' ? 'valid' : 'invalid',
+      seatLabel: response.data.seatLabel || response.data.ticketCode,
+      ticketType: response.data.seatTypeName || 'Ticket',
     };
-    return scanResult;
   },
 
   lookupTicket: async (query: string): Promise<StaffBookingValidation> => {
-    // TODO: Uncomment for real implementation
-    // const response = await axios.get(`${API_BASE_URL}/staff/tickets?query=${query}`);
-    // return response.data;
+    const response = await apiClient.get<{
+      orderId: number;
+      ticketCode: string;
+      movieTitle?: string;
+      startTime?: string;
+      status: string;
+      userId?: number;
+    }>(`/tickets/code/${encodeURIComponent(query)}`);
 
-    console.log('🔎 [STAFF] Looking up ticket:', query);
-    const mockTicket: StaffBookingValidation = {
-      id: '#BK-90210',
-      customerName: 'Adrian Miller',
-      movieTitle: 'Oppenheimer: 70mm',
-      showtime: 'Today, 19:45',
-      status: 'pending',
+    const showtime = response.data.startTime
+      ? new Date(response.data.startTime).toLocaleString('vi-VN', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : 'N/A';
+
+    return {
+      id: `#BK-${response.data.orderId}`,
+      customerName: response.data.userId ? `Customer #${response.data.userId}` : 'Unknown customer',
+      movieTitle: response.data.movieTitle || 'Unknown movie',
+      showtime,
+      status: response.data.status === 'CHECKED_IN' ? 'validated' : 'pending',
     };
-    return mockTicket;
   },
 };

@@ -10,12 +10,15 @@ import genericPoster from '../../resources/generic_movie_poster.png';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { overview, liveSales, popularMovies, isLoading } = useAdminDashboard();
+  const { overview, revenueSeries, liveSales, popularMovies, isLoading } = useAdminDashboard();
   const { theaters } = useAdminRooms();
 
   const highlightedRooms = useMemo(() => {
     return theaters.flatMap((theater) => theater.rooms.map((room) => ({ theater, room }))).slice(0, 6);
   }, [theaters]);
+  const maxRevenue = useMemo(() => Math.max(...revenueSeries.map((point) => point.revenue), 1), [revenueSeries]);
+  const formatCurrency = (value?: number) =>
+    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value || 0);
 
   return (
     <AdminLayout activeItemId="dashboard">
@@ -60,7 +63,7 @@ export const AdminDashboard: React.FC = () => {
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Revenue</span>
                     <h3 className="text-5xl font-black text-primary tracking-tighter mt-2">
-                      ${overview?.totalRevenue.toLocaleString('en-US')}
+                      {formatCurrency(overview?.totalRevenue)}
                     </h3>
                     <div className="flex items-center mt-2 text-emerald-600 space-x-1">
                       <span className="text-xs font-bold">{overview?.revenueChange}</span>
@@ -72,13 +75,23 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
                 <div className="mt-8 flex items-end justify-between h-32 space-x-2">
-                  {Array.from({ length: 12 }).map((_, index) => (
-                    <div
-                      key={`bar-${index}`}
-                      className={`w-full rounded-t-sm ${index % 4 === 3 ? 'bg-primary' : 'bg-surface-container-low'}`}
-                      style={{ height: `${35 + index * 4}%` }}
-                    />
-                  ))}
+                  {revenueSeries.length === 0 ? (
+                    <div className="w-full text-center text-xs text-slate-400 pb-10">No revenue data yet</div>
+                  ) : (
+                    revenueSeries.map((point, index) => {
+                      const height = Math.max(8, Math.round((point.revenue / maxRevenue) * 100));
+                      return (
+                        <div key={`${point.label}-${index}`} className="w-full flex flex-col items-center justify-end gap-2">
+                          <div
+                            className={`w-full rounded-t-sm ${point.revenue === maxRevenue ? 'bg-primary' : 'bg-surface-container-low'}`}
+                            title={`${point.label}: ${formatCurrency(point.revenue)} (${point.orders} orders)`}
+                            style={{ height: `${height}%` }}
+                          />
+                          <span className="text-[9px] text-slate-400 hidden md:block">{point.label}</span>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
@@ -148,7 +161,7 @@ export const AdminDashboard: React.FC = () => {
                           {sale.tickets} Tickets • {sale.screen}
                         </p>
                       </div>
-                      <span className="text-xs font-bold text-primary-fixed-dim">${sale.amount.toFixed(2)}</span>
+                      <span className="text-xs font-bold text-primary-fixed-dim">{formatCurrency(sale.amount)}</span>
                     </div>
                   ))}
                 </div>
