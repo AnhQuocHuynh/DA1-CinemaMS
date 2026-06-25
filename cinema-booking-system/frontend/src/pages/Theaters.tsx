@@ -41,8 +41,8 @@ export const Theaters: React.FC = () => {
       <SiteTopNav activeLabel="Theaters" showSearch={false} />
       <main className="pt-20 px-6 pb-12 max-w-[1200px] mx-auto">
         <header className="mb-10">
-          <h1 className="text-4xl font-bold tracking-tight">Theaters</h1>
-          <p className="text-slate-600 mt-2">Find the best halls and formats for your next show.</p>
+          <h1 className="text-4xl font-bold tracking-tight">Theaters (Coming soon)</h1>
+          <p className="text-slate-600 mt-2">Find what movie is available for each theaters.</p>
         </header>
 
         {loading ? (

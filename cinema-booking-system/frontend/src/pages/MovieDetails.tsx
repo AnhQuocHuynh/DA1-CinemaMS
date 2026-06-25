@@ -209,7 +209,10 @@ export const MovieDetails: React.FC = () => {
               <h3 className="font-semibold">Suất chiếu</h3>
               {(() => {
                 const now = Date.now();
-                const validShowtimes = showtimes.filter(st => new Date(st.startTime).getTime() >= now);
+                const validShowtimes = showtimes
+                  .filter(st => new Date(st.startTime).getTime() >= now)
+                  .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+                  .slice(0, 5);
                 
                 if (validShowtimes.length === 0) {
                   return <p className="text-sm text-white/60">Chưa có suất chiếu nào.</p>;
