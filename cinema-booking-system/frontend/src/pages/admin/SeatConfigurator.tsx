@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { DndContext, DragOverlay, DragStartEvent, DragEndEvent, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
@@ -34,8 +35,7 @@ export const SeatConfigurator: React.FC = () => {
     setActiveTool,
     updateGridSize,
     handleCellUpdate,
-    handleDrop,
-    handleDragOver,
+    handleDragEnd: handleConfiguratorDragEnd,
     clearGrid,
     loadGrid,
     saveGrid,
@@ -49,6 +49,25 @@ export const SeatConfigurator: React.FC = () => {
   React.useEffect(() => {
     loadGrid();
   }, [loadGrid]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  );
+
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(String(event.active.id));
+  };
+
+  const handleDragEndWrapper = (event: DragEndEvent) => {
+    setActiveId(null);
+    handleConfiguratorDragEnd(event);
+  };
 
   const roomName = room?.room.name ?? (roomId ? `Room ${roomId}` : 'Room');
 
@@ -94,7 +113,8 @@ export const SeatConfigurator: React.FC = () => {
           }
         />
 
-        <div className="mt-10 grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-10">
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEndWrapper}>
+          <div className="mt-10 grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-10">
           <section className="bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/10">
             <div className="flex flex-col items-center mb-12">
               <div className="w-full max-w-2xl bg-surface-container-highest/30 h-12 rounded-t-[100%] flex items-center justify-center relative">
@@ -108,14 +128,14 @@ export const SeatConfigurator: React.FC = () => {
                 {isLoading ? (
                   <div className="flex justify-center items-center h-64 text-outline">Loading seat map...</div>
                 ) : (
-                  <SeatConfiguratorGrid
-                    grid={grid}
-                    columns={columns}
-                    activeTool={activeTool}
-                    onCellUpdate={handleCellUpdate}
-                    onDrop={handleDrop}
-                    onDragOver={handleDragOver}
-                  />
+                  <>
+                    <SeatConfiguratorGrid
+                      grid={grid}
+                      columns={columns}
+                      activeTool={activeTool}
+                      onCellUpdate={handleCellUpdate}
+                    />
+                  </>
                 )}
               </div>
             </div>
@@ -148,7 +168,17 @@ export const SeatConfigurator: React.FC = () => {
             onRowsChange={(value) => updateGridSize(value, columns)}
             onColumnsChange={(value) => updateGridSize(rows, value)}
           />
-        </div>
+          </div>
+
+          <DragOverlay>
+            {activeId ? (
+              <div className={`w-8 h-8 rounded-sm border-2 border-white shadow-lg ${
+                activeId === 'couple' ? 'bg-pink-500 aspect-[2/1] w-16' :
+                activeId === 'vip' ? 'bg-amber-400' : 'bg-green-500'
+              }`} />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       </main>
     </AdminLayout>
   );

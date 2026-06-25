@@ -5,23 +5,54 @@ import { useBookingStore } from '../../store/bookingStore';
 import { formatVND, formatShowtime } from '../../utils/formatters';
 import { downloadElementAsPDF } from '../../utils/pdfGenerator';
 import { useState } from 'react';
+import { PrintableTicket } from '../../components/PrintableTicket';
+import { TicketDetails } from '../../types/booking';
 
 export const CheckoutSuccess: React.FC = () => {
   const navigate = useNavigate();
-  const { completedOrder, showtimeData, movieTitle, clearSelection } = useBookingStore();
+  const { completedOrder, showtimeData, movieTitle, selectedSeats, clearSelection } = useBookingStore();
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownloadPDF = async () => {
     if (!completedOrder) return;
     setIsDownloading(true);
     try {
-      await downloadElementAsPDF('checkout-summary', `order-${completedOrder.id}.pdf`);
+      await downloadElementAsPDF(`printable-batch-${completedOrder.id}`, `tickets-order-${completedOrder.id}.pdf`);
     } catch (err) {
       console.error('Failed to download PDF:', err);
     } finally {
       setIsDownloading(false);
     }
   };
+
+  const printableTickets: TicketDetails[] = (completedOrder?.tickets || []).map(t => {
+    // Attempt to match the ticket to the selected seat
+    // @ts-ignore - BackendTicket type is strict, but runtime might have extra fields, we rely on showtimeSeatId
+    const seatId = (t as any).showtimeSeatId;
+    const seat = selectedSeats.find(s => s.numericId === seatId);
+    
+    // Get time from showtimeData
+    const startTime = showtimeData?.startTime || '';
+    const dt = startTime ? new Date(startTime) : null;
+    
+    return {
+      ticketCode: t.ticketCode,
+      orderId: completedOrder?.id || 0,
+      movieTitle: showtimeData?.displayTitle || showtimeData?.eventName || movieTitle || 'Vé xem phim',
+      cinemaName: showtimeData?.cinemaName || '',
+      hallName: showtimeData?.roomName || '',
+      showtime: startTime,
+      date: dt ? dt.toLocaleDateString('vi-VN') : '',
+      time: dt ? dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
+      seats: seat ? [seat.label] : [],
+      seatLabel: seat ? seat.label : '',
+      seatTypeName: seat ? seat.type : '',
+      qrCodeData: t.qrCodeData,
+      price: Number(t.price || 0),
+      status: t.status,
+      posterUrl: ''
+    };
+  });
 
   // Clear selection on unmount so the store is ready for the next booking
   useEffect(() => {
@@ -60,7 +91,7 @@ export const CheckoutSuccess: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-surface flex items-center justify-center px-6 py-20">
-      <div id="checkout-summary" className="max-w-2xl w-full bg-surface-container-lowest rounded-2xl shadow-xl p-10 text-center">
+      <div className="max-w-2xl w-full bg-surface-container-lowest rounded-2xl shadow-xl p-10 text-center">
         {/* Success icon */}
         <div className="flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 text-primary mx-auto mb-2 animate-bounce-once">
           <CheckCircle className="w-10 h-10" />
@@ -143,7 +174,7 @@ export const CheckoutSuccess: React.FC = () => {
             disabled={isDownloading}
           >
             <Download className="w-4 h-4" />
-            {isDownloading ? 'Đang tải...' : 'Tải PDF'}
+            {isDownloading ? 'Đang tải...' : 'In vé'}
           </button>
           <button
             className="flex-1 flex items-center justify-center gap-2 bg-white border border-outline-variant py-3 rounded-lg font-semibold hover:bg-surface-container-low transition-colors"
@@ -152,6 +183,14 @@ export const CheckoutSuccess: React.FC = () => {
             <Share2 className="w-4 h-4" />
             Về trang chủ
           </button>
+        </div>
+      </div>
+
+      <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+        <div id={`printable-batch-${completedOrder.id}`} className="flex flex-col gap-8 bg-gray-100 p-8">
+          {printableTickets.map((t, idx) => (
+            <PrintableTicket key={idx} ticket={t} />
+          ))}
         </div>
       </div>
     </main>

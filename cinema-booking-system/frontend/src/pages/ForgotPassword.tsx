@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Mail, ArrowRight, AlertCircle } from 'lucide-react';
 import { InputField } from '../components/InputField';
 import { Header } from '../components/Header';
+import { authService } from '../services/authService';
 
 export const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -21,20 +22,18 @@ export const ForgotPassword: React.FC = () => {
 
     setIsLoading(true);
     
-    // TODO: Uncomment for real implementation
-    // try {
-    //   const response = await axios.post(`${API_BASE_URL}/auth/forgot-password`, { email });
-    //   console.log('Password reset email sent:', response.data);
-    //   setSuccess(true);
-    // } catch (error) {
-    //   setError('Failed to send reset email. Please try again.');
-    // }
-
-    console.log('📧 [FORGOT_PASSWORD] Sending reset email to:', email);
-    setSuccess(true);
-    console.log('✅ [FORGOT_PASSWORD] Reset email sent successfully');
-    
-    setIsLoading(false);
+    try {
+      await authService.forgotPassword(email);
+      console.log('📧 [FORGOT_PASSWORD] Sending reset email to:', email);
+      setSuccess(true);
+      console.log('✅ [FORGOT_PASSWORD] Reset email sent successfully');
+    } catch (error: any) {
+      console.error('❌ [FORGOT_PASSWORD] Error:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to send reset email. Please try again.';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

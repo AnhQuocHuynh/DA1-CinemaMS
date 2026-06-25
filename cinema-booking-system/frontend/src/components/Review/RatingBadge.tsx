@@ -40,7 +40,13 @@ export const RatingBadge: React.FC<RatingBadgeProps> = ({ type, id }) => {
   }
 
   if (!insight || insight.totalReviews === 0) {
-    return <span className="text-xs text-slate-400">—</span>;
+    return (
+      <span className="inline-flex items-center gap-1 text-sm font-semibold text-slate-400">
+        <Star size={13} className="text-slate-300 fill-slate-300" />
+        0.0
+        <span className="text-xs font-normal text-slate-300">(0)</span>
+      </span>
+    );
   }
 
   return (

@@ -21,7 +21,6 @@ public class Showtime {
     @Column(nullable = false)
     private Long roomId;
 
-    @Column(nullable = true) //Nhớ update database (Drop not null hoặc đập xây lại db)
     private Long movieId;
 
     @Column(nullable = true)

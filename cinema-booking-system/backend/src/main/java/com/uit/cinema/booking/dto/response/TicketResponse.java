@@ -14,6 +14,10 @@ public class TicketResponse {
     private Long showtimeId;
     private Long movieId;
     private String movieTitle;
+    private Long eventId;
+    private String eventTitle;
+    private String displayTitle;
+    private String displayType;
     private Long roomId;
     private String roomName;
     private Long cinemaId;

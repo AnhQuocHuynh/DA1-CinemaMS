@@ -40,7 +40,9 @@ function backendToCard(m: MovieResponse): HomeMovieCard {
     posterUrl: m.posterUrl || '',
     backdropUrl: m.posterUrl || '', // reuse poster as backdrop
     firstShowLabel: new Date(m.releaseDate).toLocaleDateString('vi-VN'),
-    theaterName: m.active ? 'Đang chiếu' : 'Ngừng chiếu',
+    theaterName: !m.active 
+      ? 'Ngừng chiếu' 
+      : (new Date(m.releaseDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0) ? 'Sắp chiếu' : 'Đang chiếu'),
     priceLabel: '', // price comes from showtimes, not movie level
     isBackend: true,
   };

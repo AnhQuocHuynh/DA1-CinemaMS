@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { DragEvent } from 'react';
+import type { DragEndEvent } from '@dnd-kit/core';
 import { SeatType } from '../types/booking';
 import { adminService } from '../services/adminService';
 
@@ -187,16 +187,20 @@ export const useSeatConfigurator = (
     setGrid(prev => applyToolToCell(rowIndex, colIndex, nextType, prev));
   };
 
-  const handleDrop = (rowIndex: number, colIndex: number, event: DragEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    const data = event.dataTransfer.getData('seat-type') as SeatType;
-    if (data === 'standard' || data === 'vip' || data === 'couple') {
-      setGrid(prev => applyToolToCell(rowIndex, colIndex, data, prev));
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+    
+    const tool = active.id as SeatType;
+    if (tool !== 'standard' && tool !== 'vip' && tool !== 'couple') return;
+    
+    const [rowStr, colStr] = String(over.id).split('-');
+    const rowIndex = parseInt(rowStr, 10);
+    const colIndex = parseInt(colStr, 10);
+    
+    if (!isNaN(rowIndex) && !isNaN(colIndex)) {
+      setGrid(prev => applyToolToCell(rowIndex, colIndex, tool, prev));
     }
-  };
-
-  const handleDragOver = (event: DragEvent<HTMLButtonElement>) => {
-    event.preventDefault();
   };
 
   const clearGrid = () => {
@@ -214,8 +218,7 @@ export const useSeatConfigurator = (
     setActiveTool,
     updateGridSize,
     handleCellUpdate,
-    handleDrop,
-    handleDragOver,
+    handleDragEnd,
     clearGrid,
     loadGrid,
     saveGrid,

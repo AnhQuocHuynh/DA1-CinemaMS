@@ -106,7 +106,9 @@ export const MovieDetails: React.FC = () => {
             <div className="max-w-3xl space-y-6">
               <div className="flex flex-wrap items-center gap-3 text-sm text-white">
                 <span className="px-3 py-1 rounded-sm bg-blue-600 font-semibold">
-                  {movie.active ? 'Đang chiếu' : 'Ngừng chiếu'}
+                  {!movie.active 
+                    ? 'Ngừng chiếu' 
+                    : (new Date(movie.releaseDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0) ? 'Sắp chiếu' : 'Đang chiếu')}
                 </span>
                 <span className="px-2 py-1 bg-white/20 rounded text-xs font-bold">
                   {movie.ageRating}
@@ -207,7 +209,10 @@ export const MovieDetails: React.FC = () => {
               <h3 className="font-semibold">Suất chiếu</h3>
               {(() => {
                 const now = Date.now();
-                const validShowtimes = showtimes.filter(st => new Date(st.startTime).getTime() >= now);
+                const validShowtimes = showtimes
+                  .filter(st => new Date(st.startTime).getTime() >= now)
+                  .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+                  .slice(0, 5);
                 
                 if (validShowtimes.length === 0) {
                   return <p className="text-sm text-white/60">Chưa có suất chiếu nào.</p>;

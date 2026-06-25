@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight, ArrowLeft, AlertCircle, Phone } from 'lucide-react';
 import { InputField } from '../components/InputField';
 import { authService } from '@/services/authService';
+import genericMovieBg from '../resources/generic_movie_bg.png';
 
 interface SignUpFormData {
   fullName: string;
@@ -128,7 +129,7 @@ export const SignUp: React.FC = () => {
               <div className="relative aspect-[16/9]">
                 <img
                   className="w-full h-full object-cover"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCk9qBiT1gAoRnPP0nVq9bSxMyvFYbSk8ZhlRZ5nSdJ7G69PiZk7J2ZcOi64fFEqDRkH5Uv8H2_F2aSJA1n0xAqGgTnxRVzknjks6x1z5qfCxdmM7Xj0yEV0rY3tB-o7sU2PTa4cTosqD1P5fSxHq0qXh4ctws2WFQzZcl2pPY4UPdAJY2s1E2sG4GvT0b_RuC0TgY2uqQFWEg5cAZe8qF1cuU6wLq4q5_Xn1QhA0Xj0JjC5s8m3M8vJXnEaJ79l"
+                  src={genericMovieBg}
                   alt="Cinema hall seats"
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-surface-container-highest/80 via-surface-container-low/40 to-transparent" />

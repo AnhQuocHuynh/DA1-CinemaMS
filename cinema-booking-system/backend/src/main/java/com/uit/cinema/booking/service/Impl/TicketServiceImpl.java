@@ -6,7 +6,9 @@ import com.uit.cinema.booking.mapper.TicketMapper;
 import com.uit.cinema.booking.repository.TicketRepository;
 import com.uit.cinema.booking.service.TicketGenerationService;
 import com.uit.cinema.booking.service.TicketService;
+import com.uit.cinema.catalog.entity.Event;
 import com.uit.cinema.catalog.entity.Movie;
+import com.uit.cinema.catalog.repository.EventRepository;
 import com.uit.cinema.catalog.repository.MovieRepository;
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.facility.entity.Cinema;
@@ -39,6 +41,7 @@ public class TicketServiceImpl implements TicketService {
     private final ShowtimeRepository showtimeRepository;
     private final SeatTemplateRepository seatTemplateRepository;
     private final MovieRepository movieRepository;
+    private final EventRepository eventRepository;
     private final RoomRepository roomRepository;
 
     @Override
@@ -105,13 +108,33 @@ public class TicketServiceImpl implements TicketService {
     private void enrichShowtimeInfo(TicketResponse response, ShowtimeSeat seat, Showtime showtime) {
         response.setShowtimeId(showtime.getId());
         response.setMovieId(showtime.getMovieId());
+        response.setEventId(showtime.getEventId());
         response.setRoomId(showtime.getRoomId());
         response.setStartTime(showtime.getStartTime());
         response.setEndTime(showtime.getEndTime());
 
-        movieRepository.findById(showtime.getMovieId())
-            .map(Movie::getTitle)
-            .ifPresent(response::setMovieTitle);
+        if (showtime.getMovieId() != null) {
+            movieRepository.findById(showtime.getMovieId())
+                .map(Movie::getTitle)
+                .ifPresent(title -> {
+                    response.setMovieTitle(title);
+                    response.setDisplayTitle(title);
+                    response.setDisplayType("MOVIE");
+                });
+        }
+        if (response.getDisplayTitle() == null && showtime.getEventId() != null) {
+            eventRepository.findById(showtime.getEventId())
+                .map(Event::getName)
+                .ifPresent(title -> {
+                    response.setEventTitle(title);
+                    response.setDisplayTitle(title);
+                    response.setDisplayType("EVENT");
+                });
+        }
+        if (response.getDisplayTitle() == null) {
+            response.setDisplayTitle("Showtime #" + showtime.getId());
+            response.setDisplayType("SHOWTIME");
+        }
 
         roomRepository.findById(showtime.getRoomId()).ifPresent(room -> {
             response.setRoomName(room.getName());

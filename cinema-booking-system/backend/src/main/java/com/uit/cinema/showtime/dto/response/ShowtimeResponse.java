@@ -17,6 +17,9 @@ public class ShowtimeResponse {
     private Long roomId;
     private Long movieId;
     private Long eventId;
+    private String eventName;
+    private String displayTitle;
+    private String displayType;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private BigDecimal basePrice;

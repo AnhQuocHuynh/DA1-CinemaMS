@@ -6,7 +6,9 @@ import com.uit.cinema.admin.dto.response.AdminPopularMovieResponse;
 import com.uit.cinema.admin.dto.response.AdminRevenuePointResponse;
 import com.uit.cinema.booking.entity.Order;
 import com.uit.cinema.booking.repository.OrderRepository;
+import com.uit.cinema.catalog.entity.Event;
 import com.uit.cinema.catalog.entity.Movie;
+import com.uit.cinema.catalog.repository.EventRepository;
 import com.uit.cinema.catalog.repository.MovieRepository;
 import com.uit.cinema.facility.entity.Room;
 import com.uit.cinema.facility.repository.RoomRepository;
@@ -42,6 +44,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     private final ShowtimeRepository showtimeRepository;
     private final ShowtimeSeatRepository showtimeSeatRepository;
     private final MovieRepository movieRepository;
+    private final EventRepository eventRepository;
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
 
@@ -119,6 +122,9 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 continue;
             }
             Long movieId = showtime.get().getMovieId();
+            if (movieId == null) {
+                continue;
+            }
             PopularAccumulator accumulator = byMovie.computeIfAbsent(movieId, ignored -> new PopularAccumulator());
             accumulator.ticketsSold += parseSeatIds(order.getSeatIdsSnapshot()).size();
             accumulator.revenue = accumulator.revenue.add(safeAmount(order.getFinalAmount()));
@@ -149,11 +155,19 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
 
     private AdminLiveSaleResponse toLiveSale(Order order) {
         Optional<Showtime> showtime = showtimeRepository.findById(order.getShowtimeId());
-        Movie movie = showtime.flatMap(value -> movieRepository.findById(value.getMovieId())).orElse(null);
+        Movie movie = showtime.map(Showtime::getMovieId)
+            .filter(java.util.Objects::nonNull)
+            .flatMap(movieRepository::findById)
+            .orElse(null);
+        Event event = showtime.map(Showtime::getEventId)
+            .filter(java.util.Objects::nonNull)
+            .flatMap(eventRepository::findById)
+            .orElse(null);
         Room room = showtime.flatMap(value -> roomRepository.findById(value.getRoomId())).orElse(null);
+        String title = movie != null ? movie.getTitle() : event != null ? event.getName() : "Unknown showtime";
         return AdminLiveSaleResponse.builder()
             .id("order-" + order.getId())
-            .movieTitle(movie != null ? movie.getTitle() : "Unknown movie")
+            .movieTitle(title)
             .screen(room != null ? room.getName() : "Unknown room")
             .tickets(parseSeatIds(order.getSeatIdsSnapshot()).size())
             .amount(safeAmount(order.getFinalAmount()))

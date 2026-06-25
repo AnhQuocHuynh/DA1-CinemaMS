@@ -2,6 +2,7 @@ package com.uit.cinema.iam.service;
 
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.core.security.JwtTokenProvider;
+import com.uit.cinema.core.service.EmailService;
 import com.uit.cinema.iam.dto.request.LoginRequest;
 import com.uit.cinema.iam.dto.request.TokenRefreshRequest;
 import com.uit.cinema.iam.dto.response.AuthResponse;
@@ -54,6 +55,8 @@ class AuthServiceImplTest {
     private AuthenticationManager authenticationManager;
     @Mock
     private JwtTokenProvider jwtTokenProvider;
+    @Mock
+    private EmailService emailService;
     @Mock
     private AuthMapper authMapper;
 
