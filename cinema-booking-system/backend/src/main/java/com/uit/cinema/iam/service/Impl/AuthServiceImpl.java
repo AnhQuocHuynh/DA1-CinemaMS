@@ -4,6 +4,7 @@ import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.core.exception.ErrorCode;
 import com.uit.cinema.core.security.CustomUserDetails;
 import com.uit.cinema.core.security.JwtTokenProvider;
+import com.uit.cinema.core.service.EmailService;
 import com.uit.cinema.iam.dto.request.LoginRequest;
 import com.uit.cinema.iam.dto.request.RegisterRequest;
 import com.uit.cinema.iam.dto.request.TokenRefreshRequest;
@@ -46,6 +47,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
+    private final EmailService emailService;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthMapper authMapper;
 
@@ -165,7 +167,8 @@ public class AuthServiceImpl implements AuthService {
                 
         passwordResetTokenRepository.save(resetToken);
         
-        log.info("Reset password link: http://localhost:8080/api/auth/reset-password?token={}", token);
+        String resetLink = "http://localhost:5173/reset-password?token=" + token;
+        emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
     }
 
     @Override

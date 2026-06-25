@@ -142,6 +142,14 @@ export const authService = {
   getToken: (): string | null => {
     return localStorage.getItem('authToken');
   },
+
+  forgotPassword: async (email: string): Promise<void> => {
+    await apiClient.post('/auth/forgot-password', { email });
+  },
+
+  resetPassword: async (data: any): Promise<void> => {
+    await apiClient.post('/auth/reset-password', data);
+  },
 };
 
 export default apiClient;
