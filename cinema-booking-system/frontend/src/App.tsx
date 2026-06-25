@@ -90,7 +90,7 @@ function App() {
         }
       />
       <Route path="/staff/ticket-lookup" element={<ProtectedRoute requiredRole="STAFF"><TicketLookup /></ProtectedRoute>} />
-      <Route path="/staff/bookings/new" element={<CounterBooking />} />
+      <Route path="/staff/bookings/new" element={<ProtectedRoute requiredRole="STAFF"><CounterBooking /></ProtectedRoute>} />
       <Route path="/staff/qr-checker" element={<ProtectedRoute requiredRole="STAFF"><QRChecker /></ProtectedRoute>} />
 
       {/* Catch-all redirect */}

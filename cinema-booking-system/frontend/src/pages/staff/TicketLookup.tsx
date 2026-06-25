@@ -1,10 +1,82 @@
-import React from 'react';
-import { Filter, QrCode, CheckCircle, FileText } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle, FileText, Loader2 } from 'lucide-react';
 import { StaffLayout } from '../../components/staff/StaffLayout';
 import { useStaffValidation } from '../../hooks/useStaffValidation';
+import { bookingService } from '../../services/bookingService';
+import { staffService } from '../../services/staffService';
+import { PrintableTicket } from '../../components/PrintableTicket';
+import { downloadElementAsPDF } from '../../utils/pdfGenerator';
+import { TicketDetails } from '../../types/booking';
 
 export const TicketLookup: React.FC = () => {
-  const { stats, bookings, isLoading } = useStaffValidation();
+  const { stats, bookings, isLoading, reload } = useStaffValidation();
+  const [ticketsToPrint, setTicketsToPrint] = useState<{ tickets: TicketDetails[], bookingId: string } | null>(null);
+  const [isProcessing, setIsProcessing] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (ticketsToPrint && ticketsToPrint.tickets.length > 0) {
+      setTimeout(() => {
+        downloadElementAsPDF(`printable-batch-${ticketsToPrint.bookingId}`, `tickets-${ticketsToPrint.bookingId}.pdf`).then(() => {
+          setTicketsToPrint(null);
+        });
+      }, 500);
+    }
+  }, [ticketsToPrint]);
+
+  const handleCheckIn = async (bookingId: string) => {
+    try {
+      setIsProcessing(prev => ({ ...prev, [bookingId]: true }));
+      const orderId = Number(bookingId.replace('#BK-', ''));
+      const tickets = await bookingService.getOrderTickets(orderId);
+      for (const t of tickets) {
+        if (t.status !== 'CHECKED_IN' && t.status !== 'CANCELLED' && t.status !== 'REFUNDED') {
+          await staffService.scanTicket(t.ticketCode);
+        }
+      }
+      await reload();
+    } catch (e) {
+      console.error(e);
+      alert('Không thể Check-in booking này.');
+    } finally {
+      setIsProcessing(prev => ({ ...prev, [bookingId]: false }));
+    }
+  };
+
+  const handlePrintPDF = async (bookingId: string) => {
+    try {
+      setIsProcessing(prev => ({ ...prev, [bookingId]: true }));
+      const orderId = Number(bookingId.replace('#BK-', ''));
+      const rawTickets = await bookingService.getOrderTickets(orderId);
+
+      const mappedTickets: TicketDetails[] = rawTickets.map(raw => {
+        const dt = raw.startTime ? new Date(raw.startTime) : null;
+        return {
+          ticketCode: raw.ticketCode,
+          orderId: raw.orderId,
+          movieTitle: raw.displayTitle || raw.movieName || raw.eventTitle || '',
+          cinemaName: raw.cinemaName || '',
+          hallName: raw.roomName || '',
+          showtime: raw.startTime || '',
+          date: dt ? dt.toLocaleDateString('vi-VN') : '',
+          time: dt ? dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
+          seats: raw.seatLabel ? [raw.seatLabel] : [],
+          seatLabel: raw.seatLabel,
+          seatTypeName: raw.seatTypeName,
+          qrCodeData: raw.qrCodeData,
+          price: Number(raw.price || 0),
+          status: raw.status,
+          posterUrl: '',
+        };
+      });
+
+      setTicketsToPrint({ tickets: mappedTickets, bookingId });
+    } catch (e) {
+      console.error(e);
+      alert('Không thể tải vé để in.');
+    } finally {
+      setIsProcessing(prev => ({ ...prev, [bookingId]: false }));
+    }
+  };
 
   return (
     <StaffLayout activeItemId="validation" searchPlaceholder="Search Booking ID or Customer...">
@@ -17,16 +89,6 @@ export const TicketLookup: React.FC = () => {
           <p className="text-slate-500 mt-2 text-sm max-w-xl">
             Search, filter and manually validate attendee bookings for the current showtime window.
           </p>
-        </div>
-        <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded hover:bg-slate-50 transition-colors">
-            <Filter className="w-4 h-4" />
-            Filters
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-semibold rounded hover:opacity-90 transition-opacity">
-            <QrCode className="w-4 h-4" />
-            Quick Scan
-          </button>
         </div>
       </section>
 
@@ -98,22 +160,31 @@ export const TicketLookup: React.FC = () => {
                       <td className="px-6 py-4 text-sm text-slate-500">{booking.showtime}</td>
                       <td className="px-6 py-4">
                         <span
-                          className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${
-                            booking.status === 'pending'
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-green-100 text-green-700'
-                          }`}
+                          className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${booking.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-green-100 text-green-700'
+                            }`}
                         >
                           {booking.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
-                          <button className="p-2 hover:bg-white rounded border border-slate-100 text-primary" title="Validate">
-                            <CheckCircle className="w-4 h-4" />
+                          <button
+                            onClick={() => handleCheckIn(booking.id)}
+                            disabled={isProcessing[booking.id] || booking.status !== 'pending'}
+                            className="p-2 hover:bg-white rounded border border-slate-100 text-primary disabled:opacity-50"
+                            title="Check-in"
+                          >
+                            {isProcessing[booking.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                           </button>
-                          <button className="p-2 hover:bg-white rounded border border-slate-100 text-slate-400" title="Print PDF">
-                            <FileText className="w-4 h-4" />
+                          <button
+                            onClick={() => handlePrintPDF(booking.id)}
+                            disabled={isProcessing[booking.id]}
+                            className="p-2 hover:bg-white rounded border border-slate-100 text-slate-400 disabled:opacity-50"
+                            title="Print PDF"
+                          >
+                            {isProcessing[booking.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                           </button>
                         </div>
                       </td>
@@ -124,6 +195,17 @@ export const TicketLookup: React.FC = () => {
             </div>
           </div>
         </>
+      )}
+
+      {/* Hidden element for printing */}
+      {ticketsToPrint && ticketsToPrint.tickets.length > 0 && (
+        <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+          <div id={`printable-batch-${ticketsToPrint.bookingId}`} className="flex flex-col gap-4 bg-slate-100 p-8">
+            {ticketsToPrint.tickets.map(ticket => (
+              <PrintableTicket key={ticket.ticketCode} ticket={ticket} />
+            ))}
+          </div>
+        </div>
       )}
     </StaffLayout>
   );

@@ -139,7 +139,7 @@ export const bookingService = {
       startTime?: string;
       endTime?: string;
       cinemaName?: string;
-      hallName?: string;
+      roomName?: string;
       seatLabel?: string;
       seatTypeName?: string;
     }>(`/tickets/code/${ticketCode}`);
@@ -151,7 +151,7 @@ export const bookingService = {
       orderId: raw.orderId,
       movieTitle: raw.displayTitle || raw.movieTitle || raw.movieName || raw.eventTitle || '',
       cinemaName: raw.cinemaName || '',
-      hallName: raw.hallName || '',
+      hallName: raw.roomName || '',
       showtime: raw.startTime || '',
       date: dt ? dt.toLocaleDateString('vi-VN') : '',
       time: dt ? dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
@@ -182,7 +182,7 @@ export const bookingService = {
         startTime?: string;
         endTime?: string;
         cinemaName?: string;
-        hallName?: string;
+        roomName?: string;
       }>
     >(`/tickets/users/${userId}`);
     return response.data ?? [];
@@ -202,10 +202,14 @@ export const bookingService = {
         status: string;
         createdAt: string;
         movieName?: string;
+        eventTitle?: string;
+        displayTitle?: string;
         startTime?: string;
         endTime?: string;
         cinemaName?: string;
-        hallName?: string;
+        roomName?: string;
+        seatLabel?: string;
+        seatTypeName?: string;
       }>
     >(`/tickets/orders/${orderId}`);
     return response.data ?? [];

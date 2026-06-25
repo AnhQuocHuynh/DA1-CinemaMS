@@ -1,13 +1,19 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { CheckCircle, Loader2, Ticket, UserRound } from 'lucide-react';
 import { StaffLayout } from '../../components/staff/StaffLayout';
 import { bookingService } from '../../services/bookingService';
 import { staffService } from '../../services/staffService';
+import { movieService, MovieResponse } from '../../services/movieService';
+import { showtimeService } from '../../services/showtimeService';
+import { ShowtimeResponse } from '../../types/showtime';
 import { Seat, SeatMap } from '../../types/booking';
 import { StaffCounterBookingResult } from '../../types/staff';
 import { formatVND } from '../../utils/formatters';
 
 export const CounterBooking: React.FC = () => {
+  const [movies, setMovies] = useState<MovieResponse[]>([]);
+  const [showtimes, setShowtimes] = useState<ShowtimeResponse[]>([]);
+  const [selectedMovieId, setSelectedMovieId] = useState<string>('');
   const [showtimeId, setShowtimeId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -20,6 +26,46 @@ export const CounterBooking: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const fetchMovies = async () => {
+      try {
+        const data = await movieService.getMovies();
+        setMovies(data);
+      } catch (err) {
+        console.error('Failed to load movies', err);
+      }
+    };
+    fetchMovies();
+  }, []);
+
+  useEffect(() => {
+    const fetchShowtimes = async () => {
+      if (!selectedMovieId) {
+        setShowtimes([]);
+        return;
+      }
+      try {
+        const data = await showtimeService.getShowtimes(Number(selectedMovieId));
+        // Filter out past showtimes
+        const now = new Date();
+        const validShowtimes = data.filter(st => new Date(st.startTime) >= now);
+        // Sort by start time for better UX
+        validShowtimes.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+        setShowtimes(validShowtimes);
+      } catch (err) {
+        console.error('Failed to load showtimes', err);
+      }
+    };
+    fetchShowtimes();
+  }, [selectedMovieId]);
+
+  const handleMovieChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedMovieId(e.target.value);
+    setShowtimeId('');
+    setSeatMap(null);
+    setSelectedSeats([]);
+  };
+
   const subtotal = useMemo(
     () => selectedSeats.reduce((sum, seat) => sum + seat.price, 0),
     [selectedSeats]
@@ -28,7 +74,7 @@ export const CounterBooking: React.FC = () => {
   const loadSeats = async () => {
     const numericShowtimeId = Number(showtimeId);
     if (!numericShowtimeId) {
-      setError('Vui long nhap showtime id hop le.');
+      setError('Vui lòng chọn suất chiếu hợp lệ.');
       return;
     }
 
@@ -40,7 +86,7 @@ export const CounterBooking: React.FC = () => {
       const map = await bookingService.getSeatMap(numericShowtimeId);
       setSeatMap(map);
     } catch {
-      setError('Khong the tai so do ghe cho suat chieu nay.');
+      setError('Không thể tải sơ đồ ghế cho suất chiếu này.');
     } finally {
       setIsLoadingSeats(false);
     }
@@ -60,7 +106,7 @@ export const CounterBooking: React.FC = () => {
   const submitBooking = async () => {
     const numericShowtimeId = Number(showtimeId);
     if (!numericShowtimeId || selectedSeats.length === 0) {
-      setError('Vui long chon showtime va it nhat mot ghe.');
+      setError('Vui lòng chọn suất chiếu và ít nhất một ghế.');
       return;
     }
 
@@ -80,22 +126,22 @@ export const CounterBooking: React.FC = () => {
       setSelectedSeats([]);
     } catch (err) {
       const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message || 'Khong the tao booking tai quay.');
+      setError(e.response?.data?.message || 'Không thể tạo booking tại quầy.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <StaffLayout activeItemId="counter-booking" searchPlaceholder="Nhap showtime id hoac ma ve...">
+    <StaffLayout activeItemId="counter-booking" searchPlaceholder="Nhập mã vé hoặc ID...">
       <section className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <span className="text-[0.65rem] uppercase tracking-[0.15em] font-bold text-slate-400 mb-1 block">
             Counter Sales
           </span>
-          <h2 className="text-3xl font-bold tracking-tight text-on-surface">Dat ve tai quay</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-on-surface">Đặt vé tại quầy</h2>
           <p className="text-slate-500 mt-2 text-sm max-w-xl">
-            Chon suat chieu, ghe trong va xac nhan thanh toan truc tiep de in/xuat ma ve ngay.
+            Chọn suất chiếu, ghế trống và xác nhận thanh toán trực tiếp để in/xuất mã vé ngay.
           </p>
         </div>
       </section>
@@ -113,26 +159,55 @@ export const CounterBooking: React.FC = () => {
               <UserRound className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900">Thong tin booking</h3>
-              <p className="text-xs text-slate-500">Khach vang lai khong can tai khoan</p>
+              <h3 className="font-bold text-slate-900">Thông tin booking</h3>
+              <p className="text-xs text-slate-500">Khách vãng lai không cần tài khoản</p>
             </div>
           </div>
 
           <div className="space-y-4">
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Showtime ID</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Chọn Phim</span>
+              <select
+                value={selectedMovieId}
+                onChange={handleMovieChange}
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">-- Chọn phim --</option>
+                {movies.map(m => (
+                  <option key={m.id} value={m.id}>{m.title}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Chọn Suất Chiếu</span>
               <div className="mt-1 flex gap-2">
-                <input
+                <select
                   value={showtimeId}
-                  onChange={(event) => setShowtimeId(event.target.value)}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="VD: 1"
-                  type="number"
-                />
+                  onChange={(e) => {
+                    setShowtimeId(e.target.value);
+                    setSeatMap(null);
+                    setSelectedSeats([]);
+                  }}
+                  disabled={!selectedMovieId || showtimes.length === 0}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:bg-slate-50"
+                >
+                  <option value="">-- Chọn suất chiếu --</option>
+                  {showtimes.map(st => {
+                    const date = new Date(st.startTime);
+                    const formattedDate = date.toLocaleDateString('vi-VN', { month: '2-digit', day: '2-digit' });
+                    const formattedTime = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                    return (
+                      <option key={st.id} value={st.id}>
+                        {formattedDate} {formattedTime} - {st.roomName || 'Room ' + st.roomId}
+                      </option>
+                    );
+                  })}
+                </select>
                 <button
                   onClick={loadSeats}
-                  disabled={isLoadingSeats}
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                  disabled={isLoadingSeats || !showtimeId}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-60 shrink-0"
                 >
                   {isLoadingSeats ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Load'}
                 </button>
@@ -140,7 +215,7 @@ export const CounterBooking: React.FC = () => {
             </label>
 
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Ten khach</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Tên khách</span>
               <input
                 value={customerName}
                 onChange={(event) => setCustomerName(event.target.value)}
@@ -150,7 +225,7 @@ export const CounterBooking: React.FC = () => {
             </label>
 
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">So dien thoai</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Số điện thoại</span>
               <input
                 value={customerPhone}
                 onChange={(event) => setCustomerPhone(event.target.value)}
@@ -160,15 +235,15 @@ export const CounterBooking: React.FC = () => {
             </label>
 
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Thanh toan</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Thanh toán</span>
               <select
                 value={paymentMethod}
                 onChange={(event) => setPaymentMethod(event.target.value as typeof paymentMethod)}
                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="CASH">Tien mat</option>
-                <option value="CARD">The</option>
-                <option value="BANK_TRANSFER">Chuyen khoan</option>
+                <option value="CASH">Tiền mặt</option>
+                <option value="CARD">Thẻ</option>
+                <option value="BANK_TRANSFER">Chuyển khoản</option>
               </select>
             </label>
 
@@ -184,9 +259,9 @@ export const CounterBooking: React.FC = () => {
           </div>
 
           <div className="mt-6 rounded-xl bg-slate-50 p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Da chon</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Đã chọn</p>
             <p className="mt-1 text-lg font-extrabold text-slate-900">
-              {selectedSeats.map((seat) => seat.label).join(', ') || 'Chua chon ghe'}
+              {selectedSeats.map((seat) => seat.label).join(', ') || 'Chưa chọn ghế'}
             </p>
             <p className="mt-2 text-sm font-semibold text-primary">{formatVND(subtotal)}</p>
           </div>
@@ -197,15 +272,15 @@ export const CounterBooking: React.FC = () => {
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
           >
             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ticket className="w-4 h-4" />}
-            Xac nhan dat ve
+            Xác nhận đặt vé
           </button>
         </aside>
 
         <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h3 className="font-bold text-slate-900">So do ghe</h3>
-              <p className="text-xs text-slate-500">Chi ghe available moi duoc dat tai quay.</p>
+              <h3 className="font-bold text-slate-900">Sơ đồ ghế</h3>
+              <p className="text-xs text-slate-500">Chỉ ghế trống mới được đặt tại quầy.</p>
             </div>
             <div className="flex gap-3 text-xs text-slate-500">
               <span>Available</span>
@@ -216,7 +291,7 @@ export const CounterBooking: React.FC = () => {
 
           {!seatMap ? (
             <div className="flex min-h-[320px] items-center justify-center rounded-xl bg-slate-50 text-sm text-slate-500">
-              Nhap showtime id va load seat map de bat dau.
+              Chọn phim và suất chiếu để bắt đầu.
             </div>
           ) : (
             <div className="space-y-3 overflow-x-auto pb-2">
@@ -259,14 +334,14 @@ export const CounterBooking: React.FC = () => {
             <div className="mt-6 rounded-xl border border-green-200 bg-green-50 p-5 text-green-800">
               <div className="flex items-center gap-2 font-bold">
                 <CheckCircle className="w-5 h-5" />
-                Booking #{result.id} da thanh toan
+                Booking #{result.id} đã thanh toán
               </div>
               <p className="mt-2 text-sm">
                 {result.displayTitle || result.movieTitle || result.eventTitle || 'Showtime'} -{' '}
                 {result.seatLabels?.join(', ') || 'N/A'} - {formatVND(Number(result.finalAmount || 0))}
               </p>
               <p className="mt-1 text-xs">
-                Ticket: {result.tickets?.map((ticket) => ticket.ticketCode).join(', ') || 'Dang cap nhat'}
+                Ticket: {result.tickets?.map((ticket) => ticket.ticketCode).join(', ') || 'Đang cập nhật'}
               </p>
             </div>
           )}
