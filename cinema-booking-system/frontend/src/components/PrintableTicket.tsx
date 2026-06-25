@@ -9,7 +9,7 @@ interface Props {
 
 export const PrintableTicket: React.FC<Props> = ({ ticket }) => {
   return (
-    <div id="printable-ticket-content" className="w-[680px] bg-white rounded-xl shadow-lg flex font-sans text-left" style={{ color: '#1a1a1a' }}>
+    <div className="w-[680px] bg-white rounded-xl shadow-lg flex font-sans text-left" style={{ color: '#1a1a1a' }}>
       {/* Left section */}
       <div className="flex-1 px-6 py-7">
         <div className="text-[13px] font-bold text-[#e50914] uppercase tracking-widest">

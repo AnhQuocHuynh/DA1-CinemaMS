@@ -274,7 +274,7 @@ export const TicketInfo: React.FC = () => {
         </div>
 
         {/* Hidden printable layout */}
-        <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+        <div id="printable-ticket-content" style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
           <PrintableTicket ticket={ticket} />
         </div>
       </main>
