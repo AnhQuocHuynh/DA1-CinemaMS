@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../../../contexts/ToastContext';
 import { uploadImageToCloudinary, uploadVideoToCloudinary } from '../../../utils/cloudinary';
+import { movieService } from '../../../services/movieService';
 
 interface MovieModalProps {
   isOpen: boolean;
@@ -21,10 +22,16 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
     trailerUrl: '',
     language: 'English',
     active: true,
+    genreIds: [] as number[],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingPoster, setIsUploadingPoster] = useState(false);
   const [isUploadingTrailer, setIsUploadingTrailer] = useState(false);
+  const [availableGenres, setAvailableGenres] = useState<{ id: number; name: string }[]>([]);
+
+  useEffect(() => {
+    movieService.getGenres().then(setAvailableGenres).catch(console.error);
+  }, []);
 
   useEffect(() => {
     if (initialData) {
@@ -38,6 +45,9 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
         trailerUrl: initialData.trailerUrl || '',
         language: initialData.language || 'English',
         active: initialData.active ?? true,
+        genreIds: initialData.genres 
+          ? initialData.genres.map((name: string) => availableGenres.find(g => g.name === name)?.id).filter(Boolean) as number[]
+          : [],
       });
     } else {
       setFormData({
@@ -50,9 +60,10 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
         trailerUrl: '',
         language: 'English',
         active: true,
+        genreIds: [],
       });
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, availableGenres]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -110,7 +121,7 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
       await onSubmit({
         ...formData,
         durationMinutes: Number(formData.durationMinutes),
-        genreIds: [1, 2] // Mock genres for now, could be dynamic
+        genreIds: formData.genreIds
       });
       addToast(`Movie successfully ${initialData ? 'updated' : 'added'}!`, 'success');
       onClose();
@@ -186,6 +197,33 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
                     {isUploadingTrailer ? 'Uploading...' : 'Upload Video'}
                     <input type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} disabled={isUploadingTrailer} />
                   </label>
+                </div>
+              </div>
+
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Genres</label>
+                <div className="flex flex-wrap gap-2">
+                  {availableGenres.map(genre => (
+                    <button
+                      key={genre.id}
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          genreIds: prev.genreIds.includes(genre.id)
+                            ? prev.genreIds.filter(id => id !== genre.id)
+                            : [...prev.genreIds, genre.id]
+                        }));
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                        formData.genreIds.includes(genre.id)
+                          ? 'bg-primary text-white'
+                          : 'bg-surface-container border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+                      }`}
+                    >
+                      {genre.name}
+                    </button>
+                  ))}
                 </div>
               </div>
 

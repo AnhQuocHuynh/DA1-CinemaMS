@@ -5,12 +5,14 @@ import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { useAdminMovies } from '../../hooks/useAdminMovies';
 import { MovieModal } from '../../components/admin/modals/MovieModal';
+import { GenreManagementModal } from '../../components/admin/modals/GenreManagementModal';
 import { RatingBadge } from '../../components/Review/RatingBadge';
 import { movieService } from '../../services/movieService';
 
 export const MovieManagement: React.FC = () => {
   const { movies, isLoading, addMovie, updateMovie, deleteMovie } = useAdminMovies();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isGenreModalOpen, setIsGenreModalOpen] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<any>(null);
 
   const handleAddClick = () => {
@@ -54,10 +56,15 @@ export const MovieManagement: React.FC = () => {
           title="Movie Management"
           subtitle="Curate releases, adjust availability, and maintain the lineup."
           actions={
-            <button onClick={handleAddClick} className="px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-blue-700 flex items-center gap-2">
-              <Plus className="w-4 h-4" />
-              Add Movie
-            </button>
+            <div className="flex gap-3">
+              <button onClick={() => setIsGenreModalOpen(true)} className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg font-semibold text-sm hover:bg-surface-container-highest flex items-center gap-2">
+                Manage Genres
+              </button>
+              <button onClick={handleAddClick} className="px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-blue-700 flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                Add Movie
+              </button>
+            </div>
           }
         />
 
@@ -129,6 +136,11 @@ export const MovieManagement: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleModalSubmit}
         initialData={selectedMovie}
+      />
+
+      <GenreManagementModal 
+        isOpen={isGenreModalOpen}
+        onClose={() => setIsGenreModalOpen(false)}
       />
     </AdminLayout>
   );
