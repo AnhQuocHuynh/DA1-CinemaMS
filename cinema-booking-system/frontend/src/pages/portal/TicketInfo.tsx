@@ -4,10 +4,11 @@ import { SiteTopNav } from '../../components/SiteTopNav';
 import { useTicketDetails } from '../../hooks/useTicketDetails';
 import { bookingService } from '../../services/bookingService';
 import { formatVND } from '../../utils/formatters';
-import { AlertCircle, Download, Printer } from 'lucide-react';
+import { AlertCircle, Printer } from 'lucide-react';
 import genericPoster from '../../resources/generic_movie_poster.png';
 import { QRCodeSVG } from 'qrcode.react';
 import { downloadElementAsPDF } from '../../utils/pdfGenerator';
+import { PrintableTicket } from '../../components/PrintableTicket';
 
 export const TicketInfo: React.FC = () => {
   const { ticketId: ticketCode = '' } = useParams<{ ticketId: string }>();
@@ -20,7 +21,7 @@ export const TicketInfo: React.FC = () => {
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
     try {
-      await downloadElementAsPDF('ticket-content', `ticket-${ticketCode}.pdf`);
+      await downloadElementAsPDF('printable-ticket-content', `ticket-${ticketCode}.pdf`);
     } catch (err) {
       console.error('Failed to download PDF:', err);
     } finally {
@@ -236,19 +237,13 @@ export const TicketInfo: React.FC = () => {
                 <div className="flex gap-4 w-full">
                   <button
                     className="flex-1 flex items-center justify-center gap-2 bg-on-surface text-white py-3 rounded-lg font-semibold text-sm hover:bg-on-surface/90 transition-all"
-                    onClick={() => window.print()}
-                  >
-                    <Printer className="w-4 h-4" />
-                    In vé
-                  </button>
-                  <button
-                    className="flex-1 flex items-center justify-center gap-2 bg-white border border-outline-variant text-on-surface py-3 rounded-lg font-semibold text-sm hover:bg-surface-container-lowest transition-all"
                     onClick={handleDownloadPDF}
                     disabled={isDownloading}
                   >
-                    <Download className="w-4 h-4" />
-                    {isDownloading ? 'Đang tải...' : 'Tải xuống'}
+                    <Printer className="w-4 h-4" />
+                    {isDownloading ? 'Đang tải...' : 'In vé'}
                   </button>
+
                 </div>
               </div>
             </div>
@@ -276,6 +271,11 @@ export const TicketInfo: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Hidden printable layout */}
+        <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
+          <PrintableTicket ticket={ticket} />
         </div>
       </main>
     </div>
