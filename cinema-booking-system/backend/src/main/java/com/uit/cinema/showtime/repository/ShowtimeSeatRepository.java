@@ -17,4 +17,6 @@ public interface ShowtimeSeatRepository extends JpaRepository<ShowtimeSeat, Long
 
     @Query("SELECT s FROM ShowtimeSeat s WHERE s.showtimeId = :showtimeId AND s.status = 'AVAILABLE'")
     List<ShowtimeSeat> findAvailableSeats(Long showtimeId);
+
+    void deleteByShowtimeId(Long showtimeId);
 }

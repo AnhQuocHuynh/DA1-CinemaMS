@@ -47,6 +47,20 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
   }
+
+  body {
+    @apply bg-surface text-on-surface;
+  }
+}
+
+@layer components {
+  .glass-header {
+    @apply bg-white/80 backdrop-blur-md;
+  }
+
+  .tonal-zone {
+    @apply bg-surface-container-low;
+  }
 }
 
 @layer base {

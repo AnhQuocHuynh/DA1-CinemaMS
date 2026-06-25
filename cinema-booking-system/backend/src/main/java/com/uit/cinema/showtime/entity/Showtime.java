@@ -21,9 +21,9 @@ public class Showtime {
     @Column(nullable = false)
     private Long roomId;
 
-    @Column(nullable = false)
     private Long movieId;
 
+    @Column(nullable = true)
     private Long eventId;
 
     @Column(nullable = false)
@@ -44,6 +44,6 @@ public class Showtime {
     private LocalDateTime createdAt;
 
     public enum Status {
-        SCHEDULED, ONGOING, FINISHED, CANCELLED
+        SCHEDULED, STARTED, ENDED, CANCELLED
     }
 }

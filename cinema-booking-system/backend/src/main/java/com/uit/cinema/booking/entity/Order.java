@@ -24,6 +24,25 @@ public class Order {
     @Column(nullable = false)
     private Long userId;
 
+    @Column(nullable = false)
+    private Long showtimeId;
+
+    @Column(length = 100)
+    private String customerName;
+
+    @Column(length = 20)
+    private String customerPhone;
+
+    @Column(length = 20)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private SalesChannel salesChannel = SalesChannel.ONLINE;
+
+    private Long createdByStaffId;
+
+    @Column(columnDefinition = "TEXT")
+    private String seatIdsSnapshot;
+
     private Long voucherId;
 
     @Column(precision = 12, scale = 2, nullable = false)
@@ -58,5 +77,9 @@ public class Order {
 
     public enum OrderStatus {
         PENDING, PAID, CANCELLED, REFUNDED
+    }
+
+    public enum SalesChannel {
+        ONLINE, COUNTER
     }
 }

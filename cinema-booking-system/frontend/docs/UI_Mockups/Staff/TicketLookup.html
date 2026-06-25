@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Staff View - Ticket Validation</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-high": "#dee8ff",
+                        "on-primary-container": "#eeefff",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "on-tertiary-fixed-variant": "#653e00",
+                        "surface-container-highest": "#d8e3fb",
+                        "error": "#ba1a1a",
+                        "outline": "#737686",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "surface": "#f9f9ff",
+                        "error-container": "#ffdad6",
+                        "secondary": "#545f73",
+                        "surface-variant": "#d8e3fb",
+                        "on-tertiary-fixed": "#2a1700",
+                        "tertiary-fixed-dim": "#ffb95f",
+                        "outline-variant": "#c3c6d7",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#263143",
+                        "tertiary-fixed": "#ffddb8",
+                        "primary-fixed": "#dbe1ff",
+                        "tertiary": "#784b00",
+                        "surface-tint": "#0053db",
+                        "primary": "#004ac6",
+                        "on-surface": "#111c2d",
+                        "on-error-container": "#93000a",
+                        "surface-dim": "#cfdaf2",
+                        "on-tertiary-container": "#ffeedd",
+                        "on-primary-fixed-variant": "#003ea8",
+                        "on-surface-variant": "#434655",
+                        "background": "#f9f9ff",
+                        "surface-container": "#e7eeff",
+                        "secondary-container": "#d5e0f8",
+                        "on-background": "#111c2d",
+                        "surface-bright": "#f9f9ff",
+                        "secondary-fixed": "#d8e3fb",
+                        "inverse-on-surface": "#ecf1ff",
+                        "surface-container-low": "#f0f3ff",
+                        "on-error": "#ffffff",
+                        "inverse-primary": "#b4c5ff",
+                        "on-secondary-container": "#586377",
+                        "primary-container": "#2563eb",
+                        "tertiary-container": "#996100",
+                        "primary-fixed-dim": "#b4c5ff",
+                        "on-secondary-fixed": "#111c2d",
+                        "on-primary-fixed": "#00174b"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .tonal-zoning { background-color: #f0f3ff; }
+        .glass-header { backdrop-filter: blur(20px); background-color: rgba(255, 255, 255, 0.8); }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body antialiased">
+<!-- Side Navigation Shell -->
+<aside class="fixed left-0 top-0 bottom-0 z-40 flex flex-col h-screen w-64 border-r border-slate-200 bg-slate-50 font-inter antialiased text-sm">
+<div class="p-6">
+<h1 class="text-xl font-bold tracking-tight text-slate-900">Cinema Ops</h1>
+<p class="text-xs text-slate-500 mt-1 uppercase tracking-wider">Global Admin</p>
+</div>
+<nav class="flex-1 px-2 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-900 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-900 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_month">calendar_month</span>
+<span>Schedules</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-900 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="event_seat">event_seat</span>
+<span>Seat Maps</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-900 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span>Revenue</span>
+</a>
+<!-- Active State for Staff/Validation View -->
+<a class="flex items-center gap-3 px-4 py-3 text-blue-700 font-semibold bg-blue-50/50 border-r-4 border-blue-700" href="#">
+<span class="material-symbols-outlined" data-icon="group" style="font-variation-settings: 'FILL' 1;">group</span>
+<span>Staff</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-900 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<div class="p-4 mt-auto border-t border-slate-200/60">
+<button class="w-full bg-primary text-white py-2.5 rounded hover:bg-blue-700 transition-all font-medium flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+                New Screening
+            </button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 min-h-screen">
+<!-- Top App Bar -->
+<header class="sticky top-0 right-0 z-30 flex justify-between items-center px-8 h-16 w-full glass-header">
+<div class="flex items-center flex-1">
+<div class="relative w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg" data-icon="search">search</span>
+<input class="w-full bg-surface-container-highest border-none rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary focus:bg-white transition-all" placeholder="Search Booking ID or Customer..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-slate-500 hover:text-slate-900 text-sm font-medium" href="#">Analytics</a>
+<a class="text-slate-500 hover:text-slate-900 text-sm font-medium" href="#">Reports</a>
+<a class="text-slate-500 hover:text-slate-900 text-sm font-medium" href="#">Logs</a>
+</nav>
+<div class="flex items-center gap-4 border-l border-slate-200 pl-6">
+<button class="text-slate-500 hover:text-primary transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-slate-500 hover:text-primary transition-all">
+<span class="material-symbols-outlined" data-icon="account_circle" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<!-- View Content -->
+<div class="p-8 max-w-7xl mx-auto">
+<!-- Page Header -->
+<div class="mb-10 flex justify-between items-end">
+<div>
+<span class="text-[0.65rem] uppercase tracking-[0.15em] font-bold text-slate-400 mb-1 block">Operational Dashboard</span>
+<h2 class="text-3xl font-bold tracking-tight text-on-surface">Ticket Validation</h2>
+<p class="text-slate-500 mt-2 text-sm max-w-xl">Search, filter and manually validate attendee bookings for the current showtime window.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-semibold rounded hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="filter_list">filter_list</span>
+                        Filters
+                    </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-semibold rounded hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-lg" data-icon="qr_code_scanner">qr_code_scanner</span>
+                        Quick Scan
+                    </button>
+</div>
+</div>
+<!-- Stats Bento Row (Subtle Tonal Zoning) -->
+<div class="grid grid-cols-12 gap-6 mb-8">
+<div class="col-span-12 lg:col-span-4 bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+<p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Total Validated</p>
+<div class="flex items-end gap-3">
+<span class="text-4xl font-extrabold text-on-surface tracking-tighter">1,284</span>
+<span class="text-green-600 text-xs font-bold mb-1 flex items-center">
+<span class="material-symbols-outlined text-sm" data-icon="arrow_upward">arrow_upward</span> 12%
+                        </span>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-4 bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+<p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Pending Check-in</p>
+<div class="flex items-end gap-3">
+<span class="text-4xl font-extrabold text-on-surface tracking-tighter">452</span>
+<span class="text-slate-400 text-xs font-medium mb-1">of 1,736 total</span>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-4 bg-surface-container-low p-6 rounded-xl border-none">
+<p class="text-xs font-bold uppercase tracking-widest text-primary mb-4">System Status</p>
+<div class="flex items-center gap-3">
+<span class="flex h-3 w-3 relative">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+</span>
+<span class="text-lg font-bold text-primary">Validators Online</span>
+</div>
+<p class="text-xs text-slate-500 mt-2">All 14 gateway scanners operational</p>
+</div>
+</div>
+<!-- Data Table Section -->
+<div class="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-100">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-slate-50/50 border-b border-slate-100">
+<th class="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-slate-400">Booking ID</th>
+<th class="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-slate-400">Customer Name</th>
+<th class="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-slate-400">Movie</th>
+<th class="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-slate-400">Showtime</th>
+<th class="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-slate-400">Status</th>
+<th class="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-slate-400 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-50">
+<!-- Table Row 1 -->
+<tr class="hover:bg-slate-50/50 transition-colors group">
+<td class="px-6 py-4 font-mono text-sm text-slate-600">#BK-90210</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-primary font-bold text-xs">AM</div>
+<span class="text-sm font-semibold text-on-surface">Adrian Miller</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-600">Oppenheimer: 70mm</td>
+<td class="px-6 py-4 text-sm text-slate-500">Today, 19:45</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-[10px] font-bold uppercase rounded">Pending</span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-white rounded border border-slate-100 text-primary title-sm" title="Validate">
+<span class="material-symbols-outlined text-lg" data-icon="check_circle">check_circle</span>
+</button>
+<button class="p-2 hover:bg-white rounded border border-slate-100 text-slate-400" title="Print PDF">
+<span class="material-symbols-outlined text-lg" data-icon="picture_as_pdf">picture_as_pdf</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Table Row 2 -->
+<tr class="hover:bg-slate-50/50 transition-colors group">
+<td class="px-6 py-4 font-mono text-sm text-slate-600">#BK-90441</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs">SH</div>
+<span class="text-sm font-semibold text-on-surface">Sarah Higgins</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-600">Killers of the Flower Moon</td>
+<td class="px-6 py-4 text-sm text-slate-500">Today, 20:15</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold uppercase rounded">Validated</span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 bg-slate-50 rounded border border-slate-100 text-slate-300 cursor-not-allowed">
+<span class="material-symbols-outlined text-lg" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</button>
+<button class="p-2 hover:bg-white rounded border border-slate-100 text-slate-400" title="Print PDF">
+<span class="material-symbols-outlined text-lg" data-icon="picture_as_pdf">picture_as_pdf</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Table Row 3 -->
+<tr class="hover:bg-slate-50/50 transition-colors group">
+<td class="px-6 py-4 font-mono text-sm text-slate-600">#BK-90872</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<img class="w-8 h-8 rounded-full object-cover" data-alt="portrait of a professional looking man in his 40s with sharp features and a kind smile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAA-D7QP1NjeODqhtsKR4BGO4NiyvJ3463zu1sT1X5e9mRwDRKIUJA2hPRsoPrjWKM6PCLdPiufEYSuAmPeoo7Ko8QmzgV5ODtNrODnWDxlU-TYGTs0Esi0jm2-C4R3DCcSbfyoO4EvqhkIt4zcwKb6s5rKUnBQd57zpPOktdujYe9BBBRNGk3QTF3ZUT27SX5n8sUakBQM2Y1_G5RNNnNZyvZKi-tBBlx0nnjlExA2F-Of-Dz5ukj8OX0U9ThyjxHU4LcvKDC3i6k"/>
+<span class="text-sm font-semibold text-on-surface">Dr. Elena Volkov</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-600">Barbie: The Experience</td>
+<td class="px-6 py-4 text-sm text-slate-500">Today, 18:00</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-red-100 text-red-700 text-[10px] font-bold uppercase rounded">Flagged</span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-white rounded border border-slate-100 text-primary" title="Validate">
+<span class="material-symbols-outlined text-lg" data-icon="check_circle">check_circle</span>
+</button>
+<button class="p-2 hover:bg-white rounded border border-slate-100 text-slate-400" title="Print PDF">
+<span class="material-symbols-outlined text-lg" data-icon="picture_as_pdf">picture_as_pdf</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Table Row 4 -->
+<tr class="hover:bg-slate-50/50 transition-colors group">
+<td class="px-6 py-4 font-mono text-sm text-slate-600">#BK-91003</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-primary font-bold text-xs">JW</div>
+<span class="text-sm font-semibold text-on-surface">James Watson</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-600">Oppenheimer: 70mm</td>
+<td class="px-6 py-4 text-sm text-slate-500">Today, 19:45</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-[10px] font-bold uppercase rounded">Pending</span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-white rounded border border-slate-100 text-primary" title="Validate">
+<span class="material-symbols-outlined text-lg" data-icon="check_circle">check_circle</span>
+</button>
+<button class="p-2 hover:bg-white rounded border border-slate-100 text-slate-400" title="Print PDF">
+<span class="material-symbols-outlined text-lg" data-icon="picture_as_pdf">picture_as_pdf</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Table Row 5 -->
+<tr class="hover:bg-slate-50/50 transition-colors group">
+<td class="px-6 py-4 font-mono text-sm text-slate-600">#BK-91255</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs">LM</div>
+<span class="text-sm font-semibold text-on-surface">Linda Morrison</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-600">The Creator</td>
+<td class="px-6 py-4 text-sm text-slate-500">Today, 21:00</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-[10px] font-bold uppercase rounded">Pending</span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-white rounded border border-slate-100 text-primary" title="Validate">
+<span class="material-symbols-outlined text-lg" data-icon="check_circle">check_circle</span>
+</button>
+<button class="p-2 hover:bg-white rounded border border-slate-100 text-slate-400" title="Print PDF">
+<span class="material-symbols-outlined text-lg" data-icon="picture_as_pdf">picture_as_pdf</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="px-6 py-4 bg-slate-50/30 flex items-center justify-between border-t border-slate-100">
+<p class="text-xs text-slate-500">Showing 1 to 5 of 452 pending entries</p>
+<div class="flex gap-1">
+<button class="p-1.5 rounded hover:bg-slate-100 text-slate-400">
+<span class="material-symbols-outlined text-lg" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="px-3 py-1 bg-primary text-white text-xs font-bold rounded">1</button>
+<button class="px-3 py-1 hover:bg-slate-100 text-slate-600 text-xs font-bold rounded">2</button>
+<button class="px-3 py-1 hover:bg-slate-100 text-slate-600 text-xs font-bold rounded">3</button>
+<button class="p-1.5 rounded hover:bg-slate-100 text-slate-400">
+<span class="material-symbols-outlined text-lg" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Validation Queue / Quick View Asymmetric Grid -->
+<div class="mt-12 grid grid-cols-12 gap-8">
+<!-- Focused Card: Manual Validation Entry -->
+<div class="col-span-12 lg:col-span-7">
+<div class="bg-white p-8 rounded-xl border border-slate-100 shadow-sm h-full">
+<h3 class="text-lg font-bold text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="edit_square">edit_square</span>
+                            Manual Entry Validation
+                        </h3>
+<div class="space-y-6">
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="block text-[0.65rem] font-bold uppercase text-slate-400 mb-1.5 tracking-wider">Booking ID</label>
+<input class="w-full bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 transition-all px-4 py-3 rounded text-sm font-mono" placeholder="e.g. BK-XXXXX" type="text"/>
+</div>
+<div>
+<label class="block text-[0.65rem] font-bold uppercase text-slate-400 mb-1.5 tracking-wider">Validation Type</label>
+<select class="w-full bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 transition-all px-4 py-3 rounded text-sm appearance-none">
+<option>Standard Admission</option>
+<option>VIP Gold Pass</option>
+<option>Complimentary Entry</option>
+</select>
+</div>
+</div>
+<div>
+<label class="block text-[0.65rem] font-bold uppercase text-slate-400 mb-1.5 tracking-wider">Staff Verification Note</label>
+<textarea class="w-full bg-surface-container-low border-b-2 border-transparent focus:border-primary focus:ring-0 transition-all px-4 py-3 rounded text-sm" placeholder="Additional notes for manual override..." rows="3"></textarea>
+</div>
+<button class="w-full bg-primary text-white py-4 font-bold rounded-lg shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20 active:scale-[0.98] transition-all">
+                                AUTHORIZE &amp; VALIDATE ENTRY
+                            </button>
+</div>
+</div>
+</div>
+<!-- Secondary Card: Recent Activity -->
+<div class="col-span-12 lg:col-span-5">
+<div class="bg-surface-container-low p-8 rounded-xl h-full flex flex-col">
+<h3 class="text-lg font-bold text-on-surface mb-6">Recent Validations</h3>
+<div class="space-y-4 flex-1">
+<div class="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-green-500" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<div>
+<p class="text-xs font-bold text-on-surface">#BK-90441 Validated</p>
+<p class="text-[10px] text-slate-500">Staff: Mark S. • 2m ago</p>
+</div>
+</div>
+<span class="text-[10px] font-bold text-slate-400">GATE A</span>
+</div>
+<div class="flex items-center justify-between p-3 bg-white/50 rounded-lg">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-green-500" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<div>
+<p class="text-xs font-bold text-on-surface">#BK-88219 Validated</p>
+<p class="text-[10px] text-slate-500">Auto-Scan • 5m ago</p>
+</div>
+</div>
+<span class="text-[10px] font-bold text-slate-400">GATE C</span>
+</div>
+<div class="flex items-center justify-between p-3 bg-white/50 rounded-lg border border-red-100">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-red-500" data-icon="error" style="font-variation-settings: 'FILL' 1;">error</span>
+<div>
+<p class="text-xs font-bold text-red-700">#BK-90872 Denied</p>
+<p class="text-[10px] text-red-400">Showtime Expired • 12m ago</p>
+</div>
+</div>
+<span class="text-[10px] font-bold text-red-300">GATE B</span>
+</div>
+</div>
+<button class="mt-6 text-primary text-xs font-bold flex items-center justify-center gap-2 hover:underline">
+                            View Full Access Log
+                            <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

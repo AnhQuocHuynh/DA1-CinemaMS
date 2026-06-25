@@ -1,11 +1,14 @@
 package com.uit.cinema.catalog.service;
 
-import com.uit.cinema.catalog.entity.Event;
+import com.uit.cinema.catalog.dto.request.EventRequest;
+import com.uit.cinema.catalog.dto.response.EventResponse;
+
 import java.util.List;
 
 public interface EventService {
-    List<Event> getUpcomingEvents();
-    Event getEventById(Long id);
-    Event createEvent(Event event);
+    List<EventResponse> getUpcomingEvents();
+    List<EventResponse> getAllEvents();
+    EventResponse getEventById(Long id);
+    EventResponse createEvent(EventRequest request);
     void deleteEvent(Long id);
 }
