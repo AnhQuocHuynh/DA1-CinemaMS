@@ -34,4 +34,11 @@ public class VoucherController {
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteVoucher(@PathVariable Long id) {
+        voucherRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
 }

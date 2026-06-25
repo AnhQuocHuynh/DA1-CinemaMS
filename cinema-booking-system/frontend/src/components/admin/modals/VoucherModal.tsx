@@ -11,34 +11,46 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ isOpen, onClose, onS
   const { addToast } = useToast();
   const [formData, setFormData] = useState({
     code: '',
-    discount: '',
-    expiry: '',
+    discountType: 'PERCENTAGE',
+    discountValue: '',
+    maxDiscountAmount: '',
+    validFrom: '',
+    validUntil: '',
     usageLimit: '',
-    status: 'active',
+    active: true,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    setFormData((prev) => ({ 
+      ...prev, 
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value 
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.code.trim()) return addToast('Code is required', 'error');
-    if (!formData.discount.trim() || isNaN(parseInt(formData.discount))) return addToast('Discount amount must be a number', 'error');
+    if (!formData.discountValue.trim() || isNaN(parseFloat(formData.discountValue))) return addToast('Discount amount must be a number', 'error');
 
     setIsSubmitting(true);
     try {
       await onSubmit({
         code: formData.code.toUpperCase(),
-        discount: formData.discount,
-        expiry: formData.expiry,
-        usageLimit: formData.usageLimit ? parseInt(formData.usageLimit) : undefined,
-        status: formData.status,
+        discountType: formData.discountType,
+        discountValue: parseFloat(formData.discountValue),
+        maxDiscountAmount: formData.maxDiscountAmount ? parseFloat(formData.maxDiscountAmount) : null,
+        usageLimit: formData.usageLimit ? parseInt(formData.usageLimit) : null,
+        validFrom: formData.validFrom ? new Date(formData.validFrom).toISOString() : null,
+        validUntil: formData.validUntil ? new Date(formData.validUntil).toISOString() : null,
+        active: formData.active,
       });
       addToast('Voucher successfully created!', 'success');
-      setFormData({ code: '', discount: '', expiry: '', usageLimit: '', status: 'active' });
+      setFormData({ 
+        code: '', discountType: 'PERCENTAGE', discountValue: '', maxDiscountAmount: '', 
+        validFrom: '', validUntil: '', usageLimit: '', active: true 
+      });
       onClose();
     } catch (err: any) {
       addToast(err?.message || 'Failed to create voucher', 'error');
@@ -64,14 +76,35 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ isOpen, onClose, onS
               <input required type="text" name="code" value={formData.code} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary uppercase" placeholder="SUMMER50" />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Discount Description / Amount <span className="text-error">*</span></label>
-              <input required type="text" name="discount" value={formData.discount} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" placeholder="50" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Discount Type</label>
+                <select name="discountType" value={formData.discountType} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary">
+                  <option value="PERCENTAGE">Percentage (%)</option>
+                  <option value="FIXED_AMOUNT">Fixed Amount ($)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Value <span className="text-error">*</span></label>
+                <input required type="number" step="0.01" name="discountValue" value={formData.discountValue} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. 20 or 5.00" />
+              </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Expiry Date</label>
-              <input type="date" name="expiry" value={formData.expiry} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" />
+              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Max Discount Amount (Optional)</label>
+              <input type="number" step="0.01" name="maxDiscountAmount" value={formData.maxDiscountAmount} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" placeholder="Cap for percentage discounts" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Valid From</label>
+                <input type="datetime-local" name="validFrom" value={formData.validFrom} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Valid Until</label>
+                <input type="datetime-local" name="validUntil" value={formData.validUntil} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" />
+              </div>
             </div>
 
             <div className="space-y-1">
@@ -79,12 +112,9 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ isOpen, onClose, onS
               <input type="number" name="usageLimit" value={formData.usageLimit} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" placeholder="Leave empty for unlimited" />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Status</label>
-              <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary">
-                <option value="active">Active</option>
-                <option value="expired">Expired</option>
-              </select>
+            <div className="space-y-1 flex items-center gap-3 pt-2">
+              <input type="checkbox" id="activeVoucher" name="active" checked={formData.active} onChange={handleChange} className="w-4 h-4 text-primary rounded focus:ring-primary border-slate-300" />
+              <label htmlFor="activeVoucher" className="text-sm font-semibold text-slate-700 cursor-pointer">Voucher is Active</label>
             </div>
           </form>
         </div>

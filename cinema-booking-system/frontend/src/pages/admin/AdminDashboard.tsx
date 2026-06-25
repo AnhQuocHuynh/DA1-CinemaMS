@@ -37,18 +37,18 @@ export const AdminDashboard: React.FC = () => {
           eyebrow="Theater Overview"
           title="Good Morning, Chief."
           subtitle="Monday, October 23, 2023"
-          actions={
-            <>
-              <button className="bg-surface-container-low px-4 py-3 rounded-lg flex items-center gap-3 text-sm font-semibold">
-                <CalendarDays className="w-4 h-4 text-primary" />
-                Last 30 Days
-              </button>
-              <button className="bg-surface-container-low px-4 py-3 rounded-lg flex items-center gap-3 text-sm font-semibold">
-                <Filter className="w-4 h-4 text-primary" />
-                Filters
-              </button>
-            </>
-          }
+        // actions={
+        //   <>
+        //     <button className="bg-surface-container-low px-4 py-3 rounded-lg flex items-center gap-3 text-sm font-semibold">
+        //       <CalendarDays className="w-4 h-4 text-primary" />
+        //       Last 30 Days
+        //     </button>
+        //     <button className="bg-surface-container-low px-4 py-3 rounded-lg flex items-center gap-3 text-sm font-semibold">
+        //       <Filter className="w-4 h-4 text-primary" />
+        //       Filters
+        //     </button>
+        //   </>
+        // }
         />
 
         {isLoading ? (
@@ -173,12 +173,12 @@ export const AdminDashboard: React.FC = () => {
               <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl p-8 shadow-sm">
                 <div className="flex justify-between items-center mb-8">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Popularity Index</span>
-                  <div className="flex space-x-4">
+                  {/* <div className="flex space-x-4">
                     <span className="text-[10px] font-bold uppercase text-primary border-b-2 border-primary pb-1">
                       This Week
                     </span>
                     <span className="text-[10px] font-bold uppercase text-slate-400">All Time</span>
-                  </div>
+                  </div> */}
                 </div>
                 <div className="space-y-6">
                   {popularMovies.map((movie) => (

@@ -1,4 +1,4 @@
-﻿import apiClient from './authService';
+import apiClient from './authService';
 import {
   AdminDashboardOverview,
   AdminLiveSale,
@@ -208,16 +208,16 @@ export const adminService = {
     return mockPricing;
   },
 
-  // â”€â”€ Vouchers (CRUD with Mocked PUT/DELETE) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ————————————————————————————————————————————————————————————————————————————————————————
   getVouchers: async (): Promise<AdminVoucher[]> => {
-    console.log('ðŸŽŸï¸ [ADMIN] Fetching vouchers...');
+    console.log('🎟️ [ADMIN] Fetching vouchers...');
     // Backend returns raw list (no ApiResponse wrapper)
     const response = await apiClient.get<any[]>('/vouchers');
     return response.data.map(v => ({
       id: String(v.id),
       code: v.code,
       discount: v.discountType === 'PERCENTAGE' ? `${v.discountValue}% OFF` : `$${v.discountValue} Flat`,
-      expiry: new Date(v.validUntil).toLocaleDateString(),
+      expiry: v.validUntil ? new Date(v.validUntil).toLocaleDateString() : 'No Expiry',
       usageUsed: v.usedCount || 0,
       usageLimit: v.usageLimit || null,
       status: v.active ? 'active' : 'inactive',
@@ -225,26 +225,26 @@ export const adminService = {
   },
 
   createVoucher: async (voucherData: any) => {
-    console.log('ðŸŽŸï¸ [ADMIN] Creating voucher:', voucherData);
+    console.log('🎟️ [ADMIN] Creating voucher:', voucherData);
     const response = await apiClient.post<any>('/vouchers', voucherData);
     return response.data;
   },
 
   updateVoucher: async (id: string | number, voucherData: any) => {
-    console.log(`ðŸŽŸï¸ [ADMIN] Mock updating voucher ${id}...`, voucherData);
+    console.log(`🎟️ [ADMIN] Mock updating voucher ${id}...`, voucherData);
     // Missing in backend; mock for now
     return { id, ...voucherData, status: 'active' };
   },
 
   deleteVoucher: async (id: string | number) => {
-    console.log(`ðŸŽŸï¸ [ADMIN] Mock deleting voucher ${id}...`);
-    // Missing in backend; mock for now
-    return { success: true };
+    console.log(`🎟️ [ADMIN] Deleting voucher ${id}...`);
+    const response = await apiClient.delete<any>(`/vouchers/${id}`);
+    return response.data;
   },
 
-  // â”€â”€ User Management & Permissions (CRUD with Mocked PUT/DELETE) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ————————————————————————————————————————————————————————————————————————————————————————
   getUserManagement: async () => {
-    console.log('ðŸ‘¥ [ADMIN] Fetching users for management...');
+    console.log('👥 [ADMIN] Fetching users for management...');
     const response = await apiClient.get<{ success: boolean; data: any[] }>('/users');
     return response.data.data.map(u => ({
       id: u.id,
