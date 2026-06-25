@@ -7,7 +7,7 @@ import { useAdminPricing } from '../../hooks/useAdminPricing';
 import { VoucherModal } from '../../components/admin/modals/VoucherModal';
 
 export const PricingAndVouchers: React.FC = () => {
-  const { pricing, vouchers, isLoading, addVoucher, deleteVoucher } = useAdminPricing();
+  const { vouchers, isLoading, addVoucher, deleteVoucher } = useAdminPricing();
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
 
   const handleAddVoucherClick = () => {
@@ -33,10 +33,10 @@ export const PricingAndVouchers: React.FC = () => {
           subtitle="Configure global ticket price and manage vouchers."
           actions={
             <>
-              <button className="bg-surface-container-highest text-primary font-bold px-6 py-3 rounded-md text-sm transition-all hover:bg-surface-container-high flex items-center gap-2">
+              {/* <button className="bg-surface-container-highest text-primary font-bold px-6 py-3 rounded-md text-sm transition-all hover:bg-surface-container-high flex items-center gap-2">
                 <Download className="w-4 h-4" />
                 Download Report
-              </button>
+              </button> */}
               <button onClick={handleAddVoucherClick} className="bg-primary text-white font-bold px-6 py-3 rounded-md text-sm transition-all hover:opacity-90 shadow-lg shadow-primary/10">
                 + Create Voucher
               </button>
@@ -48,6 +48,8 @@ export const PricingAndVouchers: React.FC = () => {
           <div className="text-center py-16 text-on-surface-variant">Loading pricing data...</div>
         ) : (
           <>
+            {/* Pricing Section (Temporarily Disabled) */}
+            {/*
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-12">
               <div className="lg:col-span-1 bg-surface-container-lowest p-8 rounded-xl flex flex-col justify-between">
                 <div>
@@ -107,6 +109,7 @@ export const PricingAndVouchers: React.FC = () => {
                 </div>
               </div>
             </section>
+            */}
 
             <section className="bg-surface-container-low p-6 rounded-xl mt-12">
               <div className="flex items-center justify-between mb-8">
@@ -168,8 +171,8 @@ export const PricingAndVouchers: React.FC = () => {
                           <td className="py-4 px-4">
                             <span
                               className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${voucher.status === 'active'
-                                  ? 'text-green-600 bg-green-50'
-                                  : 'text-slate-400 bg-slate-100'
+                                ? 'text-green-600 bg-green-50'
+                                : 'text-slate-400 bg-slate-100'
                                 }`}
                             >
                               {voucher.status.toUpperCase()}

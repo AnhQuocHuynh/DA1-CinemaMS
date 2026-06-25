@@ -67,7 +67,7 @@ public class OrderServiceImpl implements OrderService {
         if (voucherCode != null && !voucherCode.isBlank()) {
             Voucher voucher = voucherRepository.findByCodeAndActiveTrue(voucherCode)
                 .orElseThrow(() -> new CustomException("Invalid voucher", HttpStatus.BAD_REQUEST, "INVALID_VOUCHER"));
-            validateVoucher(voucher);
+            validateVoucher(voucher, userId);
             discount = calculateDiscount(voucher, total);
             voucher.setUsedCount(voucher.getUsedCount() + 1);
             voucherId = voucher.getId();
@@ -90,13 +90,23 @@ public class OrderServiceImpl implements OrderService {
         return saved;
     }
 
-    private void validateVoucher(Voucher voucher) {
+    private void validateVoucher(Voucher voucher, Long userId) {
         LocalDateTime now = LocalDateTime.now();
         if (voucher.getValidUntil() != null && now.isAfter(voucher.getValidUntil())) {
             throw new CustomException("Voucher expired", HttpStatus.BAD_REQUEST, "VOUCHER_EXPIRED");
         }
         if (voucher.getUsageLimit() != null && voucher.getUsedCount() >= voucher.getUsageLimit()) {
             throw new CustomException("Voucher exhausted", HttpStatus.BAD_REQUEST, "VOUCHER_EXHAUSTED");
+        }
+        
+        // 1-use-per-user limit
+        boolean alreadyUsed = orderRepository.existsByUserIdAndVoucherIdAndStatusIn(
+                userId, 
+                voucher.getId(), 
+                List.of(Order.OrderStatus.PENDING, Order.OrderStatus.PAID)
+        );
+        if (alreadyUsed) {
+            throw new CustomException("You have already used this voucher", HttpStatus.BAD_REQUEST, "VOUCHER_ALREADY_USED");
         }
     }
 
