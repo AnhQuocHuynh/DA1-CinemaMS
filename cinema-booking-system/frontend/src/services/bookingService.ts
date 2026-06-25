@@ -133,6 +133,9 @@ export const bookingService = {
       checkedInAt: string | null;
       createdAt: string;
       movieName?: string;
+      movieTitle?: string;
+      eventTitle?: string;
+      displayTitle?: string;
       startTime?: string;
       endTime?: string;
       cinemaName?: string;
@@ -146,7 +149,7 @@ export const bookingService = {
     return {
       ticketCode: raw.ticketCode,
       orderId: raw.orderId,
-      movieTitle: raw.movieName || '',
+      movieTitle: raw.displayTitle || raw.movieTitle || raw.movieName || raw.eventTitle || '',
       cinemaName: raw.cinemaName || '',
       hallName: raw.hallName || '',
       showtime: raw.startTime || '',
@@ -173,6 +176,9 @@ export const bookingService = {
         status: string;
         createdAt: string;
         movieName?: string;
+        movieTitle?: string;
+        eventTitle?: string;
+        displayTitle?: string;
         startTime?: string;
         endTime?: string;
         cinemaName?: string;

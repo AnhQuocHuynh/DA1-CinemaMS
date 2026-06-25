@@ -4,7 +4,9 @@ import com.uit.cinema.booking.entity.Order;
 import com.uit.cinema.booking.entity.Ticket;
 import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.TicketRepository;
+import com.uit.cinema.catalog.entity.Event;
 import com.uit.cinema.catalog.entity.Movie;
+import com.uit.cinema.catalog.repository.EventRepository;
 import com.uit.cinema.catalog.repository.MovieRepository;
 import com.uit.cinema.iam.entity.User;
 import com.uit.cinema.iam.repository.UserRepository;
@@ -40,6 +42,7 @@ public class StaffDashboardServiceImpl implements StaffDashboardService {
     private final TicketRepository ticketRepository;
     private final ShowtimeRepository showtimeRepository;
     private final MovieRepository movieRepository;
+    private final EventRepository eventRepository;
     private final UserRepository userRepository;
 
     @Override
@@ -120,14 +123,13 @@ public class StaffDashboardServiceImpl implements StaffDashboardService {
 
     private StaffBookingResponse toBookingResponse(Order order) {
         Showtime showtime = showtimeRepository.findById(order.getShowtimeId()).orElse(null);
-        String customerName = userRepository.findById(order.getUserId())
-            .map(User::getFullName)
+        String customerName = Optional.ofNullable(order.getCustomerName())
             .filter(name -> !name.isBlank())
-            .orElse("Customer #" + order.getUserId());
-        String movieTitle = Optional.ofNullable(showtime)
-            .flatMap(value -> movieRepository.findById(value.getMovieId()))
-            .map(Movie::getTitle)
-            .orElse(showtime != null ? "Movie #" + showtime.getMovieId() : "Unknown movie");
+            .orElseGet(() -> userRepository.findById(order.getUserId())
+                .map(User::getFullName)
+                .filter(name -> !name.isBlank())
+                .orElse("Customer #" + order.getUserId()));
+        String movieTitle = resolveShowtimeTitle(showtime);
 
         return StaffBookingResponse.builder()
             .id("#BK-" + order.getId())
@@ -154,6 +156,23 @@ public class StaffDashboardServiceImpl implements StaffDashboardService {
             .toList();
         return activeTickets.isEmpty()
             || activeTickets.stream().anyMatch(ticket -> ticket.getStatus() == Ticket.TicketStatus.VALID);
+    }
+
+    private String resolveShowtimeTitle(Showtime showtime) {
+        if (showtime == null) {
+            return "Unknown showtime";
+        }
+        if (showtime.getMovieId() != null) {
+            return movieRepository.findById(showtime.getMovieId())
+                .map(Movie::getTitle)
+                .orElse("Movie #" + showtime.getMovieId());
+        }
+        if (showtime.getEventId() != null) {
+            return eventRepository.findById(showtime.getEventId())
+                .map(Event::getName)
+                .orElse("Event #" + showtime.getEventId());
+        }
+        return "Showtime #" + showtime.getId();
     }
 
     private int activeTicketCount(Order order) {

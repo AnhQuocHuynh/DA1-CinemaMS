@@ -4,6 +4,10 @@ import com.uit.cinema.facility.entity.SeatTemplate;
 import com.uit.cinema.facility.entity.SeatType;
 import com.uit.cinema.facility.repository.SeatTemplateRepository;
 import jakarta.persistence.EntityManager;
+import com.uit.cinema.catalog.entity.Event;
+import com.uit.cinema.catalog.entity.Movie;
+import com.uit.cinema.catalog.repository.EventRepository;
+import com.uit.cinema.catalog.repository.MovieRepository;
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.showtime.dto.request.ShowtimeRequest;
 import com.uit.cinema.showtime.dto.response.ShowtimeResponse;
@@ -42,6 +46,8 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     private final EntityManager entityManager;
     private final SeatTemplateRepository seatTemplateRepository;
     private final RoomService roomService;
+    private final MovieRepository movieRepository;
+    private final EventRepository eventRepository;
 
     @Override
     public List<ShowtimeResponse> getShowtimesByMovie(Long movieId) {
@@ -99,6 +105,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             throw new CustomException("Phải cung cấp Movie ID hoặc Event ID", HttpStatus.BAD_REQUEST, "MISSING_REFERENCE_ID");
         }
 
+        //validateShowtimeTarget(request);
         // Check room maintenance status
         RoomResponse room = null;
         try {
@@ -146,6 +153,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         }
 
         ShowtimeResponse response = showtimeMapper.toResponse(savedShowtime);
+        enrichDisplayTitle(savedShowtime, response);
         if (room != null) {
             response.setRoomName(room.getName());
             if (room.getCinemaId() != null) {
@@ -168,6 +176,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
 
     private ShowtimeResponse enrichWithRoomData(Showtime showtime) {
         ShowtimeResponse response = showtimeMapper.toResponse(showtime);
+        enrichDisplayTitle(showtime, response);
         if (showtime.getRoomId() != null) {
             try {
                 RoomResponse room = roomService.getRoomById(showtime.getRoomId());
@@ -179,6 +188,41 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             }
         }
         return response;
+    }
+
+    private void validateShowtimeTarget(ShowtimeRequest request) {
+        if (request.getMovieId() == null && request.getEventId() == null) {
+            throw new CustomException("Showtime must reference a movie or an event", HttpStatus.BAD_REQUEST, "SHOWTIME_TARGET_REQUIRED");
+        }
+        if (request.getMovieId() != null && !movieRepository.existsById(request.getMovieId())) {
+            throw new CustomException("Movie not found", HttpStatus.NOT_FOUND, "MOVIE_NOT_FOUND");
+        }
+        if (request.getEventId() != null && !eventRepository.existsById(request.getEventId())) {
+            throw new CustomException("Event not found", HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND");
+        }
+    }
+
+    private void enrichDisplayTitle(Showtime showtime, ShowtimeResponse response) {
+        if (showtime.getMovieId() != null) {
+            movieRepository.findById(showtime.getMovieId())
+                .map(Movie::getTitle)
+                .ifPresent(title -> {
+                    response.setDisplayTitle(title);
+                    response.setDisplayType("MOVIE");
+                });
+        }
+        if (response.getDisplayTitle() == null && showtime.getEventId() != null) {
+            eventRepository.findById(showtime.getEventId())
+                .ifPresent(event -> {
+                    response.setEventName(event.getName());
+                    response.setDisplayTitle(event.getName());
+                    response.setDisplayType("EVENT");
+                });
+        }
+        if (response.getDisplayTitle() == null) {
+            response.setDisplayTitle("Showtime #" + showtime.getId());
+            response.setDisplayType("SHOWTIME");
+        }
     }
 
     private ShowtimeSeatResponse toRealtimeSeatResponse(Long showtimeId, ShowtimeSeat seat) {

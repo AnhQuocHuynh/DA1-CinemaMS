@@ -17,6 +17,10 @@ public class OrderResponse {
     private Long showtimeId;
     private Long movieId;
     private String movieTitle;
+    private Long eventId;
+    private String eventTitle;
+    private String displayTitle;
+    private String displayType;
     private Long roomId;
     private String roomName;
     private Long cinemaId;
@@ -31,6 +35,10 @@ public class OrderResponse {
     private BigDecimal discountAmount;
     private BigDecimal finalAmount;
     private Order.OrderStatus status;
+    private Order.SalesChannel salesChannel;
+    private String customerName;
+    private String customerPhone;
+    private Long createdByStaffId;
     private String paymentMethod;
     private String paymentTransactionId;
     private List<OrderTicketResponse> tickets;

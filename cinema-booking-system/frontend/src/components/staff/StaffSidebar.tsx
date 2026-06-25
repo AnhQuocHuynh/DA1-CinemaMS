@@ -4,6 +4,7 @@ import { Calendar, LayoutGrid, Settings, TicketCheck, TrendingUp, Users } from '
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', to: '/staff/dashboard', icon: TrendingUp },
+  { id: 'counter-booking', label: 'Counter Booking', to: '/staff/bookings/new', icon: TicketCheck },
   { id: 'schedules', label: 'Schedules', to: '/staff/schedules', icon: Calendar },
   { id: 'seat-maps', label: 'Seat Maps', to: '/staff/seat-maps', icon: LayoutGrid },
   { id: 'validation', label: 'Staff', to: '/staff/ticket-lookup', icon: Users },

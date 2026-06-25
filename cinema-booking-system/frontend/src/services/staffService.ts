@@ -2,6 +2,8 @@ import apiClient from './authService';
 import {
   StaffBookingListItem,
   StaffBookingValidation,
+  StaffCounterBookingRequest,
+  StaffCounterBookingResult,
   StaffDashboardSummary,
   StaffScanResult,
   StaffValidationStats,
@@ -36,6 +38,16 @@ export const staffService = {
     return response.data.data ?? [];
   },
 
+  createCounterBooking: async (
+    payload: StaffCounterBookingRequest
+  ): Promise<StaffCounterBookingResult> => {
+    const response = await apiClient.post<{ success: boolean; data: StaffCounterBookingResult }>(
+      '/staff/bookings',
+      payload
+    );
+    return response.data.data;
+  },
+
   scanTicket: async (ticketCode: string): Promise<StaffScanResult> => {
     const response = await apiClient.post<{
       ticketCode: string;
@@ -56,6 +68,8 @@ export const staffService = {
       orderId: number;
       ticketCode: string;
       movieTitle?: string;
+      eventTitle?: string;
+      displayTitle?: string;
       startTime?: string;
       status: string;
       userId?: number;
@@ -74,7 +88,7 @@ export const staffService = {
     return {
       id: `#BK-${response.data.orderId}`,
       customerName: response.data.userId ? `Customer #${response.data.userId}` : 'Unknown customer',
-      movieTitle: response.data.movieTitle || 'Unknown movie',
+      movieTitle: response.data.displayTitle || response.data.movieTitle || response.data.eventTitle || 'Unknown showtime',
       showtime,
       status: response.data.status === 'CHECKED_IN' ? 'validated' : 'pending',
     };

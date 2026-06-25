@@ -34,6 +34,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -80,7 +81,7 @@ public class DataInitializer implements CommandLineRunner {
         Movie movie2 = seedMovie("Avengers: Secret Wars", "Action blockbuster seeded for FE", 140, LocalDate.now().plusDays(20), "T13");
         Movie movie3 = seedMovie("Doraemon Movie 2026", "Family movie seeded for FE", 100, LocalDate.now().minusDays(2), "P");
 
-        seedEvent(
+        Event event1 = seedEvent(
             "Anime Cosplay Night",
             "Community event for check event API flow",
             LocalDateTime.now().plusDays(3).withHour(18).withMinute(30).withSecond(0).withNano(0),
@@ -123,6 +124,13 @@ public class DataInitializer implements CommandLineRunner {
             120,
             BigDecimal.valueOf(80000)
         );
+        seedEventShowtimeWithSeats(
+            roomC,
+            event1,
+            LocalDateTime.now().plusDays(3).withHour(18).withMinute(30).withSecond(0).withNano(0),
+            150,
+            BigDecimal.valueOf(90000)
+        );
 
         seedVoucher("WELCOME10", Voucher.DiscountType.PERCENTAGE, BigDecimal.valueOf(10), BigDecimal.valueOf(50000), 500);
         seedVoucher("FLAT30K", Voucher.DiscountType.FIXED_AMOUNT, BigDecimal.valueOf(30000), null, 300);
@@ -139,6 +147,7 @@ public class DataInitializer implements CommandLineRunner {
         seedUser("staff@cinema.com", "staff123", "Frontdesk Staff", "0987000001", Set.of(staffRole), true);
         seedUser("customer@cinema.com", "customer123", "Default Customer", "0987000002", Set.of(customerRole), true);
         seedUser("locked@cinema.com", "locked123", "Locked User", "0987000003", Set.of(customerRole), false);
+        seedUser("walkin@cinema.local", "walkin123", "Walk-in Customer", "0987000004", Set.of(customerRole), true);
     }
 
     private void seedUser(String email, String rawPassword, String fullName, String phone, Set<Role> roles, boolean active) {
@@ -398,12 +407,37 @@ public class DataInitializer implements CommandLineRunner {
                 startTime.minusMinutes(1),
                 startTime.plusMinutes(1)
             ).stream()
-            .filter(s -> s.getMovieId().equals(movie.getId()))
+            .filter(s -> Objects.equals(s.getMovieId(), movie.getId()))
             .findFirst()
             .orElseGet(() -> showtimeRepository.save(
                 Showtime.builder()
                     .roomId(room.getId())
                     .movieId(movie.getId())
+                    .startTime(startTime)
+                    .endTime(endTime)
+                    .basePrice(basePrice)
+                    .status(Showtime.Status.SCHEDULED)
+                    .build()
+            ));
+
+        seedShowtimeSeats(showtime, basePrice);
+        return showtime;
+    }
+
+    private Showtime seedEventShowtimeWithSeats(Room room, Event event, LocalDateTime startTime, int durationMinutes, BigDecimal basePrice) {
+        LocalDateTime endTime = startTime.plusMinutes(durationMinutes);
+        Showtime showtime = showtimeRepository.findByRoomIdAndStartTimeBetween(
+                room.getId(),
+                startTime.minusMinutes(1),
+                startTime.plusMinutes(1)
+            ).stream()
+            .filter(s -> Objects.equals(s.getEventId(), event.getId()) && s.getMovieId() == null)
+            .findFirst()
+            .orElseGet(() -> showtimeRepository.save(
+                Showtime.builder()
+                    .roomId(room.getId())
+                    .movieId(null)
+                    .eventId(event.getId())
                     .startTime(startTime)
                     .endTime(endTime)
                     .basePrice(basePrice)

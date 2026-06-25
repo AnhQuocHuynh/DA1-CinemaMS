@@ -4,7 +4,9 @@ import com.uit.cinema.booking.dto.response.OrderResponse;
 import com.uit.cinema.booking.entity.Order;
 import com.uit.cinema.booking.entity.Ticket;
 import com.uit.cinema.booking.repository.TicketRepository;
+import com.uit.cinema.catalog.entity.Event;
 import com.uit.cinema.catalog.entity.Movie;
+import com.uit.cinema.catalog.repository.EventRepository;
 import com.uit.cinema.catalog.repository.MovieRepository;
 import com.uit.cinema.facility.entity.Cinema;
 import com.uit.cinema.facility.entity.Room;
@@ -32,14 +34,22 @@ public class OrderResponseMapper {
     private final ShowtimeSeatRepository showtimeSeatRepository;
     private final SeatTemplateRepository seatTemplateRepository;
     private final MovieRepository movieRepository;
+    private final EventRepository eventRepository;
     private final RoomRepository roomRepository;
     private final TicketRepository ticketRepository;
 
     public OrderResponse toResponse(Order order) {
         Optional<Showtime> showtime = showtimeRepository.findById(order.getShowtimeId());
-        Optional<Movie> movie = showtime.flatMap(value -> movieRepository.findById(value.getMovieId()));
+        Optional<Movie> movie = showtime.map(Showtime::getMovieId)
+            .filter(java.util.Objects::nonNull)
+            .flatMap(movieRepository::findById);
+        Optional<Event> event = showtime.map(Showtime::getEventId)
+            .filter(java.util.Objects::nonNull)
+            .flatMap(eventRepository::findById);
         Optional<Room> room = showtime.flatMap(value -> roomRepository.findById(value.getRoomId()));
         Cinema cinema = room.map(Room::getCinema).orElse(null);
+        String displayTitle = movie.map(Movie::getTitle).orElseGet(() -> event.map(Event::getName).orElse("Showtime #" + order.getShowtimeId()));
+        String displayType = movie.isPresent() ? "MOVIE" : event.isPresent() ? "EVENT" : "SHOWTIME";
 
         List<Long> seatIds = parseSeatIds(order.getSeatIdsSnapshot());
         Map<Long, OrderResponse.OrderSeatResponse> seatMap = seatIds.stream()
@@ -62,6 +72,10 @@ public class OrderResponseMapper {
             .showtimeId(order.getShowtimeId())
             .movieId(showtime.map(Showtime::getMovieId).orElse(null))
             .movieTitle(movie.map(Movie::getTitle).orElse(null))
+            .eventId(showtime.map(Showtime::getEventId).orElse(null))
+            .eventTitle(event.map(Event::getName).orElse(null))
+            .displayTitle(displayTitle)
+            .displayType(displayType)
             .roomId(showtime.map(Showtime::getRoomId).orElse(null))
             .roomName(room.map(Room::getName).orElse(null))
             .cinemaId(cinema != null ? cinema.getId() : null)
@@ -76,6 +90,10 @@ public class OrderResponseMapper {
             .discountAmount(order.getDiscountAmount())
             .finalAmount(order.getFinalAmount())
             .status(order.getStatus())
+            .salesChannel(order.getSalesChannel())
+            .customerName(order.getCustomerName())
+            .customerPhone(order.getCustomerPhone())
+            .createdByStaffId(order.getCreatedByStaffId())
             .paymentMethod(order.getPaymentMethod())
             .paymentTransactionId(order.getPaymentTransactionId())
             .tickets(tickets)
