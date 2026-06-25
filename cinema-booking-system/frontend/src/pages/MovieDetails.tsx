@@ -106,7 +106,9 @@ export const MovieDetails: React.FC = () => {
             <div className="max-w-3xl space-y-6">
               <div className="flex flex-wrap items-center gap-3 text-sm text-white">
                 <span className="px-3 py-1 rounded-sm bg-blue-600 font-semibold">
-                  {movie.active ? 'Đang chiếu' : 'Ngừng chiếu'}
+                  {!movie.active 
+                    ? 'Ngừng chiếu' 
+                    : (new Date(movie.releaseDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0) ? 'Sắp chiếu' : 'Đang chiếu')}
                 </span>
                 <span className="px-2 py-1 bg-white/20 rounded text-xs font-bold">
                   {movie.ageRating}
