@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Filter, Search } from 'lucide-react';
+import { Filter, Search } from 'lucide-react';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';

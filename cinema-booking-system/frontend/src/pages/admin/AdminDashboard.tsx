@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { CalendarDays, Filter, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
@@ -7,6 +6,7 @@ import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { useAdminDashboard } from '../../hooks/useAdminDashboard';
 import { useAdminRooms } from '../../hooks/useAdminRooms';
 import genericPoster from '../../resources/generic_movie_poster.png';
+import { Plus } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
