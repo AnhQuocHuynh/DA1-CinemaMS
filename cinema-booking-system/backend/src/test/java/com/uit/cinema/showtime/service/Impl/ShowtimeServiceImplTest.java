@@ -12,6 +12,10 @@ import com.uit.cinema.facility.entity.SeatTemplate;
 import com.uit.cinema.facility.entity.SeatType;
 import com.uit.cinema.facility.repository.SeatTemplateRepository;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.catalog.entity.Movie;
+import com.uit.cinema.catalog.repository.MovieRepository;
+import com.uit.cinema.catalog.repository.EventRepository;
+import java.time.LocalDate;
 import com.uit.cinema.showtime.entity.ShowtimeSeat;
 import com.uit.cinema.showtime.mapper.ShowtimeMapper;
 import com.uit.cinema.showtime.repository.ShowtimeRepository;
@@ -63,6 +67,12 @@ class ShowtimeServiceImplTest {
     @Mock
     private SeatTemplateRepository seatTemplateRepository;
 
+    @Mock
+    private MovieRepository movieRepository;
+
+    @Mock
+    private EventRepository eventRepository;
+
     @InjectMocks
     private ShowtimeServiceImpl showtimeService;
 
@@ -93,6 +103,10 @@ class ShowtimeServiceImplTest {
         RoomResponse roomResp = new RoomResponse();
         roomResp.setActive(true);
         when(roomService.getRoomById(1L)).thenReturn(roomResp);
+
+        Movie movie = new Movie();
+        movie.setReleaseDate(LocalDate.now().minusDays(1));
+        when(movieRepository.findById(1L)).thenReturn(Optional.of(movie));
 
         // No need to mock overlap check since we use mock(TypedQuery.class) which returns 0L by default for Long.class
         TypedQuery<Long> overlapQuery = mock(TypedQuery.class);
@@ -130,6 +144,10 @@ class ShowtimeServiceImplTest {
         roomResp.setActive(true);
         when(roomService.getRoomById(1L)).thenReturn(roomResp);
 
+        Movie movie = new Movie();
+        movie.setReleaseDate(LocalDate.now().minusDays(1));
+        when(movieRepository.findById(1L)).thenReturn(Optional.of(movie));
+
         TypedQuery<Long> overlapQuery = mock(TypedQuery.class);
         when(entityManager.createQuery(contains("SELECT COUNT(s)"), eq(Long.class))).thenReturn(overlapQuery);
         when(overlapQuery.setParameter(anyString(), any())).thenReturn(overlapQuery);
@@ -149,6 +167,11 @@ class ShowtimeServiceImplTest {
 
         RoomResponse roomResp = new RoomResponse();
         roomResp.setUnderMaintenance(true);
+        when(roomService.getRoomById(1L)).thenReturn(roomResp);
+
+        Movie movie = new Movie();
+        movie.setReleaseDate(LocalDate.now().minusDays(1));
+        when(movieRepository.findById(1L)).thenReturn(Optional.of(movie));
         when(roomService.getRoomById(1L)).thenReturn(roomResp);
 
         CustomException ex = assertThrows(CustomException.class, () -> showtimeService.createShowtime(request));
