@@ -105,7 +105,10 @@ public class ReviewServiceImpl implements ReviewService {
                 continue;
             }
             hasPaidTicket = true;
-            if (!showtime.getEndTime().isAfter(now)) {
+            // Allow review if the showtime has started or ended
+            if (showtime.getStatus() == Showtime.Status.ENDED || 
+                (showtime.getStartTime() != null && !showtime.getStartTime().isAfter(now)) ||
+                (showtime.getEndTime() != null && !showtime.getEndTime().isAfter(now))) {
                 watched = true;
                 break;
             }
