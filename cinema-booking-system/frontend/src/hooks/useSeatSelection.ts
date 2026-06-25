@@ -62,6 +62,15 @@ export const useSeatSelection = (showtimeId: string) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showtimeId]);
 
+  // Fallback to fetch seat map periodically to update hold statuses
+  useEffect(() => {
+    if (!showtimeId) return;
+    const intervalId = setInterval(() => {
+      fetchSeatMap();
+    }, 5000);
+    return () => clearInterval(intervalId);
+  }, [showtimeId, fetchSeatMap]);
+
   const summary = useMemo(() => {
     const subtotal = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
     return { subtotal, total: subtotal };
@@ -90,7 +99,7 @@ export const useSeatSelection = (showtimeId: string) => {
             0
           );
           const addingPhysicalCount = seat.type === 'couple' ? 2 : 1;
-          
+
           if (currentPhysicalCount + addingPhysicalCount > maxSeats) {
             throw new Error(`Booking limit exceeded. You can select a maximum of ${maxSeats} physical seats.`);
           }
