@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../../../contexts/ToastContext';
-import { uploadImageToCloudinary } from '../../../utils/cloudinary';
+import { uploadImageToCloudinary, uploadVideoToCloudinary } from '../../../utils/cloudinary';
 
 interface MovieModalProps {
   isOpen: boolean;
@@ -24,6 +24,7 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingPoster, setIsUploadingPoster] = useState(false);
+  const [isUploadingTrailer, setIsUploadingTrailer] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -74,6 +75,22 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
       addToast(err?.message || 'Failed to upload image', 'error');
     } finally {
       setIsUploadingPoster(false);
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingTrailer(true);
+    try {
+      const url = await uploadVideoToCloudinary(file);
+      setFormData((prev) => ({ ...prev, trailerUrl: url }));
+      addToast('Video uploaded successfully', 'success');
+    } catch (err: any) {
+      addToast(err?.message || 'Failed to upload video', 'error');
+    } finally {
+      setIsUploadingTrailer(false);
     }
   };
 
@@ -163,7 +180,13 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
 
               <div className="space-y-1 md:col-span-2">
                 <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Trailer URL</label>
-                <input type="url" name="trailerUrl" value={formData.trailerUrl} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none" placeholder="https://youtube.com/..." />
+                <div className="flex gap-2 items-center">
+                  <input type="url" name="trailerUrl" value={formData.trailerUrl} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none" placeholder="https://youtube.com/..." />
+                  <label className="cursor-pointer bg-primary text-white px-4 py-3 rounded-lg font-bold text-sm flex items-center justify-center hover:bg-blue-700 transition-colors whitespace-nowrap h-full">
+                    {isUploadingTrailer ? 'Uploading...' : 'Upload Video'}
+                    <input type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} disabled={isUploadingTrailer} />
+                  </label>
+                </div>
               </div>
 
               <div className="space-y-1 md:col-span-2">

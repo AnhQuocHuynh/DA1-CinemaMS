@@ -6,6 +6,7 @@ import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { useAdminMovies } from '../../hooks/useAdminMovies';
 import { MovieModal } from '../../components/admin/modals/MovieModal';
 import { RatingBadge } from '../../components/Review/RatingBadge';
+import { movieService } from '../../services/movieService';
 
 export const MovieManagement: React.FC = () => {
   const { movies, isLoading, addMovie, updateMovie, deleteMovie } = useAdminMovies();
@@ -18,11 +19,16 @@ export const MovieManagement: React.FC = () => {
   };
 
   const handleEditClick = async (id: number) => {
-    // In a real app we might fetch the full movie details first
-    // For now we pass the basic info we have
-    const movie = movies.find(m => m.id === id);
-    setSelectedMovie(movie);
-    setIsModalOpen(true);
+    try {
+      const fullMovie = await movieService.getMovieById(id);
+      setSelectedMovie(fullMovie);
+      setIsModalOpen(true);
+    } catch (error) {
+      console.error('Failed to fetch movie details', error);
+      const movie = movies.find(m => m.id === id);
+      setSelectedMovie(movie);
+      setIsModalOpen(true);
+    }
   };
 
   const handleDeleteClick = async (id: number) => {
