@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from '../../../contexts/ToastContext';
 import { uploadImageToCloudinary, uploadVideoToCloudinary } from '../../../utils/cloudinary';
 import { movieService } from '../../../services/movieService';
+import { Plus } from 'lucide-react';
 
 interface MovieModalProps {
   isOpen: boolean;
@@ -28,6 +29,8 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
   const [isUploadingPoster, setIsUploadingPoster] = useState(false);
   const [isUploadingTrailer, setIsUploadingTrailer] = useState(false);
   const [availableGenres, setAvailableGenres] = useState<{ id: number; name: string }[]>([]);
+  const [newGenreName, setNewGenreName] = useState('');
+  const [isAddingGenre, setIsAddingGenre] = useState(false);
 
   useEffect(() => {
     movieService.getGenres().then(setAvailableGenres).catch(console.error);
@@ -102,6 +105,22 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
       addToast(err?.message || 'Failed to upload video', 'error');
     } finally {
       setIsUploadingTrailer(false);
+    }
+  };
+
+  const handleAddInlineGenre = async () => {
+    if (!newGenreName.trim()) return;
+    setIsAddingGenre(true);
+    try {
+      const addedGenre = await movieService.createGenre(newGenreName.trim());
+      setAvailableGenres(prev => [...prev, addedGenre]);
+      setFormData(prev => ({ ...prev, genreIds: [...prev.genreIds, addedGenre.id] }));
+      setNewGenreName('');
+      addToast('Genre added successfully', 'success');
+    } catch (err: any) {
+      addToast(err?.message || 'Failed to add genre', 'error');
+    } finally {
+      setIsAddingGenre(false);
     }
   };
 
@@ -224,6 +243,26 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
                       {genre.name}
                     </button>
                   ))}
+                  <div className="flex items-center gap-1">
+                    <input 
+                      type="text"
+                      placeholder="Add genre..."
+                      value={newGenreName}
+                      onChange={(e) => setNewGenreName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddInlineGenre())}
+                      className="bg-surface-container-highest border-none rounded-full px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary w-28"
+                    />
+                    {newGenreName.trim() && (
+                      <button 
+                        type="button" 
+                        onClick={handleAddInlineGenre}
+                        disabled={isAddingGenre}
+                        className="bg-primary text-white p-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

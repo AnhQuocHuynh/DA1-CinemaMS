@@ -33,10 +33,12 @@ public class GenreServiceImpl implements GenreService {
     @Override
     @Transactional
     public GenreResponse createGenre(GenreRequest request) {
-        if (genreRepository.findByName(request.getName()).isPresent()) {
+        String normalizedName = request.getName().trim().toLowerCase();
+        
+        if (genreRepository.findByNameIgnoreCase(normalizedName).isPresent()) {
             throw new CustomException("Thể loại đã tồn tại", HttpStatus.BAD_REQUEST, "GENRE_EXISTS");
         }
-        Genre genre = Genre.builder().name(request.getName()).build();
+        Genre genre = Genre.builder().name(normalizedName).build();
         Genre saved = genreRepository.save(genre);
         return GenreResponse.builder().id(saved.getId()).name(saved.getName()).build();
     }
