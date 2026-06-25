@@ -105,7 +105,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             throw new CustomException("Phải cung cấp Movie ID hoặc Event ID", HttpStatus.BAD_REQUEST, "MISSING_REFERENCE_ID");
         }
 
-        //validateShowtimeTarget(request);
+        validateShowtimeTarget(request);
         // Check room maintenance status
         RoomResponse room = null;
         try {
@@ -194,8 +194,12 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         if (request.getMovieId() == null && request.getEventId() == null) {
             throw new CustomException("Showtime must reference a movie or an event", HttpStatus.BAD_REQUEST, "SHOWTIME_TARGET_REQUIRED");
         }
-        if (request.getMovieId() != null && !movieRepository.existsById(request.getMovieId())) {
-            throw new CustomException("Movie not found", HttpStatus.NOT_FOUND, "MOVIE_NOT_FOUND");
+        if (request.getMovieId() != null) {
+            Movie movie = movieRepository.findById(request.getMovieId())
+                .orElseThrow(() -> new CustomException("Movie not found", HttpStatus.NOT_FOUND, "MOVIE_NOT_FOUND"));
+            if (request.getStartTime() != null && movie.getReleaseDate() != null && request.getStartTime().toLocalDate().isBefore(movie.getReleaseDate())) {
+                throw new CustomException("Không thể tạo suất chiếu trước ngày công chiếu của phim", HttpStatus.BAD_REQUEST, "SHOWTIME_BEFORE_RELEASE_DATE");
+            }
         }
         if (request.getEventId() != null && !eventRepository.existsById(request.getEventId())) {
             throw new CustomException("Event not found", HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND");
