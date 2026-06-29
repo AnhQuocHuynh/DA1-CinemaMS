@@ -1,0 +1,17 @@
+# port allocations:
+#| Service | Internal Port | External (via Gateway) |
+#| API Gateway  5000 | 443 (HTTPS) / 80 (HTTP) |
+#| Identity Service | 5001 | — |
+#| Facility Service | 5002 | — |
+#| Payment Service | 5003 | — |
+#| Notification Service | 5004 | — |
+#| Catalog Service | 8081 | — |
+#| Showtime Service | 8082 | — |
+#| Booking Service | 8083 | — |
+#| Analytics Service | 8084 | — |
+#| Recommendation Service | 8085 | — |
+#| PostgreSQL | 5432 | — |
+#| Redis | 6379 | — |
+#| RabbitMQ | 5672 (AMQP) / 15672 (UI) | — |
+#| ClickHouse | 8123 (HTTP) / 9000 (native) | — |
+#| Neo4j | 7474 (Browser) / 7687 (Bolt)
