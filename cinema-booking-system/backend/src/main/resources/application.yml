@@ -32,6 +32,6 @@ spring:
 # ── JWT ──────────────────────────────────────────────────────
 app:
   jwt:
-    secret: "${APP_JWT_SECRET:REPLACE_WITH_A_256_BIT_BASE64_ENCODED_SECRET_KEY_HERE}"
+    secret: "${APP_JWT_SECRET:tMSsJQKjhrCejtmlVK1zNCkJFsl+AuuUkXTYo2pnjkg=}"
     expiration-ms: 86400000       # 1 day
     refresh-expiration-ms: 604800000  # 7 days
