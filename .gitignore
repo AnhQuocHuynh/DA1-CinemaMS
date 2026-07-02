@@ -1,0 +1,4 @@
+# ── IDE — VS Code / Cursor ───────────────────────────────────
+.vscode/
+!.vscode/extensions.json
+.vs
