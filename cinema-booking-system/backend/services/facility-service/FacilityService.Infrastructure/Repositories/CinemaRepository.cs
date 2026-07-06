@@ -18,28 +18,34 @@ namespace FacilityService.Infrastructure.Repositories
 
         public async Task<Cinema?> GetByIdAsync(long id)
         {
-            return await _context.Cinemas.FindAsync(id);
+            return await _context.Cinemas
+                .Include(c => c.Rooms)
+                .FirstOrDefaultAsync(c => c.Id == id);
         }
 
         public async Task<IEnumerable<Cinema>> GetAllAsync()
         {
-            return await _context.Cinemas.AsNoTracking()
-                                         .ToListAsync();
+            return await _context.Cinemas
+                .AsNoTracking()
+                .ToListAsync();
         }
 
         public async Task AddAsync(Cinema cinema)
         {
-            await _context.Cinemas.AddAsync(cinema);
+            await _context.Cinemas
+                .AddAsync(cinema);
         }
 
         public void Update(Cinema cinema)
         {
-            _context.Cinemas.Update(cinema);
+            _context.Cinemas
+                .Update(cinema);
         }
 
         public void Delete(Cinema cinema)
         {
-            _context.Cinemas.Remove(cinema);
+            _context.Cinemas
+                .Remove(cinema);
         }
     }
 }

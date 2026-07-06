@@ -6,18 +6,22 @@ using FacilityService.Domain.Entities;
 
 namespace FacilityService.Application.Features.Cinemas.Commands
 {
-    public class CreateCinemaCommand : IRequest<CinemaDto>
+    public class UpdateCinemaCommand : IRequest<CinemaDto>
     {
+        public required long Id { get; set; }
         public required string Name { get; set; }
         public required string Address { get; set; }
         public string? City { get; set; }
         public string? Phone { get; set; }
     }
 
-    public class CreateCinemaCommandValidator : AbstractValidator<CreateCinemaCommand>
+    public class UpdateCinemaCommandValidator : AbstractValidator<UpdateCinemaCommand>
     {
-        public CreateCinemaCommandValidator()
+        public UpdateCinemaCommandValidator()
         {
+            RuleFor(v => v.Id)
+                .NotEmpty().WithMessage("Id is required.");
+
             RuleFor(v => v.Name)
                 .NotEmpty().WithMessage("Name is required.")
                 .MaximumLength(150).WithMessage("Name cannot exceed 150 characters.");
@@ -35,20 +39,25 @@ namespace FacilityService.Application.Features.Cinemas.Commands
     }
     
     
-    public class CreateCinemaCommandHandler : IRequestHandler<CreateCinemaCommand, CinemaDto>
+    public class UpdateCinemaCommandHandler : IRequestHandler<UpdateCinemaCommand, CinemaDto>
     {
         private readonly IUnitOfWork _unitOfWork;
         
-        public CreateCinemaCommandHandler(IUnitOfWork unitOfWork)
+        public UpdateCinemaCommandHandler(IUnitOfWork unitOfWork)
         {
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<CinemaDto> Handle(CreateCinemaCommand request, CancellationToken cancellationToken)
+        public async Task<CinemaDto> Handle(UpdateCinemaCommand request, CancellationToken cancellationToken)
         {
-            Cinema cinema = new Cinema(request.Name, request.Address, request.City, request.Phone);
+            Cinema? cinema = await _unitOfWork.Cinemas.GetByIdAsync(request.Id);
+            if (cinema == null)
+            {
+                throw new Exception("Cinema not found");
+            }
+
+            cinema.Update(request.Name, request.Address, request.City, request.Phone);
             
-            await _unitOfWork.Cinemas.AddAsync(cinema);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return new CinemaDto { Id = cinema.Id, Name = cinema.Name, Address = cinema.Address, City = cinema.City, Phone = cinema.Phone };
