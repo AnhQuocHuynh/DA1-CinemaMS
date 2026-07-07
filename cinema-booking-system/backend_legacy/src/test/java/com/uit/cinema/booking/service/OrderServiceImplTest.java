@@ -6,16 +6,14 @@ import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.VoucherRepository;
 import com.uit.cinema.booking.service.Impl.OrderServiceImpl;
 import com.uit.cinema.core.exception.CustomException;
-import com.uit.cinema.showtime.entity.ShowtimeSeat;
-import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
-import com.uit.cinema.showtime.service.SeatHoldPolicy;
+import com.uit.cinema.showtime.service.SeatReservationService;
+import com.uit.cinema.showtime.service.contract.SeatHoldValidationResult;
+import com.uit.cinema.showtime.service.contract.SeatView;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
@@ -28,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,26 +37,15 @@ class OrderServiceImplTest {
     @Mock
     private VoucherRepository voucherRepository;
     @Mock
-    private ShowtimeSeatRepository showtimeSeatRepository;
-    @Mock
-    private RedisTemplate<String, Object> redisTemplate;
-    @Mock
-    private ValueOperations<String, Object> valueOperations;
+    private SeatReservationService seatReservationService;
 
     @InjectMocks
     private OrderServiceImpl orderService;
 
     @Test
     void createOrder_happyPathWithoutVoucher_createsPendingOrder() {
-        ShowtimeSeat seat = ShowtimeSeat.builder()
-            .id(1L)
-            .showtimeId(100L)
-            .price(new BigDecimal("120.00"))
-            .status(ShowtimeSeat.SeatStatus.HELD)
-            .build();
-        when(showtimeSeatRepository.findById(1L)).thenReturn(Optional.of(seat));
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(SeatHoldPolicy.holdKey(100L, 1L))).thenReturn("10");
+        when(seatReservationService.validateHeldSeats(any()))
+            .thenReturn(new SeatHoldValidationResult(List.of(new SeatView(1L, new BigDecimal("120.00"))), new BigDecimal("120.00")));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
             Order saved = invocation.getArgument(0);
             saved.setId(99L);
@@ -73,6 +61,7 @@ class OrderServiceImplTest {
         assertEquals(Order.OrderStatus.PENDING, result.getStatus());
         assertEquals("1", result.getSeatIdsSnapshot());
         assertNull(result.getVoucherId());
+        verify(seatReservationService).validateHeldSeats(any());
         verify(orderRepository).save(any(Order.class));
     }
 
@@ -85,17 +74,13 @@ class OrderServiceImplTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
         assertEquals("SEAT_LIST_EMPTY", ex.getErrorCode());
+        verifyNoInteractions(seatReservationService);
     }
 
     @Test
     void createOrder_whenSeatNotHeld_throwsConflict() {
-        ShowtimeSeat seat = ShowtimeSeat.builder()
-            .id(1L)
-            .showtimeId(100L)
-            .price(new BigDecimal("120.00"))
-            .status(ShowtimeSeat.SeatStatus.AVAILABLE)
-            .build();
-        when(showtimeSeatRepository.findById(1L)).thenReturn(Optional.of(seat));
+        when(seatReservationService.validateHeldSeats(any()))
+            .thenThrow(new CustomException("Seat is not in HELD status", HttpStatus.CONFLICT, "SEAT_NOT_HELD"));
 
         CustomException ex = assertThrows(
             CustomException.class,
@@ -108,12 +93,6 @@ class OrderServiceImplTest {
 
     @Test
     void createOrder_happyPathWithPercentageVoucherAndCap_appliesDiscount() {
-        ShowtimeSeat seat = ShowtimeSeat.builder()
-            .id(1L)
-            .showtimeId(100L)
-            .price(new BigDecimal("200.00"))
-            .status(ShowtimeSeat.SeatStatus.HELD)
-            .build();
         Voucher voucher = Voucher.builder()
             .id(8L)
             .code("SAVE20")
@@ -125,9 +104,8 @@ class OrderServiceImplTest {
             .validUntil(LocalDateTime.now().plusDays(1))
             .build();
 
-        when(showtimeSeatRepository.findById(1L)).thenReturn(Optional.of(seat));
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(SeatHoldPolicy.holdKey(100L, 1L))).thenReturn("10");
+        when(seatReservationService.validateHeldSeats(any()))
+            .thenReturn(new SeatHoldValidationResult(List.of(new SeatView(1L, new BigDecimal("200.00"))), new BigDecimal("200.00")));
         when(voucherRepository.findByCodeAndActiveTrue("SAVE20")).thenReturn(Optional.of(voucher));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 

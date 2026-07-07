@@ -1,21 +1,15 @@
 package com.uit.cinema.showtime.service.Impl;
 
+import com.uit.cinema.catalog.service.CatalogReadService;
+import com.uit.cinema.catalog.service.contract.CatalogContentView;
 import com.uit.cinema.core.exception.CustomException;
-import com.uit.cinema.facility.dto.response.RoomResponse;
-import com.uit.cinema.facility.entity.SeatTemplate;
-import com.uit.cinema.facility.service.RoomService;
+import com.uit.cinema.facility.service.FacilityReadService;
+import com.uit.cinema.facility.service.contract.FacilityRoomView;
+import com.uit.cinema.facility.service.contract.FacilitySeatTemplateView;
 import com.uit.cinema.showtime.dto.request.ShowtimeRequest;
 import com.uit.cinema.showtime.dto.response.ShowtimeResponse;
-import com.uit.cinema.showtime.entity.Showtime;
 import com.uit.cinema.showtime.dto.response.ShowtimeSeatResponse;
-import com.uit.cinema.facility.entity.SeatTemplate;
-import com.uit.cinema.facility.entity.SeatType;
-import com.uit.cinema.facility.repository.SeatTemplateRepository;
-import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
-import com.uit.cinema.catalog.entity.Movie;
-import com.uit.cinema.catalog.repository.MovieRepository;
-import com.uit.cinema.catalog.repository.EventRepository;
-import java.time.LocalDate;
+import com.uit.cinema.showtime.entity.Showtime;
 import com.uit.cinema.showtime.entity.ShowtimeSeat;
 import com.uit.cinema.showtime.mapper.ShowtimeMapper;
 import com.uit.cinema.showtime.repository.ShowtimeRepository;
@@ -30,15 +24,21 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ShowtimeServiceImplTest {
@@ -59,19 +59,10 @@ class ShowtimeServiceImplTest {
     private EntityManager entityManager;
 
     @Mock
-    private RoomService roomService;
+    private FacilityReadService facilityReadService;
 
     @Mock
-    private TypedQuery<Long> typedQuery;
-
-    @Mock
-    private SeatTemplateRepository seatTemplateRepository;
-
-    @Mock
-    private MovieRepository movieRepository;
-
-    @Mock
-    private EventRepository eventRepository;
+    private CatalogReadService catalogReadService;
 
     @InjectMocks
     private ShowtimeServiceImpl showtimeService;
@@ -81,10 +72,8 @@ class ShowtimeServiceImplTest {
         Showtime showtime = new Showtime();
         showtime.setStatus(Showtime.Status.SCHEDULED);
         when(showtimeRepository.findByMovieIdAndStartTimeAfterOrderByStartTimeAsc(eq(1L), any(LocalDateTime.class)))
-                .thenReturn(List.of(showtime));
-        
-        ShowtimeResponse mockResp = new ShowtimeResponse();
-        when(showtimeMapper.toResponse(showtime)).thenReturn(mockResp);
+            .thenReturn(List.of(showtime));
+        when(showtimeMapper.toResponse(showtime)).thenReturn(new ShowtimeResponse());
 
         List<ShowtimeResponse> responses = showtimeService.getShowtimesByMovie(1L);
 
@@ -93,38 +82,20 @@ class ShowtimeServiceImplTest {
 
     @Test
     void createShowtime_WhenNoOverlap_Success() {
-        ShowtimeRequest request = new ShowtimeRequest();
-        request.setMovieId(1L);
-        request.setRoomId(1L);
-        request.setStartTime(LocalDateTime.now().plusDays(1));
-        request.setEndTime(LocalDateTime.now().plusDays(1).plusHours(2));
-        request.setBasePrice(BigDecimal.valueOf(50000));
+        ShowtimeRequest request = movieShowtimeRequest();
+        when(catalogReadService.findMovie(1L)).thenReturn(Optional.of(movieContent()));
+        when(facilityReadService.findRoom(1L)).thenReturn(Optional.of(room(false)));
 
-        RoomResponse roomResp = new RoomResponse();
-        roomResp.setActive(true);
-        when(roomService.getRoomById(1L)).thenReturn(roomResp);
-
-        Movie movie = new Movie();
-        movie.setReleaseDate(LocalDate.now().minusDays(1));
-        when(movieRepository.findById(1L)).thenReturn(Optional.of(movie));
-
-        // No need to mock overlap check since we use mock(TypedQuery.class) which returns 0L by default for Long.class
         TypedQuery<Long> overlapQuery = mock(TypedQuery.class);
         when(entityManager.createQuery(contains("SELECT COUNT(s)"), eq(Long.class))).thenReturn(overlapQuery);
         when(overlapQuery.setParameter(anyString(), any())).thenReturn(overlapQuery);
         when(overlapQuery.getSingleResult()).thenReturn(0L);
 
-        Showtime showtime = new Showtime();
-        showtime.setId(10L);
+        Showtime showtime = savedShowtime();
         when(showtimeMapper.toEntity(request)).thenReturn(showtime);
         when(showtimeRepository.save(any(Showtime.class))).thenReturn(showtime);
+        when(facilityReadService.findActiveSeatTemplatesByRoom(1L)).thenReturn(List.of());
         when(showtimeMapper.toResponse(showtime)).thenReturn(new ShowtimeResponse());
-
-        // Mock Seat Templates query
-        TypedQuery templateQuery = mock(TypedQuery.class);
-        when(entityManager.createQuery(contains("SELECT t"), eq(SeatTemplate.class))).thenReturn(templateQuery);
-        when(templateQuery.setParameter(anyString(), any())).thenReturn(templateQuery);
-        when(templateQuery.getResultList()).thenReturn(List.of());
 
         ShowtimeResponse response = showtimeService.createShowtime(request);
 
@@ -134,59 +105,41 @@ class ShowtimeServiceImplTest {
 
     @Test
     void createShowtime_WhenOverlap_ThrowsException() {
-        ShowtimeRequest request = new ShowtimeRequest();
-        request.setMovieId(1L);
-        request.setRoomId(1L);
-        request.setStartTime(LocalDateTime.now().plusDays(1));
-        request.setEndTime(LocalDateTime.now().plusDays(1).plusHours(2));
-
-        RoomResponse roomResp = new RoomResponse();
-        roomResp.setActive(true);
-        when(roomService.getRoomById(1L)).thenReturn(roomResp);
-
-        Movie movie = new Movie();
-        movie.setReleaseDate(LocalDate.now().minusDays(1));
-        when(movieRepository.findById(1L)).thenReturn(Optional.of(movie));
+        ShowtimeRequest request = movieShowtimeRequest();
+        when(catalogReadService.findMovie(1L)).thenReturn(Optional.of(movieContent()));
+        when(facilityReadService.findRoom(1L)).thenReturn(Optional.of(room(false)));
 
         TypedQuery<Long> overlapQuery = mock(TypedQuery.class);
         when(entityManager.createQuery(contains("SELECT COUNT(s)"), eq(Long.class))).thenReturn(overlapQuery);
         when(overlapQuery.setParameter(anyString(), any())).thenReturn(overlapQuery);
-        when(overlapQuery.getSingleResult()).thenReturn(1L); // Overlap exists!
+        when(overlapQuery.getSingleResult()).thenReturn(1L);
 
         CustomException ex = assertThrows(CustomException.class, () -> showtimeService.createShowtime(request));
+
         assertEquals("CONFLICT", ex.getErrorCode());
     }
 
     @Test
     void createShowtime_WhenRoomUnderMaintenance_ThrowsException() {
-        ShowtimeRequest request = new ShowtimeRequest();
-        request.setMovieId(1L);
-        request.setRoomId(1L);
-        request.setStartTime(LocalDateTime.now().plusDays(1));
-        request.setEndTime(LocalDateTime.now().plusDays(1).plusHours(2));
-
-        RoomResponse roomResp = new RoomResponse();
-        roomResp.setUnderMaintenance(true);
-        when(roomService.getRoomById(1L)).thenReturn(roomResp);
-
-        Movie movie = new Movie();
-        movie.setReleaseDate(LocalDate.now().minusDays(1));
-        when(movieRepository.findById(1L)).thenReturn(Optional.of(movie));
-        when(roomService.getRoomById(1L)).thenReturn(roomResp);
+        ShowtimeRequest request = movieShowtimeRequest();
+        when(catalogReadService.findMovie(1L)).thenReturn(Optional.of(movieContent()));
+        when(facilityReadService.findRoom(1L)).thenReturn(Optional.of(room(true)));
 
         CustomException ex = assertThrows(CustomException.class, () -> showtimeService.createShowtime(request));
+
         assertEquals("ROOM_UNDER_MAINTENANCE", ex.getErrorCode());
     }
 
     @Test
     void deleteShowtime_Success() {
         when(showtimeRepository.existsById(1L)).thenReturn(true);
-        
+
         showtimeService.deleteShowtime(1L);
-        
+
         verify(showtimeSeatRepository).deleteByShowtimeId(1L);
         verify(showtimeRepository).deleteById(1L);
     }
+
     @Test
     void getShowtimesByEvent_ReturnsFutureShowtimes() {
         Showtime showtime = new Showtime();
@@ -196,13 +149,8 @@ class ShowtimeServiceImplTest {
 
         when(showtimeRepository.findByEventIdAndStartTimeAfterOrderByStartTimeAsc(eq(1L), any(LocalDateTime.class)))
             .thenReturn(List.of(showtime));
-
-        RoomResponse roomResp = new RoomResponse();
-        roomResp.setName("Room 1");
-        when(roomService.getRoomById(1L)).thenReturn(roomResp);
-
-        ShowtimeResponse response = new ShowtimeResponse();
-        when(showtimeMapper.toResponse(showtime)).thenReturn(response);
+        when(facilityReadService.findRoom(1L)).thenReturn(Optional.of(room(false)));
+        when(showtimeMapper.toResponse(showtime)).thenReturn(new ShowtimeResponse());
 
         List<ShowtimeResponse> result = showtimeService.getShowtimesByEvent(1L);
 
@@ -216,13 +164,8 @@ class ShowtimeServiceImplTest {
         showtime.setRoomId(1L);
 
         when(showtimeRepository.findByRoomIdOrderByStartTimeAsc(1L)).thenReturn(List.of(showtime));
-
-        RoomResponse roomResp = new RoomResponse();
-        roomResp.setName("Room 1");
-        when(roomService.getRoomById(1L)).thenReturn(roomResp);
-
-        ShowtimeResponse response = new ShowtimeResponse();
-        when(showtimeMapper.toResponse(showtime)).thenReturn(response);
+        when(facilityReadService.findRoom(1L)).thenReturn(Optional.of(room(false)));
+        when(showtimeMapper.toResponse(showtime)).thenReturn(new ShowtimeResponse());
 
         List<ShowtimeResponse> result = showtimeService.getShowtimesByRoom(1L);
 
@@ -236,13 +179,8 @@ class ShowtimeServiceImplTest {
         showtime.setRoomId(1L);
 
         when(showtimeRepository.findById(1L)).thenReturn(Optional.of(showtime));
-
-        RoomResponse roomResp = new RoomResponse();
-        roomResp.setName("Room 1");
-        when(roomService.getRoomById(1L)).thenReturn(roomResp);
-
-        ShowtimeResponse response = new ShowtimeResponse();
-        when(showtimeMapper.toResponse(showtime)).thenReturn(response);
+        when(facilityReadService.findRoom(1L)).thenReturn(Optional.of(room(false)));
+        when(showtimeMapper.toResponse(showtime)).thenReturn(new ShowtimeResponse());
 
         ShowtimeResponse result = showtimeService.getShowtimeById(1L);
 
@@ -251,20 +189,9 @@ class ShowtimeServiceImplTest {
 
     @Test
     void getSeatMap_ReturnsSeatList() {
-        ShowtimeSeat seat = new ShowtimeSeat();
-        seat.setId(10L);
-        seat.setShowtimeId(1L);
-        seat.setSeatTemplateId(5L);
-
+        ShowtimeSeat seat = seat();
         when(showtimeSeatRepository.findByShowtimeId(1L)).thenReturn(List.of(seat));
-
-        SeatTemplate template = new SeatTemplate();
-        template.setRowLabel("A");
-        template.setColumnNumber(1);
-        SeatType type = new SeatType();
-        type.setName("Standard");
-        template.setSeatType(type);
-        when(seatTemplateRepository.findById(5L)).thenReturn(Optional.of(template));
+        when(facilityReadService.findSeatTemplate(5L)).thenReturn(Optional.of(seatTemplate()));
         when(showtimeMapper.toSeatResponse(any(ShowtimeSeat.class))).thenReturn(new ShowtimeSeatResponse());
 
         List<ShowtimeSeatResponse> result = showtimeService.getSeatMap(1L);
@@ -274,24 +201,63 @@ class ShowtimeServiceImplTest {
 
     @Test
     void getSeatById_WhenExists_ReturnsResponse() {
-        ShowtimeSeat seat = new ShowtimeSeat();
-        seat.setId(10L);
-        seat.setShowtimeId(1L);
-        seat.setSeatTemplateId(5L);
-
+        ShowtimeSeat seat = seat();
         when(showtimeSeatRepository.findById(10L)).thenReturn(Optional.of(seat));
-
-        SeatTemplate template = new SeatTemplate();
-        template.setRowLabel("A");
-        template.setColumnNumber(1);
-        SeatType type = new SeatType();
-        type.setName("Standard");
-        template.setSeatType(type);
-        when(seatTemplateRepository.findById(5L)).thenReturn(Optional.of(template));
+        when(facilityReadService.findSeatTemplate(5L)).thenReturn(Optional.of(seatTemplate()));
         when(showtimeMapper.toSeatResponse(any(ShowtimeSeat.class))).thenReturn(new ShowtimeSeatResponse());
 
         ShowtimeSeatResponse result = showtimeService.getSeatById(10L);
 
         assertNotNull(result);
+    }
+
+    private ShowtimeRequest movieShowtimeRequest() {
+        ShowtimeRequest request = new ShowtimeRequest();
+        request.setMovieId(1L);
+        request.setRoomId(1L);
+        request.setStartTime(LocalDateTime.now().plusDays(1));
+        request.setEndTime(LocalDateTime.now().plusDays(1).plusHours(2));
+        request.setBasePrice(BigDecimal.valueOf(50000));
+        return request;
+    }
+
+    private Showtime savedShowtime() {
+        Showtime showtime = new Showtime();
+        showtime.setId(10L);
+        showtime.setMovieId(1L);
+        showtime.setRoomId(1L);
+        showtime.setBasePrice(BigDecimal.valueOf(50000));
+        return showtime;
+    }
+
+    private CatalogContentView movieContent() {
+        return new CatalogContentView(1L, "Movie 1", "MOVIE", LocalDate.now().minusDays(1));
+    }
+
+    private FacilityRoomView room(boolean underMaintenance) {
+        return new FacilityRoomView(1L, "Room 1", 2L, "Cinema 1", underMaintenance);
+    }
+
+    private FacilitySeatTemplateView seatTemplate() {
+        return new FacilitySeatTemplateView(
+            5L,
+            "A",
+            1,
+            "standard",
+            "STANDARD",
+            "Standard",
+            1,
+            false,
+            BigDecimal.ONE
+        );
+    }
+
+    private ShowtimeSeat seat() {
+        ShowtimeSeat seat = new ShowtimeSeat();
+        seat.setId(10L);
+        seat.setShowtimeId(1L);
+        seat.setSeatTemplateId(5L);
+        seat.setStatus(ShowtimeSeat.SeatStatus.AVAILABLE);
+        return seat;
     }
 }

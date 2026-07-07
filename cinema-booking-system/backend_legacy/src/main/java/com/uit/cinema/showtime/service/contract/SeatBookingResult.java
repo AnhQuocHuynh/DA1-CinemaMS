@@ -8,6 +8,10 @@ import java.util.List;
 public record SeatBookingResult(
     Long showtimeId,
     List<Long> bookedSeatIds,
-    int affectedRows
+    int affectedRows,
+    List<SeatView> seats
 ) {
+    public SeatBookingResult(Long showtimeId, List<Long> bookedSeatIds, int affectedRows) {
+        this(showtimeId, bookedSeatIds, affectedRows, List.of());
+    }
 }

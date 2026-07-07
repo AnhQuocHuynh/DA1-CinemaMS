@@ -5,15 +5,13 @@ import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.TicketRepository;
 import com.uit.cinema.booking.service.TicketGenerationService;
 import com.uit.cinema.core.exception.CustomException;
-import com.uit.cinema.showtime.entity.Showtime;
-import com.uit.cinema.showtime.repository.ShowtimeRepository;
-import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.showtime.service.SeatReservationService;
+import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.RedisTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -29,15 +27,11 @@ class PaymentServiceImplTest {
     @Mock
     private OrderRepository orderRepository;
     @Mock
-    private ShowtimeSeatRepository showtimeSeatRepository;
-    @Mock
-    private ShowtimeRepository showtimeRepository;
-    @Mock
     private TicketRepository ticketRepository;
     @Mock
     private TicketGenerationService ticketGenerationService;
     @Mock
-    private RedisTemplate<String, Object> redisTemplate;
+    private SeatReservationService seatReservationService;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;
@@ -75,14 +69,18 @@ class PaymentServiceImplTest {
             .showtimeId(3L)
             .status(Order.OrderStatus.PAID)
             .build();
-        Showtime showtime = Showtime.builder()
-            .id(3L)
-            .startTime(LocalDateTime.now().plusHours(2))
-            .endTime(LocalDateTime.now().plusHours(4))
-            .build();
+        ShowtimeScheduleView showtime = new ShowtimeScheduleView(
+            3L,
+            1L,
+            null,
+            2L,
+            LocalDateTime.now().plusHours(2),
+            LocalDateTime.now().plusHours(4),
+            "SCHEDULED"
+        );
 
         when(orderRepository.findById(20L)).thenReturn(Optional.of(paidOrder));
-        when(showtimeRepository.findById(3L)).thenReturn(Optional.of(showtime));
+        when(seatReservationService.getSchedule(3L)).thenReturn(showtime);
 
         CustomException ex = assertThrows(CustomException.class, () -> paymentService.refund(20L, "User request"));
         assertEquals("REFUND_WINDOW_CLOSED", ex.getErrorCode());

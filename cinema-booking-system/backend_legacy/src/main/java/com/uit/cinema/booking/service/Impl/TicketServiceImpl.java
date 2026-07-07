@@ -6,21 +6,15 @@ import com.uit.cinema.booking.mapper.TicketMapper;
 import com.uit.cinema.booking.repository.TicketRepository;
 import com.uit.cinema.booking.service.TicketGenerationService;
 import com.uit.cinema.booking.service.TicketService;
-import com.uit.cinema.catalog.entity.Event;
-import com.uit.cinema.catalog.entity.Movie;
-import com.uit.cinema.catalog.repository.EventRepository;
-import com.uit.cinema.catalog.repository.MovieRepository;
+import com.uit.cinema.catalog.service.CatalogReadService;
+import com.uit.cinema.catalog.service.contract.CatalogContentView;
 import com.uit.cinema.core.exception.CustomException;
-import com.uit.cinema.facility.entity.Cinema;
-import com.uit.cinema.facility.entity.Room;
-import com.uit.cinema.facility.entity.SeatTemplate;
-import com.uit.cinema.facility.entity.SeatType;
-import com.uit.cinema.facility.repository.RoomRepository;
-import com.uit.cinema.facility.repository.SeatTemplateRepository;
-import com.uit.cinema.showtime.entity.Showtime;
-import com.uit.cinema.showtime.entity.ShowtimeSeat;
-import com.uit.cinema.showtime.repository.ShowtimeRepository;
-import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.facility.service.FacilityReadService;
+import com.uit.cinema.facility.service.contract.FacilityRoomView;
+import com.uit.cinema.facility.service.contract.FacilitySeatTemplateView;
+import com.uit.cinema.showtime.service.SeatReservationService;
+import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
+import com.uit.cinema.showtime.service.contract.ShowtimeSeatView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -29,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -37,12 +32,9 @@ public class TicketServiceImpl implements TicketService {
     private final TicketRepository ticketRepository;
     private final TicketGenerationService ticketGenerationService;
     private final TicketMapper ticketMapper;
-    private final ShowtimeSeatRepository showtimeSeatRepository;
-    private final ShowtimeRepository showtimeRepository;
-    private final SeatTemplateRepository seatTemplateRepository;
-    private final MovieRepository movieRepository;
-    private final EventRepository eventRepository;
-    private final RoomRepository roomRepository;
+    private final SeatReservationService seatReservationService;
+    private final CatalogReadService catalogReadService;
+    private final FacilityReadService facilityReadService;
 
     @Override
     @Transactional
@@ -78,53 +70,50 @@ public class TicketServiceImpl implements TicketService {
     }
 
     private void enrichRefundInfo(TicketResponse response) {
-        ShowtimeSeat seat = showtimeSeatRepository.findById(response.getShowtimeSeatId())
-            .orElse(null);
-        if (seat == null) {
+        Optional<ShowtimeSeatView> seat = optional(seatReservationService.findSeat(response.getShowtimeSeatId()));
+        if (seat.isEmpty()) {
             response.setRefundable(false);
             response.setRefundPercent(0);
             return;
         }
 
-        Showtime showtime = showtimeRepository.findById(seat.getShowtimeId()).orElse(null);
-        if (showtime == null) {
+        Optional<ShowtimeScheduleView> showtime = optional(seatReservationService.findSchedule(seat.get().showtimeId()));
+        if (showtime.isEmpty()) {
             response.setRefundable(false);
             response.setRefundPercent(0);
             return;
         }
 
-        enrichShowtimeInfo(response, seat, showtime);
+        enrichShowtimeInfo(response, seat.get(), showtime.get());
         if (response.getStatus() != Ticket.TicketStatus.VALID) {
             response.setRefundable(false);
             response.setRefundPercent(0);
             return;
         }
 
-        int refundPercent = calculateRefundPercent(showtime.getStartTime(), LocalDateTime.now());
+        int refundPercent = calculateRefundPercent(showtime.get().startTime(), LocalDateTime.now());
         response.setRefundPercent(refundPercent);
         response.setRefundable(refundPercent > 0);
     }
 
-    private void enrichShowtimeInfo(TicketResponse response, ShowtimeSeat seat, Showtime showtime) {
-        response.setShowtimeId(showtime.getId());
-        response.setMovieId(showtime.getMovieId());
-        response.setEventId(showtime.getEventId());
-        response.setRoomId(showtime.getRoomId());
-        response.setStartTime(showtime.getStartTime());
-        response.setEndTime(showtime.getEndTime());
+    private void enrichShowtimeInfo(TicketResponse response, ShowtimeSeatView seat, ShowtimeScheduleView showtime) {
+        response.setShowtimeId(showtime.showtimeId());
+        response.setMovieId(showtime.movieId());
+        response.setEventId(showtime.eventId());
+        response.setRoomId(showtime.roomId());
+        response.setStartTime(showtime.startTime());
+        response.setEndTime(showtime.endTime());
 
-        if (showtime.getMovieId() != null) {
-            movieRepository.findById(showtime.getMovieId())
-                .map(Movie::getTitle)
-                .ifPresent(title -> {
-                    response.setMovieTitle(title);
-                    response.setDisplayTitle(title);
-                    response.setDisplayType("MOVIE");
-                });
-        }
-        if (response.getDisplayTitle() == null && showtime.getEventId() != null) {
-            eventRepository.findById(showtime.getEventId())
-                .map(Event::getName)
+        optional(catalogReadService.findMovie(showtime.movieId()))
+            .map(CatalogContentView::title)
+            .ifPresent(title -> {
+                response.setMovieTitle(title);
+                response.setDisplayTitle(title);
+                response.setDisplayType("MOVIE");
+            });
+        if (response.getDisplayTitle() == null) {
+            optional(catalogReadService.findEvent(showtime.eventId()))
+                .map(CatalogContentView::title)
                 .ifPresent(title -> {
                     response.setEventTitle(title);
                     response.setDisplayTitle(title);
@@ -132,44 +121,29 @@ public class TicketServiceImpl implements TicketService {
                 });
         }
         if (response.getDisplayTitle() == null) {
-            response.setDisplayTitle("Showtime #" + showtime.getId());
+            response.setDisplayTitle("Showtime #" + showtime.showtimeId());
             response.setDisplayType("SHOWTIME");
         }
 
-        roomRepository.findById(showtime.getRoomId()).ifPresent(room -> {
-            response.setRoomName(room.getName());
-            Cinema cinema = room.getCinema();
-            if (cinema != null) {
-                response.setCinemaId(cinema.getId());
-                response.setCinemaName(cinema.getName());
-            }
-        });
-
-        seatTemplateRepository.findById(seat.getSeatTemplateId()).ifPresent(template -> enrichSeatInfo(response, template));
+        optional(facilityReadService.findRoom(showtime.roomId())).ifPresent(room -> enrichRoomInfo(response, room));
+        optional(facilityReadService.findSeatTemplate(seat.seatTemplateId())).ifPresent(template -> enrichSeatInfo(response, template));
     }
 
-    private void enrichSeatInfo(TicketResponse response, SeatTemplate template) {
-        response.setSeatTemplateId(template.getId());
-        response.setSeatLabel(template.getRowLabel() + template.getColumnNumber());
-        response.setRowLabel(template.getRowLabel());
-        response.setColumnNumber(template.getColumnNumber());
-
-        SeatType seatType = template.getSeatType();
-        SeatType.SeatTypeCode code = seatType != null && seatType.getCode() != null
-            ? seatType.getCode()
-            : SeatType.SeatTypeCode.STANDARD;
-        response.setSeatType(code.name().toLowerCase());
-        response.setSeatTypeCode(code.name());
-        response.setSeatTypeName(seatType != null && seatType.getDisplayName() != null ? seatType.getDisplayName() : toDisplayName(code));
-        response.setColumnSpan(template.getColumnSpan() != null ? template.getColumnSpan() : 1);
+    private void enrichRoomInfo(TicketResponse response, FacilityRoomView room) {
+        response.setRoomName(room.roomName());
+        response.setCinemaId(room.cinemaId());
+        response.setCinemaName(room.cinemaName());
     }
 
-    private String toDisplayName(SeatType.SeatTypeCode code) {
-        return switch (code) {
-            case VIP -> "VIP";
-            case COUPLE -> "Couple";
-            case STANDARD -> "Standard";
-        };
+    private void enrichSeatInfo(TicketResponse response, FacilitySeatTemplateView template) {
+        response.setSeatTemplateId(template.seatTemplateId());
+        response.setSeatLabel(template.label());
+        response.setRowLabel(template.rowLabel());
+        response.setColumnNumber(template.columnNumber());
+        response.setSeatType(template.seatType());
+        response.setSeatTypeCode(template.seatTypeCode());
+        response.setSeatTypeName(template.seatTypeName());
+        response.setColumnSpan(template.columnSpan());
     }
 
     private int calculateRefundPercent(LocalDateTime showtimeStart, LocalDateTime now) {
@@ -181,5 +155,9 @@ public class TicketServiceImpl implements TicketService {
             return 50;
         }
         return 0;
+    }
+
+    private <T> Optional<T> optional(Optional<T> value) {
+        return value != null ? value : Optional.empty();
     }
 }

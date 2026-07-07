@@ -4,23 +4,18 @@ import com.uit.cinema.booking.dto.response.OrderResponse;
 import com.uit.cinema.booking.entity.Order;
 import com.uit.cinema.booking.entity.Ticket;
 import com.uit.cinema.booking.repository.TicketRepository;
-import com.uit.cinema.catalog.entity.Event;
-import com.uit.cinema.catalog.entity.Movie;
-import com.uit.cinema.catalog.repository.EventRepository;
-import com.uit.cinema.catalog.repository.MovieRepository;
-import com.uit.cinema.facility.entity.Cinema;
-import com.uit.cinema.facility.entity.Room;
-import com.uit.cinema.facility.entity.SeatTemplate;
-import com.uit.cinema.facility.entity.SeatType;
-import com.uit.cinema.facility.repository.RoomRepository;
-import com.uit.cinema.facility.repository.SeatTemplateRepository;
-import com.uit.cinema.showtime.entity.Showtime;
-import com.uit.cinema.showtime.entity.ShowtimeSeat;
-import com.uit.cinema.showtime.repository.ShowtimeRepository;
-import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.catalog.service.CatalogReadService;
+import com.uit.cinema.catalog.service.contract.CatalogContentView;
+import com.uit.cinema.facility.service.FacilityReadService;
+import com.uit.cinema.facility.service.contract.FacilityRoomView;
+import com.uit.cinema.facility.service.contract.FacilitySeatTemplateView;
+import com.uit.cinema.showtime.service.SeatReservationService;
+import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
+import com.uit.cinema.showtime.service.contract.ShowtimeSeatView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -30,25 +25,22 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class OrderResponseMapper {
 
-    private final ShowtimeRepository showtimeRepository;
-    private final ShowtimeSeatRepository showtimeSeatRepository;
-    private final SeatTemplateRepository seatTemplateRepository;
-    private final MovieRepository movieRepository;
-    private final EventRepository eventRepository;
-    private final RoomRepository roomRepository;
+    private final SeatReservationService seatReservationService;
+    private final CatalogReadService catalogReadService;
+    private final FacilityReadService facilityReadService;
     private final TicketRepository ticketRepository;
 
     public OrderResponse toResponse(Order order) {
-        Optional<Showtime> showtime = showtimeRepository.findById(order.getShowtimeId());
-        Optional<Movie> movie = showtime.map(Showtime::getMovieId)
-            .filter(java.util.Objects::nonNull)
-            .flatMap(movieRepository::findById);
-        Optional<Event> event = showtime.map(Showtime::getEventId)
-            .filter(java.util.Objects::nonNull)
-            .flatMap(eventRepository::findById);
-        Optional<Room> room = showtime.flatMap(value -> roomRepository.findById(value.getRoomId()));
-        Cinema cinema = room.map(Room::getCinema).orElse(null);
-        String displayTitle = movie.map(Movie::getTitle).orElseGet(() -> event.map(Event::getName).orElse("Showtime #" + order.getShowtimeId()));
+        Optional<ShowtimeScheduleView> showtime = seatReservationService.findSchedule(order.getShowtimeId());
+        Optional<CatalogContentView> movie = showtime.map(ShowtimeScheduleView::movieId)
+            .flatMap(catalogReadService::findMovie);
+        Optional<CatalogContentView> event = showtime.map(ShowtimeScheduleView::eventId)
+            .flatMap(catalogReadService::findEvent);
+        Optional<FacilityRoomView> room = showtime.map(ShowtimeScheduleView::roomId)
+            .flatMap(facilityReadService::findRoom);
+
+        String displayTitle = movie.map(CatalogContentView::title)
+            .orElseGet(() -> event.map(CatalogContentView::title).orElse("Showtime #" + order.getShowtimeId()));
         String displayType = movie.isPresent() ? "MOVIE" : event.isPresent() ? "EVENT" : "SHOWTIME";
 
         List<Long> seatIds = parseSeatIds(order.getSeatIdsSnapshot());
@@ -70,18 +62,18 @@ public class OrderResponseMapper {
             .id(order.getId())
             .userId(order.getUserId())
             .showtimeId(order.getShowtimeId())
-            .movieId(showtime.map(Showtime::getMovieId).orElse(null))
-            .movieTitle(movie.map(Movie::getTitle).orElse(null))
-            .eventId(showtime.map(Showtime::getEventId).orElse(null))
-            .eventTitle(event.map(Event::getName).orElse(null))
+            .movieId(showtime.map(ShowtimeScheduleView::movieId).orElse(null))
+            .movieTitle(movie.map(CatalogContentView::title).orElse(null))
+            .eventId(showtime.map(ShowtimeScheduleView::eventId).orElse(null))
+            .eventTitle(event.map(CatalogContentView::title).orElse(null))
             .displayTitle(displayTitle)
             .displayType(displayType)
-            .roomId(showtime.map(Showtime::getRoomId).orElse(null))
-            .roomName(room.map(Room::getName).orElse(null))
-            .cinemaId(cinema != null ? cinema.getId() : null)
-            .cinemaName(cinema != null ? cinema.getName() : null)
-            .startTime(showtime.map(Showtime::getStartTime).orElse(null))
-            .endTime(showtime.map(Showtime::getEndTime).orElse(null))
+            .roomId(showtime.map(ShowtimeScheduleView::roomId).orElse(null))
+            .roomName(room.map(FacilityRoomView::roomName).orElse(null))
+            .cinemaId(room.map(FacilityRoomView::cinemaId).orElse(null))
+            .cinemaName(room.map(FacilityRoomView::cinemaName).orElse(null))
+            .startTime(showtime.map(ShowtimeScheduleView::startTime).orElse(null))
+            .endTime(showtime.map(ShowtimeScheduleView::endTime).orElse(null))
             .seatIds(seatIds)
             .seatLabels(seatMap.values().stream().map(OrderResponse.OrderSeatResponse::getLabel).toList())
             .seats(List.copyOf(seatMap.values()))
@@ -103,32 +95,30 @@ public class OrderResponseMapper {
     }
 
     private OrderResponse.OrderSeatResponse toSeatResponse(Long seatId) {
-        return showtimeSeatRepository.findById(seatId)
-            .map(seat -> {
-                SeatTemplate template = seatTemplateRepository.findById(seat.getSeatTemplateId()).orElse(null);
-                SeatType seatType = template != null ? template.getSeatType() : null;
-                SeatType.SeatTypeCode code = seatType != null && seatType.getCode() != null
-                    ? seatType.getCode()
-                    : SeatType.SeatTypeCode.STANDARD;
-                String label = template != null ? template.getRowLabel() + template.getColumnNumber() : String.valueOf(seatId);
-                Integer columnSpan = template != null && template.getColumnSpan() != null
-                    ? template.getColumnSpan()
-                    : seatType != null && seatType.getDefaultColumnSpan() != null ? seatType.getDefaultColumnSpan() : 1;
+        Optional<ShowtimeSeatView> seat = seatReservationService.findSeat(seatId);
+        if (seat.isEmpty()) {
+            return null;
+        }
 
-                return OrderResponse.OrderSeatResponse.builder()
-                    .seatId(seat.getId())
-                    .seatTemplateId(seat.getSeatTemplateId())
-                    .label(label)
-                    .rowLabel(template != null ? template.getRowLabel() : null)
-                    .columnNumber(template != null ? template.getColumnNumber() : null)
-                    .seatType(code.name().toLowerCase())
-                    .seatTypeCode(code.name())
-                    .seatTypeName(seatType != null && seatType.getDisplayName() != null ? seatType.getDisplayName() : toDisplayName(code))
-                    .columnSpan(columnSpan)
-                    .price(seat.getPrice())
-                    .build();
-            })
-            .orElse(null);
+        Optional<FacilitySeatTemplateView> template = facilityReadService.findSeatTemplate(seat.get().seatTemplateId());
+        String label = template.map(FacilitySeatTemplateView::label).orElse(String.valueOf(seatId));
+        String seatType = template.map(FacilitySeatTemplateView::seatType).orElse("standard");
+        String seatTypeCode = template.map(FacilitySeatTemplateView::seatTypeCode).orElse("STANDARD");
+        String seatTypeName = template.map(FacilitySeatTemplateView::seatTypeName).orElse("Standard");
+        Integer columnSpan = template.map(FacilitySeatTemplateView::columnSpan).orElse(1);
+
+        return OrderResponse.OrderSeatResponse.builder()
+            .seatId(seat.get().seatId())
+            .seatTemplateId(seat.get().seatTemplateId())
+            .label(label)
+            .rowLabel(template.map(FacilitySeatTemplateView::rowLabel).orElse(null))
+            .columnNumber(template.map(FacilitySeatTemplateView::columnNumber).orElse(null))
+            .seatType(seatType)
+            .seatTypeCode(seatTypeCode)
+            .seatTypeName(seatTypeName)
+            .columnSpan(columnSpan)
+            .price(seat.get().price() != null ? seat.get().price() : BigDecimal.ZERO)
+            .build();
     }
 
     private OrderResponse.OrderTicketResponse toTicketResponse(Ticket ticket, OrderResponse.OrderSeatResponse seat) {
@@ -154,13 +144,5 @@ public class OrderResponseMapper {
             .filter(value -> !value.isEmpty())
             .map(Long::valueOf)
             .toList();
-    }
-
-    private String toDisplayName(SeatType.SeatTypeCode code) {
-        return switch (code) {
-            case VIP -> "VIP";
-            case COUPLE -> "Couple";
-            case STANDARD -> "Standard";
-        };
     }
 }

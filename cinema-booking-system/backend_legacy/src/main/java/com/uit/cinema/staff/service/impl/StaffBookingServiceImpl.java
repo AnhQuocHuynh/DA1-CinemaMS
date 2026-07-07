@@ -11,10 +11,12 @@ import com.uit.cinema.booking.service.TicketGenerationService;
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.iam.entity.User;
 import com.uit.cinema.iam.repository.UserRepository;
-import com.uit.cinema.showtime.entity.Showtime;
-import com.uit.cinema.showtime.entity.ShowtimeSeat;
-import com.uit.cinema.showtime.repository.ShowtimeRepository;
-import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.showtime.service.SeatReservationService;
+import com.uit.cinema.showtime.service.contract.SeatBookingRequest;
+import com.uit.cinema.showtime.service.contract.SeatBookingResult;
+import com.uit.cinema.showtime.service.contract.SeatHoldValidationResult;
+import com.uit.cinema.showtime.service.contract.SeatView;
+import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
 import com.uit.cinema.staff.dto.request.StaffCounterBookingRequest;
 import com.uit.cinema.staff.service.StaffBookingService;
 import lombok.RequiredArgsConstructor;
@@ -24,9 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,24 +40,22 @@ public class StaffBookingServiceImpl implements StaffBookingService {
 
     private final OrderRepository orderRepository;
     private final VoucherRepository voucherRepository;
-    private final ShowtimeRepository showtimeRepository;
-    private final ShowtimeSeatRepository showtimeSeatRepository;
     private final UserRepository userRepository;
     private final TicketGenerationService ticketGenerationService;
     private final OrderResponseMapper orderResponseMapper;
+    private final SeatReservationService seatReservationService;
 
     @Override
     @Transactional
     public OrderResponse createCounterBooking(StaffCounterBookingRequest request, Long staffId) {
         validateRequest(request);
-        Showtime showtime = showtimeRepository.findById(request.getShowtimeId())
-            .orElseThrow(() -> new CustomException("Showtime not found", HttpStatus.NOT_FOUND, "SHOWTIME_NOT_FOUND"));
+        ShowtimeScheduleView showtime = seatReservationService.getSchedule(request.getShowtimeId());
         validateShowtimeBookable(showtime);
 
-        List<ShowtimeSeat> seats = loadAvailableSeats(showtime.getId(), request.getSeatIds());
-        BigDecimal total = seats.stream()
-            .map(seat -> seat.getPrice() != null ? seat.getPrice() : BigDecimal.ZERO)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        SeatHoldValidationResult seatValidation = seatReservationService.validateAvailableSeats(
+            new SeatBookingRequest(staffId, showtime.showtimeId(), request.getSeatIds())
+        );
+        BigDecimal total = seatValidation.totalAmount();
 
         Voucher voucher = resolveVoucher(request.getVoucherCode());
         BigDecimal discount = voucher != null ? calculateDiscount(voucher, total) : BigDecimal.ZERO;
@@ -70,7 +71,7 @@ public class StaffBookingServiceImpl implements StaffBookingService {
 
         Order order = Order.builder()
             .userId(walkInUser.getId())
-            .showtimeId(showtime.getId())
+            .showtimeId(showtime.showtimeId())
             .seatIdsSnapshot(joinSeatIds(request.getSeatIds()))
             .voucherId(voucher != null ? voucher.getId() : null)
             .totalAmount(total)
@@ -86,14 +87,18 @@ public class StaffBookingServiceImpl implements StaffBookingService {
             .build();
 
         Order savedOrder = orderRepository.save(order);
-        for (ShowtimeSeat seat : seats) {
-            seat.setStatus(ShowtimeSeat.SeatStatus.BOOKED);
-            showtimeSeatRepository.save(seat);
+        SeatBookingResult bookingResult = seatReservationService.bookAvailableSeats(
+            new SeatBookingRequest(staffId, showtime.showtimeId(), request.getSeatIds())
+        );
+        Map<Long, SeatView> seatsById = bookingResult.seats().stream()
+            .collect(Collectors.toMap(SeatView::seatId, Function.identity()));
 
+        for (Long seatId : request.getSeatIds()) {
+            SeatView seat = seatsById.get(seatId);
             Ticket ticket = Ticket.builder()
                 .order(savedOrder)
-                .showtimeSeatId(seat.getId())
-                .price(seat.getPrice())
+                .showtimeSeatId(seatId)
+                .price(seat != null ? seat.price() : BigDecimal.ZERO)
                 .status(Ticket.TicketStatus.VALID)
                 .build();
             ticketGenerationService.generateTicket(ticket);
@@ -111,29 +116,13 @@ public class StaffBookingServiceImpl implements StaffBookingService {
         }
     }
 
-    private void validateShowtimeBookable(Showtime showtime) {
-        if (showtime.getStatus() == Showtime.Status.CANCELLED || showtime.getStatus() == Showtime.Status.ENDED) {
+    private void validateShowtimeBookable(ShowtimeScheduleView showtime) {
+        if ("CANCELLED".equals(showtime.status()) || "ENDED".equals(showtime.status())) {
             throw new CustomException("Showtime is not bookable", HttpStatus.BAD_REQUEST, "SHOWTIME_NOT_BOOKABLE");
         }
-        if (showtime.getEndTime() != null && !showtime.getEndTime().isAfter(LocalDateTime.now())) {
+        if (showtime.endTime() != null && !showtime.endTime().isAfter(LocalDateTime.now())) {
             throw new CustomException("Showtime has ended", HttpStatus.BAD_REQUEST, "SHOWTIME_ENDED");
         }
-    }
-
-    private List<ShowtimeSeat> loadAvailableSeats(Long showtimeId, List<Long> seatIds) {
-        List<ShowtimeSeat> seats = new ArrayList<>();
-        for (Long seatId : seatIds) {
-            ShowtimeSeat seat = showtimeSeatRepository.findById(seatId)
-                .orElseThrow(() -> new CustomException("Seat not found", HttpStatus.NOT_FOUND, "SEAT_NOT_FOUND"));
-            if (!showtimeId.equals(seat.getShowtimeId())) {
-                throw new CustomException("Seat does not belong to showtime", HttpStatus.BAD_REQUEST, "SEAT_SHOWTIME_MISMATCH");
-            }
-            if (seat.getStatus() != ShowtimeSeat.SeatStatus.AVAILABLE) {
-                throw new CustomException("Seat is not available", HttpStatus.CONFLICT, "SEAT_NOT_AVAILABLE");
-            }
-            seats.add(seat);
-        }
-        return seats;
     }
 
     private Voucher resolveVoucher(String voucherCode) {

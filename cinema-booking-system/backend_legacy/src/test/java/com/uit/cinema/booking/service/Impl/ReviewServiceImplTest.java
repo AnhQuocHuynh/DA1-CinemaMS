@@ -9,11 +9,10 @@ import com.uit.cinema.booking.entity.Review;
 import com.uit.cinema.booking.mapper.ReviewMapper;
 import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.ReviewRepository;
-import com.uit.cinema.catalog.repository.EventRepository;
-import com.uit.cinema.catalog.repository.MovieRepository;
+import com.uit.cinema.catalog.service.CatalogReadService;
 import com.uit.cinema.core.exception.CustomException;
-import com.uit.cinema.showtime.entity.Showtime;
-import com.uit.cinema.showtime.repository.ShowtimeRepository;
+import com.uit.cinema.showtime.service.SeatReservationService;
+import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,9 +23,14 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ReviewServiceImplTest {
@@ -38,16 +42,12 @@ class ReviewServiceImplTest {
     @Mock
     private OrderRepository orderRepository;
     @Mock
-    private ShowtimeRepository showtimeRepository;
+    private SeatReservationService seatReservationService;
     @Mock
-    private MovieRepository movieRepository;
-    @Mock
-    private EventRepository eventRepository;
+    private CatalogReadService catalogReadService;
 
     @InjectMocks
     private ReviewServiceImpl reviewService;
-
-    // --- createReview Tests ---
 
     @Test
     void createReview_WithMovie_Success() {
@@ -56,24 +56,20 @@ class ReviewServiceImplTest {
         request.setMovieId(1L);
         request.setRating(5);
         request.setComment("Great movie!");
-        when(movieRepository.existsById(1L)).thenReturn(true);
+        when(catalogReadService.movieExists(1L)).thenReturn(true);
         when(reviewRepository.existsByUserIdAndMovieId(1L, 1L)).thenReturn(false);
 
         Order paidOrder = new Order();
         paidOrder.setStatus(Order.OrderStatus.PAID);
         paidOrder.setShowtimeId(1L);
         when(orderRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(paidOrder));
-
-        Showtime showtime = new Showtime();
-        showtime.setMovieId(1L);
-        showtime.setEndTime(LocalDateTime.now().minusHours(1)); // Watched
-        when(showtimeRepository.findById(1L)).thenReturn(Optional.of(showtime));
+        when(seatReservationService.findSchedule(1L)).thenReturn(Optional.of(scheduleForMovie(1L, LocalDateTime.now().minusHours(2), "ENDED")));
 
         Review review = new Review();
         review.setId(1L);
         when(reviewMapper.toEntity(request)).thenReturn(review);
         when(reviewRepository.save(any(Review.class))).thenReturn(review);
-        
+
         ReviewResponse mockResponse = new ReviewResponse();
         when(reviewMapper.toResponse(review)).thenReturn(mockResponse);
 
@@ -90,7 +86,7 @@ class ReviewServiceImplTest {
         request.setMovieId(1L);
         request.setRating(5);
         request.setComment("Great movie!");
-        when(movieRepository.existsById(1L)).thenReturn(true);
+        when(catalogReadService.movieExists(1L)).thenReturn(true);
         when(reviewRepository.existsByUserIdAndMovieId(1L, 1L)).thenReturn(true);
 
         CustomException exception = assertThrows(CustomException.class, () -> reviewService.createReview(request));
@@ -110,22 +106,16 @@ class ReviewServiceImplTest {
         assertEquals("REVIEW_TARGET_INVALID", exception.getErrorCode());
     }
 
-    // --- getMovieEligibility Tests ---
-
     @Test
     void getMovieEligibility_WhenEligible_ReturnsTrue() {
-        when(movieRepository.existsById(1L)).thenReturn(true);
+        when(catalogReadService.movieExists(1L)).thenReturn(true);
         when(reviewRepository.existsByUserIdAndMovieId(1L, 1L)).thenReturn(false);
 
         Order paidOrder = new Order();
         paidOrder.setStatus(Order.OrderStatus.PAID);
         paidOrder.setShowtimeId(10L);
         when(orderRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(paidOrder));
-
-        Showtime showtime = new Showtime();
-        showtime.setMovieId(1L);
-        showtime.setEndTime(LocalDateTime.now().minusHours(2)); // Already finished
-        when(showtimeRepository.findById(10L)).thenReturn(Optional.of(showtime));
+        when(seatReservationService.findSchedule(10L)).thenReturn(Optional.of(scheduleForMovie(1L, LocalDateTime.now().minusHours(2), "ENDED")));
 
         ReviewEligibilityResponse eligibility = reviewService.getMovieEligibility(1L, 1L);
 
@@ -137,18 +127,14 @@ class ReviewServiceImplTest {
 
     @Test
     void getMovieEligibility_WhenNotWatched_ReturnsFalse() {
-        when(movieRepository.existsById(1L)).thenReturn(true);
+        when(catalogReadService.movieExists(1L)).thenReturn(true);
         when(reviewRepository.existsByUserIdAndMovieId(1L, 1L)).thenReturn(false);
 
         Order paidOrder = new Order();
         paidOrder.setStatus(Order.OrderStatus.PAID);
         paidOrder.setShowtimeId(10L);
         when(orderRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(paidOrder));
-
-        Showtime showtime = new Showtime();
-        showtime.setMovieId(1L);
-        showtime.setEndTime(LocalDateTime.now().plusHours(2)); // In the future
-        when(showtimeRepository.findById(10L)).thenReturn(Optional.of(showtime));
+        when(seatReservationService.findSchedule(10L)).thenReturn(Optional.of(scheduleForMovie(1L, LocalDateTime.now().plusHours(4), "SCHEDULED")));
 
         ReviewEligibilityResponse eligibility = reviewService.getMovieEligibility(1L, 1L);
 
@@ -160,7 +146,7 @@ class ReviewServiceImplTest {
 
     @Test
     void getMovieEligibility_WhenNoPaidTicket_ReturnsFalse() {
-        when(movieRepository.existsById(1L)).thenReturn(true);
+        when(catalogReadService.movieExists(1L)).thenReturn(true);
         when(reviewRepository.existsByUserIdAndMovieId(1L, 1L)).thenReturn(false);
 
         Order unpaidOrder = new Order();
@@ -174,8 +160,6 @@ class ReviewServiceImplTest {
         assertEquals("REVIEW_REQUIRES_PAID_TICKET", eligibility.getReasonCode());
     }
 
-    // --- getMovieInsight Tests ---
-
     @Test
     void getMovieInsight_CalculatesAverageAndDistribution() {
         Review r1 = new Review(); r1.setRating(5);
@@ -183,7 +167,7 @@ class ReviewServiceImplTest {
         Review r3 = new Review(); r3.setRating(2);
 
         when(reviewRepository.findByMovieIdAndStatusOrderByCreatedAtDesc(1L, Review.ReviewStatus.VISIBLE))
-                .thenReturn(List.of(r1, r2, r3));
+            .thenReturn(List.of(r1, r2, r3));
 
         ReviewInsightResponse insight = reviewService.getMovieInsight(1L);
 
@@ -192,5 +176,17 @@ class ReviewServiceImplTest {
         assertEquals(2, insight.getFiveStarCount());
         assertEquals(1, insight.getTwoStarCount());
         assertEquals(0, insight.getOneStarCount());
+    }
+
+    private ShowtimeScheduleView scheduleForMovie(Long movieId, LocalDateTime endTime, String status) {
+        return new ShowtimeScheduleView(
+            10L,
+            movieId,
+            null,
+            2L,
+            endTime.minusHours(2),
+            endTime,
+            status
+        );
     }
 }
