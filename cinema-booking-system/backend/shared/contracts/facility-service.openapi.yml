@@ -1,0 +1,363 @@
+openapi: 3.0.3
+info:
+  title: Cinema Facility Service API
+  version: 0.1.0
+  description: Draft contract for the extracted Facility service.
+servers:
+  - url: http://localhost:5002
+paths:
+  /actuator/health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy.
+  /api/cinemas:
+    get:
+      summary: List active cinemas
+      responses:
+        "200":
+          description: Active cinemas.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CinemaListApiResponse"
+    post:
+      summary: Create cinema
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CinemaRequest"
+      responses:
+        "200":
+          description: Created cinema.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CinemaApiResponse"
+  /api/cinemas/{cinemaId}:
+    get:
+      summary: Get cinema by id
+      parameters:
+        - $ref: "#/components/parameters/CinemaId"
+      responses:
+        "200":
+          description: Cinema details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CinemaApiResponse"
+    put:
+      summary: Update cinema
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CinemaId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CinemaRequest"
+      responses:
+        "200":
+          description: Updated cinema.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CinemaApiResponse"
+    delete:
+      summary: Soft delete cinema
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CinemaId"
+      responses:
+        "200":
+          description: Deleted cinema.
+  /api/cinemas/{cinemaId}/rooms:
+    get:
+      summary: List rooms by cinema
+      parameters:
+        - $ref: "#/components/parameters/CinemaId"
+      responses:
+        "200":
+          description: Rooms.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomListApiResponse"
+    post:
+      summary: Create room
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CinemaId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomRequest"
+      responses:
+        "200":
+          description: Created room.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomApiResponse"
+  /api/cinemas/{cinemaId}/rooms/{roomId}:
+    get:
+      summary: Get room by id
+      parameters:
+        - $ref: "#/components/parameters/CinemaId"
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: Room details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomApiResponse"
+    put:
+      summary: Update room
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CinemaId"
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomRequest"
+      responses:
+        "200":
+          description: Updated room.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomApiResponse"
+    delete:
+      summary: Soft delete room
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CinemaId"
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: Deleted room.
+  /api/cinemas/{cinemaId}/rooms/{roomId}/seats:
+    get:
+      summary: Get room seat map template
+      parameters:
+        - $ref: "#/components/parameters/CinemaId"
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: Seat templates.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeatTemplateListApiResponse"
+    put:
+      summary: Replace room seat map template
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CinemaId"
+        - $ref: "#/components/parameters/RoomId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeatMapUpdateRequest"
+      responses:
+        "200":
+          description: Updated seat map.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    CinemaId:
+      name: cinemaId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    RoomId:
+      name: roomId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        code:
+          type: string
+        message:
+          type: string
+        data:
+          nullable: true
+    CinemaRequest:
+      type: object
+      required:
+        - name
+        - address
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        phone:
+          type: string
+        active:
+          type: boolean
+          default: true
+    CinemaResponse:
+      allOf:
+        - $ref: "#/components/schemas/CinemaRequest"
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+    RoomRequest:
+      type: object
+      required:
+        - cinemaId
+        - name
+      properties:
+        cinemaId:
+          type: integer
+          format: int64
+        name:
+          type: string
+        type:
+          type: string
+        totalSeats:
+          type: integer
+        rows:
+          type: integer
+        columns:
+          type: integer
+        active:
+          type: boolean
+          default: true
+        underMaintenance:
+          type: boolean
+          default: false
+    RoomResponse:
+      allOf:
+        - $ref: "#/components/schemas/RoomRequest"
+        - type: object
+          properties:
+            id:
+              type: integer
+              format: int64
+            cinemaName:
+              type: string
+    SeatTemplateRequest:
+      type: object
+      required:
+        - rowLabel
+        - columnNumber
+        - seatTypeCode
+      properties:
+        rowLabel:
+          type: string
+        columnNumber:
+          type: integer
+        seatTypeCode:
+          type: string
+    SeatMapUpdateRequest:
+      type: object
+      required:
+        - rows
+        - columns
+      properties:
+        rows:
+          type: integer
+          minimum: 1
+        columns:
+          type: integer
+          minimum: 1
+        seats:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeatTemplateRequest"
+    SeatTemplateResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        rowLabel:
+          type: string
+        columnNumber:
+          type: integer
+        seatTypeCode:
+          type: string
+        columnSpan:
+          type: integer
+        active:
+          type: boolean
+    CinemaApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CinemaResponse"
+    CinemaListApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/CinemaResponse"
+    RoomApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/RoomResponse"
+    RoomListApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/RoomResponse"
+    SeatTemplateListApiResponse:
+      allOf:
+        - $ref: "#/components/schemas/ApiResponse"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/SeatTemplateResponse"

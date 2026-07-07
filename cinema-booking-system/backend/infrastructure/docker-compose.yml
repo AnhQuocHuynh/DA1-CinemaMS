@@ -1,17 +1,149 @@
-# port allocations:
-#| Service | Internal Port | External (via Gateway) |
-#| API Gateway  5000 | 443 (HTTPS) / 80 (HTTP) |
-#| Identity Service | 5001 | — |
-#| Facility Service | 5002 | — |
-#| Payment Service | 5003 | — |
-#| Notification Service | 5004 | — |
-#| Catalog Service | 8081 | — |
-#| Showtime Service | 8082 | — |
-#| Booking Service | 8083 | — |
-#| Analytics Service | 8084 | — |
-#| Recommendation Service | 8085 | — |
-#| PostgreSQL | 5432 | — |
-#| Redis | 6379 | — |
-#| RabbitMQ | 5672 (AMQP) / 15672 (UI) | — |
-#| ClickHouse | 8123 (HTTP) / 9000 (native) | — |
-#| Neo4j | 7474 (Browser) / 7687 (Bolt)
+name: cinema-backend-services
+
+services:
+  catalog-db:
+    image: postgres:16-alpine
+    container_name: cinema-catalog-db
+    environment:
+      POSTGRES_DB: cinema_catalog_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123"
+    ports:
+      # Host port 5433 avoids colliding with the legacy monolith DB on 5432.
+      - "5433:5432"
+    volumes:
+      - catalog_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cinema_catalog_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cinema-services
+
+  catalog-service:
+    build:
+      context: ..
+      dockerfile: services/catalog-service/Dockerfile
+    container_name: cinema-catalog-service
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://catalog-db:5432/cinema_catalog_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: "123"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - "8081:8081"
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+    networks:
+      - cinema-services
+
+  facility-db:
+    image: postgres:16-alpine
+    container_name: cinema-facility-db
+    environment:
+      POSTGRES_DB: cinema_facility_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123"
+    ports:
+      - "5434:5432"
+    volumes:
+      - facility_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cinema_facility_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cinema-services
+
+  facility-service:
+    build:
+      context: ..
+      dockerfile: services/facility-service/Dockerfile
+    container_name: cinema-facility-service
+    environment:
+      SERVER_PORT: 5002
+      SPRING_DATASOURCE_URL: jdbc:postgresql://facility-db:5432/cinema_facility_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: "123"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - "5002:5002"
+    depends_on:
+      facility-db:
+        condition: service_healthy
+    networks:
+      - cinema-services
+
+  showtime-db:
+    image: postgres:16-alpine
+    container_name: cinema-showtime-db
+    environment:
+      POSTGRES_DB: cinema_showtime_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123"
+    ports:
+      - "5435:5432"
+    volumes:
+      - showtime_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cinema_showtime_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cinema-services
+
+  showtime-redis:
+    image: redis:7-alpine
+    container_name: cinema-showtime-redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cinema-services
+
+  showtime-service:
+    build:
+      context: ..
+      dockerfile: services/showtime-service/Dockerfile
+    container_name: cinema-showtime-service
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://showtime-db:5432/cinema_showtime_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: "123"
+      SPRING_DATA_REDIS_HOST: showtime-redis
+      SPRING_DATA_REDIS_PORT: 6379
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      FACILITY_SERVICE_URL: http://facility-service:5002
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - "8082:8082"
+    depends_on:
+      catalog-service:
+        condition: service_started
+      facility-service:
+        condition: service_started
+      showtime-db:
+        condition: service_healthy
+      showtime-redis:
+        condition: service_healthy
+    networks:
+      - cinema-services
+
+volumes:
+  catalog_db_data:
+  facility_db_data:
+  showtime_db_data:
+
+networks:
+  cinema-services:
+    name: cinema-services

@@ -1,0 +1,293 @@
+openapi: 3.0.3
+info:
+  title: Cinema Showtime Service API
+  version: 0.1.0
+  description: Draft contract for the extracted Showtime service.
+servers:
+  - url: http://localhost:8082
+paths:
+  /actuator/health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy.
+  /api/showtimes/movie/{movieId}:
+    get:
+      summary: List showtimes by movie
+      parameters:
+        - $ref: "#/components/parameters/MovieId"
+      responses:
+        "200":
+          description: Movie showtimes.
+  /api/showtimes/event/{eventId}:
+    get:
+      summary: List showtimes by event
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      responses:
+        "200":
+          description: Event showtimes.
+  /api/showtimes/room/{roomId}:
+    get:
+      summary: List showtimes by room
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: Room showtimes.
+  /api/showtimes/{showtimeId}:
+    get:
+      summary: Get showtime by id
+      parameters:
+        - $ref: "#/components/parameters/ShowtimeId"
+      responses:
+        "200":
+          description: Showtime details.
+    delete:
+      summary: Delete showtime
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ShowtimeId"
+      responses:
+        "200":
+          description: Deleted showtime.
+  /api/showtimes/{showtimeId}/seats:
+    get:
+      summary: Get realtime seat map
+      parameters:
+        - $ref: "#/components/parameters/ShowtimeId"
+      responses:
+        "200":
+          description: Showtime seats.
+  /api/showtimes/{showtimeId}/hold:
+    post:
+      summary: Hold seats for a user
+      parameters:
+        - $ref: "#/components/parameters/ShowtimeId"
+        - name: X-User-Id
+          in: header
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeatIdsRequest"
+      responses:
+        "200":
+          description: Seats held.
+    delete:
+      summary: Release held seats
+      parameters:
+        - $ref: "#/components/parameters/ShowtimeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeatIdsRequest"
+      responses:
+        "200":
+          description: Seat holds released.
+  /api/showtimes:
+    post:
+      summary: Create showtime
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShowtimeRequest"
+      responses:
+        "200":
+          description: Created showtime.
+  /internal/showtimes/{showtimeId}/schedule:
+    get:
+      summary: Internal schedule projection for Booking
+      parameters:
+        - $ref: "#/components/parameters/ShowtimeId"
+      responses:
+        "200":
+          description: Schedule projection.
+  /internal/showtimes/seats/{seatId}:
+    get:
+      summary: Internal seat projection for Booking
+      parameters:
+        - name: seatId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Seat projection.
+  /internal/showtimes/seats/validate-held:
+    post:
+      summary: Validate held seats for online order creation/payment
+      requestBody:
+        $ref: "#/components/requestBodies/SeatBookingRequest"
+      responses:
+        "200":
+          description: Validation result.
+  /internal/showtimes/seats/validate-available:
+    post:
+      summary: Validate available seats for staff booking
+      requestBody:
+        $ref: "#/components/requestBodies/SeatBookingRequest"
+      responses:
+        "200":
+          description: Validation result.
+  /internal/showtimes/seats/confirm-held:
+    post:
+      summary: Confirm held seats as booked
+      requestBody:
+        $ref: "#/components/requestBodies/SeatBookingRequest"
+      responses:
+        "200":
+          description: Booking result.
+  /internal/showtimes/seats/book-available:
+    post:
+      summary: Book available seats directly
+      requestBody:
+        $ref: "#/components/requestBodies/SeatBookingRequest"
+      responses:
+        "200":
+          description: Booking result.
+  /internal/showtimes/seats/release-held:
+    post:
+      summary: Release held seats
+      requestBody:
+        $ref: "#/components/requestBodies/SeatBookingRequest"
+      responses:
+        "200":
+          description: Released.
+  /internal/showtimes/seats/release-booked:
+    post:
+      summary: Release booked seats after refund/cancel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeatReleaseRequest"
+      responses:
+        "200":
+          description: Released.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ShowtimeId:
+      name: showtimeId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    MovieId:
+      name: movieId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    RoomId:
+      name: roomId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+  requestBodies:
+    SeatBookingRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SeatBookingRequest"
+  schemas:
+    ShowtimeRequest:
+      type: object
+      required:
+        - roomId
+        - startTime
+        - endTime
+        - basePrice
+      properties:
+        roomId:
+          type: integer
+          format: int64
+        movieId:
+          type: integer
+          format: int64
+        eventId:
+          type: integer
+          format: int64
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        basePrice:
+          type: number
+    SeatIdsRequest:
+      type: object
+      required:
+        - seatIds
+      properties:
+        seatIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+    SeatBookingRequest:
+      type: object
+      required:
+        - userId
+        - showtimeId
+        - seatIds
+      properties:
+        userId:
+          type: integer
+          format: int64
+        showtimeId:
+          type: integer
+          format: int64
+        seatIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+    SeatReleaseRequest:
+      type: object
+      required:
+        - showtimeId
+        - seatIds
+      properties:
+        showtimeId:
+          type: integer
+          format: int64
+        seatIds:
+          type: array
+          items:
+            type: integer
+            format: int64
