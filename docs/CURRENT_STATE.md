@@ -1,0 +1,106 @@
+# Current State
+
+## Snapshot
+
+- Date of handoff: 2026-07-08.
+- Branch: `refactor-backend`.
+- Runnable full backend remains `cinema-booking-system/backend_legacy/`.
+- `cinema-booking-system/backend/` now contains extracted `catalog-service`, `facility-service`, and `showtime-service` Spring Boot services.
+
+## Exact Repository State
+
+- `backend_legacy` is still the source of truth for the complete booking flow.
+- `backend` is a partial microservice migration target, not a full replacement yet.
+- Extracted services:
+  - `backend/services/catalog-service`
+  - `backend/services/facility-service`
+  - `backend/services/showtime-service`
+- Remaining service folders are placeholders unless documented otherwise.
+- `backend/infrastructure/docker-compose.yml` runs Catalog, Facility, and Showtime with separate PostgreSQL databases plus Showtime Redis.
+- `backend_legacy/src/main/resources/application.yml` now has a valid Base64 JWT default while preserving `APP_JWT_SECRET`.
+- `backend_legacy/src/main/resources/DB_PATCH_2026_06_25_SEAT_MAP.sql` is present in source.
+
+## Migration Notes
+
+- Booking/Payment/Staff have been reduced to use Showtime seat-reservation boundaries instead of direct showtime repositories.
+- Showtime now reads Catalog and Facility through read-service boundaries instead of direct cross-module repositories/entities.
+- Facility now checks future-showtime conflicts through `FacilityShowtimeGuard` instead of direct JPQL in service methods.
+- Standalone Facility currently fails closed for destructive room/cinema deletes until a Showtime client is wired.
+- Standalone Catalog currently uses a no-op `EventShowtimeClient`; event creation does not create showtimes until it is wired to Showtime.
+- Standalone Showtime reads Catalog/Facility through HTTP clients and exposes internal seat-reservation endpoints for future Booking extraction.
+
+## Commands To Verify
+
+From workspace root `D:\UNI_DOCS\HK6\DA1\DA1-CinemaMS`:
+
+```powershell
+git status --short
+```
+
+Legacy backend tests:
+
+```powershell
+cd cinema-booking-system\backend_legacy
+..\..\.codex-tools\apache-maven-3.9.9\bin\mvn.cmd test
+```
+
+Extracted service tests:
+
+```powershell
+cd cinema-booking-system\backend
+..\..\.codex-tools\apache-maven-3.9.9\bin\mvn.cmd test
+```
+
+Extracted service package:
+
+```powershell
+cd cinema-booking-system\backend
+..\..\.codex-tools\apache-maven-3.9.9\bin\mvn.cmd package -DskipTests
+```
+
+Docker compose syntax:
+
+```powershell
+cd cinema-booking-system\backend
+docker compose -f infrastructure\docker-compose.yml config
+```
+
+Frontend build:
+
+```powershell
+cd cinema-booking-system\frontend
+npm install
+npm run build
+```
+
+## Runtime Ports
+
+- Legacy backend DB: `localhost:5432/cinema_db`.
+- Catalog service: `localhost:8081`, DB `localhost:5433/cinema_catalog_db`.
+- Facility service: `localhost:5002`, DB `localhost:5434/cinema_facility_db`.
+- Showtime service: `localhost:8082`, DB `localhost:5435/cinema_showtime_db`, Redis `localhost:6380`.
+- Legacy Redis: `localhost:6379`.
+
+## Seed/Test Accounts
+
+From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
+
+- Admin: `admin@cinema.com` / `admin123`.
+- Staff: `staff@cinema.com` / `staff123`.
+- Customer: `customer@cinema.com` / `customer123`.
+- Locked customer: `locked@cinema.com` / `locked123`.
+
+## Known Verification Gaps
+
+- Frontend build was not rerun during the latest backend-service extraction.
+- Docker images were not built; compose syntax was validated.
+- Data backfill from `cinema_db` into per-service databases has not been implemented.
+- API gateway routing and JWT propagation are not wired yet.
+
+## Suggested Next Steps
+
+1. Wire Facility delete guard and Catalog event creation to Showtime.
+2. Extract `booking-service` next, using Showtime internal seat-reservation endpoints.
+3. Add idempotent data backfill scripts for `cinema_catalog_db`, `cinema_facility_db`, and `cinema_showtime_db`.
+4. Add contract tests before switching frontend traffic away from `backend_legacy`.
+5. Introduce API gateway routing only after service smoke tests pass.
