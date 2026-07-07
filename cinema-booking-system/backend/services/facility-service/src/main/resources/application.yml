@@ -20,6 +20,10 @@ spring:
 app:
   internal-token: ${INTERNAL_API_TOKEN:local-dev-internal-token}
 
+services:
+  showtime:
+    url: ${SHOWTIME_SERVICE_URL:http://localhost:8082}
+
 management:
   endpoints:
     web:

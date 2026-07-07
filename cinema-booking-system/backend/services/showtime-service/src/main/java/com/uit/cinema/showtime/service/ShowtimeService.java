@@ -13,6 +13,8 @@ public interface ShowtimeService {
     ShowtimeResponse getShowtimeById(Long id);
     List<ShowtimeSeatResponse> getSeatMap(Long showtimeId);
     ShowtimeSeatResponse getSeatById(Long seatId);
+    boolean hasFutureShowtimesForRoom(Long roomId);
+    boolean hasFutureShowtimesForRooms(List<Long> roomIds);
     ShowtimeResponse createShowtime(ShowtimeRequest request);
     void deleteShowtime(Long id);
 }

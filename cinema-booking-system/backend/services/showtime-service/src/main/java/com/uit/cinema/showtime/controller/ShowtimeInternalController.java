@@ -2,6 +2,8 @@ package com.uit.cinema.showtime.controller;
 
 import com.uit.cinema.core.dto.response.ApiResponse;
 import com.uit.cinema.showtime.service.SeatReservationService;
+import com.uit.cinema.showtime.service.ShowtimeService;
+import com.uit.cinema.showtime.service.contract.RoomShowtimeCheckRequest;
 import com.uit.cinema.showtime.service.contract.SeatBookingRequest;
 import com.uit.cinema.showtime.service.contract.SeatBookingResult;
 import com.uit.cinema.showtime.service.contract.SeatHoldValidationResult;
@@ -23,6 +25,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class ShowtimeInternalController {
 
     private final SeatReservationService seatReservationService;
+    private final ShowtimeService showtimeService;
+
+    @GetMapping("/rooms/{roomId}/future-exists")
+    public ResponseEntity<ApiResponse<Boolean>> hasFutureShowtimesForRoom(@PathVariable Long roomId) {
+        return ResponseEntity.ok(ApiResponse.success(showtimeService.hasFutureShowtimesForRoom(roomId)));
+    }
+
+    @PostMapping("/rooms/future-exists")
+    public ResponseEntity<ApiResponse<Boolean>> hasFutureShowtimesForRooms(
+        @RequestBody RoomShowtimeCheckRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(showtimeService.hasFutureShowtimesForRooms(request.roomIds())));
+    }
 
     @GetMapping("/{showtimeId}/schedule")
     public ResponseEntity<ApiResponse<ShowtimeScheduleView>> getSchedule(@PathVariable Long showtimeId) {

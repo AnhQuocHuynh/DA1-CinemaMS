@@ -30,8 +30,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
@@ -209,6 +211,26 @@ class ShowtimeServiceImplTest {
         ShowtimeSeatResponse result = showtimeService.getSeatById(10L);
 
         assertNotNull(result);
+    }
+
+    @Test
+    void hasFutureShowtimesForRoom_WhenRepositoryFindsMatch_ReturnsTrue() {
+        when(showtimeRepository.existsByRoomIdAndStartTimeAfterAndStatusNot(
+            eq(1L),
+            any(LocalDateTime.class),
+            eq(Showtime.Status.CANCELLED)
+        )).thenReturn(true);
+
+        boolean result = showtimeService.hasFutureShowtimesForRoom(1L);
+
+        assertTrue(result);
+    }
+
+    @Test
+    void hasFutureShowtimesForRooms_WhenRoomIdsEmpty_ReturnsFalse() {
+        boolean result = showtimeService.hasFutureShowtimesForRooms(List.of());
+
+        assertFalse(result);
     }
 
     private ShowtimeRequest movieShowtimeRequest() {

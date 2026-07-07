@@ -25,9 +25,9 @@
 - Booking/Payment/Staff have been reduced to use Showtime seat-reservation boundaries instead of direct showtime repositories.
 - Showtime now reads Catalog and Facility through read-service boundaries instead of direct cross-module repositories/entities.
 - Facility now checks future-showtime conflicts through `FacilityShowtimeGuard` instead of direct JPQL in service methods.
-- Standalone Facility currently fails closed for destructive room/cinema deletes until a Showtime client is wired.
+- Standalone Facility now queries Showtime internal guard endpoints for destructive room/cinema deletes and fails closed if Showtime is unavailable.
 - Standalone Catalog currently uses a no-op `EventShowtimeClient`; event creation does not create showtimes until it is wired to Showtime.
-- Standalone Showtime reads Catalog/Facility through HTTP clients and exposes internal seat-reservation endpoints for future Booking extraction.
+- Standalone Showtime reads Catalog/Facility through HTTP clients and exposes internal guard plus seat-reservation endpoints for future service extraction.
 
 ## Commands To Verify
 
@@ -99,7 +99,7 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 
 ## Suggested Next Steps
 
-1. Wire Facility delete guard and Catalog event creation to Showtime.
+1. Wire Catalog event creation to Showtime.
 2. Extract `booking-service` next, using Showtime internal seat-reservation endpoints.
 3. Add idempotent data backfill scripts for `cinema_catalog_db`, `cinema_facility_db`, and `cinema_showtime_db`.
 4. Add contract tests before switching frontend traffic away from `backend_legacy`.

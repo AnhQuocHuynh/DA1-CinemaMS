@@ -108,6 +108,30 @@ paths:
       responses:
         "200":
           description: Created showtime.
+  /internal/showtimes/rooms/{roomId}/future-exists:
+    get:
+      summary: Internal destructive-delete guard for Facility room deactivation
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: Whether future non-cancelled showtimes exist for the room.
+  /internal/showtimes/rooms/future-exists:
+    post:
+      summary: Internal destructive-delete guard for Facility cinema deactivation
+      security:
+        - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomShowtimeCheckRequest"
+      responses:
+        "200":
+          description: Whether future non-cancelled showtimes exist for any room.
   /internal/showtimes/{showtimeId}/schedule:
     get:
       summary: Internal schedule projection for Booking
@@ -275,6 +299,16 @@ components:
         - seatIds
       properties:
         seatIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+    RoomShowtimeCheckRequest:
+      type: object
+      required:
+        - roomIds
+      properties:
+        roomIds:
           type: array
           items:
             type: integer

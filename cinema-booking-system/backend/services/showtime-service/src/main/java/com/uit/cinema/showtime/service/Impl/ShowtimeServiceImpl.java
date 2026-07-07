@@ -94,6 +94,30 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     }
 
     @Override
+    public boolean hasFutureShowtimesForRoom(Long roomId) {
+        if (roomId == null) {
+            return false;
+        }
+        return showtimeRepository.existsByRoomIdAndStartTimeAfterAndStatusNot(
+            roomId,
+            LocalDateTime.now(),
+            Showtime.Status.CANCELLED
+        );
+    }
+
+    @Override
+    public boolean hasFutureShowtimesForRooms(List<Long> roomIds) {
+        if (roomIds == null || roomIds.isEmpty()) {
+            return false;
+        }
+        return showtimeRepository.existsByRoomIdInAndStartTimeAfterAndStatusNot(
+            roomIds,
+            LocalDateTime.now(),
+            Showtime.Status.CANCELLED
+        );
+    }
+
+    @Override
     @Transactional
     public ShowtimeResponse createShowtime(ShowtimeRequest request) {
         if (request.getMovieId() == null && request.getEventId() == null) {
