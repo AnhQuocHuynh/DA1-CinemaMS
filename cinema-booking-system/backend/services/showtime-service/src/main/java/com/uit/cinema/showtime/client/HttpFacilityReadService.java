@@ -20,9 +20,13 @@ public class HttpFacilityReadService implements FacilityReadService {
 
     public HttpFacilityReadService(
         RestClient.Builder builder,
-        @Value("${services.facility.url:http://localhost:5002}") String facilityBaseUrl
+        @Value("${services.facility.url:http://localhost:5002}") String facilityBaseUrl,
+        @Value("${app.internal-token}") String internalToken
     ) {
-        this.restClient = builder.baseUrl(facilityBaseUrl).build();
+        this.restClient = builder
+            .baseUrl(facilityBaseUrl)
+            .defaultHeader("X-Internal-Token", internalToken)
+            .build();
     }
 
     @Override

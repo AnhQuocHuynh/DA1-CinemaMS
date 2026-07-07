@@ -52,6 +52,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CatalogSearchApiResponse"
+  /internal/catalog/movies/{movieId}:
+    get:
+      summary: Internal movie projection for Showtime
+      security:
+        - internalToken: []
+      parameters:
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Movie projection.
+  /internal/catalog/events/{eventId}:
+    get:
+      summary: Internal event projection for Showtime
+      security:
+        - internalToken: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Event projection.
   /api/movies:
     get:
       summary: List active movies
@@ -222,6 +252,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
   parameters:
     Id:
       name: id

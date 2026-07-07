@@ -49,6 +49,8 @@ Showtime API:
 
 The host database ports are intentionally `5433`, `5434`, and `5435` so services can run beside the legacy monolith database on `5432`. Showtime Redis uses host port `6380` so it can run beside legacy Redis on `6379`.
 
+Internal service-to-service endpoints under `/internal/**` require `X-Internal-Token`. For local Docker, set `INTERNAL_API_TOKEN` or use the documented dev default `local-dev-internal-token`.
+
 ## Run Catalog Service Locally
 
 Start PostgreSQL with database `cinema_catalog_db`, then run:
@@ -64,6 +66,7 @@ Override connection settings with:
 - `SPRING_DATASOURCE_USERNAME`
 - `SPRING_DATASOURCE_PASSWORD`
 - `SERVER_PORT`
+- `INTERNAL_API_TOKEN`
 
 For Facility, use the same pattern from `services\facility-service`; the default service port is `5002` and the default database is `cinema_facility_db`.
 

@@ -12,6 +12,41 @@ paths:
       responses:
         "200":
           description: Service is healthy.
+  /internal/facility/rooms/{roomId}:
+    get:
+      summary: Internal room projection for Showtime
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: Room projection.
+  /internal/facility/seat-templates/{seatTemplateId}:
+    get:
+      summary: Internal seat-template projection for Showtime
+      security:
+        - internalToken: []
+      parameters:
+        - name: seatTemplateId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Seat-template projection.
+  /internal/facility/rooms/{roomId}/seat-templates:
+    get:
+      summary: Internal active seat templates by room for Showtime
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: Active seat-template projections.
   /api/cinemas:
     get:
       summary: List active cinemas
@@ -188,6 +223,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
   parameters:
     CinemaId:
       name: cinemaId

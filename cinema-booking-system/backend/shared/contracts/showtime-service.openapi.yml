@@ -111,6 +111,8 @@ paths:
   /internal/showtimes/{showtimeId}/schedule:
     get:
       summary: Internal schedule projection for Booking
+      security:
+        - internalToken: []
       parameters:
         - $ref: "#/components/parameters/ShowtimeId"
       responses:
@@ -119,6 +121,8 @@ paths:
   /internal/showtimes/seats/{seatId}:
     get:
       summary: Internal seat projection for Booking
+      security:
+        - internalToken: []
       parameters:
         - name: seatId
           in: path
@@ -132,6 +136,8 @@ paths:
   /internal/showtimes/seats/validate-held:
     post:
       summary: Validate held seats for online order creation/payment
+      security:
+        - internalToken: []
       requestBody:
         $ref: "#/components/requestBodies/SeatBookingRequest"
       responses:
@@ -140,6 +146,8 @@ paths:
   /internal/showtimes/seats/validate-available:
     post:
       summary: Validate available seats for staff booking
+      security:
+        - internalToken: []
       requestBody:
         $ref: "#/components/requestBodies/SeatBookingRequest"
       responses:
@@ -148,6 +156,8 @@ paths:
   /internal/showtimes/seats/confirm-held:
     post:
       summary: Confirm held seats as booked
+      security:
+        - internalToken: []
       requestBody:
         $ref: "#/components/requestBodies/SeatBookingRequest"
       responses:
@@ -156,6 +166,8 @@ paths:
   /internal/showtimes/seats/book-available:
     post:
       summary: Book available seats directly
+      security:
+        - internalToken: []
       requestBody:
         $ref: "#/components/requestBodies/SeatBookingRequest"
       responses:
@@ -164,6 +176,8 @@ paths:
   /internal/showtimes/seats/release-held:
     post:
       summary: Release held seats
+      security:
+        - internalToken: []
       requestBody:
         $ref: "#/components/requestBodies/SeatBookingRequest"
       responses:
@@ -172,6 +186,8 @@ paths:
   /internal/showtimes/seats/release-booked:
     post:
       summary: Release booked seats after refund/cancel
+      security:
+        - internalToken: []
       requestBody:
         required: true
         content:
@@ -187,6 +203,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
   parameters:
     ShowtimeId:
       name: showtimeId

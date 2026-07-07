@@ -17,6 +17,9 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+app:
+  internal-token: ${INTERNAL_API_TOKEN:local-dev-internal-token}
+
 management:
   endpoints:
     web:

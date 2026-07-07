@@ -18,9 +18,13 @@ public class HttpCatalogReadService implements CatalogReadService {
 
     public HttpCatalogReadService(
         RestClient.Builder builder,
-        @Value("${services.catalog.url:http://localhost:8081}") String catalogBaseUrl
+        @Value("${services.catalog.url:http://localhost:8081}") String catalogBaseUrl,
+        @Value("${app.internal-token}") String internalToken
     ) {
-        this.restClient = builder.baseUrl(catalogBaseUrl).build();
+        this.restClient = builder
+            .baseUrl(catalogBaseUrl)
+            .defaultHeader("X-Internal-Token", internalToken)
+            .build();
     }
 
     @Override
