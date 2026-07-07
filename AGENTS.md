@@ -7,7 +7,7 @@ Durable rules for agents working in this repository.
 - Main project directory: `cinema-booking-system/`.
 - Current branch at handoff: `refactor-n-decoupling`.
 - Treat `cinema-booking-system/backend_legacy/` as the complete runnable backend unless the user explicitly asks to continue the microservice refactor under `cinema-booking-system/backend/`.
-- `cinema-booking-system/backend/` contains extracted Spring Boot `catalog-service`, `facility-service`, and `showtime-service` slices. It is not yet a complete replacement for `backend_legacy`.
+- `cinema-booking-system/backend/` contains extracted Spring Boot `catalog-service`, `facility-service`, `showtime-service`, and `booking-service` slices. It is not yet a complete replacement for `backend_legacy`.
 
 ## Collaboration Rules
 - Do not commit unless the user explicitly asks.
@@ -23,7 +23,7 @@ Durable rules for agents working in this repository.
 - Backend modules live under `backend_legacy/src/main/java/com/uit/cinema/`: `core`, `iam`, `catalog`, `facility`, `showtime`, `booking`, `admin`, `staff`.
 - Use DTOs and MapStruct mappers where they already exist; keep controllers thin and business rules in services.
 - Database defaults are in `backend_legacy/src/main/resources/application.yml`: PostgreSQL `localhost:5432/cinema_db`, user `postgres`, password `123`; Redis `localhost:6379`.
-- JWT secret in `backend_legacy/src/main/resources/application.yml` is currently a placeholder default; local runs may need `APP_JWT_SECRET` set to a valid 256-bit Base64 value unless this file is fixed.
+- JWT secret in `backend_legacy/src/main/resources/application.yml` now has a valid Base64 default while still allowing `APP_JWT_SECRET` override.
 - Existing manual DB patch: `backend_legacy/src/main/resources/DB_PATCH_2026_06_24_STAFF_BOOKING.sql`.
 - A seat-map patch may be needed if an existing DB lacks `seat_templates.pathway`; see `docs/CURRENT_STATE.md`.
 

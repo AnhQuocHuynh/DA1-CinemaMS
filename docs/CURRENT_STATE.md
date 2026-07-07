@@ -3,9 +3,9 @@
 ## Snapshot
 
 - Date of handoff: 2026-07-08.
-- Branch: `refactor-backend`.
+- Branch: `refactor-n-decoupling`.
 - Runnable full backend remains `cinema-booking-system/backend_legacy/`.
-- `cinema-booking-system/backend/` now contains extracted `catalog-service`, `facility-service`, and `showtime-service` Spring Boot services.
+- `cinema-booking-system/backend/` now contains extracted `catalog-service`, `facility-service`, `showtime-service`, and `booking-service` Spring Boot services.
 
 ## Exact Repository State
 
@@ -15,8 +15,9 @@
   - `backend/services/catalog-service`
   - `backend/services/facility-service`
   - `backend/services/showtime-service`
+  - `backend/services/booking-service`
 - Remaining service folders are placeholders unless documented otherwise.
-- `backend/infrastructure/docker-compose.yml` runs Catalog, Facility, and Showtime with separate PostgreSQL databases plus Showtime Redis.
+- `backend/infrastructure/docker-compose.yml` runs Catalog, Facility, Showtime, and Booking with separate PostgreSQL databases plus Showtime Redis.
 - `backend_legacy/src/main/resources/application.yml` now has a valid Base64 JWT default while preserving `APP_JWT_SECRET`.
 - `backend_legacy/src/main/resources/DB_PATCH_2026_06_25_SEAT_MAP.sql` is present in source.
 
@@ -28,6 +29,7 @@
 - Standalone Facility now queries Showtime internal guard endpoints for destructive room/cinema deletes and fails closed if Showtime is unavailable.
 - Standalone Catalog now uses `EventShowtimeClient` over internal HTTP to create/delete event showtimes and fails closed if Showtime sync fails.
 - Standalone Showtime reads Catalog/Facility through HTTP clients and exposes internal command, guard, and seat-reservation endpoints for future service extraction.
+- Standalone Booking calls Showtime internal seat-reservation endpoints and uses Catalog/Facility internal projections for response enrichment.
 
 ## Commands To Verify
 
@@ -79,6 +81,7 @@ npm run build
 - Catalog service: `localhost:8081`, DB `localhost:5433/cinema_catalog_db`.
 - Facility service: `localhost:5002`, DB `localhost:5434/cinema_facility_db`.
 - Showtime service: `localhost:8082`, DB `localhost:5435/cinema_showtime_db`, Redis `localhost:6380`.
+- Booking service: `localhost:8083`, DB `localhost:5436/cinema_booking_db`.
 - Legacy Redis: `localhost:6379`.
 
 ## Seed/Test Accounts
@@ -99,7 +102,6 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 
 ## Suggested Next Steps
 
-1. Extract `booking-service` next, using Showtime internal seat-reservation endpoints.
-2. Add idempotent data backfill scripts for `cinema_catalog_db`, `cinema_facility_db`, and `cinema_showtime_db`.
-3. Add contract tests before switching frontend traffic away from `backend_legacy`.
-4. Introduce API gateway routing only after service smoke tests pass.
+1. Add idempotent data backfill scripts for `cinema_catalog_db`, `cinema_facility_db`, `cinema_showtime_db`, and `cinema_booking_db`.
+2. Add contract tests before switching frontend traffic away from `backend_legacy`.
+3. Introduce API gateway routing only after service smoke tests pass.

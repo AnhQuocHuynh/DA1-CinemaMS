@@ -4,7 +4,7 @@ Updated: 2026-07-08
 
 ## Safety Position
 
-`backend_legacy` remains the runnable full backend. `backend` now contains independently buildable Catalog, Facility, and Showtime slices, but the whole product is not cut over yet.
+`backend_legacy` remains the runnable full backend. `backend` now contains independently buildable Catalog, Facility, Showtime, and Booking slices, but the whole product is not cut over yet.
 
 ## Completed
 
@@ -12,12 +12,13 @@ Updated: 2026-07-08
 - Extracted `catalog-service` from `backend_legacy` into `backend/services/catalog-service`.
 - Extracted `facility-service` from `backend_legacy` into `backend/services/facility-service`.
 - Extracted `showtime-service` from `backend_legacy` into `backend/services/showtime-service`.
-- Added isolated Catalog, Facility, and Showtime application bootstraps, configuration, tests, Dockerfiles, and Docker Compose support.
+- Extracted `booking-service` from `backend_legacy` into `backend/services/booking-service`.
+- Added isolated Catalog, Facility, Showtime, and Booking application bootstraps, configuration, tests, Dockerfiles, and Docker Compose support.
 - Replaced the direct Catalog -> Showtime call during event creation with `EventShowtimeClient`; standalone Catalog now calls Showtime internal command endpoints and fails closed if sync fails.
 - Extended cross-module read contracts in `backend_legacy` so Showtime can read Catalog and Facility through boundaries instead of direct repositories/entities.
 - Replaced Facility's direct JPQL dependency on Showtime with `FacilityShowtimeGuard`; standalone Facility now queries Showtime internal guard endpoints and fails closed if Showtime is unavailable.
 - Added Showtime HTTP read clients for Catalog and Facility internal projection APIs.
-- Added Showtime internal seat-reservation endpoints for future Booking extraction.
+- Added Showtime internal seat-reservation endpoints for Booking extraction.
 - Added internal Showtime future-showtime guard endpoints for Facility destructive deletes.
 - Added internal Showtime event command endpoints for Catalog event showtime creation/deletion.
 - Verified `backend_legacy` tests pass after boundary changes.
@@ -30,10 +31,10 @@ Updated: 2026-07-08
 | catalog-service | Extracted, buildable | Own Spring Boot app, own DB config, OpenAPI draft present. Event showtime sync calls Showtime over internal HTTP. |
 | facility-service | Extracted, buildable | Own Spring Boot app, own DB config, OpenAPI draft present. Delete guards call Showtime through internal HTTP and fail closed if unavailable. |
 | showtime-service | Extracted, buildable | Own Spring Boot app, own DB/Redis config, OpenAPI draft present. Reads Catalog/Facility through HTTP clients and exposes internal guard/seat-reservation endpoints. |
-| booking-service | Prepared partially | Booking now talks to Showtime via `SeatReservationService` boundary; remote client/outbox work remains. |
+| booking-service | Extracted, buildable | Own Spring Boot app, own DB config, OpenAPI draft present. Calls Showtime internal seat-reservation endpoints and Catalog/Facility projections over HTTP. |
 | identity-service | Placeholder | Still in legacy IAM. |
 | api-gateway | Placeholder | Required before external cutover. |
-| payment-service | Placeholder | Payment flow still in legacy booking module. |
+| payment-service | Placeholder | Dedicated payment service is not extracted; payment handling currently lives inside booking-service and legacy backend. |
 | analytics-service | Placeholder | Admin aggregation still reads monolith data. |
 
 ## Not Cut Over Yet
@@ -42,7 +43,8 @@ Updated: 2026-07-08
 - Catalog data has not been backfilled from `cinema_db` to `cinema_catalog_db`.
 - Facility data has not been backfilled from `cinema_db` to `cinema_facility_db`.
 - Showtime data and active Redis holds have not been backfilled/migrated from legacy runtime.
-- Admin write endpoints in direct Catalog/Facility services still depend on future gateway/JWT integration.
+- Booking/order/ticket/voucher/review data has not been backfilled from `cinema_db` to `cinema_booking_db`.
+- Admin/staff write endpoints in direct Catalog, Facility, Showtime, and Booking services still depend on future gateway/JWT integration.
 - Catalog event creation now synchronously calls Showtime internal commands; durable outbox delivery is still not implemented.
 - Standalone Facility rejects destructive room/cinema deletes with `SHOWTIME_GUARD_UNAVAILABLE` if it cannot query `showtime-service`.
 - Standalone Showtime requires Catalog and Facility to be reachable for create/enrichment paths.
@@ -50,10 +52,9 @@ Updated: 2026-07-08
 
 ## Next Safe Steps
 
-1. Extract `booking-service` with an HTTP client for Showtime internal seat-reservation endpoints.
-2. Add contract tests between Catalog, Facility, Showtime, and Booking before any frontend route switch.
-3. Add data migration scripts and rollback paths for `cinema_catalog_db`, `cinema_facility_db`, and `cinema_showtime_db`.
-4. Introduce API gateway routing only after service-level smoke tests pass.
+1. Add contract tests between Catalog, Facility, Showtime, and Booking before any frontend route switch.
+2. Add data migration scripts and rollback paths for `cinema_catalog_db`, `cinema_facility_db`, `cinema_showtime_db`, and `cinema_booking_db`.
+3. Introduce API gateway routing only after service-level smoke tests pass.
 
 ## Cutover Gates
 

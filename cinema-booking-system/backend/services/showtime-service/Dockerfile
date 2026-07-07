@@ -6,6 +6,7 @@ COPY pom.xml pom.xml
 COPY services/catalog-service/pom.xml services/catalog-service/pom.xml
 COPY services/facility-service/pom.xml services/facility-service/pom.xml
 COPY services/showtime-service/pom.xml services/showtime-service/pom.xml
+COPY services/booking-service/pom.xml services/booking-service/pom.xml
 RUN mvn -q -pl services/showtime-service -am dependency:go-offline
 
 COPY services/showtime-service/src services/showtime-service/src
