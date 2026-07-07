@@ -88,3 +88,7 @@ For Facility, use the same pattern from `services\facility-service`; the default
 - Event contract draft: `shared/events/catalog-events.md`
 
 Contracts are versioned before wiring consumers so downstream services can be migrated without direct repository access.
+
+## Data Migration
+
+Draft export/restore scripts and rollback notes live in `infrastructure/migrations/`. Run them only against a copied legacy database first; the scripts are not a cutover by themselves.

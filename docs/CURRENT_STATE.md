@@ -97,11 +97,11 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 
 - Frontend build was not rerun during the latest backend-service extraction.
 - Docker images were not built; compose syntax was validated.
-- Data backfill from `cinema_db` into per-service databases has not been implemented.
+- Data backfill scripts/runbook exist, but they have not been executed against a real database snapshot.
 - API gateway routing and JWT propagation are not wired yet.
 
 ## Suggested Next Steps
 
-1. Add idempotent data backfill scripts for `cinema_catalog_db`, `cinema_facility_db`, `cinema_showtime_db`, and `cinema_booking_db`.
+1. Dry-run data backfill scripts against a copied legacy database and verify row counts.
 2. Add contract tests before switching frontend traffic away from `backend_legacy`.
 3. Introduce API gateway routing only after service smoke tests pass.

@@ -21,6 +21,7 @@ Updated: 2026-07-08
 - Added Showtime internal seat-reservation endpoints for Booking extraction.
 - Added internal Showtime future-showtime guard endpoints for Facility destructive deletes.
 - Added internal Showtime event command endpoints for Catalog event showtime creation/deletion.
+- Added draft data migration export/restore scripts and rollback runbook under `backend/infrastructure/migrations`.
 - Verified `backend_legacy` tests pass after boundary changes.
 - Verified `backend` tests pass for the extracted services.
 
@@ -44,6 +45,7 @@ Updated: 2026-07-08
 - Facility data has not been backfilled from `cinema_db` to `cinema_facility_db`.
 - Showtime data and active Redis holds have not been backfilled/migrated from legacy runtime.
 - Booking/order/ticket/voucher/review data has not been backfilled from `cinema_db` to `cinema_booking_db`.
+- Migration scripts have not been executed against a real database snapshot yet.
 - Admin/staff write endpoints in direct Catalog, Facility, Showtime, and Booking services still depend on future gateway/JWT integration.
 - Catalog event creation now synchronously calls Showtime internal commands; durable outbox delivery is still not implemented.
 - Standalone Facility rejects destructive room/cinema deletes with `SHOWTIME_GUARD_UNAVAILABLE` if it cannot query `showtime-service`.
@@ -52,8 +54,8 @@ Updated: 2026-07-08
 
 ## Next Safe Steps
 
-1. Add contract tests between Catalog, Facility, Showtime, and Booking before any frontend route switch.
-2. Add data migration scripts and rollback paths for `cinema_catalog_db`, `cinema_facility_db`, `cinema_showtime_db`, and `cinema_booking_db`.
+1. Dry-run migration scripts against a copied legacy database and verify row counts.
+2. Add contract tests between Catalog, Facility, Showtime, and Booking before any frontend route switch.
 3. Introduce API gateway routing only after service-level smoke tests pass.
 
 ## Cutover Gates
