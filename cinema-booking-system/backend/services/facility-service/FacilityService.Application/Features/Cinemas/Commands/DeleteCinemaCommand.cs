@@ -35,7 +35,7 @@ namespace FacilityService.Application.Features.Cinemas.Commands
 
         public async Task<bool> Handle(DeleteCinemaCommand request, CancellationToken cancellationToken)
         {
-            Cinema cinema = await _unitOfWork.Cinemas.GetByIdAsync(request.Id);
+            Cinema? cinema = await _unitOfWork.Cinemas.GetByIdAsync(request.Id);
             if (cinema == null)
             {
                 throw new Exception("Cinema not found");

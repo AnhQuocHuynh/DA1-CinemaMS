@@ -8,6 +8,8 @@ namespace FacilityService.Domain.Interfaces
     {
         ICinemaRepository Cinemas { get; }
         IRoomRepository Rooms { get; }
+        ISeatTypeRepository SeatTypes { get; }
+        ISeatTemplateRepository SeatTemplates { get; }
         
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
