@@ -132,6 +132,30 @@ paths:
       responses:
         "200":
           description: Whether future non-cancelled showtimes exist for any room.
+  /internal/showtimes/events:
+    post:
+      summary: Internal command for Catalog event showtime creation
+      security:
+        - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventShowtimeCreateRequest"
+      responses:
+        "200":
+          description: Event showtime created.
+  /internal/showtimes/events/{eventId}:
+    delete:
+      summary: Internal command for Catalog event showtime cleanup
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      responses:
+        "200":
+          description: Future event showtimes deleted.
   /internal/showtimes/{showtimeId}/schedule:
     get:
       summary: Internal schedule projection for Booking
@@ -313,6 +337,29 @@ components:
           items:
             type: integer
             format: int64
+    EventShowtimeCreateRequest:
+      type: object
+      required:
+        - eventId
+        - roomId
+        - startTime
+        - endTime
+        - basePrice
+      properties:
+        eventId:
+          type: integer
+          format: int64
+        roomId:
+          type: integer
+          format: int64
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        basePrice:
+          type: number
     SeatBookingRequest:
       type: object
       required:

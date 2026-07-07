@@ -14,6 +14,7 @@ import com.uit.cinema.showtime.entity.ShowtimeSeat;
 import com.uit.cinema.showtime.mapper.ShowtimeMapper;
 import com.uit.cinema.showtime.repository.ShowtimeRepository;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.showtime.service.contract.EventShowtimeCreateRequest;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -231,6 +233,56 @@ class ShowtimeServiceImplTest {
         boolean result = showtimeService.hasFutureShowtimesForRooms(List.of());
 
         assertFalse(result);
+    }
+
+    @Test
+    void createShowtimeForEvent_SkipsCatalogLookupAndCreatesShowtime() {
+        EventShowtimeCreateRequest request = new EventShowtimeCreateRequest(
+            9L,
+            1L,
+            LocalDateTime.now().plusDays(1),
+            LocalDateTime.now().plusDays(1).plusHours(2),
+            BigDecimal.valueOf(50000)
+        );
+        when(facilityReadService.findRoom(1L)).thenReturn(Optional.of(room(false)));
+
+        TypedQuery<Long> overlapQuery = mock(TypedQuery.class);
+        when(entityManager.createQuery(contains("SELECT COUNT(s)"), eq(Long.class))).thenReturn(overlapQuery);
+        when(overlapQuery.setParameter(anyString(), any())).thenReturn(overlapQuery);
+        when(overlapQuery.getSingleResult()).thenReturn(0L);
+
+        Showtime showtime = savedShowtime();
+        showtime.setEventId(9L);
+        showtime.setMovieId(null);
+        when(showtimeMapper.toEntity(any(ShowtimeRequest.class))).thenReturn(showtime);
+        when(showtimeRepository.save(any(Showtime.class))).thenReturn(showtime);
+        when(facilityReadService.findActiveSeatTemplatesByRoom(1L)).thenReturn(List.of());
+        when(showtimeMapper.toResponse(showtime)).thenReturn(new ShowtimeResponse());
+
+        ShowtimeResponse response = showtimeService.createShowtimeForEvent(request);
+
+        assertNotNull(response);
+        verify(catalogReadService, never()).findEvent(any());
+        verify(showtimeRepository).save(any(Showtime.class));
+    }
+
+    @Test
+    void deleteFutureShowtimesByEvent_DeletesNonCancelledFutureShowtimes() {
+        Showtime scheduled = new Showtime();
+        scheduled.setId(20L);
+        scheduled.setStatus(Showtime.Status.SCHEDULED);
+        Showtime cancelled = new Showtime();
+        cancelled.setId(21L);
+        cancelled.setStatus(Showtime.Status.CANCELLED);
+        when(showtimeRepository.findByEventIdAndStartTimeAfterOrderByStartTimeAsc(eq(9L), any(LocalDateTime.class)))
+            .thenReturn(List.of(scheduled, cancelled));
+
+        showtimeService.deleteFutureShowtimesByEvent(9L);
+
+        verify(showtimeSeatRepository).deleteByShowtimeId(20L);
+        verify(showtimeRepository).deleteById(20L);
+        verify(showtimeSeatRepository, never()).deleteByShowtimeId(21L);
+        verify(showtimeRepository, never()).deleteById(21L);
     }
 
     private ShowtimeRequest movieShowtimeRequest() {

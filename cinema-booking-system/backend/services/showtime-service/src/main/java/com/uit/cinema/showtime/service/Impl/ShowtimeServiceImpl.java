@@ -16,6 +16,7 @@ import com.uit.cinema.showtime.repository.ShowtimeRepository;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
 import com.uit.cinema.showtime.service.SeatHoldPolicy;
 import com.uit.cinema.showtime.service.ShowtimeService;
+import com.uit.cinema.showtime.service.contract.EventShowtimeCreateRequest;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -120,11 +121,32 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     @Override
     @Transactional
     public ShowtimeResponse createShowtime(ShowtimeRequest request) {
+        return createShowtime(request, true);
+    }
+
+    @Override
+    @Transactional
+    public ShowtimeResponse createShowtimeForEvent(EventShowtimeCreateRequest request) {
+        if (request.eventId() == null) {
+            throw new CustomException("Event ID is required", HttpStatus.BAD_REQUEST, "EVENT_ID_REQUIRED");
+        }
+        ShowtimeRequest showtimeRequest = new ShowtimeRequest();
+        showtimeRequest.setEventId(request.eventId());
+        showtimeRequest.setRoomId(request.roomId());
+        showtimeRequest.setStartTime(request.startTime());
+        showtimeRequest.setEndTime(request.endTime());
+        showtimeRequest.setBasePrice(request.basePrice());
+        return createShowtime(showtimeRequest, false);
+    }
+
+    private ShowtimeResponse createShowtime(ShowtimeRequest request, boolean validateCatalogTarget) {
         if (request.getMovieId() == null && request.getEventId() == null) {
             throw new CustomException("Movie ID or Event ID is required", HttpStatus.BAD_REQUEST, "MISSING_REFERENCE_ID");
         }
 
-        validateShowtimeTarget(request);
+        if (validateCatalogTarget) {
+            validateShowtimeTarget(request);
+        }
 
         FacilityRoomView room = facilityReadService.findRoom(request.getRoomId())
             .orElseThrow(() -> new CustomException("Room not found", HttpStatus.NOT_FOUND, "ROOM_NOT_FOUND"));
@@ -161,7 +183,13 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         }
 
         ShowtimeResponse response = showtimeMapper.toResponse(savedShowtime);
-        enrichDisplayTitle(savedShowtime, response);
+        if (validateCatalogTarget) {
+            enrichDisplayTitle(savedShowtime, response);
+        } else {
+            response.setEventName("Event #" + savedShowtime.getEventId());
+            response.setDisplayTitle("Event #" + savedShowtime.getEventId());
+            response.setDisplayType("EVENT");
+        }
         response.setRoomName(room.roomName());
         if (room.cinemaId() != null) {
             response.setCinemaId(room.cinemaId());
@@ -178,6 +206,22 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         }
         showtimeSeatRepository.deleteByShowtimeId(id);
         showtimeRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional
+    public void deleteFutureShowtimesByEvent(Long eventId) {
+        if (eventId == null) {
+            return;
+        }
+        List<Showtime> futureShowtimes = showtimeRepository
+            .findByEventIdAndStartTimeAfterOrderByStartTimeAsc(eventId, LocalDateTime.now());
+        for (Showtime showtime : futureShowtimes) {
+            if (showtime.getStatus() != Showtime.Status.CANCELLED) {
+                showtimeSeatRepository.deleteByShowtimeId(showtime.getId());
+                showtimeRepository.deleteById(showtime.getId());
+            }
+        }
     }
 
     private ShowtimeResponse enrichWithRoomData(Showtime showtime) {

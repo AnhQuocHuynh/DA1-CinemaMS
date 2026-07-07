@@ -51,6 +51,7 @@ The host database ports are intentionally `5433`, `5434`, and `5435` so services
 
 Internal service-to-service endpoints under `/internal/**` require `X-Internal-Token`. For local Docker, set `INTERNAL_API_TOKEN` or use the documented dev default `local-dev-internal-token`.
 
+Catalog uses `SHOWTIME_SERVICE_URL` to create and delete event showtimes through Showtime internal command endpoints.
 Facility uses `SHOWTIME_SERVICE_URL` to call Showtime internal guard endpoints before destructive cinema/room deactivation.
 
 ## Run Catalog Service Locally
@@ -69,7 +70,7 @@ Override connection settings with:
 - `SPRING_DATASOURCE_PASSWORD`
 - `SERVER_PORT`
 - `INTERNAL_API_TOKEN`
-- `SHOWTIME_SERVICE_URL` for Facility when it must validate destructive deletes against Showtime
+- `SHOWTIME_SERVICE_URL` for Catalog event showtime sync and Facility destructive-delete validation
 
 For Facility, use the same pattern from `services\facility-service`; the default service port is `5002` and the default database is `cinema_facility_db`.
 

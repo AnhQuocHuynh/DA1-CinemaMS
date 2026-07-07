@@ -26,8 +26,8 @@
 - Showtime now reads Catalog and Facility through read-service boundaries instead of direct cross-module repositories/entities.
 - Facility now checks future-showtime conflicts through `FacilityShowtimeGuard` instead of direct JPQL in service methods.
 - Standalone Facility now queries Showtime internal guard endpoints for destructive room/cinema deletes and fails closed if Showtime is unavailable.
-- Standalone Catalog currently uses a no-op `EventShowtimeClient`; event creation does not create showtimes until it is wired to Showtime.
-- Standalone Showtime reads Catalog/Facility through HTTP clients and exposes internal guard plus seat-reservation endpoints for future service extraction.
+- Standalone Catalog now uses `EventShowtimeClient` over internal HTTP to create/delete event showtimes and fails closed if Showtime sync fails.
+- Standalone Showtime reads Catalog/Facility through HTTP clients and exposes internal command, guard, and seat-reservation endpoints for future service extraction.
 
 ## Commands To Verify
 
@@ -99,8 +99,7 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 
 ## Suggested Next Steps
 
-1. Wire Catalog event creation to Showtime.
-2. Extract `booking-service` next, using Showtime internal seat-reservation endpoints.
-3. Add idempotent data backfill scripts for `cinema_catalog_db`, `cinema_facility_db`, and `cinema_showtime_db`.
-4. Add contract tests before switching frontend traffic away from `backend_legacy`.
-5. Introduce API gateway routing only after service smoke tests pass.
+1. Extract `booking-service` next, using Showtime internal seat-reservation endpoints.
+2. Add idempotent data backfill scripts for `cinema_catalog_db`, `cinema_facility_db`, and `cinema_showtime_db`.
+3. Add contract tests before switching frontend traffic away from `backend_legacy`.
+4. Introduce API gateway routing only after service smoke tests pass.

@@ -3,6 +3,7 @@ package com.uit.cinema.showtime.controller;
 import com.uit.cinema.core.dto.response.ApiResponse;
 import com.uit.cinema.showtime.service.SeatReservationService;
 import com.uit.cinema.showtime.service.ShowtimeService;
+import com.uit.cinema.showtime.service.contract.EventShowtimeCreateRequest;
 import com.uit.cinema.showtime.service.contract.RoomShowtimeCheckRequest;
 import com.uit.cinema.showtime.service.contract.SeatBookingRequest;
 import com.uit.cinema.showtime.service.contract.SeatBookingResult;
@@ -12,6 +13,7 @@ import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
 import com.uit.cinema.showtime.service.contract.ShowtimeSeatView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,6 +39,20 @@ public class ShowtimeInternalController {
         @RequestBody RoomShowtimeCheckRequest request
     ) {
         return ResponseEntity.ok(ApiResponse.success(showtimeService.hasFutureShowtimesForRooms(request.roomIds())));
+    }
+
+    @PostMapping("/events")
+    public ResponseEntity<ApiResponse<Object>> createShowtimeForEvent(
+        @RequestBody EventShowtimeCreateRequest request
+    ) {
+        showtimeService.createShowtimeForEvent(request);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @DeleteMapping("/events/{eventId}")
+    public ResponseEntity<ApiResponse<Void>> deleteFutureShowtimesByEvent(@PathVariable Long eventId) {
+        showtimeService.deleteFutureShowtimesByEvent(eventId);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     @GetMapping("/{showtimeId}/schedule")

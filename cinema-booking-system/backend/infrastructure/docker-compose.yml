@@ -33,6 +33,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: "123"
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-local-dev-internal-token}
+      SHOWTIME_SERVICE_URL: http://showtime-service:8082
     ports:
       - "8081:8081"
     depends_on:
