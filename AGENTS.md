@@ -7,7 +7,7 @@ Durable rules for agents working in this repository.
 - Main project directory: `cinema-booking-system/`.
 - Current branch at handoff: `refactor-n-decoupling`.
 - Treat `cinema-booking-system/backend_legacy/` as the complete runnable backend unless the user explicitly asks to continue the microservice refactor under `cinema-booking-system/backend/`.
-- `cinema-booking-system/backend/` contains extracted Spring Boot `catalog-service`, `facility-service`, `showtime-service`, and `booking-service` slices. It is not yet a complete replacement for `backend_legacy`.
+- `cinema-booking-system/backend/` contains extracted Spring Boot `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, and `analytics-service` slices. It is not yet a complete replacement for `backend_legacy`.
 - Per `cinema-booking-system/docs/architecture_refactor.md`, do not expand services assigned to ASP.NET in this Spring Boot workstream: `identity-service`, target `facility-service`, `payment-service`, `notification-service`, and `api-gateway`. The current Spring Boot `facility-service` is a compatibility slice from earlier extraction work; keep further changes minimal and contract-driven.
 
 ## Collaboration Rules

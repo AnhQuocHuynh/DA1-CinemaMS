@@ -8,6 +8,7 @@ This folder is the microservice migration target. The full runnable application 
 - `services/facility-service` is the current Spring Boot compatibility slice for facility data. The target Facility service is ASP.NET per `../docs/architecture_refactor.md`, so keep further Spring changes minimal and contract-driven.
 - `services/showtime-service` owns showtimes, showtime seats, seat holds, and seat reservation state transitions.
 - `services/booking-service` owns orders, payments, tickets, vouchers, and reviews.
+- `services/analytics-service` exposes the Spring Boot admin dashboard API surface with a safe zero/empty read model until analytics ingestion/query storage is wired.
 - Other service folders are still placeholders unless noted in `MIGRATION_STATUS.md`.
 - The legacy monolith remains the source of truth for the complete booking flow while migration continues.
 
@@ -67,6 +68,11 @@ Booking API:
 - Service: `http://localhost:8083`
 - Health: `http://localhost:8083/actuator/health`
 - Database: `localhost:5436/cinema_booking_db`
+
+Analytics API:
+
+- Service: `http://localhost:8084`
+- Health: `http://localhost:8084/actuator/health`
 
 The host database ports are intentionally `5433`, `5434`, `5435`, and `5436` so services can run beside the legacy monolith database on `5432`. Showtime Redis uses host port `6380` so it can run beside legacy Redis on `6379`.
 

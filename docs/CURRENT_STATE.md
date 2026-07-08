@@ -17,7 +17,7 @@
   - `backend/services/showtime-service`
   - `backend/services/booking-service`
 - Remaining service folders are placeholders unless documented otherwise.
-- `backend/infrastructure/docker-compose.yml` runs Catalog, Facility, Showtime, and Booking with separate PostgreSQL databases plus Showtime Redis.
+- `backend/infrastructure/docker-compose.yml` runs Catalog, Facility, Showtime, Booking, and Analytics with separate PostgreSQL databases plus Showtime Redis.
 - `backend_legacy/src/main/resources/application.yml` now has a valid Base64 JWT default while preserving `APP_JWT_SECRET`.
 - `backend_legacy/src/main/resources/DB_PATCH_2026_06_25_SEAT_MAP.sql` is present in source.
 
@@ -30,6 +30,7 @@
 - Standalone Catalog now uses `EventShowtimeClient` over internal HTTP to create/delete event showtimes and fails closed if Showtime sync fails.
 - Standalone Showtime reads Catalog/Facility through HTTP clients and exposes internal command, guard, and seat-reservation endpoints for future service extraction.
 - Standalone Booking calls Showtime internal seat-reservation endpoints and uses Catalog/Facility internal projections for response enrichment.
+- Standalone Analytics exposes admin dashboard route compatibility with safe zero/empty responses until analytics ingestion/query storage is wired.
 - Static contract tests now guard Spring Boot client paths against the OpenAPI drafts for Catalog, Facility, Showtime, and Booking.
 - Do not expand ASP.NET-assigned services in this Spring Boot track: Identity, target Facility, Payment, Notification, and API Gateway.
 
@@ -91,6 +92,7 @@ npm run build
 - Facility service: `localhost:5002`, DB `localhost:5434/cinema_facility_db`.
 - Showtime service: `localhost:8082`, DB `localhost:5435/cinema_showtime_db`, Redis `localhost:6380`.
 - Booking service: `localhost:8083`, DB `localhost:5436/cinema_booking_db`.
+- Analytics service: `localhost:8084`.
 - Legacy Redis: `localhost:6379`.
 
 ## Seed/Test Accounts

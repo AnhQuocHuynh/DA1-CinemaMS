@@ -8,7 +8,8 @@ param(
     [string]$CatalogUrl = "",
     [string]$FacilityUrl = "",
     [string]$ShowtimeUrl = "",
-    [string]$BookingUrl = ""
+    [string]$BookingUrl = "",
+    [string]$AnalyticsUrl = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -119,6 +120,7 @@ $CatalogUrl = Resolve-Default $CatalogUrl (Resolve-Default $env:CATALOG_SERVICE_
 $FacilityUrl = Resolve-Default $FacilityUrl (Resolve-Default $env:FACILITY_SERVICE_URL "http://localhost:5002")
 $ShowtimeUrl = Resolve-Default $ShowtimeUrl (Resolve-Default $env:SHOWTIME_SERVICE_URL "http://localhost:8082")
 $BookingUrl = Resolve-Default $BookingUrl (Resolve-Default $env:BOOKING_SERVICE_URL "http://localhost:8083")
+$AnalyticsUrl = Resolve-Default $AnalyticsUrl (Resolve-Default $env:ANALYTICS_SERVICE_URL "http://localhost:8084")
 
 if ($ValidateOnly) {
     Write-Host "Smoke test script configuration is valid."
@@ -126,6 +128,7 @@ if ($ValidateOnly) {
     Write-Host "Facility: $FacilityUrl"
     Write-Host "Showtime: $ShowtimeUrl"
     Write-Host "Booking:  $BookingUrl"
+    Write-Host "Analytics: $AnalyticsUrl"
     return
 }
 
@@ -139,6 +142,7 @@ try {
     Wait-Health "facility-service compatibility dependency" $FacilityUrl
     Wait-Health "showtime-service" $ShowtimeUrl
     Wait-Health "booking-service" $BookingUrl
+    Wait-Health "analytics-service" $AnalyticsUrl
 
     Assert-InternalEndpoint "Catalog movie projection" $CatalogUrl "/internal/catalog/movies/1"
     Assert-InternalEndpoint "Catalog event projection" $CatalogUrl "/internal/catalog/events/1"

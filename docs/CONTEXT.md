@@ -6,7 +6,7 @@ Cinema Booking System is a university project for movie/event ticket booking, ad
 ## Current Repository Shape
 - `cinema-booking-system/backend_legacy/`: runnable Spring Boot modular monolith and source of truth for backend behavior.
 - `cinema-booking-system/frontend/`: runnable React/Vite frontend.
-- `cinema-booking-system/backend/`: microservice-refactor target. Catalog, Facility, Showtime, and Booking are now extracted Spring Boot services; other service folders are still placeholders.
+- `cinema-booking-system/backend/`: microservice-refactor target. Catalog, Facility, Showtime, Booking, and Analytics are now buildable Spring Boot services; other service folders are still placeholders.
 - `cinema-booking-system/docs/architecture_refactor.md`: proposed future microservice architecture. Current implementation is migrating incrementally toward it.
 - Root-level `docs/`: handoff docs for Codex agents.
 
@@ -39,7 +39,7 @@ Frontend areas in `frontend/src/`:
 
 ## Major Decisions
 - Current complete demo/backend deliverable remains the modular monolith in `backend_legacy`.
-- `backend/` now contains buildable `catalog-service`, `facility-service`, `showtime-service`, and `booking-service`; it is not yet a complete replacement for `backend_legacy`.
+- `backend/` now contains buildable `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, and `analytics-service`; it is not yet a complete replacement for `backend_legacy`.
 - Spring Boot work should continue on Spring-assigned services only: Catalog, Showtime, Booking, Analytics, and Recommendation. ASP.NET-assigned services from `architecture_refactor.md` should not be expanded in this workstream.
 - Event-only showtimes are allowed; `showtimes.movie_id` may be nullable via manual DB patch.
 - Staff counter booking adds customer name/phone, `sales_channel`, and `created_by_staff_id` on orders.
@@ -66,4 +66,4 @@ Local dev:
 
 Docker:
 - `cinema-booking-system/docker-compose-app.yml` exists for full app, but on this branch it may point to `./backend` rather than `./backend_legacy`; inspect/fix before relying on it.
-- `cinema-booking-system/backend/infrastructure/docker-compose.yml` can run the extracted Catalog, Facility, Showtime, and Booking services with separate PostgreSQL databases plus Showtime Redis.
+- `cinema-booking-system/backend/infrastructure/docker-compose.yml` can run the extracted Catalog, Facility, Showtime, Booking, and Analytics services with separate PostgreSQL databases plus Showtime Redis.

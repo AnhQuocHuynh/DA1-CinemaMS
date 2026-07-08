@@ -192,6 +192,18 @@ services:
     networks:
       - cinema-services
 
+  analytics-service:
+    build:
+      context: ..
+      dockerfile: services/analytics-service/Dockerfile
+    container_name: cinema-analytics-service
+    environment:
+      SERVER_PORT: 8084
+    ports:
+      - "8084:8084"
+    networks:
+      - cinema-services
+
 volumes:
   catalog_db_data:
   facility_db_data:

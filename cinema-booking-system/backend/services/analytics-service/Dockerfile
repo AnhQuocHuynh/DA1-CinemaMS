@@ -8,19 +8,19 @@ COPY services/facility-service/pom.xml services/facility-service/pom.xml
 COPY services/showtime-service/pom.xml services/showtime-service/pom.xml
 COPY services/booking-service/pom.xml services/booking-service/pom.xml
 COPY services/analytics-service/pom.xml services/analytics-service/pom.xml
-RUN mvn -q -pl services/facility-service -am dependency:go-offline
+RUN mvn -q -pl services/analytics-service -am dependency:go-offline
 
-COPY services/facility-service/src services/facility-service/src
-RUN mvn -q -pl services/facility-service -am package -DskipTests
+COPY services/analytics-service/src services/analytics-service/src
+RUN mvn -q -pl services/analytics-service -am package -DskipTests
 
 FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
 RUN useradd --system --create-home --uid 10001 appuser
-COPY --from=build /workspace/services/facility-service/target/facility-service-*.jar /app/app.jar
+COPY --from=build /workspace/services/analytics-service/target/analytics-service-*.jar /app/app.jar
 
 USER appuser
-EXPOSE 5002
+EXPOSE 8084
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

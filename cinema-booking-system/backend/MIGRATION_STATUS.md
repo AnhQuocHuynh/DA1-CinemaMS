@@ -4,7 +4,7 @@ Updated: 2026-07-08
 
 ## Safety Position
 
-`backend_legacy` remains the runnable full backend. `backend` now contains independently buildable Catalog, Facility, Showtime, and Booking slices, but the whole product is not cut over yet.
+`backend_legacy` remains the runnable full backend. `backend` now contains independently buildable Catalog, Facility, Showtime, Booking, and Analytics slices, but the whole product is not cut over yet.
 
 Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, and Recommendation. Do not expand ASP.NET-assigned services from `architecture_refactor.md`: Identity, target Facility, Payment, Notification, or API Gateway.
 
@@ -15,7 +15,8 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Extracted `facility-service` from `backend_legacy` into `backend/services/facility-service`.
 - Extracted `showtime-service` from `backend_legacy` into `backend/services/showtime-service`.
 - Extracted `booking-service` from `backend_legacy` into `backend/services/booking-service`.
-- Added isolated Catalog, Facility, Showtime, and Booking application bootstraps, configuration, tests, Dockerfiles, and Docker Compose support.
+- Added a buildable Spring Boot `analytics-service` dashboard API surface with safe zero/empty responses.
+- Added isolated Catalog, Facility, Showtime, Booking, and Analytics application bootstraps, configuration, tests, Dockerfiles, and Docker Compose support.
 - Replaced the direct Catalog -> Showtime call during event creation with `EventShowtimeClient`; standalone Catalog now calls Showtime internal command endpoints and fails closed if sync fails.
 - Extended cross-module read contracts in `backend_legacy` so Showtime can read Catalog and Facility through boundaries instead of direct repositories/entities.
 - Replaced Facility's direct JPQL dependency on Showtime with `FacilityShowtimeGuard`; standalone Facility now queries Showtime internal guard endpoints and fails closed if Showtime is unavailable.
@@ -38,10 +39,10 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 | facility-service | Extracted, buildable | Existing Spring Boot compatibility slice; target implementation is ASP.NET per architecture doc. Keep further changes minimal and contract-driven. |
 | showtime-service | Extracted, buildable | Own Spring Boot app, own DB/Redis config, OpenAPI draft present. Reads Catalog/Facility through HTTP clients and exposes internal guard/seat-reservation endpoints. |
 | booking-service | Extracted, buildable | Own Spring Boot app, own DB config, OpenAPI draft present. Calls Showtime internal seat-reservation endpoints and Catalog/Facility projections over HTTP. |
+| analytics-service | Skeleton, buildable | Own Spring Boot app and OpenAPI draft. Preserves admin dashboard route shape with zero/empty read model until ingestion/query storage is wired. |
 | identity-service | Placeholder | Still in legacy IAM. |
 | api-gateway | Placeholder | Required before external cutover. |
 | payment-service | Placeholder | Dedicated payment service is not extracted; payment handling currently lives inside booking-service and legacy backend. |
-| analytics-service | Placeholder | Admin aggregation still reads monolith data. |
 
 ## Not Cut Over Yet
 
@@ -61,7 +62,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 
 1. Execute migration dry-run, restore into copied service databases, and verify row counts.
 2. Run `infrastructure/smoke-test.ps1` against the extracted-service stack before any frontend route switch.
-3. Continue Spring Boot-only roadmap with Analytics or Recommendation after migration dry-run gates.
+3. Continue Spring Boot-only roadmap with Analytics ingestion/query storage or Recommendation after migration dry-run gates.
 
 ## Cutover Gates
 
