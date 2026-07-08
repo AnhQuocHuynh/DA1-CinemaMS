@@ -18,6 +18,16 @@ Status: draft, not yet executed. `backend_legacy` remains the rollback source of
 3. Service applications have run at least once or migrations have created schemas.
 4. No frontend or gateway traffic points at extracted services during backfill.
 5. `PGPASSWORD` is set in the shell, or `.pgpass` is configured.
+6. `pg_dump`, `pg_restore`, and `psql` are available in PATH, or their full paths are passed to the scripts.
+
+If PostgreSQL client tools are installed but not in PATH on Windows, pass them explicitly:
+
+```powershell
+$pgBin = "C:\Program Files\PostgreSQL\18\bin"
+.\infrastructure\migrations\export-legacy-data.ps1 -PgDump "$pgBin\pg_dump.exe" -DryRun
+.\infrastructure\migrations\restore-service-data.ps1 -PgRestore "$pgBin\pg_restore.exe" -Psql "$pgBin\psql.exe" -DryRun
+.\infrastructure\migrations\verify-service-counts.ps1 -Psql "$pgBin\psql.exe" -DryRun
+```
 
 ## Export
 

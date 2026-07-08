@@ -108,6 +108,7 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 - Docker images were not built; compose syntax was validated.
 - Data backfill scripts/runbook exist, but they have not been executed against a real database snapshot.
 - Migration scripts now support dry-run validation and row-count comparison across legacy/service databases.
+- Local preflight on 2026-07-08 found PostgreSQL 18 client tools under `C:\Program Files\PostgreSQL\18\bin`, but Docker and local DB/service ports were not running.
 - Runtime service smoke script exists, but it has not been executed against a running extracted-service stack in this handoff.
 - API gateway routing and JWT propagation are not wired yet.
 
