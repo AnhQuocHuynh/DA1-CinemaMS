@@ -106,3 +106,4 @@ Contracts are versioned before wiring consumers so downstream services can be mi
 ## Data Migration
 
 Draft export/restore scripts and rollback notes live in `infrastructure/migrations/`. Run them only against a copied legacy database first; the scripts are not a cutover by themselves.
+Use `-DryRun` on export/restore scripts before touching real databases, and run `infrastructure\migrations\verify-service-counts.ps1` before any route switch.

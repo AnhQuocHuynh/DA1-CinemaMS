@@ -33,17 +33,33 @@ From `cinema-booking-system/backend`:
 
 This writes one custom-format dump per service into `infrastructure/migrations/dumps/`.
 
+Use `-DryRun` first when validating the generated `pg_dump` commands.
+
 ## Restore
 
 Restore into empty service databases first. Use `-TruncateFirst` only when the target DB is disposable or already snapshotted.
+By default, the restore script targets the Docker Compose database ports:
+
+- Catalog: `5433`
+- Facility compatibility DB: `5434`
+- Showtime: `5435`
+- Booking: `5436`
 
 ```powershell
 .\infrastructure\migrations\restore-service-data.ps1 -Service all -TruncateFirst
 ```
 
+Use `-DryRun` before the actual restore, or pass `-Port 5432` only when all service databases live on one PostgreSQL server.
+
 ## Verification
 
-Run `verify-counts.sql` against the legacy DB and each target DB. Counts should match for each owned table before any route switch.
+Compare legacy and service row counts before any route switch:
+
+```powershell
+.\infrastructure\migrations\verify-service-counts.ps1
+```
+
+The lower-level `verify-counts.sql` can still be run manually against the legacy DB and each target DB when inspecting one database at a time.
 
 After count checks, run the baseline runtime smoke script from `cinema-booking-system/backend`:
 

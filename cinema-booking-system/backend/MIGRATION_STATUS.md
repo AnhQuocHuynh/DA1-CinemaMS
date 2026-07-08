@@ -24,6 +24,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Added internal Showtime future-showtime guard endpoints for Facility destructive deletes.
 - Added internal Showtime event command endpoints for Catalog event showtime creation/deletion.
 - Added draft data migration export/restore scripts and rollback runbook under `backend/infrastructure/migrations`.
+- Hardened migration scripts with dry-run support, compose-port restore defaults, and row-count comparison.
 - Added static contract tests that guard Spring Boot inter-service client paths against OpenAPI drafts.
 - Added a baseline runtime smoke script for service health and internal-token guard checks.
 - Verified `backend_legacy` tests pass after boundary changes.
@@ -58,7 +59,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 
 ## Next Safe Steps
 
-1. Dry-run migration scripts against a copied legacy database and verify row counts.
+1. Execute migration dry-run, restore into copied service databases, and verify row counts.
 2. Run `infrastructure/smoke-test.ps1` against the extracted-service stack before any frontend route switch.
 3. Continue Spring Boot-only roadmap with Analytics or Recommendation after migration dry-run gates.
 

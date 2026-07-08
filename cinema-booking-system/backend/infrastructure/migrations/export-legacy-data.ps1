@@ -1,13 +1,33 @@
 param(
     [string]$LegacyDb = "cinema_db",
-    [string]$Host = "localhost",
+    [Alias("Host")]
+    [string]$DbHost = "localhost",
     [int]$Port = 5432,
     [string]$User = "postgres",
     [string]$OutputDir = "infrastructure/migrations/dumps",
-    [string]$PgDump = "pg_dump"
+    [string]$PgDump = "pg_dump",
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
+
+function Invoke-CheckedCommand {
+    param(
+        [string]$Tool,
+        [string[]]$Arguments,
+        [string]$FailureMessage
+    )
+
+    if ($DryRun) {
+        Write-Host "DRY RUN: $Tool $($Arguments -join ' ')"
+        return
+    }
+
+    & $Tool @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw $FailureMessage
+    }
+}
 
 $serviceTables = [ordered]@{
     catalog = @("genres", "movies", "movie_genres", "events")
@@ -21,7 +41,7 @@ New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 foreach ($service in $serviceTables.Keys) {
     $dumpFile = Join-Path $OutputDir "$service.dump"
     $args = @(
-        "--host", $Host,
+        "--host", $DbHost,
         "--port", "$Port",
         "--username", $User,
         "--dbname", $LegacyDb,
@@ -35,8 +55,5 @@ foreach ($service in $serviceTables.Keys) {
     }
 
     Write-Host "Exporting $service tables to $dumpFile"
-    & $PgDump @args
-    if ($LASTEXITCODE -ne 0) {
-        throw "pg_dump failed for $service"
-    }
+    Invoke-CheckedCommand $PgDump $args "pg_dump failed for $service"
 }
