@@ -5,7 +5,7 @@ This folder is the microservice migration target. The full runnable application 
 ## Current Status
 
 - `services/catalog-service` owns catalog data: movies, genres, events, and catalog search.
-- `services/facility-service` owns facility data: cinemas, rooms, seat templates, and seat types.
+- `services/facility-service` is the current Spring Boot compatibility slice for facility data. The target Facility service is ASP.NET per `../docs/architecture_refactor.md`, so keep further Spring changes minimal and contract-driven.
 - `services/showtime-service` owns showtimes, showtime seats, seat holds, and seat reservation state transitions.
 - `services/booking-service` owns orders, payments, tickets, vouchers, and reviews.
 - Other service folders are still placeholders unless noted in `MIGRATION_STATUS.md`.
@@ -21,7 +21,21 @@ From `cinema-booking-system/backend`:
 
 If Maven is available globally, `mvn test` is enough.
 
-## Run Catalog Service With Docker
+Runtime smoke test after services are running:
+
+```powershell
+.\infrastructure\smoke-test.ps1
+```
+
+To build/start the Docker stack and then smoke test it:
+
+```powershell
+.\infrastructure\smoke-test.ps1 -StartCompose
+```
+
+Add `-StopCompose` when the script should tear the stack down after the checks.
+
+## Run Services With Docker
 
 From `cinema-booking-system/backend`:
 

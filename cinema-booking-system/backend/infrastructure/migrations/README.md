@@ -45,7 +45,13 @@ Restore into empty service databases first. Use `-TruncateFirst` only when the t
 
 Run `verify-counts.sql` against the legacy DB and each target DB. Counts should match for each owned table before any route switch.
 
-After count checks, run service-level smoke tests:
+After count checks, run the baseline runtime smoke script from `cinema-booking-system/backend`:
+
+```powershell
+.\infrastructure\smoke-test.ps1
+```
+
+Then run seeded service-level flow checks:
 
 - Catalog browse/search.
 - Facility room and seat template reads.

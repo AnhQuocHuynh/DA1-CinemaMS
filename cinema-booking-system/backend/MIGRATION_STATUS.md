@@ -25,6 +25,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Added internal Showtime event command endpoints for Catalog event showtime creation/deletion.
 - Added draft data migration export/restore scripts and rollback runbook under `backend/infrastructure/migrations`.
 - Added static contract tests that guard Spring Boot inter-service client paths against OpenAPI drafts.
+- Added a baseline runtime smoke script for service health and internal-token guard checks.
 - Verified `backend_legacy` tests pass after boundary changes.
 - Verified `backend` tests pass for the extracted services.
 
@@ -58,7 +59,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 ## Next Safe Steps
 
 1. Dry-run migration scripts against a copied legacy database and verify row counts.
-2. Add runtime service smoke tests before any frontend route switch.
+2. Run `infrastructure/smoke-test.ps1` against the extracted-service stack before any frontend route switch.
 3. Continue Spring Boot-only roadmap with Analytics or Recommendation after migration dry-run gates.
 
 ## Cutover Gates
@@ -66,6 +67,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Legacy tests pass.
 - Extracted service tests pass.
 - Contract tests pass for every service call replacing a direct repository/service dependency.
+- Runtime smoke script passes against the extracted-service stack.
 - Database migration is repeatable and idempotent.
 - Frontend smoke tests pass against the gateway route.
 - Rollback can return traffic to `backend_legacy` without data loss.

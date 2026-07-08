@@ -69,6 +69,13 @@ cd cinema-booking-system\backend
 docker compose -f infrastructure\docker-compose.yml config
 ```
 
+Extracted service runtime smoke:
+
+```powershell
+cd cinema-booking-system\backend
+.\infrastructure\smoke-test.ps1
+```
+
 Frontend build:
 
 ```powershell
@@ -100,10 +107,11 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 - Frontend build was not rerun during the latest backend-service extraction.
 - Docker images were not built; compose syntax was validated.
 - Data backfill scripts/runbook exist, but they have not been executed against a real database snapshot.
-- Runtime service smoke tests, API gateway routing, and JWT propagation are not wired yet.
+- Runtime service smoke script exists, but it has not been executed against a running extracted-service stack in this handoff.
+- API gateway routing and JWT propagation are not wired yet.
 
 ## Suggested Next Steps
 
 1. Dry-run data backfill scripts against a copied legacy database and verify row counts.
-2. Add runtime service smoke tests before switching frontend traffic away from `backend_legacy`.
+2. Run extracted-service runtime smoke tests before switching frontend traffic away from `backend_legacy`.
 3. Continue Spring Boot-only roadmap with Analytics or Recommendation after migration dry-run gates.
