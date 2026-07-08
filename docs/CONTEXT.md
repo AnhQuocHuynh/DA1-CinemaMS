@@ -40,6 +40,7 @@ Frontend areas in `frontend/src/`:
 ## Major Decisions
 - Current complete demo/backend deliverable remains the modular monolith in `backend_legacy`.
 - `backend/` now contains buildable `catalog-service`, `facility-service`, `showtime-service`, and `booking-service`; it is not yet a complete replacement for `backend_legacy`.
+- Spring Boot work should continue on Spring-assigned services only: Catalog, Showtime, Booking, Analytics, and Recommendation. ASP.NET-assigned services from `architecture_refactor.md` should not be expanded in this workstream.
 - Event-only showtimes are allowed; `showtimes.movie_id` may be nullable via manual DB patch.
 - Staff counter booking adds customer name/phone, `sales_channel`, and `created_by_staff_id` on orders.
 - Seat map contract includes row/column labels, labels like `A1`, seat type, column span/couple seats, and pathway cells.

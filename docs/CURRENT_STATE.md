@@ -30,6 +30,8 @@
 - Standalone Catalog now uses `EventShowtimeClient` over internal HTTP to create/delete event showtimes and fails closed if Showtime sync fails.
 - Standalone Showtime reads Catalog/Facility through HTTP clients and exposes internal command, guard, and seat-reservation endpoints for future service extraction.
 - Standalone Booking calls Showtime internal seat-reservation endpoints and uses Catalog/Facility internal projections for response enrichment.
+- Static contract tests now guard Spring Boot client paths against the OpenAPI drafts for Catalog, Facility, Showtime, and Booking.
+- Do not expand ASP.NET-assigned services in this Spring Boot track: Identity, target Facility, Payment, Notification, and API Gateway.
 
 ## Commands To Verify
 
@@ -98,10 +100,10 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 - Frontend build was not rerun during the latest backend-service extraction.
 - Docker images were not built; compose syntax was validated.
 - Data backfill scripts/runbook exist, but they have not been executed against a real database snapshot.
-- API gateway routing and JWT propagation are not wired yet.
+- Runtime service smoke tests, API gateway routing, and JWT propagation are not wired yet.
 
 ## Suggested Next Steps
 
 1. Dry-run data backfill scripts against a copied legacy database and verify row counts.
-2. Add contract tests before switching frontend traffic away from `backend_legacy`.
-3. Introduce API gateway routing only after service smoke tests pass.
+2. Add runtime service smoke tests before switching frontend traffic away from `backend_legacy`.
+3. Continue Spring Boot-only roadmap with Analytics or Recommendation after migration dry-run gates.
