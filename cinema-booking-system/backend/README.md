@@ -73,6 +73,7 @@ Analytics API:
 
 - Service: `http://localhost:8084`
 - Health: `http://localhost:8084/actuator/health`
+- Database: `localhost:5437/cinema_analytics_db`
 
 The host database ports are intentionally `5433`, `5434`, `5435`, and `5436` so services can run beside the legacy monolith database on `5432`. Showtime Redis uses host port `6380` so it can run beside legacy Redis on `6379`.
 

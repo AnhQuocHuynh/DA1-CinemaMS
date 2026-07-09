@@ -2,10 +2,10 @@
 
 ## Snapshot
 
-- Date of handoff: 2026-07-08.
+- Date of handoff: 2026-07-10.
 - Branch: `refactor-n-decoupling`.
 - Runnable full backend remains `cinema-booking-system/backend_legacy/`.
-- `cinema-booking-system/backend/` now contains extracted `catalog-service`, `facility-service`, `showtime-service`, and `booking-service` Spring Boot services.
+- `cinema-booking-system/backend/` now contains extracted `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, and `analytics-service` Spring Boot services.
 
 ## Exact Repository State
 
@@ -16,6 +16,7 @@
   - `backend/services/facility-service`
   - `backend/services/showtime-service`
   - `backend/services/booking-service`
+  - `backend/services/analytics-service`
 - Remaining service folders are placeholders unless documented otherwise.
 - `backend/infrastructure/docker-compose.yml` runs Catalog, Facility, Showtime, Booking, and Analytics with separate PostgreSQL databases plus Showtime Redis.
 - `backend_legacy/src/main/resources/application.yml` now has a valid Base64 JWT default while preserving `APP_JWT_SECRET`.
@@ -30,7 +31,7 @@
 - Standalone Catalog now uses `EventShowtimeClient` over internal HTTP to create/delete event showtimes and fails closed if Showtime sync fails.
 - Standalone Showtime reads Catalog/Facility through HTTP clients and exposes internal command, guard, and seat-reservation endpoints for future service extraction.
 - Standalone Booking calls Showtime internal seat-reservation endpoints and uses Catalog/Facility internal projections for response enrichment.
-- Standalone Analytics exposes admin dashboard route compatibility with safe zero/empty responses until analytics ingestion/query storage is wired.
+- Standalone Analytics exposes admin dashboard route compatibility and can query an optional PostgreSQL read model; event ingestion is not wired yet.
 - Static contract tests now guard Spring Boot client paths against the OpenAPI drafts for Catalog, Facility, Showtime, and Booking.
 - Do not expand ASP.NET-assigned services in this Spring Boot track: Identity, target Facility, Payment, Notification, and API Gateway.
 
@@ -92,7 +93,7 @@ npm run build
 - Facility service: `localhost:5002`, DB `localhost:5434/cinema_facility_db`.
 - Showtime service: `localhost:8082`, DB `localhost:5435/cinema_showtime_db`, Redis `localhost:6380`.
 - Booking service: `localhost:8083`, DB `localhost:5436/cinema_booking_db`.
-- Analytics service: `localhost:8084`.
+- Analytics service: `localhost:8084`, DB `localhost:5437/cinema_analytics_db`.
 - Legacy Redis: `localhost:6379`.
 
 ## Seed/Test Accounts
@@ -109,7 +110,7 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 - Frontend build was not rerun during the latest backend-service extraction.
 - Docker images were not built; compose syntax was validated.
 - Data backfill scripts/runbook exist, but they have not been executed against a real database snapshot.
-- Migration scripts now support dry-run validation and row-count comparison across legacy/service databases.
+- Migration scripts now support dry-run validation, row-count comparison across legacy/service databases, and Analytics read-model backfill.
 - Local preflight on 2026-07-08 found PostgreSQL 18 client tools under `C:\Program Files\PostgreSQL\18\bin`, but Docker and local DB/service ports were not running.
 - Runtime service smoke script exists, but it has not been executed against a running extracted-service stack in this handoff.
 - API gateway routing and JWT propagation are not wired yet.

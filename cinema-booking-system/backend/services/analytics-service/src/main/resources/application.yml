@@ -6,6 +6,18 @@ spring:
     name: analytics-service
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5437/cinema_analytics_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:123}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.postgresql.Driver}
+  sql:
+    init:
+      mode: ${SPRING_SQL_INIT_MODE:never}
+
+analytics:
+  read-model:
+    enabled: ${ANALYTICS_READ_MODEL_ENABLED:false}
 
 management:
   endpoints:

@@ -9,7 +9,8 @@ param(
     [string]$FacilityUrl = "",
     [string]$ShowtimeUrl = "",
     [string]$BookingUrl = "",
-    [string]$AnalyticsUrl = ""
+    [string]$AnalyticsUrl = "",
+    [switch]$SkipAnalytics
 )
 
 $ErrorActionPreference = "Stop"
@@ -142,7 +143,9 @@ try {
     Wait-Health "facility-service compatibility dependency" $FacilityUrl
     Wait-Health "showtime-service" $ShowtimeUrl
     Wait-Health "booking-service" $BookingUrl
-    Wait-Health "analytics-service" $AnalyticsUrl
+    if (-not $SkipAnalytics) {
+        Wait-Health "analytics-service" $AnalyticsUrl
+    }
 
     Assert-InternalEndpoint "Catalog movie projection" $CatalogUrl "/internal/catalog/movies/1"
     Assert-InternalEndpoint "Catalog event projection" $CatalogUrl "/internal/catalog/events/1"

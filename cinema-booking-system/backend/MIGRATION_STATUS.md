@@ -1,6 +1,6 @@
 # Backend Migration Status
 
-Updated: 2026-07-08
+Updated: 2026-07-10
 
 ## Safety Position
 
@@ -15,7 +15,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Extracted `facility-service` from `backend_legacy` into `backend/services/facility-service`.
 - Extracted `showtime-service` from `backend_legacy` into `backend/services/showtime-service`.
 - Extracted `booking-service` from `backend_legacy` into `backend/services/booking-service`.
-- Added a buildable Spring Boot `analytics-service` dashboard API surface with safe zero/empty responses.
+- Added a buildable Spring Boot `analytics-service` dashboard API surface and optional PostgreSQL read-model query path.
 - Added isolated Catalog, Facility, Showtime, Booking, and Analytics application bootstraps, configuration, tests, Dockerfiles, and Docker Compose support.
 - Replaced the direct Catalog -> Showtime call during event creation with `EventShowtimeClient`; standalone Catalog now calls Showtime internal command endpoints and fails closed if sync fails.
 - Extended cross-module read contracts in `backend_legacy` so Showtime can read Catalog and Facility through boundaries instead of direct repositories/entities.
@@ -25,7 +25,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Added internal Showtime future-showtime guard endpoints for Facility destructive deletes.
 - Added internal Showtime event command endpoints for Catalog event showtime creation/deletion.
 - Added draft data migration export/restore scripts and rollback runbook under `backend/infrastructure/migrations`.
-- Hardened migration scripts with dry-run support, compose-port restore defaults, and row-count comparison.
+- Hardened migration scripts with dry-run support, compose-port restore defaults, row-count comparison, and Analytics read-model backfill.
 - Added static contract tests that guard Spring Boot inter-service client paths against OpenAPI drafts.
 - Added a baseline runtime smoke script for service health and internal-token guard checks.
 - Verified `backend_legacy` tests pass after boundary changes.
@@ -39,7 +39,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 | facility-service | Extracted, buildable | Existing Spring Boot compatibility slice; target implementation is ASP.NET per architecture doc. Keep further changes minimal and contract-driven. |
 | showtime-service | Extracted, buildable | Own Spring Boot app, own DB/Redis config, OpenAPI draft present. Reads Catalog/Facility through HTTP clients and exposes internal guard/seat-reservation endpoints. |
 | booking-service | Extracted, buildable | Own Spring Boot app, own DB config, OpenAPI draft present. Calls Showtime internal seat-reservation endpoints and Catalog/Facility projections over HTTP. |
-| analytics-service | Skeleton, buildable | Own Spring Boot app and OpenAPI draft. Preserves admin dashboard route shape with zero/empty read model until ingestion/query storage is wired. |
+| analytics-service | Partial, buildable | Own Spring Boot app, OpenAPI draft, optional PostgreSQL read model, and backfill script. Event ingestion is not wired yet. |
 | identity-service | Placeholder | Still in legacy IAM. |
 | api-gateway | Placeholder | Required before external cutover. |
 | payment-service | Placeholder | Dedicated payment service is not extracted; payment handling currently lives inside booking-service and legacy backend. |
@@ -51,6 +51,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Facility data has not been backfilled from `cinema_db` to `cinema_facility_db`.
 - Showtime data and active Redis holds have not been backfilled/migrated from legacy runtime.
 - Booking/order/ticket/voucher/review data has not been backfilled from `cinema_db` to `cinema_booking_db`.
+- Analytics read-model data has not been backfilled from a copied legacy database to `cinema_analytics_db`.
 - Migration scripts have not been executed against a real database snapshot yet.
 - Admin/staff write endpoints in direct Catalog, Facility, Showtime, and Booking services still depend on future gateway/JWT integration.
 - Catalog event creation now synchronously calls Showtime internal commands; durable outbox delivery is still not implemented.

@@ -192,6 +192,25 @@ services:
     networks:
       - cinema-services
 
+  analytics-db:
+    image: postgres:16-alpine
+    container_name: cinema-analytics-db
+    environment:
+      POSTGRES_DB: cinema_analytics_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123"
+    ports:
+      - "5437:5432"
+    volumes:
+      - analytics_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cinema_analytics_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cinema-services
+
   analytics-service:
     build:
       context: ..
@@ -199,8 +218,16 @@ services:
     container_name: cinema-analytics-service
     environment:
       SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://analytics-db:5432/cinema_analytics_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: "123"
+      SPRING_SQL_INIT_MODE: always
+      ANALYTICS_READ_MODEL_ENABLED: "true"
     ports:
       - "8084:8084"
+    depends_on:
+      analytics-db:
+        condition: service_healthy
     networks:
       - cinema-services
 
@@ -209,6 +236,7 @@ volumes:
   facility_db_data:
   showtime_db_data:
   booking_db_data:
+  analytics_db_data:
 
 networks:
   cinema-services:

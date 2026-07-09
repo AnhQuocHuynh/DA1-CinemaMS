@@ -10,6 +10,7 @@ Status: draft, not yet executed. `backend_legacy` remains the rollback source of
 | facility-service | `cinema_facility_db` | `cinemas`, `rooms`, `seat_types`, `seat_templates` |
 | showtime-service | `cinema_showtime_db` | `showtimes`, `showtime_seats` |
 | booking-service | `cinema_booking_db` | `vouchers`, `orders`, `tickets`, `reviews` |
+| analytics-service | `cinema_analytics_db` | Derived read model: `analytics_orders`, `analytics_showtimes`, `analytics_showtime_seats`, `analytics_contents`, `analytics_rooms`, `analytics_users` |
 
 ## Preconditions
 
@@ -27,6 +28,7 @@ $pgBin = "C:\Program Files\PostgreSQL\18\bin"
 .\infrastructure\migrations\export-legacy-data.ps1 -PgDump "$pgBin\pg_dump.exe" -DryRun
 .\infrastructure\migrations\restore-service-data.ps1 -PgRestore "$pgBin\pg_restore.exe" -Psql "$pgBin\psql.exe" -DryRun
 .\infrastructure\migrations\verify-service-counts.ps1 -Psql "$pgBin\psql.exe" -DryRun
+.\infrastructure\migrations\backfill-analytics-read-model.ps1 -Psql "$pgBin\psql.exe" -DryRun
 ```
 
 ## Export
@@ -60,6 +62,16 @@ By default, the restore script targets the Docker Compose database ports:
 ```
 
 Use `-DryRun` before the actual restore, or pass `-Port 5432` only when all service databases live on one PostgreSQL server.
+
+## Analytics Read Model
+
+Analytics uses a derived read model instead of a table-for-table restore. After the normal service restore, create/populate `cinema_analytics_db` from a copied legacy database:
+
+```powershell
+.\infrastructure\migrations\backfill-analytics-read-model.ps1 -TruncateFirst
+```
+
+Run with `-DryRun` first. The script applies `services/analytics-service/src/main/resources/schema.sql`, exports the legacy dashboard source tables to CSV, then imports the derived rows into the analytics read-model tables.
 
 ## Verification
 
