@@ -1,0 +1,14 @@
+server:
+  port: ${SERVER_PORT:8085}
+
+spring:
+  application:
+    name: recommendation-service
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

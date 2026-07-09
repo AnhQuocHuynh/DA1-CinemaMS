@@ -9,6 +9,7 @@ This folder is the microservice migration target. The full runnable application 
 - `services/showtime-service` owns showtimes, showtime seats, seat holds, and seat reservation state transitions.
 - `services/booking-service` owns orders, payments, tickets, vouchers, and reviews.
 - `services/analytics-service` exposes the Spring Boot admin dashboard API surface with a safe zero/empty read model until analytics ingestion/query storage is wired.
+- `services/recommendation-service` exposes the Spring Boot recommendation API surface with safe empty fallback responses until Neo4j/RabbitMQ integration is wired.
 - Other service folders are still placeholders unless noted in `MIGRATION_STATUS.md`.
 - The legacy monolith remains the source of truth for the complete booking flow while migration continues.
 
@@ -74,6 +75,11 @@ Analytics API:
 - Service: `http://localhost:8084`
 - Health: `http://localhost:8084/actuator/health`
 - Database: `localhost:5437/cinema_analytics_db`
+
+Recommendation API:
+
+- Service: `http://localhost:8085`
+- Health: `http://localhost:8085/actuator/health`
 
 The host database ports are intentionally `5433`, `5434`, `5435`, and `5436` so services can run beside the legacy monolith database on `5432`. Showtime Redis uses host port `6380` so it can run beside legacy Redis on `6379`.
 

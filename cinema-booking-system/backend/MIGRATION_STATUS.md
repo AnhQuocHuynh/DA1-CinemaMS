@@ -4,7 +4,7 @@ Updated: 2026-07-10
 
 ## Safety Position
 
-`backend_legacy` remains the runnable full backend. `backend` now contains independently buildable Catalog, Facility, Showtime, Booking, and Analytics slices, but the whole product is not cut over yet.
+`backend_legacy` remains the runnable full backend. `backend` now contains independently buildable Catalog, Facility, Showtime, Booking, Analytics, and Recommendation slices, but the whole product is not cut over yet.
 
 Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, and Recommendation. Do not expand ASP.NET-assigned services from `architecture_refactor.md`: Identity, target Facility, Payment, Notification, or API Gateway.
 
@@ -16,7 +16,8 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Extracted `showtime-service` from `backend_legacy` into `backend/services/showtime-service`.
 - Extracted `booking-service` from `backend_legacy` into `backend/services/booking-service`.
 - Added a buildable Spring Boot `analytics-service` dashboard API surface and optional PostgreSQL read-model query path.
-- Added isolated Catalog, Facility, Showtime, Booking, and Analytics application bootstraps, configuration, tests, Dockerfiles, and Docker Compose support.
+- Added a buildable Spring Boot `recommendation-service` API surface with safe empty fallback responses.
+- Added isolated Catalog, Facility, Showtime, Booking, Analytics, and Recommendation application bootstraps, configuration, tests, Dockerfiles, and Docker Compose support.
 - Replaced the direct Catalog -> Showtime call during event creation with `EventShowtimeClient`; standalone Catalog now calls Showtime internal command endpoints and fails closed if sync fails.
 - Extended cross-module read contracts in `backend_legacy` so Showtime can read Catalog and Facility through boundaries instead of direct repositories/entities.
 - Replaced Facility's direct JPQL dependency on Showtime with `FacilityShowtimeGuard`; standalone Facility now queries Showtime internal guard endpoints and fails closed if Showtime is unavailable.
@@ -40,6 +41,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 | showtime-service | Extracted, buildable | Own Spring Boot app, own DB/Redis config, OpenAPI draft present. Reads Catalog/Facility through HTTP clients and exposes internal guard/seat-reservation endpoints. |
 | booking-service | Extracted, buildable | Own Spring Boot app, own DB config, OpenAPI draft present. Calls Showtime internal seat-reservation endpoints and Catalog/Facility projections over HTTP. |
 | analytics-service | Partial, buildable | Own Spring Boot app, OpenAPI draft, optional PostgreSQL read model, and backfill script. Event ingestion is not wired yet. |
+| recommendation-service | Skeleton, buildable | Own Spring Boot app and OpenAPI draft. Neo4j, Redis, RabbitMQ consumers, and graph backfill are not wired yet. |
 | identity-service | Placeholder | Still in legacy IAM. |
 | api-gateway | Placeholder | Required before external cutover. |
 | payment-service | Placeholder | Dedicated payment service is not extracted; payment handling currently lives inside booking-service and legacy backend. |
@@ -52,6 +54,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Showtime data and active Redis holds have not been backfilled/migrated from legacy runtime.
 - Booking/order/ticket/voucher/review data has not been backfilled from `cinema_db` to `cinema_booking_db`.
 - Analytics read-model data has not been backfilled from a copied legacy database to `cinema_analytics_db`.
+- Recommendation graph data has not been backfilled; Neo4j/Redis/RabbitMQ integration is not wired.
 - Migration scripts have not been executed against a real database snapshot yet.
 - Admin/staff write endpoints in direct Catalog, Facility, Showtime, and Booking services still depend on future gateway/JWT integration.
 - Catalog event creation now synchronously calls Showtime internal commands; durable outbox delivery is still not implemented.
@@ -63,7 +66,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 
 1. Execute migration dry-run, restore into copied service databases, and verify row counts.
 2. Run `infrastructure/smoke-test.ps1` against the extracted-service stack before any frontend route switch.
-3. Continue Spring Boot-only roadmap with Analytics ingestion/query storage or Recommendation after migration dry-run gates.
+3. Continue Spring Boot-only roadmap with Analytics event ingestion or Recommendation graph integration after migration dry-run gates.
 
 ## Cutover Gates
 

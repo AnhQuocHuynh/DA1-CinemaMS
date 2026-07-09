@@ -18,6 +18,7 @@
         <module>services/showtime-service</module>
         <module>services/booking-service</module>
         <module>services/analytics-service</module>
+        <module>services/recommendation-service</module>
     </modules>
 
     <properties>

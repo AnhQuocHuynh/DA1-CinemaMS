@@ -10,7 +10,9 @@ param(
     [string]$ShowtimeUrl = "",
     [string]$BookingUrl = "",
     [string]$AnalyticsUrl = "",
-    [switch]$SkipAnalytics
+    [string]$RecommendationUrl = "",
+    [switch]$SkipAnalytics,
+    [switch]$SkipRecommendation
 )
 
 $ErrorActionPreference = "Stop"
@@ -122,6 +124,7 @@ $FacilityUrl = Resolve-Default $FacilityUrl (Resolve-Default $env:FACILITY_SERVI
 $ShowtimeUrl = Resolve-Default $ShowtimeUrl (Resolve-Default $env:SHOWTIME_SERVICE_URL "http://localhost:8082")
 $BookingUrl = Resolve-Default $BookingUrl (Resolve-Default $env:BOOKING_SERVICE_URL "http://localhost:8083")
 $AnalyticsUrl = Resolve-Default $AnalyticsUrl (Resolve-Default $env:ANALYTICS_SERVICE_URL "http://localhost:8084")
+$RecommendationUrl = Resolve-Default $RecommendationUrl (Resolve-Default $env:RECOMMENDATION_SERVICE_URL "http://localhost:8085")
 
 if ($ValidateOnly) {
     Write-Host "Smoke test script configuration is valid."
@@ -130,6 +133,7 @@ if ($ValidateOnly) {
     Write-Host "Showtime: $ShowtimeUrl"
     Write-Host "Booking:  $BookingUrl"
     Write-Host "Analytics: $AnalyticsUrl"
+    Write-Host "Recommendation: $RecommendationUrl"
     return
 }
 
@@ -145,6 +149,9 @@ try {
     Wait-Health "booking-service" $BookingUrl
     if (-not $SkipAnalytics) {
         Wait-Health "analytics-service" $AnalyticsUrl
+    }
+    if (-not $SkipRecommendation) {
+        Wait-Health "recommendation-service" $RecommendationUrl
     }
 
     Assert-InternalEndpoint "Catalog movie projection" $CatalogUrl "/internal/catalog/movies/1"

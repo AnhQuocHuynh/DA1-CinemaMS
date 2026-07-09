@@ -1,0 +1,65 @@
+openapi: 3.0.3
+info:
+  title: Cinema Recommendation Service API
+  version: 0.1.0
+paths:
+  /api/recommendations/movies:
+    get:
+      summary: Get personalized movie recommendations.
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Personalized recommendations or fallback list.
+  /api/recommendations/movies/popular:
+    get:
+      summary: Get globally popular movie recommendations.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Popular recommendations.
+  /api/recommendations/movies/{movieId}/similar:
+    get:
+      summary: Get movies similar to a movie.
+      parameters:
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Similar movie recommendations.
+  /api/recommendations/users/{userId}/taste-profile:
+    get:
+      summary: Get a user's computed taste profile.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: User taste profile.
