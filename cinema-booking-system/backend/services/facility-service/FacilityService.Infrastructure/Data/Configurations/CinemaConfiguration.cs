@@ -19,6 +19,16 @@ namespace FacilityService.Infrastructure.Data.Configurations
             builder.Property(c => c.Address)
                 .IsRequired()
                 .HasMaxLength(255);
+
+            builder.Property(c => c.City)
+                .HasMaxLength(100);
+
+            builder.Property(c => c.Phone)
+                .HasMaxLength(20);
+
+            builder.Property(c => c.Active)
+                .IsRequired()
+                .HasDefaultValue(true);
                 
             // Relationships
             builder.HasMany(c => c.Rooms)

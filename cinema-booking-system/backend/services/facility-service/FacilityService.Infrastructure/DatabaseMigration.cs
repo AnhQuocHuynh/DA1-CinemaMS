@@ -15,6 +15,9 @@ namespace FacilityService.Infrastructure
             using var scope = serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<FacilityDbContext>();
             dbContext.Database.Migrate();
+
+            // Seed test data if not already present
+            FacilityDataSeeder.SeedAsync(dbContext).GetAwaiter().GetResult();
         }
     }
 }
