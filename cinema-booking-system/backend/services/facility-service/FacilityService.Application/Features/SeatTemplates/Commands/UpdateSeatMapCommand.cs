@@ -1,6 +1,7 @@
 using FacilityService.Application.DTOs;
 using FacilityService.Application.Exceptions;
 using FacilityService.Domain.Entities;
+using FacilityService.Domain.Enum;
 using FacilityService.Domain.Interfaces;
 using FluentValidation;
 using MediatR;
@@ -48,19 +49,18 @@ namespace FacilityService.Application.Features.SeatTemplates.Commands
 
             if (request.Request.Seats != null && request.Request.Seats.Any())
             {
-                var newTemplates = new System.Collections.Generic.List<SeatTemplate>();
+                var newTemplates = new List<SeatTemplate>();
                 foreach (var seatReq in request.Request.Seats)
                 {
-                    FacilityService.Domain.Enum.SeatTypeCode codeCode;
-                    if (!System.Enum.TryParse(seatReq.SeatTypeCode.ToUpper(), out codeCode))
+                    SeatTypeCode codeCode;
+                    if (!Enum.TryParse(seatReq.SeatTypeCode.ToUpper(), out codeCode))
                     {
-                        throw new System.Exception("Invalid seat type");
+                        throw new BadRequestException("Invalid seat type");
                     }
 
                     var seatType = await _unitOfWork.SeatTypes.GetByCodeAsync(codeCode);
-                    if (seatType == null) throw new System.Exception("Invalid seat type");
-
-                    int span = (codeCode == FacilityService.Domain.Enum.SeatTypeCode.COUPLE) ? 2 : 1;
+                    if (seatType == null) throw new SeatTypeNotFoundException(seatReq.SeatTypeCode);
+                    int span = (codeCode == SeatTypeCode.COUPLE) ? 2 : 1;
 
                     var template = new SeatTemplate(room, seatType, seatReq.RowLabel, seatReq.ColumnNumber, span, false);
                     newTemplates.Add(template);

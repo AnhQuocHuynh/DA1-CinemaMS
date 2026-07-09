@@ -22,6 +22,10 @@ namespace FacilityService.Application.Features.Cinemas.Queries
         public async Task<CinemaDto> Handle(GetCinemaByIdQuery request, CancellationToken cancellationToken)
         {
             var cinema = await _unitOfWork.Cinemas.GetByIdAsync(request.Id);
+            if (cinema == null)
+            {
+                throw new Application.Exceptions.CinemaNotFoundException(request.Id);
+            }
             return new CinemaDto 
             { 
                 Id = cinema.Id, 

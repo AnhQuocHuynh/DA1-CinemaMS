@@ -3,6 +3,7 @@ using FluentValidation;
 using MediatR;
 using FacilityService.Domain.Interfaces;
 using FacilityService.Domain.Entities;
+using FacilityService.Application.Exceptions;
 
 namespace FacilityService.Application.Features.Cinemas.Commands
 {
@@ -53,7 +54,7 @@ namespace FacilityService.Application.Features.Cinemas.Commands
             Cinema? cinema = await _unitOfWork.Cinemas.GetByIdAsync(request.Id);
             if (cinema == null)
             {
-                throw new Exception("Cinema not found");
+                throw new CinemaNotFoundException(request.Id);
             }
 
             cinema.Update(request.Name, request.Address, request.City, request.Phone);

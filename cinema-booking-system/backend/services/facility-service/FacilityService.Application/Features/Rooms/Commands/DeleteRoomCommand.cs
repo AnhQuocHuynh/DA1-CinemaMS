@@ -43,7 +43,7 @@ namespace FacilityService.Application.Features.Rooms.Commands
                 var hasFutureShowtimes = await _showtimeServiceClient.HasFutureShowtimesAsync(new List<long> { room.Id }, cancellationToken);
                 if (hasFutureShowtimes)
                 {
-                    throw new System.Exception("Cannot delete room with future showtimes scheduled.");
+                    throw new BadRequestException("Cannot delete room with future showtimes scheduled.");
                 }
 
                 room.Disable();

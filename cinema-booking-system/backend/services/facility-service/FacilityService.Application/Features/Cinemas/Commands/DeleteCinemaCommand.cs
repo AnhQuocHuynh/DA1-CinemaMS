@@ -4,6 +4,7 @@ using MediatR;
 using FacilityService.Domain.Interfaces;
 using FacilityService.Domain.Entities;
 using FacilityService.Application.Contracts;
+using FacilityService.Application.Exceptions;
 
 namespace FacilityService.Application.Features.Cinemas.Commands
 {
@@ -38,7 +39,7 @@ namespace FacilityService.Application.Features.Cinemas.Commands
             Cinema? cinema = await _unitOfWork.Cinemas.GetByIdAsync(request.Id);
             if (cinema == null)
             {
-                throw new Exception("Cinema not found");
+                throw new CinemaNotFoundException(request.Id);
             }
             // Validate if the cinema has any rooms associated with it or if there's any showtimes scheduled in the future. If so, throw an exception or return an error response.
             if(cinema.Active)
@@ -50,7 +51,7 @@ namespace FacilityService.Application.Features.Cinemas.Commands
                     var hasFutureShowtimes = await _showtimeServiceClient.HasFutureShowtimesAsync(roomIds, cancellationToken);
                     if (hasFutureShowtimes)
                     {
-                        throw new Exception("Cannot delete cinema with future showtimes scheduled.");
+                        throw new BadRequestException("Cannot delete cinema with future showtimes scheduled.");
                     }
                 }
                 cinema.Disable();
