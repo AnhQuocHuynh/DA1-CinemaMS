@@ -14,19 +14,21 @@ namespace FacilityService.Infrastructure
     {
         public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
         {
-            /*
-            services.AddDbContext<FacilityDbContext>(options =>
-                options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
             
+            services.AddDbContext<FacilityDbContext>(options =>
+                options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));           
 
             services.AddScoped<ICinemaRepository, CinemaRepository>();
+            services.AddScoped<IRoomRepository, RoomRepository>();
+            services.AddScoped<ISeatTypeRepository, SeatTypeRepository>();
+            services.AddScoped<ISeatTemplateRepository, SeatTemplateRepository>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddHttpClient<IShowtimeServiceClient, ShowtimeServiceClient>(client =>
             {
                 var baseUrl = configuration["ServiceUrls:ShowtimeService"] ?? throw new ArgumentNullException("ServiceUrls:ShowtimeService is missing");
                 client.BaseAddress = new Uri(baseUrl);
             });
-            */
+            
 
             return services;
         }
