@@ -31,7 +31,7 @@
 
 This document proposes refactoring the **Cinema Booking System** from its current **Modular Monolith** into a **polyglot microservices architecture**. The existing Spring Boot application is already organized into well-separated domain modules (`iam`, `catalog`, `booking`, `facility`, `showtime`, `admin`, `staff`, `core`), which provides an excellent foundation for decomposition.
 
-The refactored system will split services between **Spring Boot (Java 21)** and **ASP.NET Core 8 (C#)**, leverage **database-per-service** with purpose-chosen databases, use **RabbitMQ** for async event-driven communication, and route all traffic through an **API Gateway**.
+The refactored system will split services between **Spring Boot (Java 21)** and **ASP.NET Core 8 (C#)**, leverage **database-per-service** with purpose-chosen databases, use **RabbitMQ** for async event-driven communication, route all traffic through an **API Gateway**, and adopt **Keycloak** as the centralized Identity & Access Management (IAM) solution — replacing the monolith's custom JWT/auth implementation.
 
 ### Key Goals
 
@@ -103,28 +103,29 @@ The following cross-module dependencies exist in the monolith and must be resolv
                                              │ HTTPS
                                              ▼
                           ┌──────────────────────────────────────────────┐
-                          │           API GATEWAY (Ocelot / YARP)        │
+                          │           API GATEWAY (YARP)                  │
                           │     ─────────────────────────────────────    │
                           │  • Route Aggregation    • Rate Limiting      │
                           │  • JWT Validation       • Load Balancing     │
+                          │    (Keycloak OIDC)      • CORS               │
                           │  • Request/Response Transform                │
-                          │  • Circuit Breaker      • CORS               │
+                          │  • Circuit Breaker                           │
                           └──┬────┬────┬────┬────┬────┬────┬────┬───────┘
                              │    │    │    │    │    │    │    │
               ┌──────────────┘    │    │    │    │    │    │    └──────────────┐
               │       ┌───────────┘    │    │    │    │    └────────┐         │
               ▼       ▼               ▼    │    ▼    ▼              ▼         ▼
          ┌────────┬────────┐    ┌─────────┐│┌────────┬─────────┐┌────────┬────────┐
-         │Identity│Catalog │    │Facility │││Showtime│ Booking  ││Payment │Notif.  │
-         │Service │Service │    │Service  │││Service │ Service  ││Service │Service │
-         │(ASP.NET│(Spring │    │(ASP.NET │││(Spring │(Spring   ││(ASP.NET│(ASP.NET│
-         │ Core)  │ Boot)  │    │ Core)   │││ Boot)  │ Boot)    ││ Core)  │ Core)  │
+         │User    │Catalog │    │Facility │││Showtime│ Booking  ││Payment │Notif.  │
+         │Profile │Service │    │Service  │││Service │ Service  ││Service │Service │
+         │Service │(Spring │    │(ASP.NET │││(Spring │(Spring   ││(ASP.NET│(ASP.NET│
+         │(ASP.NET│ Boot)  │    │ Core)   │││ Boot)  │ Boot)    ││ Core)  │ Core)  │
          └───┬────┴───┬────┘    └───┬─────┘│└───┬────┴───┬─────┘└───┬────┴───┬────┘
              │        │             │      │    │        │          │        │
              ▼        ▼             ▼      │    ▼        ▼          ▼        ▼
          ┌────────┬────────┐   ┌─────────┐ │ ┌────────┬────────┐┌────────┬────────┐
          │Postgres│Postgres│   │Postgres │ │ │Redis + │Postgres││Postgres│  ——    │
-         │(iam_db)│(cat_db)│   │(fac_db) │ │ │Postgres│(bkg_db)││(pay_db)│        │
+         │(usr_db)│(cat_db)│   │(fac_db) │ │ │Postgres│(bkg_db)││(pay_db)│        │
          └────────┴────────┘   └─────────┘ │ └────────┴────────┘└────────┴────────┘
                                            │
                                      ┌─────▼──────────────────────────────────────┐
@@ -152,10 +153,15 @@ The following cross-module dependencies exist in the monolith and must be resolv
                           ┌──────────────────────────────────────────────┐
                           │        Shared Infrastructure                  │
                           │  ┌─────────┐  ┌──────┐  ┌────────────────┐  │
-                          │  │ Consul / │  │Zipkin│  │ ELK / Grafana  │  │
-                          │  │ Eureka   │  │      │  │ Loki + Prom.   │  │
-                          │  │(Discov.) │  │(Trace│  │ (Log+Metrics)  │  │
+                          │  │Keycloak │  │Zipkin│  │ ELK / Grafana  │  │
+                          │  │  (IAM)  │  │      │  │ Loki + Prom.   │  │
+                          │  │ :8080   │  │(Trace│  │ (Log+Metrics)  │  │
                           │  └─────────┘  └──────┘  └────────────────┘  │
+                          │  ┌─────────┐                                │
+                          │  │ Consul / │                               │
+                          │  │ Eureka   │                               │
+                          │  │(Discov.) │                               │
+                          │  └─────────┘                                │
                           └──────────────────────────────────────────────┘
 ```
 
@@ -167,7 +173,7 @@ The following cross-module dependencies exist in the monolith and must be resolv
 
 | # | Service Name | Bounded Context | Responsibility |
 |---|---|---|---|
-| 1 | **Identity Service** | IAM | User registration, login, JWT issuance, role management, password reset, token refresh/revocation |
+| 1 | **User Profile Service** | User Profile | Extended user profile management (profile fields, preferences), user data synchronization with Keycloak, internal user lookup APIs. Auth (login, registration, JWT, password reset, token management) is handled by **Keycloak** |
 | 2 | **Catalog Service** | Catalog | Movie CRUD, Event CRUD, Genre management, catalog search/browse |
 | 3 | **Facility Service** | Facility | Cinema management, Room management, Seat template & seat type configuration |
 | 4 | **Showtime Service** | Showtime | Showtime scheduling, ShowtimeSeat generation, seat map queries, seat hold/release (Redis TTL) |
@@ -182,7 +188,8 @@ The following cross-module dependencies exist in the monolith and must be resolv
 
 | Entity | Owning Service | Consumers (via API/Events) |
 |---|---|---|
-| `User`, `Role`, `RefreshToken`, `PasswordResetToken` | Identity Service | All services (JWT validation) |
+| `User` (profile data), `KeycloakId` mapping | User Profile Service | All services (user lookup) |
+| Auth identity (credentials, roles, tokens, sessions) | **Keycloak** (external) | All services (JWT validation via OIDC) |
 | `Movie`, `Event`, `Genre`, `MovieGenre` | Catalog Service | Showtime, Booking, Analytics |
 | `Cinema`, `Room`, `SeatTemplate`, `SeatType` | Facility Service | Showtime, Analytics |
 | `Showtime`, `ShowtimeSeat` | Showtime Service | Booking, Analytics |
@@ -199,7 +206,7 @@ The following cross-module dependencies exist in the monolith and must be resolv
 
 | Service | Framework | Language | Rationale |
 |---|---|---|---|
-| **Identity Service** | **ASP.NET Core 8** | C# | ASP.NET Identity has best-in-class auth support; built-in Identity framework, robust JWT middleware, high-performance Kestrel |
+| **User Profile Service** | **ASP.NET Core 8** | C# | Lightweight profile management; syncs extended user data with Keycloak; EF Core for profile DB. Auth/JWT/password logic fully delegated to **Keycloak** — no custom JWT middleware needed |
 | **Catalog Service** | **Spring Boot 3.3** | Java 21 | Data-heavy CRUD with complex JPA relationships (Movie↔Genre M:N), existing MapStruct mappers; minimal migration effort |
 | **Facility Service** | **ASP.NET Core 8** | C# | Relatively simple CRUD, benefits from EF Core's migration system; good candidate for .NET team ramp-up |
 | **Showtime Service** | **Spring Boot 3.3** | Java 21 | Complex seat locking logic with Redis (existing implementation), transactional seat reservation with JPA, high concurrency patterns |
@@ -216,7 +223,7 @@ The following cross-module dependencies exist in the monolith and must be resolv
 ┌─────────────────────────────────┬──────────────────────────────────┐
 │     Spring Boot (Java 21)       │      ASP.NET Core 8 (C#)         │
 ├─────────────────────────────────┼──────────────────────────────────┤
-│ • Catalog Service               │ • Identity Service               │
+│ • Catalog Service               │ • User Profile Service           │
 │ • Showtime Service              │ • Facility Service               │
 │ • Booking Service               │ • Payment Service                │
 │ • Analytics Service             │ • Notification Service           │
@@ -234,7 +241,7 @@ The following cross-module dependencies exist in the monolith and must be resolv
 
 | Service | Primary Database | Why This DB | Schema/DB Name |
 |---|---|---|---|
-| **Identity Service** | **PostgreSQL 16** | Relational integrity for users/roles; ACID for auth tokens; battle-tested for identity workloads | `identity_db` |
+| **User Profile Service** | **PostgreSQL 16** | User profile data (extended fields, preferences); `keycloak_id` mapping to Keycloak UUID; no auth tokens stored locally | `user_profile_db` |
 | **Catalog Service** | **PostgreSQL 16** | Complex M:N relationships (Movie↔Genre), full-text search (`tsvector`), JSONB for flexible metadata | `catalog_db` |
 | **Facility Service** | **PostgreSQL 16** | Relational data (Cinema→Room→SeatTemplate), spatial potential (PostGIS for cinema locations) | `facility_db` |
 | **Showtime Service** | **PostgreSQL 16** + **Redis 7** | PostgreSQL for showtime/seat persistence; Redis for transient seat holds (TTL-based distributed locks) | `showtime_db` + Redis |
@@ -248,7 +255,7 @@ The following cross-module dependencies exist in the monolith and must be resolv
 
 | Service | Cache | Usage |
 |---|---|---|
-| Identity Service | **Redis** | Token blacklist, session cache, rate limit counters |
+| User Profile Service | **Redis** | User profile cache, rate limit counters |
 | Catalog Service | **Redis** | Movie listing cache (TTL 5min), genre list cache |
 | Showtime Service | **Redis** | Seat hold locks (TTL-based), seat map cache |
 | Booking Service | **Redis** | Order idempotency keys, voucher validation cache |
@@ -262,14 +269,14 @@ The following cross-module dependencies exist in the monolith and must be resolv
 │                        PostgreSQL Cluster                            │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │
 │  │identity  │ │catalog   │ │facility  │ │showtime  │ │booking   │ │
-│  │  _db     │ │  _db     │ │  _db     │ │  _db     │ │  _db     │ │
-│  │          │ │          │ │          │ │          │ │          │ │
-│  │• users   │ │• movies  │ │• cinemas │ │• show-   │ │• orders  │ │
-│  │• roles   │ │• events  │ │• rooms   │ │  times   │ │• tickets │ │
-│  │• refresh │ │• genres  │ │• seat_   │ │• show-   │ │• vouchers│ │
-│  │  _tokens │ │• movie_  │ │  templates│ │  time_  │ │• reviews │ │
-│  │• password│ │  genres  │ │• seat_   │ │  seats   │ │          │ │
-│  │  _reset  │ │          │ │  types   │ │          │ │          │ │
+│  │ profile  │ │  _db     │ │  _db     │ │  _db     │ │  _db     │ │
+│  │  _db     │ │          │ │          │ │          │ │          │ │
+│  │          │ │• movies  │ │• cinemas │ │• show-   │ │• orders  │ │
+│  │• users   │ │• events  │ │• rooms   │ │  times   │ │• tickets │ │
+│  │• keycloak│ │• genres  │ │• seat_   │ │• show-   │ │• vouchers│ │
+│  │  _id map │ │• movie_  │ │  templates│ │  time_  │ │• reviews │ │
+│  │          │ │  genres  │ │• seat_   │ │  seats   │ │          │ │
+│  │          │ │          │ │  types   │ │          │ │          │ │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ │
 │                                                                     │
 │  ┌──────────┐                                                       │
@@ -319,8 +326,8 @@ The following cross-module dependencies exist in the monolith and must be resolv
 
 | Route Pattern | Target Service | Method | Auth Required | Rate Limit |
 |---|---|---|---|---|
-| `/api/auth/**` | Identity Service `:5001` | ALL | ✗ | 20 req/min |
-| `/api/users/**` | Identity Service `:5001` | ALL | ✓ | 60 req/min |
+| `/api/auth/**` | Keycloak `:8080` | ALL | ✗ | 20 req/min |
+| `/api/users/**` | User Profile Service `:5001` | ALL | ✓ | 60 req/min |
 | `/api/movies/**` | Catalog Service `:8081` | GET | ✗ | 120 req/min |
 | `/api/movies/**` | Catalog Service `:8081` | POST/PUT/DELETE | ✓ (ADMIN) | 30 req/min |
 | `/api/events/**` | Catalog Service `:8081` | GET | ✗ | 120 req/min |
@@ -352,7 +359,8 @@ The following cross-module dependencies exist in the monolith and must be resolv
 │  ┌─────────────┐  ┌────────────┐  ┌───────────────────────┐ │
 │  │ JWT         │  │ Rate       │  │ Circuit Breaker       │ │
 │  │ Validation  │→ │ Limiting   │→ │ (Polly)               │ │
-│  │ Middleware  │  │ (Redis)    │  │                       │ │
+│  │ (Keycloak   │  │ (Redis)    │  │                       │ │
+│  │  OIDC/JWKS) │  │            │  │                       │ │
 │  └─────────────┘  └────────────┘  └───────────────────────┘ │
 │           │                                │                 │
 │           ▼                                ▼                 │
@@ -374,6 +382,10 @@ The following cross-module dependencies exist in the monolith and must be resolv
 {
   "ReverseProxy": {
     "Routes": {
+      "keycloak-route": {
+        "ClusterId": "keycloak-cluster",
+        "Match": { "Path": "/api/auth/{**catch-all}" }
+      },
       "catalog-route": {
         "ClusterId": "catalog-cluster",
         "Match": { "Path": "/api/movies/{**catch-all}" }
@@ -389,6 +401,14 @@ The following cross-module dependencies exist in the monolith and must be resolv
       }
     },
     "Clusters": {
+      "keycloak-cluster": {
+        "Destinations": {
+          "keycloak-1": { "Address": "http://keycloak:8080" }
+        },
+        "HealthCheck": {
+          "Active": { "Enabled": true, "Interval": "00:00:30", "Path": "/health" }
+        }
+      },
       "catalog-cluster": {
         "Destinations": {
           "catalog-1": { "Address": "http://catalog-service:8081" }
@@ -433,9 +453,10 @@ The following cross-module dependencies exist in the monolith and must be resolv
 | Booking Service | Showtime Service | `POST /internal/seats/confirm` | Confirm seats as BOOKED after payment |
 | Booking Service | Showtime Service | `POST /internal/seats/release` | Release seats on order cancellation |
 | Analytics Service | Catalog Service | `GET /internal/movies/{id}` | Enrich analytics with movie titles |
-| Analytics Service | Identity Service | `GET /internal/users/count` | Get total user count for dashboard |
+| Analytics Service | User Profile Service | `GET /internal/users/count` | Get total user count for dashboard |
+| API Gateway | User Profile Service | `GET /internal/users/resolve?keycloakId={uuid}` | Resolve Keycloak UUID → internal Long user ID (cached) |
 
-> **Note**: All internal APIs use the `/internal/` prefix and are blocked at the API Gateway level (not exposed externally). Services authenticate internally via mTLS or a shared internal API key.
+> **Note**: All internal APIs use the `/internal/` prefix and are blocked at the API Gateway level (not exposed externally). Services authenticate internally via API key header (`X-Internal-Api-Key`).
 
 ### 8.3 Asynchronous Events (RabbitMQ)
 
@@ -572,52 +593,103 @@ Services → Promtail → Loki → Grafana
 
 ---
 
-## 10. Security & Authentication
+## 10. Security & Authentication (Keycloak)
 
-### 10.1 JWT Flow in Microservices
+### 10.1 Keycloak as Centralized IAM
+
+All authentication, authorization, user credentials, roles, sessions, and token management are handled by **Keycloak** — an open-source Identity and Access Management solution. No microservice issues its own JWTs.
+
+### 10.2 Authentication Flow (OIDC)
 
 ```
                     ┌──────────┐
                     │  Client  │
                     └────┬─────┘
-                         │ 1. POST /api/auth/login
+                         │ 1. POST /realms/cinema-booking/protocol/openid-connect/token
+                         │    (grant_type=password, client_id, username, password)
                          ▼
                     ┌──────────┐
-                    │   API    │ 2. Forward to Identity Service
-                    │ Gateway  │◄─────────────────────────────────┐
-                    └────┬─────┘                                  │
-                         │ 3. JWT issued                          │
-                         ▼                                        │
-                    ┌──────────┐                                  │
-                    │ Identity │ ← Issues JWT with claims:        │
-                    │ Service  │   {sub, email, roles[], exp}     │
-                    └──────────┘                                  │
+                    │   API    │ 2. Proxies to Keycloak
+                    │ Gateway  │    (or client calls Keycloak directly)
+                    └────┬─────┘
+                         │
+                         ▼
+                    ┌──────────┐
+                    │ Keycloak │ ← Issues RS256 JWT with claims:
+                    │          │   {sub (UUID), email, realm_access.roles[],
+                    └──────────┘    preferred_username, exp, iss, aud}
+                                ← Also returns refresh_token
+                                                                  
+      ┌───────────────── Subsequent Requests ─────────────────────┐
+      │                                                           │
+      │  3. Client sends: Authorization: Bearer <JWT>             │
+      ▼                                                           │
+ ┌──────────┐   4. Gateway validates JWT signature    ┌──────────┐│
+ │   API    │ ──── (using Keycloak's JWKS endpoint ──►│ Upstream ││
+ │ Gateway  │      /realms/cinema-booking/protocol/   │ Service  ││
+ └──────────┘      openid-connect/certs)              └──────────┘│
+                5. Gateway resolves Keycloak UUID →                │
+                   internal Long user ID via                      │
+                   User Profile Service cache                     │
+                6. Forwards headers to upstream:                  │
+                   X-User-Id (Long), X-Keycloak-Id (UUID),       │
+                   X-User-Email, X-User-Roles                    │
                                                                   │
-      ┌───────────────── Subsequent Requests ─────────────────────┘
-      │
-      │  4. Client sends: Authorization: Bearer <JWT>
-      ▼
- ┌──────────┐   5. Gateway validates JWT signature     ┌──────────┐
- │   API    │ ──── (using shared public key / ───────►  │ Upstream │
- │ Gateway  │      JWKS endpoint from Identity)        │ Service  │
- └──────────┘   6. Forwards X-User-Id, X-User-Roles   └──────────┘
-                   headers to upstream service
+                ┌──────────────────────────────────────────────────┘
+                │ Token refresh:
+                │ POST /realms/cinema-booking/protocol/openid-connect/token
+                │   (grant_type=refresh_token, refresh_token=...)
+                └──────────────────────────────────────────────────
 ```
 
-### 10.2 Token Strategy
+### 10.3 Token Strategy
 
 | Token | Issuer | Storage | TTL |
 |---|---|---|---|
-| Access Token (JWT) | Identity Service | Client-side (memory/localStorage) | 15 min (shortened from 24h) |
-| Refresh Token | Identity Service | HTTP-only cookie + DB | 7 days |
+| Access Token (JWT, RS256) | **Keycloak** | Client-side (memory/localStorage) | 5 min |
+| Refresh Token | **Keycloak** | HTTP-only cookie / client-side | 30 min (sliding) |
+| Offline Token | **Keycloak** | Client-side (for long-lived sessions) | Configurable |
 | Internal Service Token | API Gateway | Auto-generated, header-injected | Per-request |
 
-### 10.3 Key Security Decisions
+### 10.4 User ID Resolution Strategy
 
-1. **Asymmetric JWT signing (RS256)**: Identity Service holds private key; Gateway and services validate with public key via JWKS endpoint (`/.well-known/jwks.json`)
-2. **Token blacklist**: Redis-backed set at Identity Service; Gateway checks revocation before forwarding
-3. **Internal APIs**: Protected via network-level isolation (Docker internal network) + mTLS or API key header (`X-Internal-Api-Key`)
-4. **RBAC**: Propagated via JWT claims → services use `@PreAuthorize` (Spring) and `[Authorize(Roles = "ADMIN")]` (ASP.NET)
+The legacy system uses `Long` IDs for users. Keycloak uses `UUID` strings. To maintain backward compatibility:
+
+1. **User Profile Service** maintains a `users` table with both `id` (internal `Long`, auto-increment) and `keycloak_id` (UUID, unique)
+2. When a user registers (via Keycloak), a Keycloak Event Listener SPI publishes a `user.registered` event to RabbitMQ
+3. The User Profile Service consumes this event and creates a local user record with the `keycloak_id` mapping
+4. The **API Gateway** resolves `sub` (UUID) → `X-User-Id` (Long) via a cached lookup to the User Profile Service's `/internal/users/resolve?keycloakId={uuid}` endpoint
+5. Downstream services continue using `Long` user IDs — no migration needed for `Order.userId`, `Payment.userId`, etc.
+
+### 10.5 Keycloak Realm Configuration
+
+| Setting | Value |
+|---|---|
+| Realm name | `cinema-booking` |
+| Login theme | Custom branded theme |
+| Registration | Enabled (self-registration) |
+| Email verification | Required |
+| Password policy | Min 8 chars, 1 uppercase, 1 digit |
+| Brute force protection | Enabled (5 failures → 30s lockout) |
+| Default roles | `CUSTOMER` (auto-assigned on registration) |
+| Admin-managed roles | `ADMIN`, `STAFF` (assigned via Keycloak admin console) |
+
+### 10.6 Keycloak Clients
+
+| Client ID | Type | Purpose |
+|---|---|---|
+| `cinema-frontend` | Public (PKCE) | React SPA — Authorization Code flow with PKCE |
+| `cinema-api-gateway` | Confidential | Gateway validates tokens, exchanges tokens |
+| `cinema-admin` | Confidential | Admin operations — service account for Keycloak Admin REST API |
+
+### 10.7 Key Security Decisions
+
+1. **Keycloak as single source of truth for auth**: No microservice stores passwords, issues tokens, or manages sessions. This eliminates custom JWT code and reduces the attack surface.
+2. **RS256 asymmetric signing**: Keycloak signs JWTs with its private key; all services validate using Keycloak's JWKS endpoint (`/realms/cinema-booking/protocol/openid-connect/certs`). No shared secret distribution.
+3. **Token revocation**: Keycloak handles token revocation via its built-in revocation endpoint. No Redis-based token blacklist needed.
+4. **Internal APIs**: Protected via network-level isolation (Docker internal network) + API key header (`X-Internal-Api-Key`). Internal routes are blocked at the API Gateway.
+5. **RBAC**: Keycloak realm roles (`ADMIN`, `STAFF`, `CUSTOMER`) are embedded in the JWT `realm_access.roles` claim → services use `@PreAuthorize` (Spring) and `[Authorize(Roles = "ADMIN")]` (ASP.NET) based on forwarded `X-User-Roles` header.
+6. **Keycloak Event Listener SPI**: A custom Keycloak extension publishes user lifecycle events (`user.registered`, `user.password.reset`) to RabbitMQ, enabling the Notification Service and Recommendation Service to react to auth events without polling.
 
 ---
 
@@ -732,13 +804,15 @@ services:
   rabbitmq:
   neo4j:
   zipkin:
+  keycloak:          # Keycloak IAM  :8080 (console) / :8443 (HTTPS)
+    depends_on: [postgres]
 
   # ── API Gateway ─────────────────────────────────────
   api-gateway:       # ASP.NET YARP  :5000
-    depends_on: [identity-service, catalog-service, ...]
+    depends_on: [keycloak, user-profile-service, catalog-service, ...]
 
   # ── ASP.NET Services ────────────────────────────────
-  identity-service:  # :5001
+  user-profile-service:  # :5001 (formerly identity-service)
   facility-service:  # :5002
   payment-service:   # :5003
   notification-service: # :5004
@@ -760,7 +834,7 @@ services:
 Namespace: cinema-system
 ├── Deployments
 │   ├── api-gateway          (2 replicas, HPA: 2-5)
-│   ├── identity-service     (2 replicas, HPA: 2-4)
+│   ├── user-profile-service (2 replicas, HPA: 2-4)
 │   ├── catalog-service      (2 replicas, HPA: 2-3)
 │   ├── facility-service     (1 replica,  HPA: 1-2)
 │   ├── showtime-service     (3 replicas, HPA: 3-8)  ← Hot path
@@ -770,6 +844,7 @@ Namespace: cinema-system
 │   ├── analytics-service    (1 replica,  HPA: 1-2)
 │   └── recommendation-svc  (1 replica,  HPA: 1-2)
 ├── StatefulSets
+│   ├── keycloak             (2 nodes, HA with shared DB)
 │   ├── postgresql           (3 nodes, primary + 2 replicas)
 │   ├── redis                (3 nodes, sentinel)
 │   ├── rabbitmq             (3 nodes, cluster)
@@ -778,9 +853,10 @@ Namespace: cinema-system
 ├── Services (ClusterIP)
 │   └── One per deployment
 ├── Ingress
-│   └── cinema.example.com → api-gateway
+│   ├── cinema.example.com → api-gateway
+│   └── auth.cinema.example.com → keycloak (admin console, optional)
 └── ConfigMaps / Secrets
-    └── Per-service configuration
+    └── Per-service configuration + Keycloak realm export
 ```
 
 ---
@@ -793,19 +869,22 @@ Namespace: cinema-system
 |---|---|
 | Set up monorepo structure | Create `services/` directory with sub-projects |
 | Provision infrastructure | RabbitMQ, additional PostgreSQL databases, Docker network |
+| **Deploy Keycloak** | **Set up Keycloak instance, create `cinema-booking` realm, configure clients (`cinema-frontend`, `cinema-api-gateway`), define realm roles (`ADMIN`, `STAFF`, `CUSTOMER`), configure default role, enable self-registration, set up SMTP for password reset emails** |
+| **Build Keycloak Event Listener SPI** | **Create custom Keycloak extension JAR that publishes `user.registered` and `user.password.reset` events to RabbitMQ** |
 | Set up CI/CD pipelines | Per-service build + deploy pipelines |
 | Define shared contracts | Create shared proto/OpenAPI contract library for internal APIs |
 | Establish observability | Deploy Prometheus + Grafana + Zipkin stack |
 
-### Phase 1: Extract Identity Service (Week 3-4) — ASP.NET
+### Phase 1: Extract User Profile Service (Week 3-4) — ASP.NET
 
 | Task | Details |
 |---|---|
-| Create ASP.NET Identity Service | Rewrite `iam` module: User, Role, Auth, JWT (RS256) |
-| Migrate `identity_db` | Extract users, roles, refresh_tokens, password_reset_tokens |
-| Set up JWKS endpoint | Publish public key for other services |
-| Update monolith | Point JWT validation to Identity Service's JWKS |
-| Deploy API Gateway (YARP) | Route `/api/auth/**` and `/api/users/**` to Identity Service |
+| Create ASP.NET User Profile Service | Extract user profile data from `iam` module: `User` entity (profile fields only, no auth). Add `keycloak_id` (UUID) column for Keycloak mapping |
+| Migrate `user_profile_db` | Extract users table (without `password_hash`, `refresh_tokens`, `password_reset_tokens` — these are in Keycloak) |
+| Implement user ID resolution API | `GET /internal/users/resolve?keycloakId={uuid}` → returns internal `Long` ID |
+| Consume Keycloak events | Listen for `user.registered` from Keycloak SPI → create local user profile record |
+| Backfill Keycloak users | Migrate existing users from PostgreSQL to Keycloak realm (one-time script) |
+| Deploy API Gateway (YARP) | Route `/api/auth/**` to Keycloak; `/api/users/**` to User Profile Service; configure JWT validation against Keycloak OIDC |
 
 ### Phase 2: Extract Catalog Service (Week 5-6) — Spring Boot
 
@@ -865,8 +944,8 @@ Namespace: cinema-system
 
 ```
 Week  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20
-      ├──┤                                                           Phase 0: Prep
-         ├─────┤                                                     Phase 1: Identity (ASP.NET)
+      ├──┤                                                           Phase 0: Prep + Keycloak
+         ├─────┤                                                     Phase 1: User Profile (ASP.NET)
                ├─────┤                                               Phase 2: Catalog (Spring)
                      ├─────┤                                         Phase 3: Facility (ASP.NET)
                            ├────────┤                                Phase 4: Showtime (Spring)
@@ -936,7 +1015,7 @@ The Recommendation Service provides personalized movie suggestions using **colla
 
 | Node Label | Properties | Source Service |
 |---|---|---|
-| `(:User)` | `userId`, `fullName`, `email`, `gender`, `dateOfBirth` | Identity Service |
+| `(:User)` | `userId`, `fullName`, `email`, `gender`, `dateOfBirth` | User Profile Service |
 | `(:Movie)` | `movieId`, `title`, `ageRating`, `language`, `releaseDate`, `posterUrl`, `active` | Catalog Service |
 | `(:Genre)` | `genreId`, `name` | Catalog Service |
 | `(:Cinema)` | `cinemaId`, `name`, `location` | Facility Service |
@@ -1271,7 +1350,7 @@ cinema-booking-system/
 │   │   ├── appsettings.json
 │   │   └── Dockerfile
 │   │
-│   ├── identity-service/              # ASP.NET Core
+│   ├── identity-service/              # ASP.NET Core (User Profile)
 │   │   ├── IdentityService.csproj
 │   │   ├── Controllers/
 │   │   ├── Models/
@@ -1343,7 +1422,8 @@ cinema-booking-system/
 | Service | Internal Port | External (via Gateway) |
 |---|---|---|
 | API Gateway | 5000 | 443 (HTTPS) / 80 (HTTP) |
-| Identity Service | 5001 | — |
+| Keycloak | 8080 (HTTP) / 8443 (HTTPS) | — (or via Ingress for admin console) |
+| User Profile Service | 5001 | — |
 | Facility Service | 5002 | — |
 | Payment Service | 5003 | — |
 | Notification Service | 5004 | — |
@@ -1371,6 +1451,7 @@ cinema-booking-system/
 | .NET | 8.0 (LTS) | ASP.NET services runtime |
 | ASP.NET Core | 8.0 | C# microservice framework |
 | YARP | 2.1.x | Reverse proxy / API Gateway |
+| **Keycloak** | **25.x** | **Centralized IAM — OIDC/OAuth2 provider, user management, SSO** |
 | MassTransit | 8.x | .NET message bus abstraction (RabbitMQ) |
 | Entity Framework Core | 8.0 | .NET ORM |
 | PostgreSQL | 16 | Primary relational database |
