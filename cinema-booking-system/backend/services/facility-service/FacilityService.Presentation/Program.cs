@@ -1,7 +1,9 @@
+using FacilityService.Application;
 using FacilityService.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using FacilityService.Presentation.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,7 +13,13 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Clean Architecture - Add Infrastructure layer
-// builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddApplication();
+
+// Add Gateway Header Authentication
+builder.Services.AddAuthentication("GatewayAuth")
+    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, FacilityService.Presentation.Security.GatewayAuthenticationHandler>("GatewayAuth", null);
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
@@ -19,6 +27,10 @@ var app = builder.Build();
 app.Services.MigrateFacilityDatabase();
 
 // Configure the HTTP request pipeline.
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+app.UseAuthentication();
+app.UseAuthorization();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
