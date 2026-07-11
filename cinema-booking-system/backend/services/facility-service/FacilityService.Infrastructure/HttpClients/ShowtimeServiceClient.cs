@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http.Json;
@@ -24,16 +24,16 @@ namespace FacilityService.Infrastructure.HttpClients
                 return false;
             }
 
-            var queryString = string.Join("&", roomIds.Select(id => $"roomIds={id}"));
-            var response = await _httpClient.GetAsync($"/api/internal/showtimes/check-active?{queryString}", token);
+            // var queryString = string.Join("&", roomIds.Select(id => $"roomIds={id}"));
+            // var response = await _httpClient.GetAsync($"/api/internal/showtimes/check-active?{queryString}", token);
+            // response.EnsureSuccessStatusCode();
+            // var result = await response.Content.ReadFromJsonAsync<CheckActiveShowtimesResponse>(cancellationToken: token);
+            // return result?.HasFutureShowtimes ?? false;
 
-            response.EnsureSuccessStatusCode();
- 
-
-            var result = await response.Content.ReadFromJsonAsync<CheckActiveShowtimesResponse>(cancellationToken: token);
-            return result?.HasFutureShowtimes ?? false;
+            // FAKE DATA FOR TESTING
+            return await Task.FromResult(false);
         }
-        private record CheckActiveShowtimesResponse(bool HasFutureShowtimes);
+        // private record CheckActiveShowtimesResponse(bool HasFutureShowtimes);
     }
 
 }

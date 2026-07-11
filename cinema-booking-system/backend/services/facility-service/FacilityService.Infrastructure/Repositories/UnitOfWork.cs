@@ -10,13 +10,22 @@ namespace FacilityService.Infrastructure.Repositories
     {
         private readonly FacilityDbContext _context;
         public ICinemaRepository Cinemas { get; }
-        public IRoomRepository Rooms { get; } // Requires RoomRepository implementation later
+        public IRoomRepository Rooms { get; }
+        public ISeatTypeRepository SeatTypes { get; }
+        public ISeatTemplateRepository SeatTemplates { get; }
 
-        public UnitOfWork(FacilityDbContext context, ICinemaRepository cinemas)
+        public UnitOfWork(
+            FacilityDbContext context, 
+            ICinemaRepository cinemas, 
+            IRoomRepository rooms,
+            ISeatTypeRepository seatTypes,
+            ISeatTemplateRepository seatTemplates)
         {
             _context = context;
             Cinemas = cinemas;
-            Rooms = null!; // Placeholder until IRoomRepository is implemented
+            Rooms = rooms;
+            SeatTypes = seatTypes;
+            SeatTemplates = seatTemplates;
         }
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
