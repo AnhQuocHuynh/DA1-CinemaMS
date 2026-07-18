@@ -1,0 +1,7 @@
+bin/
+obj/
+temp/
+.vscode/
+.idea/
+.vs/
+*.md
