@@ -7,21 +7,21 @@ on:
       - dev
     paths:
       - 'cinema-booking-system/frontend/**'
-      - 'cinema-booking-system/backend/**'
+      - 'cinema-booking-system/backend-legacy/**'
   pull_request:
     branches:
       - main
       - dev
     paths:
       - 'cinema-booking-system/frontend/**'
-      - 'cinema-booking-system/backend/**'
+      - 'cinema-booking-system/backend-legacy/**'
   workflow_dispatch:
 jobs:
   changes:
     name: Detect File Changes
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ steps.filter.outputs.backend }}
+      backend-legacy: ${{ steps.filter.outputs.backend-legacy }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
@@ -29,15 +29,15 @@ jobs:
         id: filter
         with:
           filters: |
-            backend:
-              - 'cinema-booking-system/backend/**'
+            backend-legacy:
+              - 'cinema-booking-system/backend-legacy/**'
             frontend:
               - 'cinema-booking-system/frontend/**'
 
   backend-tests:
     name: Backend unit tests
     needs: changes
-    if: ${{ needs.changes.outputs.backend == 'true' }}
+    if: ${{ needs.changes.outputs.backend-legacy == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -51,5 +51,5 @@ jobs:
           cache: "maven"
 
       - name: Run backend tests
-        working-directory: cinema-booking-system/backend
+        working-directory: cinema-booking-system/backend-legacy
         run: mvn test
