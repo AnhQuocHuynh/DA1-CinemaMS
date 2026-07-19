@@ -7,14 +7,14 @@ on:
       - dev
     paths:
       - 'cinema-booking-system/frontend/**'
-      - 'cinema-booking-system/backend-legacy/**'
+      - 'cinema-booking-system/backend_legacy/**'
   pull_request:
     branches:
       - main
       - dev
     paths:
       - 'cinema-booking-system/frontend/**'
-      - 'cinema-booking-system/backend-legacy/**'
+      - 'cinema-booking-system/backend_legacy/**'
   workflow_dispatch:
 
 jobs:
@@ -57,5 +57,5 @@ jobs:
           cache: 'maven'
 
       - name: Build backend
-        working-directory: cinema-booking-system/backend-legacy
+        working-directory: cinema-booking-system/backend_legacy
         run: mvn clean package -DskipTests
