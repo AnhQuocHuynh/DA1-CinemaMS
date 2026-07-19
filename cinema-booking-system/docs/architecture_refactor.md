@@ -1,6 +1,6 @@
 # Cinema Booking System — Microservices Architecture Refactor
 
-> **Status**: Proposed | **Author**: Senior Engineer | **Date**: 2026-06-26  
+> **Status**: Proposed | **Date**: 2026-06-26  
 > **Current State**: Modular Monolith (Spring Boot 3.3 + PostgreSQL + Redis)  
 > **Target State**: Polyglot Microservices (Spring Boot + ASP.NET) with Database-per-Service
 
@@ -221,7 +221,7 @@ The following cross-module dependencies exist in the monolith and must be resolv
 
 ```
 ┌─────────────────────────────────┬──────────────────────────────────┐
-│     Spring Boot (Java 21)       │      ASP.NET Core 8 (C#)         │
+│     Spring Boot (Java 21)       │      ASP.NET Core 9 (C#)         │
 ├─────────────────────────────────┼──────────────────────────────────┤
 │ • Catalog Service               │ • User Profile Service           │
 │ • Showtime Service              │ • Facility Service               │
@@ -478,6 +478,8 @@ The following cross-module dependencies exist in the monolith and must be resolv
 │  ├── user.registered    → Queue: notification.user.welcome       │
 │  ├── user.registered    → Queue: analytics.user.registered       │
 │  ├── user.registered    → Queue: recommendation.user.registered  │
+│  ├── user.deleted       → Queue: identity.user.deleted           │
+│  ├── user.deleted       → Queue: analytics.user.deleted          │
 │  └── user.password.reset→ Queue: notification.password.reset     │
 │                                                                  │
 │  Exchange: booking.events (topic)                                │
@@ -536,15 +538,40 @@ The following cross-module dependencies exist in the monolith and must be resolv
 ```
 
 **`user.registered`**
+
+Published by the Keycloak SPI on **two** event paths:
+- `EventType.REGISTER` — self-registration via the Keycloak login/register UI.
+- `AdminEvent` with `OperationType.CREATE` + `ResourceType.USER` — admin creates a user via the Admin Console or Admin REST API. The SPI looks up the full `UserModel` to enrich the payload.
+
 ```json
 {
   "eventId": "uuid-v4",
   "eventType": "user.registered",
   "timestamp": "2026-06-26T12:00:00Z",
   "payload": {
-    "userId": 42,
-    "email": "user@example.com",
-    "fullName": "John Doe"
+    "KeycloakId": "uuid-of-user",
+    "Email": "user@example.com",
+    "FirstName": "John",
+    "LastName": "Doe",
+    "Phone": "0912345678",
+    "Gender": "MALE"
+  }
+}
+```
+
+**`user.deleted`**
+
+Published by the Keycloak SPI on **two** event paths:
+- `EventType.DELETE_ACCOUNT` — user self-deletes their account.
+- `AdminEvent` with `OperationType.DELETE` + `ResourceType.USER` — admin deletes a user via the Admin Console or Admin REST API.
+
+```json
+{
+  "eventId": "uuid-v4",
+  "eventType": "user.deleted",
+  "timestamp": "2026-06-26T12:00:00Z",
+  "payload": {
+    "KeycloakId": "uuid-of-deleted-user"
   }
 }
 ```
@@ -689,7 +716,13 @@ The legacy system uses `Long` IDs for users. Keycloak uses `UUID` strings. To ma
 3. **Token revocation**: Keycloak handles token revocation via its built-in revocation endpoint. No Redis-based token blacklist needed.
 4. **Internal APIs**: Protected via network-level isolation (Docker internal network) + API key header (`X-Internal-Api-Key`). Internal routes are blocked at the API Gateway.
 5. **RBAC**: Keycloak realm roles (`ADMIN`, `STAFF`, `CUSTOMER`) are embedded in the JWT `realm_access.roles` claim → services use `@PreAuthorize` (Spring) and `[Authorize(Roles = "ADMIN")]` (ASP.NET) based on forwarded `X-User-Roles` header.
-6. **Keycloak Event Listener SPI**: A custom Keycloak extension publishes user lifecycle events (`user.registered`, `user.password.reset`) to RabbitMQ, enabling the Notification Service and Recommendation Service to react to auth events without polling.
+6. **Keycloak Event Listener SPI**: A custom Keycloak extension (`RabbitMqEventListenerProvider`) publishes user lifecycle events to RabbitMQ. It handles **four** event cases:
+   - `EventType.REGISTER` → publishes `user.registered` (self-registration via UI/API)
+   - `EventType.DELETE_ACCOUNT` → publishes `user.deleted` (user self-deletes account)
+   - `AdminEvent / OperationType.CREATE / ResourceType.USER` → publishes `user.registered` (admin creates user; payload enriched via `UserModel` lookup)
+   - `AdminEvent / OperationType.DELETE / ResourceType.USER` → publishes `user.deleted` (admin deletes user)
+
+   This ensures the Identity Service's local mapping table stays consistent regardless of whether the account lifecycle event originates from self-service or admin action.
 
 ---
 
@@ -870,7 +903,7 @@ Namespace: cinema-system
 | Set up monorepo structure | Create `services/` directory with sub-projects |
 | Provision infrastructure | RabbitMQ, additional PostgreSQL databases, Docker network |
 | **Deploy Keycloak** | **Set up Keycloak instance, create `cinema-booking` realm, configure clients (`cinema-frontend`, `cinema-api-gateway`), define realm roles (`ADMIN`, `STAFF`, `CUSTOMER`), configure default role, enable self-registration, set up SMTP for password reset emails** |
-| **Build Keycloak Event Listener SPI** | **Create custom Keycloak extension JAR that publishes `user.registered` and `user.password.reset` events to RabbitMQ** |
+| **Build Keycloak Event Listener SPI** | **Create custom Keycloak extension JAR (`RabbitMqEventListenerProvider`) that publishes events to RabbitMQ. Handles: `EventType.REGISTER` → `user.registered`; `EventType.DELETE_ACCOUNT` → `user.deleted`; `AdminEvent CREATE USER` → `user.registered` (admin-created accounts, payload enriched via `UserModel`); `AdminEvent DELETE USER` → `user.deleted`. Also publishes `user.password.reset` for the Notification Service.** |
 | Set up CI/CD pipelines | Per-service build + deploy pipelines |
 | Define shared contracts | Create shared proto/OpenAPI contract library for internal APIs |
 | Establish observability | Deploy Prometheus + Grafana + Zipkin stack |
@@ -1350,12 +1383,13 @@ cinema-booking-system/
 │   │   ├── appsettings.json
 │   │   └── Dockerfile
 │   │
-│   ├── identity-service/              # ASP.NET Core (User Profile)
-│   │   ├── IdentityService.csproj
-│   │   ├── Controllers/
-│   │   ├── Models/
-│   │   ├── Services/
-│   │   ├── Data/
+│   ├── identity-service/              # ASP.NET Core 9 (Keycloak UUID→Long mapping + User Profile)
+│   │   ├── IdentityService.slnx
+│   │   ├── IdentityService.Domain/        # Entities: User, Enums: Gender; Interfaces: IUserRepository, IUnitOfWork
+│   │   ├── IdentityService.Application/   # CQRS (MediatR), FluentValidation; Features: Users/, KeycloakSync/, Internal/
+│   │   ├── IdentityService.Infrastructure/ # EF Core + Npgsql, RabbitMQ consumer/publisher, Redis cache
+│   │   ├── IdentityService.Presentation/  # ASP.NET host, Controllers: UsersController, InternalUsersController
+│   │   ├── IdentityService.Test/          # Unit + Integration tests
 │   │   └── Dockerfile
 │   │
 │   ├── catalog-service/               # Spring Boot
@@ -1448,8 +1482,8 @@ cinema-booking-system/
 | Java | 21 (LTS) | Spring Boot services runtime |
 | Spring Boot | 3.3.x | Java microservice framework |
 | Spring Cloud | 2023.0.x | Config, circuit breaker, gateway patterns |
-| .NET | 8.0 (LTS) | ASP.NET services runtime |
-| ASP.NET Core | 8.0 | C# microservice framework |
+| .NET | 9.0 | ASP.NET services runtime |
+| ASP.NET Core | 9.0 | C# microservice framework |
 | YARP | 2.1.x | Reverse proxy / API Gateway |
 | **Keycloak** | **25.x** | **Centralized IAM — OIDC/OAuth2 provider, user management, SSO** |
 | MassTransit | 8.x | .NET message bus abstraction (RabbitMQ) |

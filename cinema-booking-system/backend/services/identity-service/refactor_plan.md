@@ -109,6 +109,7 @@ IdentityService.Presentation  →  IdentityService.Application  →  IdentitySer
 |---|---|---|
 | Command | `CreateUserFromKeycloakEventCommand` | Consume `user.registered` event from Keycloak → create local user record with `keycloakId` mapping |
 | Command | `SyncUserFromKeycloakCommand` | Sync user data from Keycloak (e.g., email change, enabled status) |
+| Command | `DeleteUserFromKeycloakEventCommand` | Consume `user.deleted` event from Keycloak → remove/soft-delete local user record |
 
 ### Internal API
 | Type | Name | Description |
@@ -132,8 +133,9 @@ IdentityService.Presentation  →  IdentityService.Application  →  IdentitySer
 | Exchange | Routing Key | Payload Class | Handler |
 |---|---|---|---|
 | `user.events` | `user.registered` | `KeycloakUserRegisteredPayload` | `CreateUserFromKeycloakEventCommand` — creates local user record |
+| `user.events` | `user.deleted` | `KeycloakUserDeletedPayload` | `DeleteUserFromKeycloakEventCommand` — removes/soft-deletes local user record |
 
-> **Note**: The `user.registered` event is published by the **Keycloak Event Listener SPI** (a custom Keycloak extension), NOT by this service. This service only consumes it.
+> **Note**: The `user.registered` and `user.deleted` events are published by the **Keycloak Event Listener SPI** (a custom Keycloak extension), NOT by this service. This service only consumes them.
 > **Note**: `user.password.reset` events are also published by the Keycloak SPI and consumed by the **Notification Service** — this service does not need to handle them.
 
 ### Event Payloads (Records)
@@ -144,6 +146,7 @@ public record UserProfileUpdatedPayload(long UserId, string Email, string FullNa
 
 // Consumed from Keycloak SPI
 public record KeycloakUserRegisteredPayload(string KeycloakId, string Email, string FullName);
+public record KeycloakUserDeletedPayload(string KeycloakId);
 ```
 
 ---
@@ -334,3 +337,38 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 3. **Keycloak Event Listener SPI**: User registration in Keycloak triggers a `user.registered` event on RabbitMQ. This service consumes the event and creates a local user record. This ensures eventual consistency between Keycloak and the local DB without tight coupling.
 4. **Validator co-location**: Each command has its validator inline (following the Facility Service pattern with `CreateCinemaCommandValidator`).
 5. **Internal APIs**: Protected by `X-Internal-Api-Key` header, not JWT.
+
+---
+
+## 13. Data Flow & Integration Scenarios
+
+Since Identity Service delegates authentication and role management to Keycloak while maintaining extended user profiles locally, data consistency is maintained through a combination of event-driven synchronization and direct API calls. Here is how key scenarios are handled:
+
+### Scenario 1: Admin Updates User Roles
+**Action:** An admin promotes a `CUSTOMER` to `STAFF`.
+**Flow:**
+1. **Admin Action:** The admin uses the frontend UI to update the user's role.
+2. **Direct to Keycloak:** The frontend (or API Gateway acting as a proxy) sends the role update request directly to the Keycloak Admin REST API (`PUT /admin/realms/{realm}/users/{keycloakId}/role-mappings/realm`).
+3. **Identity Service Bypass:** The Identity Service is **not** involved in this operation. Roles are managed exclusively in Keycloak.
+4. **Subsequent Requests:** The next time the updated user logs in or refreshes their token, Keycloak issues a new JWT containing the updated `realm_access.roles` claim.
+5. **Gateway Enforcement:** The API Gateway validates the new JWT, extracts the roles, and passes them to downstream services via the `X-User-Roles` header.
+
+### Scenario 2: User Updates Profile
+**Action:** A user updates their phone number and gender.
+**Flow:**
+1. **User Action:** The user submits a profile update form on the frontend.
+2. **Identity Service API:** The request is routed through the Gateway to the Identity Service (`PUT /api/users/me`).
+3. **Local Update:** The Identity Service processes the `UpdateUserProfileCommand`, updates the `phone`, `gender`, and `date_of_birth` fields in the local PostgreSQL `users` table, and invalidates the Redis cache (`user:profile:{keycloakId}`).
+4. **Event Publishing (Optional):** The Identity Service publishes a `user.profile.updated` event to RabbitMQ for other services (e.g., Notification Service) if they need to react.
+5. **Keycloak Bypass:** If the updated fields are purely extended profile data (phone, gender, date_of_birth), Keycloak is **not** updated. Keycloak only holds core identity data (email, password, roles).
+   > **Note on Core Data Updates:** If the user attempts to update their **email** or **password**, the frontend must direct this request to Keycloak's Account Management API or via Keycloak's Account Console. This triggers a Keycloak event (`user.updated`) that the Identity Service will subsequently consume via `SyncUserFromKeycloakCommand`.
+
+### Scenario 3: Admin Deletes User Account
+**Action:** An admin permanently deletes a user account.
+**Flow:**
+1. **Admin Action:** The admin clicks "Delete User" in the admin dashboard.
+2. **Keycloak Deletion:** The frontend or Gateway proxies the delete request to the Keycloak Admin REST API (`DELETE /admin/realms/{realm}/users/{keycloakId}`). Keycloak removes the user and invalidates their active sessions/tokens.
+3. **Keycloak Event:** Keycloak's Event Listener SPI detects the deletion and publishes a `user.deleted` event to RabbitMQ.
+4. **Identity Service Consumption:** The Identity Service consumes the `user.deleted` event.
+5. **Local Cleanup:** The Identity Service processes a `DeleteUserFromKeycloakEventCommand`, removing or soft-deleting the user record from the local `users` table and clearing Redis caches (`user:profile:{keycloakId}`, `user:resolve:{keycloakId}`).
+6. **Downstream Cleanup (Optional):** The Identity Service may publish an internal `user.deleted` event for other microservices to clean up user-related data (e.g., anonymizing personal info in old bookings to comply with GDPR/privacy laws).
