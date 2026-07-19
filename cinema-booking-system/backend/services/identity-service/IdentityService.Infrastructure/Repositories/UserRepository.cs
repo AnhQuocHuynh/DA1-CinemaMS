@@ -43,6 +43,11 @@ public class UserRepository : IUserRepository
         _context.Users.Update(user);
     }
 
+    public void Delete(User user)
+    {
+        _context.Users.Remove(user);
+    }
+
     public async Task<int> CountAsync(CancellationToken ct = default)
     {
         return await _context.Users.CountAsync(ct);

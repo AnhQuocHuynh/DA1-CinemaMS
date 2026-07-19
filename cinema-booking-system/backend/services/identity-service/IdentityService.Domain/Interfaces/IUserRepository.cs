@@ -12,6 +12,7 @@ public interface IUserRepository
     Task<User?> GetByEmailAsync(string email, CancellationToken ct = default);
     void Add(User user);
     void Update(User user);
+    void Delete(User user);
     Task<int> CountAsync(CancellationToken ct = default);
     Task<(IEnumerable<User> Users, int TotalCount)> GetPagedAsync(int page, int pageSize, CancellationToken ct = default);
 }

@@ -40,7 +40,7 @@ public class SyncUserFromKeycloakCommandHandler : IRequestHandler<SyncUserFromKe
             }
         }
 
-        user.SyncKeycloakData(request.Email, request.FullName, request.Active);
+        user.SyncKeycloakData(request.KeycloakId, request.Email, request.FullName, request.Active);
 
         _userRepository.Update(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

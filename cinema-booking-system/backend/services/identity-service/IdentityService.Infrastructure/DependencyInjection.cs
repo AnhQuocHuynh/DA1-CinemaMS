@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<IdentityService.Application.Contracts.IEventPublisher, Messaging.Publishers.RabbitMqEventPublisher>();
 
         services.AddHostedService<Messaging.Consumers.KeycloakUserRegisteredConsumer>();
+        services.AddHostedService<Messaging.Consumers.KeycloakUserDeletedConsumer>();
 
         return services;
     }

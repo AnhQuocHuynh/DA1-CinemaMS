@@ -1,5 +1,4 @@
 using IdentityService.Application.Features.KeycloakSync.Commands;
-using IdentityService.Domain.Enums;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,17 +11,17 @@ using System.Text.Json;
 
 namespace IdentityService.Infrastructure.Messaging.Consumers;
 
-public class KeycloakUserRegisteredConsumer : BackgroundService
+public class KeycloakUserDeletedConsumer : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<KeycloakUserRegisteredConsumer> _logger;
+    private readonly ILogger<KeycloakUserDeletedConsumer> _logger;
     private readonly IConfiguration _configuration;
     private IConnection? _connection;
     private IChannel? _channel;
 
-    public KeycloakUserRegisteredConsumer(
+    public KeycloakUserDeletedConsumer(
         IServiceProvider serviceProvider,
-        ILogger<KeycloakUserRegisteredConsumer> logger,
+        ILogger<KeycloakUserDeletedConsumer> logger,
         IConfiguration configuration)
     {
         _serviceProvider = serviceProvider;
@@ -47,9 +46,9 @@ public class KeycloakUserRegisteredConsumer : BackgroundService
         {
             _connection = await factory.CreateConnectionAsync(stoppingToken);
             _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
-            var queueName = "identity-service.user-registered";
+            var queueName = "identity-service.user-deleted";
             var exchangeName = "user.events";
-            var routingKey = "user.registered";
+            var routingKey = "user.deleted";
 
             await _channel.QueueDeclareAsync(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
             await _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, cancellationToken: stoppingToken);
@@ -70,34 +69,13 @@ public class KeycloakUserRegisteredConsumer : BackgroundService
                 var body = ea.Body.ToArray();
                 var message = Encoding.UTF8.GetString(body);
                 
-                _logger.LogInformation("Received Keycloak Registration Event: {Message}", message);
+                _logger.LogInformation("Received Keycloak Delete Event: {Message}", message);
 
-                var payload = JsonSerializer.Deserialize<KeycloakRegistrationPayload>(message);
+                var payload = JsonSerializer.Deserialize<KeycloakDeletePayload>(message);
 
                 if (payload != null && !string.IsNullOrEmpty(payload.KeycloakId))
                 {
-                    var fullName = $"{payload.FirstName} {payload.LastName}".Trim();
-                    
-                    Gender? parsedGender = null;
-                    if (!string.IsNullOrEmpty(payload.Gender) && Enum.TryParse<IdentityService.Domain.Enums.Gender>(payload.Gender, true, out var gender))
-                    {
-                        parsedGender = gender;
-                    }
-
-                    DateTime? parsedDob = null;
-                    if (!string.IsNullOrEmpty(payload.DateOfBirth) && DateTime.TryParse(payload.DateOfBirth, out var dob))
-                    {
-                        parsedDob = dob;
-                    }
-
-                    var command = new CreateUserFromKeycloakEventCommand(
-                        payload.KeycloakId,
-                        payload.Email,
-                        fullName,
-                        payload.Phone,
-                        parsedGender,
-                        parsedDob
-                    );
+                    var command = new DeleteUserFromKeycloakEventCommand(payload.KeycloakId);
 
                     using var scope = _serviceProvider.CreateScope();
                     var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
@@ -109,12 +87,12 @@ public class KeycloakUserRegisteredConsumer : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing Keycloak Registration Event");
+                _logger.LogError(ex, "Error processing Keycloak Delete Event");
                 await _channel.BasicNackAsync(ea.DeliveryTag, false, requeue: false, stoppingToken);
             }
         };
 
-        await _channel.BasicConsumeAsync(queue: "identity-service.user-registered", autoAck: false, consumer: consumer, cancellationToken: stoppingToken);
+        await _channel.BasicConsumeAsync(queue: "identity-service.user-deleted", autoAck: false, consumer: consumer, cancellationToken: stoppingToken);
 
         // Keep the background service running
         while (!stoppingToken.IsCancellationRequested)
@@ -137,13 +115,7 @@ public class KeycloakUserRegisteredConsumer : BackgroundService
     }
 }
 
-public class KeycloakRegistrationPayload
+public class KeycloakDeletePayload
 {
     public string KeycloakId { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string FirstName { get; set; } = string.Empty;
-    public string LastName { get; set; } = string.Empty;
-    public string? Phone { get; set; }
-    public string? Gender { get; set; }
-    public string? DateOfBirth { get; set; }
 }

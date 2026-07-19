@@ -48,8 +48,9 @@ public class User
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void SyncKeycloakData(string email, string fullName, bool? active = null)
+    public void SyncKeycloakData(string keycloakId, string email, string fullName, bool? active = null)
     {
+        KeycloakId = keycloakId;
         Email = email;
         FullName = fullName;
         if (active.HasValue)

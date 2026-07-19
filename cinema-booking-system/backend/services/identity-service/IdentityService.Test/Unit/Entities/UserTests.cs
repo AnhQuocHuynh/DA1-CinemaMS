@@ -39,7 +39,7 @@ public class UserTests
         var newName = "New Name";
 
         // Act
-        user.SyncKeycloakData(newEmail, newName, true);
+        user.SyncKeycloakData(user.KeycloakId, newEmail, newName, true);
 
         // Assert
         user.Email.Should().Be(newEmail);
