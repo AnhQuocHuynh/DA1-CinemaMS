@@ -15,3 +15,88 @@
 #| RabbitMQ | 5672 (AMQP) / 15672 (UI) | — |
 #| ClickHouse | 8123 (HTTP) / 9000 (native) | — |
 #| Neo4j | 7474 (Browser) / 7687 (Bolt)
+
+name: cinema-booking-system-backend
+
+services:
+#postgres db
+  postgres: #1 instance for all dbs to reduce resource usage
+    image: postgres:17-alpine
+    container_name: cinema-booking-system-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=cinema_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-dbs.sh:/docker-entrypoint-initdb.d/init-dbs.sh
+
+  #redis
+  redis:
+    image: redis:7-alpine
+    container_name: cinema-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+  #rabbitmq
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: cinema-rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  #keycloak
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: cinema-keycloak
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak_db
+      - KC_DB_USERNAME=postgres
+      - KC_DB_PASSWORD=password
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USERNAME=guest
+      - RABBITMQ_PASSWORD=guest
+    command: start-dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak-themes/cinema-theme:/opt/keycloak/themes/cinema-theme
+      - ./keycloak-spi/target/rabbitmq-event-listener.jar:/opt/keycloak/providers/rabbitmq-event-listener.jar
+    depends_on:
+      - postgres
+      - rabbitmq
+
+  #services
+  identity-service:
+    build:
+      context: ../services/identity-service
+      dockerfile: Dockerfile
+    container_name: cinema-identity-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=user_profile_db;Username=postgres;Password=password
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__UserName=guest
+      - RabbitMQ__Password=guest
+    ports:
+      - "5001:80"
+    depends_on:
+      - postgres
+      - rabbitmq
+
+
+
+volumes:
+  pgdata:
