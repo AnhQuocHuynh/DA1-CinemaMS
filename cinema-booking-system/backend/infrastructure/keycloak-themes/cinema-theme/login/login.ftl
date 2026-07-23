@@ -17,7 +17,7 @@
                 <!-- Modal Card -->
                 <div class="relative w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col transform transition-all border border-gray-100">
                     <div class="p-8 sm:p-10">
-                        <a href="http://localhost:3000/" class="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface">
+                        <a href="${(client.baseUrl)!'http://localhost:5173/'}" class="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface">
                             <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
                             Back to Home
                         </a>

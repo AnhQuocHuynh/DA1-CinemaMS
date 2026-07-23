@@ -66,7 +66,7 @@
 
                 <section class="bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/40 overflow-hidden bg-white">
                     <div class="px-8 pt-10 pb-6">
-                        <a href="http://localhost:3000/" class="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface">
+                        <a href="${(client.baseUrl)!'http://localhost:5173/'}" class="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface">
                             <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
                             Back to Home
                         </a>
@@ -94,7 +94,14 @@
 
                         <form id="kc-register-form" class="space-y-6" action="${url.registrationAction}" method="post">
                             <div class="grid grid-cols-1 gap-6">
-                                
+                                <div class="space-y-1.5">
+                                    <label for="username" class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1">Username <span class="text-error">*</span></label>
+                                    <div class="relative">
+                                        <svg class="absolute left-4 top-1/2 -translate-y-1/2 text-outline w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                        <input id="username" name="username" value="${(register.formData.username!'')}" type="text" placeholder="johndoe" class="w-full pl-12 pr-4 py-3 bg-surface-container-highest border-none rounded-lg focus:ring-0 text-sm placeholder:text-outline-variant transition-all border-b-2 border-transparent focus:border-primary" />
+                                    </div>
+                                </div>
+
                                 <div class="space-y-1.5">
                                     <label for="firstName" class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1">First Name <span class="text-error">*</span></label>
                                     <div class="relative">
@@ -109,7 +116,7 @@
                                         <svg class="absolute left-4 top-1/2 -translate-y-1/2 text-outline w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                                         <input id="lastName" name="lastName" value="${(register.formData.lastName!'')}" type="text" placeholder="Doe" class="w-full pl-12 pr-4 py-3 bg-surface-container-highest border-none rounded-lg focus:ring-0 text-sm placeholder:text-outline-variant transition-all border-b-2 border-transparent focus:border-primary" />
                                     </div>
-                                </div>
+                                </div>  
 
                                 <div class="space-y-1.5">
                                     <label for="email" class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1">Email Address <span class="text-error">*</span></label>
