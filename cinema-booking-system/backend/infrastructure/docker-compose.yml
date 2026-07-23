@@ -15,6 +15,7 @@
 #| RabbitMQ | 5672 (AMQP) / 15672 (UI) | — |
 #| ClickHouse | 8123 (HTTP) / 9000 (native) | — |
 #| Neo4j | 7474 (Browser) / 7687 (Bolt)
+#| Keycloak | 8080 | — |
 
 name: cinema-booking-system-backend
 
@@ -78,6 +79,28 @@ services:
       - rabbitmq
 
   #services
+  api-gateway:
+    build:
+      context: ../services/api-gateway
+      dockerfile: Dockerfile
+    container_name: cinema-api-gateway
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ReverseProxy__Clusters__keycloak-cluster__Destinations__keycloak-1__Address=http://keycloak:8080
+      - ReverseProxy__Clusters__user-profile-cluster__Destinations__user-profile-1__Address=http://identity-service:80
+      - ReverseProxy__Clusters__facility-cluster__Destinations__facility-1__Address=http://facility-service:80
+      - Jwt__Authority=http://keycloak:8080/realms/cinema-booking
+      - UserProfileService__BaseUrl=http://identity-service:80
+      - Redis__ConnectionString=redis:6379
+    ports:
+      - "5000:80"
+    depends_on:
+      - keycloak
+      - identity-service
+      - facility-service
+      - redis
+      
   identity-service:
     build:
       context: ../services/identity-service
@@ -96,7 +119,22 @@ services:
       - postgres
       - rabbitmq
 
+  facility-service:
+    build:
+      context: ../services/facility-service
+      dockerfile: Dockerfile
+    container_name: cinema-facility-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=facility_db;Username=postgres;Password=password
+    ports:
+      - "5002:80"
+    depends_on:
+      - postgres
 
+  
 
 volumes:
   pgdata:
+  redisdata:

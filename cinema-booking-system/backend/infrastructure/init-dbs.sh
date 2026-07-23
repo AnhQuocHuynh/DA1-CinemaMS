@@ -9,11 +9,11 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     -- Identity & Access Management
     CREATE DATABASE keycloak_db;
     CREATE DATABASE user_profile_db;
+    CREATE DATABASE facility_db;
+    CREATE DATABASE catalog_db;
+    CREATE DATABASE showtime_db;
+    CREATE DATABASE booking_db;
+    CREATE DATABASE payment_db;
 
     -- Services not set up yet (commented out)
-    -- CREATE DATABASE catalog_db;
-    -- CREATE DATABASE facility_db;
-    -- CREATE DATABASE showtime_db;
-    -- CREATE DATABASE booking_db;
-    -- CREATE DATABASE payment_db;
 EOSQL

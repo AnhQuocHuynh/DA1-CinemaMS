@@ -1,0 +1,111 @@
+using ApiGateway.HealthChecks;
+using ApiGateway.Middleware;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Tokens;
+using Serilog;
+using System.Security.Claims;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .CreateLogger();
+
+builder.Host.UseSerilog();
+
+// Configure HttpClient for User Profile Resolution
+builder.Services.AddHttpClient("UserProfileClient");
+
+// YARP
+builder.Services.AddReverseProxy()
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+
+// JWT Authentication (Keycloak OIDC)
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = builder.Configuration["Jwt:Authority"];
+        options.Audience = builder.Configuration["Jwt:Audience"];
+        options.RequireHttpsMetadata = builder.Configuration.GetValue<bool>("Jwt:RequireHttpsMetadata");
+        
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            ValidateIssuer = false, // Allow tokens issued via localhost to be validated by the internal keycloak URI
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            NameClaimType = "preferred_username",
+            RoleClaimType = ClaimTypes.Role
+        };
+        
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                var realmAccess = context.Principal?.FindFirst("realm_access");
+                if (realmAccess != null)
+                {
+                    var parsed = JsonDocument.Parse(realmAccess.Value);
+                    if (parsed.RootElement.TryGetProperty("roles", out var roles))
+                    {
+                        var identity = context.Principal?.Identity as ClaimsIdentity;
+                        foreach (var role in roles.EnumerateArray())
+                        {
+                            identity?.AddClaim(new Claim(ClaimTypes.Role, role.GetString()!));
+                        }
+                    }
+                }
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+// Authorization Policies
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("authenticated", p => p.RequireAuthenticatedUser());
+    options.AddPolicy("admin", p => p.RequireRole("ADMIN"));
+    options.AddPolicy("staff", p => p.RequireRole("STAFF"));
+    options.AddPolicy("admin-or-staff", p => p.RequireRole("ADMIN", "STAFF"));
+});
+
+// Redis
+builder.Services.AddStackExchangeRedisCache(options =>
+    options.Configuration = builder.Configuration["Redis:ConnectionString"]);
+
+// Health Checks
+builder.Services.AddHealthChecks()
+    .AddRedis(builder.Configuration["Redis:ConnectionString"]!)
+    .AddCheck<AggregateHealthCheck>("upstream-services");
+
+// CORS
+builder.Services.AddCors();
+
+var app = builder.Build();
+
+app.UseCors(policy => policy
+    .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? new[] { "*" })
+    .AllowAnyMethod()
+    .AllowAnyHeader()
+    .AllowCredentials());
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<RequestLoggingMiddleware>();
+app.UseMiddleware<InternalRouteBlockingMiddleware>();
+app.UseMiddleware<KeycloakUserIdResolutionMiddleware>();
+
+app.MapReverseProxy();
+app.MapHealthChecks("/health");
+
+app.Run();
