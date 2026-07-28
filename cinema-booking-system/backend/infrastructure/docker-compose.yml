@@ -19,17 +19,21 @@
 
 name: cinema-booking-system-backend
 
+# Note: Docker Compose automatically loads environment variables from ./.env
+
 services:
 #postgres db
   postgres: #1 instance for all dbs to reduce resource usage
     image: postgres:17-alpine
     container_name: cinema-booking-system-db
+    env_file:
+      - .env
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=cinema_db
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./init-dbs.sh:/docker-entrypoint-initdb.d/init-dbs.sh
@@ -38,8 +42,10 @@ services:
   redis:
     image: redis:7-alpine
     container_name: cinema-redis
+    env_file:
+      - .env
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT}:6379"
     volumes:
       - redisdata:/data
 
@@ -47,36 +53,48 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: cinema-rabbitmq
+    env_file:
+      - .env
     environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "${RABBITMQ_PORT}:5672"
+      - "${RABBITMQ_UI_PORT}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   #keycloak
   keycloak:
     image: quay.io/keycloak/keycloak:latest
     container_name: cinema-keycloak
+    env_file:
+      - .env
     environment:
-      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
-      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
-      - KC_DB=postgres
-      - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak_db
-      - KC_DB_USERNAME=postgres
-      - KC_DB_PASSWORD=password
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_USERNAME=guest
-      - RABBITMQ_PASSWORD=guest
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_BOOTSTRAP_ADMIN_USERNAME}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_BOOTSTRAP_ADMIN_PASSWORD}
+      - KC_DB=${KC_DB_TYPE}
+      - KC_DB_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${KEYCLOAK_DB_NAME}
+      - KC_DB_USERNAME=${POSTGRES_USER}
+      - KC_DB_PASSWORD=${POSTGRES_PASSWORD}
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS}
     command: start-dev
     ports:
-      - "8080:8080"
+      - "${KC_PORT}:8080"
     volumes:
       - ./keycloak-themes/cinema-theme:/opt/keycloak/themes/cinema-theme
       - ./keycloak-spi/target/rabbitmq-event-listener.jar:/opt/keycloak/providers/rabbitmq-event-listener.jar
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
 
   #services
   api-gateway:
@@ -84,17 +102,19 @@ services:
       context: ../services/api-gateway
       dockerfile: Dockerfile
     container_name: cinema-api-gateway
+    env_file:
+      - .env
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:80
-      - ReverseProxy__Clusters__keycloak-cluster__Destinations__keycloak-1__Address=http://keycloak:8080
-      - ReverseProxy__Clusters__user-profile-cluster__Destinations__user-profile-1__Address=http://identity-service:80
-      - ReverseProxy__Clusters__facility-cluster__Destinations__facility-1__Address=http://facility-service:80
-      - Jwt__Authority=http://keycloak:8080/realms/cinema-booking
-      - UserProfileService__BaseUrl=http://identity-service:80
-      - Redis__ConnectionString=redis:6379
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ASPNETCORE_URLS=${ASPNETCORE_URLS}
+      - ReverseProxy__Clusters__keycloak-cluster__Destinations__keycloak-1__Address=${KEYCLOAK_INTERNAL_URL}
+      - ReverseProxy__Clusters__user-profile-cluster__Destinations__user-profile-1__Address=${IDENTITY_SERVICE_INTERNAL_URL}
+      - ReverseProxy__Clusters__facility-cluster__Destinations__facility-1__Address=${FACILITY_SERVICE_INTERNAL_URL}
+      - Jwt__Authority=${KC_AUTHORITY_URL}
+      - UserProfileService__BaseUrl=${IDENTITY_SERVICE_INTERNAL_URL}
+      - Redis__ConnectionString=${REDIS_CONNECTION_STRING}
     ports:
-      - "5000:80"
+      - "${API_GATEWAY_PORT}:80"
     depends_on:
       - keycloak
       - identity-service
@@ -106,15 +126,17 @@ services:
       context: ../services/identity-service
       dockerfile: Dockerfile
     container_name: cinema-identity-service
+    env_file:
+      - .env
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=user_profile_db;Username=postgres;Password=password
-      - RabbitMQ__HostName=rabbitmq
-      - RabbitMQ__UserName=guest
-      - RabbitMQ__Password=guest
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ASPNETCORE_URLS=${ASPNETCORE_URLS}
+      - ConnectionStrings__DefaultConnection=Host=${POSTGRES_HOST};Port=${POSTGRES_PORT};Database=${USER_PROFILE_DB_NAME};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - RabbitMQ__HostName=${RABBITMQ_HOST}
+      - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER}
+      - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS}
     ports:
-      - "5001:80"
+      - "${IDENTITY_SERVICE_PORT}:80"
     depends_on:
       - postgres
       - rabbitmq
@@ -124,12 +146,14 @@ services:
       context: ../services/facility-service
       dockerfile: Dockerfile
     container_name: cinema-facility-service
+    env_file:
+      - .env
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=facility_db;Username=postgres;Password=password
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ASPNETCORE_URLS=${ASPNETCORE_URLS}
+      - ConnectionStrings__DefaultConnection=Host=${POSTGRES_HOST};Port=${POSTGRES_PORT};Database=${FACILITY_DB_NAME};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
     ports:
-      - "5002:80"
+      - "${FACILITY_SERVICE_PORT}:80"
     depends_on:
       - postgres
 

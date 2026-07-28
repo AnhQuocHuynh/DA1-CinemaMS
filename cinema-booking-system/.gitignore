@@ -49,3 +49,8 @@ obj/
 Thumbs.db
 *.swp
 *.swo
+
+
+# ── .NET ───────────────────────────────────────────────────────
+**/appsettings.Development.json
+**/appsettings.Production.json

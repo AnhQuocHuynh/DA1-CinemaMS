@@ -34,7 +34,7 @@ public class RabbitMqEventListenerProvider implements EventListenerProvider {
             // Custom attributes are prefixed with 'custom_attributes.' in the event details
             payload.put("Phone", event.getDetails().get("custom_attributes.phone"));
             payload.put("Gender", event.getDetails().get("custom_attributes.gender"));
-            payload.put("DateOfBirth", event.getDetails().get("custom_attributes.dob"));
+            payload.put("DateOfBirth", event.getDetails().get("custom_attributes.date_of_birth"));
 
             publisher.publish("user.events", "user.registered", payload);
         } else if (event.getType() == EventType.DELETE_ACCOUNT) {
@@ -61,7 +61,7 @@ public class RabbitMqEventListenerProvider implements EventListenerProvider {
                     
                     payload.put("Phone", user.getFirstAttribute("phone"));
                     payload.put("Gender", user.getFirstAttribute("gender"));
-                    payload.put("DateOfBirth", user.getFirstAttribute("dob"));
+                    payload.put("DateOfBirth", user.getFirstAttribute("date_of_birth"));
                     
                     publisher.publish("user.events", "user.registered", payload);
                 }
