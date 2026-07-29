@@ -15,7 +15,7 @@ namespace FacilityService.Infrastructure.Data
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
-            builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+            builder.ApplyConfigurationsFromAssembly(typeof(FacilityDbContext).Assembly);
             base.OnModelCreating(builder);
         }
     }

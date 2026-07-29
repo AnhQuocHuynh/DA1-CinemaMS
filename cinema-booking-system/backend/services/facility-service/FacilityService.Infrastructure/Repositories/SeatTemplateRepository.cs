@@ -22,6 +22,7 @@ namespace FacilityService.Infrastructure.Repositories
         public async Task<IEnumerable<SeatTemplate>> GetByRoomIdAsync(long roomId)
         {
             return await _context.SeatTemplates
+                .Include(st => st.SeatType)
                 .Where(st => st.RoomId == roomId)
                 .ToListAsync();
         }

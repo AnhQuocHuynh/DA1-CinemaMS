@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -34,6 +34,7 @@ namespace FacilityService.Infrastructure.Repositories
         {
             return await _context.Rooms
                 .Include(r => r.SeatTemplates)
+                .ThenInclude(st => st.SeatType)
                 .FirstOrDefaultAsync(r => r.Id == id);
         }
 
