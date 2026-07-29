@@ -16,65 +16,119 @@ namespace IdentityService.Test.Unit.Features;
 
 public class UpdateUserProfileCommandHandlerTests
 {
-    private readonly Mock<IUserRepository> _userRepositoryMock;
-    private readonly Mock<IUnitOfWork> _unitOfWorkMock;
-    private readonly Mock<IEventPublisher> _eventPublisherMock;
+    private readonly Mock<IUserRepository> _userRepositoryMock = new();
+    private readonly Mock<IUnitOfWork> _unitOfWorkMock = new();
+    private readonly Mock<IEventPublisher> _eventPublisherMock = new();
     private readonly UpdateUserProfileCommandHandler _handler;
 
     public UpdateUserProfileCommandHandlerTests()
     {
-        _userRepositoryMock = new Mock<IUserRepository>();
-        _unitOfWorkMock = new Mock<IUnitOfWork>();
-        _eventPublisherMock = new Mock<IEventPublisher>();
-
         _handler = new UpdateUserProfileCommandHandler(
             _userRepositoryMock.Object,
             _unitOfWorkMock.Object,
-            _eventPublisherMock.Object
-        );
+            _eventPublisherMock.Object);
     }
+
+    // ─── Error: user not found ───────────────────────────────────────────────
 
     [Fact]
     public async Task Handle_UserNotFound_ThrowsUserNotFoundException()
     {
-        // Arrange
         var command = new UpdateUserProfileCommand(1, "123456", Gender.MALE, null);
-        _userRepositoryMock.Setup(repo => repo.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync((User?)null);
 
-        // Act & Assert
         await FluentActions.Invoking(() => _handler.Handle(command, CancellationToken.None))
             .Should().ThrowAsync<UserNotFoundException>()
             .WithMessage("*1*");
 
-        _userRepositoryMock.Verify(repo => repo.Update(It.IsAny<User>()), Times.Never);
+        _userRepositoryMock.Verify(r => r.Update(It.IsAny<User>()), Times.Never);
     }
+
+    // ─── Normal: happy path ──────────────────────────────────────────────────
 
     [Fact]
     public async Task Handle_ValidRequest_UpdatesUserAndPublishesEvent()
     {
-        // Arrange
         var user = new User("some-uuid", "test@test.com", "Test");
         typeof(User).GetProperty("Id")?.SetValue(user, 1L);
         var command = new UpdateUserProfileCommand(1, "123456", Gender.FEMALE, new DateTime(2000, 1, 1));
-        
-        _userRepositoryMock.Setup(repo => repo.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        // Act
         await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         user.Phone.Should().Be("123456");
         user.Gender.Should().Be(Gender.FEMALE);
         user.DateOfBirth.Should().Be(new DateTime(2000, 1, 1));
 
-        _userRepositoryMock.Verify(repo => repo.Update(user), Times.Once);
+        _userRepositoryMock.Verify(r => r.Update(user), Times.Once);
         _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-        
         _eventPublisherMock.Verify(pub => pub.PublishAsync(
             It.Is<UserProfileUpdatedPayload>(p => p.UserId == 1 && p.Email == "test@test.com" && p.FullName == "Test"),
-            It.IsAny<CancellationToken>()
-        ), Times.Once);
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // ─── Normal: null optional fields ────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_NullOptionalFields_StillUpdatesAndPublishesEvent()
+    {
+        var user = new User("some-uuid", "test@test.com", "Test", "old-phone", Gender.MALE, null, true);
+        typeof(User).GetProperty("Id")?.SetValue(user, 2L);
+        var command = new UpdateUserProfileCommand(2, null, null, null);
+
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        await _handler.Handle(command, CancellationToken.None);
+
+        // UpdateProfile with nulls clears optional fields
+        user.Phone.Should().BeNull();
+        user.Gender.Should().BeNull();
+
+        _userRepositoryMock.Verify(r => r.Update(user), Times.Once);
+        _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _eventPublisherMock.Verify(pub => pub.PublishAsync(
+            It.IsAny<UserProfileUpdatedPayload>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // ─── Error: repository throws ────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_RepositoryGetByIdThrows_PropagatesException()
+    {
+        var command = new UpdateUserProfileCommand(1, "123", null, null);
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("DB error"));
+
+        await FluentActions.Invoking(() => _handler.Handle(command, CancellationToken.None))
+            .Should().ThrowAsync<InvalidOperationException>().WithMessage("DB error");
+
+        _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _eventPublisherMock.Verify(pub => pub.PublishAsync(It.IsAny<UserProfileUpdatedPayload>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // ─── Error: save fails → event not published ─────────────────────────────
+
+    [Fact]
+    public async Task Handle_SaveChangesThrows_EventNotPublished()
+    {
+        var user = new User("some-uuid", "test@test.com", "Test");
+        typeof(User).GetProperty("Id")?.SetValue(user, 1L);
+        var command = new UpdateUserProfileCommand(1, "123", null, null);
+
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _unitOfWorkMock.Setup(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("DB write error"));
+
+        await FluentActions.Invoking(() => _handler.Handle(command, CancellationToken.None))
+            .Should().ThrowAsync<Exception>();
+
+        _eventPublisherMock.Verify(pub => pub.PublishAsync(
+            It.IsAny<UserProfileUpdatedPayload>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }
