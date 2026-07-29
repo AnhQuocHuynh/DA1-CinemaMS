@@ -1,5 +1,6 @@
 using IdentityService.Domain.Enums;
 using System;
+using System.Collections.Generic;
 
 namespace IdentityService.Application.DTOs;
 
@@ -11,5 +12,7 @@ public record UserDto(
     string? Phone,
     Gender? Gender,
     DateTime? DateOfBirth,
-    bool Active
+    bool Active,
+    IEnumerable<string>? Roles = null   // Keycloak realm roles, e.g. ["CUSTOMER"], ["ADMIN"]
 );
+
