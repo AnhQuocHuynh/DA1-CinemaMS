@@ -8,6 +8,9 @@ using System.Security.Claims;
 
 namespace IdentityService.Presentation.Controllers;
 
+/// <summary>Request body for changing a user's role.</summary>
+public record ChangeUserRoleRequest(string NewRole);
+
 [ApiController]
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
@@ -50,6 +53,15 @@ public class UsersController : ControllerBase
         var query = new GetUsersQuery(page, pageSize);
         var result = await _mediator.Send(query);
         return Ok(result);
+    }
+
+    [HttpPut("{id}/role")]
+    [Authorize(Roles = "admin")]
+    public async Task<IActionResult> ChangeUserRole(long id, [FromBody] ChangeUserRoleRequest request)
+    {
+        var command = new ChangeUserRoleCommand(id, request.NewRole);
+        await _mediator.Send(command);
+        return NoContent();
     }
 
     [HttpPut("me")]
