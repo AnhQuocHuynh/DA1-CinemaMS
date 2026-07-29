@@ -1,5 +1,6 @@
 using IdentityService.Domain.Interfaces;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,11 +12,13 @@ public class DeleteUserFromKeycloakEventCommandHandler : IRequestHandler<DeleteU
 {
     private readonly IUserRepository _userRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILogger<DeleteUserFromKeycloakEventCommandHandler> _logger;
 
-    public DeleteUserFromKeycloakEventCommandHandler(IUserRepository userRepository, IUnitOfWork unitOfWork)
+    public DeleteUserFromKeycloakEventCommandHandler(IUserRepository userRepository, IUnitOfWork unitOfWork, ILogger<DeleteUserFromKeycloakEventCommandHandler> logger)
     {
         _userRepository = userRepository;
         _unitOfWork = unitOfWork;
+        _logger = logger;
     }
 
     public async Task Handle(DeleteUserFromKeycloakEventCommand request, CancellationToken cancellationToken)
@@ -26,6 +29,11 @@ public class DeleteUserFromKeycloakEventCommandHandler : IRequestHandler<DeleteU
             user.Deactivate();
             _userRepository.Update(user);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Successfully deactivated user with Keycloak ID: {KeycloakId}", request.KeycloakId);
+        }
+        else
+        {
+            _logger.LogWarning("Cannot deactivate user: User with Keycloak ID {KeycloakId} was not found in local database", request.KeycloakId);
         }
     }
 }

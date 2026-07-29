@@ -15,49 +15,44 @@ public class KeycloakUserDeletedConsumer : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<KeycloakUserDeletedConsumer> _logger;
-    private readonly IConfiguration _configuration;
+    private readonly IRabbitMQConnectionProvider _connectionProvider;
     private IConnection? _connection;
     private IChannel? _channel;
+    private const string QUEUE_NAME = "identity-service.user-deleted";
+    private const string EXCHANGE_NAME = "user.events";
+    private const string ROUTING_KEY = "user.deleted";
 
     public KeycloakUserDeletedConsumer(
         IServiceProvider serviceProvider,
         ILogger<KeycloakUserDeletedConsumer> logger,
-        IConfiguration configuration)
+        IRabbitMQConnectionProvider connectionProvider)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
-        _configuration = configuration;
+        _connectionProvider = connectionProvider;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var hostName = _configuration["RabbitMQ:HostName"] ?? "localhost";
-        var userName = _configuration["RabbitMQ:UserName"] ?? "guest";
-        var password = _configuration["RabbitMQ:Password"] ?? "guest";
-
-        var factory = new ConnectionFactory
-        {
-            HostName = hostName,
-            UserName = userName,
-            Password = password
-        };
-
         try
         {
-            _connection = await factory.CreateConnectionAsync(stoppingToken);
+            _connection = await _connectionProvider.GetConnectionAsync(stoppingToken);
             _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
-            var queueName = "identity-service.user-deleted";
-            var exchangeName = "user.events";
-            var routingKey = "user.deleted";
 
-            await _channel.QueueDeclareAsync(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
-            await _channel.QueueBindAsync(queue: queueName, exchange: exchangeName, routingKey: routingKey, cancellationToken: stoppingToken);
+            await _channel.ExchangeDeclareAsync(exchange: EXCHANGE_NAME, type: ExchangeType.Topic, durable: true, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
+            await _channel.QueueDeclareAsync(queue: QUEUE_NAME, durable: true, exclusive: false, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
+            await _channel.QueueBindAsync(queue: QUEUE_NAME, exchange: EXCHANGE_NAME, routingKey: ROUTING_KEY, cancellationToken: stoppingToken);
             
-            _logger.LogInformation("Connected to RabbitMQ on {HostName} and listening to {QueueName}", hostName, queueName);
+            _logger.LogInformation("Connected to RabbitMQ and listening to {QueueName}", QUEUE_NAME);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Could not connect to RabbitMQ broker");
+            _logger.LogError(ex, "Failed to connect to RabbitMQ broker");
+            return;
+        }
+
+        if (_channel == null)
+        {
             return;
         }
 
@@ -92,7 +87,7 @@ public class KeycloakUserDeletedConsumer : BackgroundService
             }
         };
 
-        await _channel.BasicConsumeAsync(queue: "identity-service.user-deleted", autoAck: false, consumer: consumer, cancellationToken: stoppingToken);
+        await _channel.BasicConsumeAsync(queue: QUEUE_NAME, autoAck: false, consumer: consumer, cancellationToken: stoppingToken);
 
         // Keep the background service running
         while (!stoppingToken.IsCancellationRequested)
@@ -106,10 +101,6 @@ public class KeycloakUserDeletedConsumer : BackgroundService
         if (_channel != null)
         {
             await _channel.CloseAsync(cancellationToken);
-        }
-        if (_connection != null)
-        {
-            await _connection.CloseAsync(cancellationToken);
         }
         await base.StopAsync(cancellationToken);
     }

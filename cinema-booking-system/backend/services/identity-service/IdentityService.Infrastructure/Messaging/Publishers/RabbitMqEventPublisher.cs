@@ -1,5 +1,4 @@
 using IdentityService.Application.Contracts;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using System.Text;
@@ -11,31 +10,20 @@ namespace IdentityService.Infrastructure.Messaging.Publishers;
 
 public class RabbitMqEventPublisher : IEventPublisher
 {
-    private readonly IConfiguration _configuration;
+    private readonly IRabbitMQConnectionProvider _connectionProvider;
     private readonly ILogger<RabbitMqEventPublisher> _logger;
 
-    public RabbitMqEventPublisher(IConfiguration configuration, ILogger<RabbitMqEventPublisher> logger)
+    public RabbitMqEventPublisher(IRabbitMQConnectionProvider connectionProvider, ILogger<RabbitMqEventPublisher> logger)
     {
-        _configuration = configuration;
+        _connectionProvider = connectionProvider;
         _logger = logger;
     }
 
     public async Task PublishAsync<T>(T @event, CancellationToken ct = default) where T : class
     {
-        var hostName = _configuration["RabbitMQ:HostName"] ?? "localhost";
-        var userName = _configuration["RabbitMQ:UserName"] ?? "guest";
-        var password = _configuration["RabbitMQ:Password"] ?? "guest";
-
-        var factory = new ConnectionFactory
-        {
-            HostName = hostName,
-            UserName = userName,
-            Password = password
-        };
-
         try
         {
-            await using var connection = await factory.CreateConnectionAsync(ct);
+            var connection = await _connectionProvider.GetConnectionAsync(ct);
             await using var channel = await connection.CreateChannelAsync(cancellationToken: ct);
 
             // Using the exchange defined in the refactor plan
