@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: catalog-service
+  rabbitmq:
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/cinema_catalog_db}
@@ -32,9 +37,10 @@ outbox:
     enabled: ${OUTBOX_DISPATCHER_ENABLED:false}
     fixed-delay-ms: ${OUTBOX_DISPATCHER_FIXED_DELAY_MS:5000}
     batch-size: ${OUTBOX_DISPATCHER_BATCH_SIZE:50}
+    confirm-timeout: ${OUTBOX_DISPATCHER_CONFIRM_TIMEOUT:5s}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics

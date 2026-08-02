@@ -28,6 +28,11 @@ Every message is JSON and has this shape:
 
 The transactional outbox stores both exchange and routing key. It is the dispatcher, not the domain transaction, that talks to RabbitMQ. Catalog and Booking now have opt-in relays that lock pending rows, retry failures with exponential backoff, and move rows to `FAILED` after ten failed attempts. Delivery is at-least-once, so duplicate handling by `eventId` remains mandatory.
 
+Both producer relays require correlated publisher confirms and mandatory routing.
+An outbox row is marked `PUBLISHED` only after a broker ACK and no returned
+message; NACKs, unroutable messages, and confirmation timeouts stay on the
+bounded retry path. Relay outcome counters are available through Actuator metrics.
+
 ## Consumer Progress
 
 `analytics-service` consumes `order.paid`, `order.refunded`, and movie lifecycle
