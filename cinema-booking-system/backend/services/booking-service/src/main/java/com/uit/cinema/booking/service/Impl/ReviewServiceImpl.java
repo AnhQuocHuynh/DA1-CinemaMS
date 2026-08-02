@@ -7,6 +7,7 @@ import com.uit.cinema.booking.dto.response.ReviewResponse;
 import com.uit.cinema.booking.entity.Order;
 import com.uit.cinema.booking.entity.Review;
 import com.uit.cinema.booking.mapper.ReviewMapper;
+import com.uit.cinema.booking.outbox.BookingOutboxEventWriter;
 import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.ReviewRepository;
 import com.uit.cinema.booking.service.ReviewService;
@@ -32,6 +33,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final OrderRepository orderRepository;
     private final SeatReservationService seatReservationService;
     private final CatalogReadService catalogReadService;
+    private final BookingOutboxEventWriter bookingOutboxEventWriter;
 
     @Override
     @Transactional
@@ -53,7 +55,9 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review review = reviewMapper.toEntity(request);
         review.setStatus(Review.ReviewStatus.VISIBLE);
-        return reviewMapper.toResponse(reviewRepository.save(review));
+        Review savedReview = reviewRepository.save(review);
+        bookingOutboxEventWriter.reviewCreated(savedReview);
+        return reviewMapper.toResponse(savedReview);
     }
 
     @Override

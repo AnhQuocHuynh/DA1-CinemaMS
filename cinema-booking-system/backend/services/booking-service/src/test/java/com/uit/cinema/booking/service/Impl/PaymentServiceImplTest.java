@@ -1,6 +1,7 @@
 package com.uit.cinema.booking.service.Impl;
 
 import com.uit.cinema.booking.entity.Order;
+import com.uit.cinema.booking.outbox.BookingOutboxEventWriter;
 import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.TicketRepository;
 import com.uit.cinema.booking.service.TicketGenerationService;
@@ -32,6 +33,8 @@ class PaymentServiceImplTest {
     private TicketGenerationService ticketGenerationService;
     @Mock
     private SeatReservationService seatReservationService;
+    @Mock
+    private BookingOutboxEventWriter bookingOutboxEventWriter;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;

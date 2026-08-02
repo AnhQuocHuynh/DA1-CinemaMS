@@ -7,6 +7,7 @@ import com.uit.cinema.booking.dto.response.ReviewResponse;
 import com.uit.cinema.booking.entity.Order;
 import com.uit.cinema.booking.entity.Review;
 import com.uit.cinema.booking.mapper.ReviewMapper;
+import com.uit.cinema.booking.outbox.BookingOutboxEventWriter;
 import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.ReviewRepository;
 import com.uit.cinema.catalog.service.CatalogReadService;
@@ -45,6 +46,8 @@ class ReviewServiceImplTest {
     private SeatReservationService seatReservationService;
     @Mock
     private CatalogReadService catalogReadService;
+    @Mock
+    private BookingOutboxEventWriter bookingOutboxEventWriter;
 
     @InjectMocks
     private ReviewServiceImpl reviewService;
@@ -77,6 +80,7 @@ class ReviewServiceImplTest {
 
         assertNotNull(response);
         verify(reviewRepository).save(any(Review.class));
+        verify(bookingOutboxEventWriter).reviewCreated(review);
     }
 
     @Test

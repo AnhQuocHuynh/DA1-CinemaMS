@@ -2,6 +2,7 @@ package com.uit.cinema.booking.service;
 
 import com.uit.cinema.booking.entity.Order;
 import com.uit.cinema.booking.entity.Ticket;
+import com.uit.cinema.booking.outbox.BookingOutboxEventWriter;
 import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.TicketRepository;
 import com.uit.cinema.booking.service.Impl.PaymentServiceImpl;
@@ -40,6 +41,8 @@ class PaymentServiceImplTest {
     private TicketGenerationService ticketGenerationService;
     @Mock
     private SeatReservationService seatReservationService;
+    @Mock
+    private BookingOutboxEventWriter bookingOutboxEventWriter;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;
@@ -47,11 +50,13 @@ class PaymentServiceImplTest {
     @Test
     void processPayment_happyPath_marksOrderPaidAndBooksSeat() {
         Order order = buildOrder(1L, Order.OrderStatus.PENDING);
+        ShowtimeScheduleView showtime = scheduleInHours(2);
 
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
         when(orderRepository.findByPaymentTransactionId("TXN-1")).thenReturn(Optional.empty());
         when(seatReservationService.confirmHeldSeats(any()))
             .thenReturn(new SeatBookingResult(100L, List.of(55L), 1, List.of(new SeatView(55L, new BigDecimal("100.00")))));
+        when(seatReservationService.getSchedule(100L)).thenReturn(showtime);
         when(ticketGenerationService.generateTicket(any(Ticket.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -62,6 +67,7 @@ class PaymentServiceImplTest {
         assertEquals("TXN-1", result.getPaymentTransactionId());
         verify(seatReservationService).confirmHeldSeats(any());
         verify(ticketGenerationService).generateTicket(any(Ticket.class));
+        verify(bookingOutboxEventWriter).orderPaid(order, showtime, 1);
     }
 
     @Test
@@ -113,6 +119,7 @@ class PaymentServiceImplTest {
         assertEquals(Order.OrderStatus.REFUNDED, result.getStatus());
         assertEquals(Ticket.TicketStatus.REFUNDED, ticket.getStatus());
         verify(seatReservationService).releaseBookedSeats(any(SeatReleaseRequest.class));
+        verify(bookingOutboxEventWriter).orderRefunded(order, 1);
     }
 
     @Test

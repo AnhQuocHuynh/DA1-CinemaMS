@@ -2,6 +2,7 @@ package com.uit.cinema.booking.service.Impl;
 
 import com.uit.cinema.booking.entity.Order;
 import com.uit.cinema.booking.entity.Ticket;
+import com.uit.cinema.booking.outbox.BookingOutboxEventWriter;
 import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.TicketRepository;
 import com.uit.cinema.booking.service.PaymentService;
@@ -36,6 +37,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final TicketRepository ticketRepository;
     private final TicketGenerationService ticketGenerationService;
     private final SeatReservationService seatReservationService;
+    private final BookingOutboxEventWriter bookingOutboxEventWriter;
 
     @Override
     @Transactional
@@ -58,6 +60,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         List<Long> seatIds = parseSeatIds(order.getSeatIdsSnapshot());
+        ShowtimeScheduleView showtime = seatReservationService.getSchedule(order.getShowtimeId());
         SeatBookingResult bookingResult = seatReservationService.confirmHeldSeats(
             new SeatBookingRequest(order.getUserId(), order.getShowtimeId(), seatIds)
         );
@@ -79,7 +82,9 @@ public class PaymentServiceImpl implements PaymentService {
         order.setPaymentTransactionId(transactionId);
         order.setStatus(Order.OrderStatus.PAID);
         log.info("Order {} paid via {}, txn {}", orderId, paymentMethod, transactionId);
-        return orderRepository.save(order);
+        Order paidOrder = orderRepository.save(order);
+        bookingOutboxEventWriter.orderPaid(paidOrder, showtime, seatIds.size());
+        return paidOrder;
     }
 
     @Override
@@ -115,7 +120,9 @@ public class PaymentServiceImpl implements PaymentService {
 
         order.setStatus(Order.OrderStatus.REFUNDED);
         log.info("Order {} refunded ({}%). Reason: {}", orderId, refundPercent, reason);
-        return orderRepository.save(order);
+        Order refundedOrder = orderRepository.save(order);
+        bookingOutboxEventWriter.orderRefunded(refundedOrder, tickets.size());
+        return refundedOrder;
     }
 
     private List<Long> parseSeatIds(String snapshot) {
