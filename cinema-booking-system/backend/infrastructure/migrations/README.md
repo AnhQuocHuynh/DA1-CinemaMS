@@ -11,6 +11,7 @@ Status: dry-run validated on 2026-08-03; real export/restore is blocked until a 
 | showtime-service | `cinema_showtime_db` | `showtimes`, `showtime_seats` |
 | booking-service | `cinema_booking_db` | `vouchers`, `orders`, `tickets`, `reviews` |
 | analytics-service | `cinema_analytics_db` | Derived read model: `analytics_orders`, `analytics_showtimes`, `analytics_showtime_seats`, `analytics_contents`, `analytics_rooms`, `analytics_users` |
+| recommendation-service | Neo4j `neo4j` database | Derived graph: movies, genres, watched orders, and movie ratings |
 
 ## Preconditions
 
@@ -88,6 +89,43 @@ All Analytics source datasets are exported before the target schema is touched. 
 - Each service dump is validated with `pg_restore --list` before target truncation.
 - Service restores use `--exit-on-error` and `--single-transaction`.
 - These guards do not make a production database an acceptable target. Only use copied, disposable, or independently snapshotted service databases.
+
+## Recommendation Graph
+
+Recommendation backfill reads a copied legacy PostgreSQL database through a
+read-only JDBC connection and projects deterministic synthetic events through
+the same idempotent Neo4j path used by RabbitMQ consumers. It does not truncate
+the graph. Repeating the same source snapshot is safe and reports duplicate
+events instead of duplicating relationships.
+
+Keep `RECOMMENDATION_MESSAGING_ENABLED=false` while running the initial
+backfill. Start Neo4j, then run the Recommendation service first in dry-run
+mode:
+
+```powershell
+$env:RECOMMENDATION_GRAPH_ENABLED = "true"
+$env:SPRING_NEO4J_URI = "bolt://localhost:7687"
+$env:SPRING_NEO4J_AUTHENTICATION_USERNAME = "neo4j"
+$env:SPRING_NEO4J_AUTHENTICATION_PASSWORD = "<neo4j-password>"
+$env:RECOMMENDATION_BACKFILL_ENABLED = "true"
+$env:RECOMMENDATION_BACKFILL_DRY_RUN = "true"
+$env:RECOMMENDATION_BACKFILL_SOURCE_URL = "jdbc:postgresql://localhost:5432/cinema_db_copy"
+$env:RECOMMENDATION_BACKFILL_SOURCE_USERNAME = "postgres"
+$env:RECOMMENDATION_BACKFILL_SOURCE_PASSWORD = "<copied-db-password>"
+mvn -pl services/recommendation-service spring-boot:run
+```
+
+After reviewing source counts, set:
+
+```powershell
+$env:RECOMMENDATION_BACKFILL_DRY_RUN = "false"
+$env:RECOMMENDATION_BACKFILL_CONFIRMATION = "BACKFILL-COPIED-LEGACY-TO-RECOMMENDATION"
+```
+
+Run the service again and stop it after the backfill and minimum graph-count
+verification complete. Do not point this process at the writable production
+legacy database. The source connection is forced read-only, but a copied or
+snapshotted database remains a required operational boundary.
 
 ## Verification
 

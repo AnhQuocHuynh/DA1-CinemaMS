@@ -154,6 +154,46 @@ class Neo4jRecommendationGraphStoreTest {
             .isZero();
     }
 
+    @Test
+    void newerHiddenReview_preventsOlderVisibleReviewFromRestoringRating() throws Exception {
+        JsonNode hiddenReview = event(
+            "550e8400-e29b-41d4-a716-446655440014",
+            "review.created",
+            "booking-service",
+            "2026-07-10T12:07:00Z",
+            """
+                {
+                  "reviewId": 502,
+                  "userId": 502,
+                  "movieId": 50,
+                  "rating": 4,
+                  "status": "HIDDEN"
+                }
+                """
+        );
+        JsonNode olderVisibleReview = event(
+            "550e8400-e29b-41d4-a716-446655440015",
+            "review.created",
+            "booking-service",
+            "2026-07-10T12:06:00Z",
+            """
+                {
+                  "reviewId": 502,
+                  "userId": 502,
+                  "movieId": 50,
+                  "rating": 4,
+                  "status": "VISIBLE"
+                }
+                """
+        );
+
+        assertThat(projectionStore.project(hiddenReview)).isTrue();
+        assertThat(projectionStore.project(olderVisibleReview)).isTrue();
+
+        assertThat(queryCount("MATCH ()-[rated:RATED {reviewId: 502}]->() RETURN count(rated)"))
+            .isZero();
+    }
+
     private JsonNode event(
         String eventId,
         String eventType,

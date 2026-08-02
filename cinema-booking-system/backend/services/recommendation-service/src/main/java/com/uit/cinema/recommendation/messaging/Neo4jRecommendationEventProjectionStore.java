@@ -75,13 +75,33 @@ public class Neo4jRecommendationEventProjectionStore implements RecommendationEv
         DELETE watched
         """;
 
-    private static final String UPSERT_REVIEW = """
+    private static final String UPSERT_VISIBLE_REVIEW = """
+        MERGE (review:ReviewInteraction {reviewId: $reviewId})
+        ON CREATE SET review.updatedAt = datetime('1970-01-01T00:00:00Z')
+        WITH review
+        WHERE review.updatedAt <= datetime($occurredAt)
+        SET review.status = 'VISIBLE',
+            review.updatedAt = datetime($occurredAt)
         MERGE (user:User {userId: $userId})
         MERGE (movie:Movie {movieId: $movieId})
         ON CREATE SET movie.title = 'Movie ' + toString($movieId), movie.active = true
+        MERGE (user)-[:AUTHORED]->(review)
+        MERGE (review)-[:FOR_MOVIE]->(movie)
         MERGE (user)-[rated:RATED {reviewId: $reviewId}]->(movie)
         SET rated.rating = $rating,
             rated.occurredAt = datetime($occurredAt)
+        """;
+
+    private static final String HIDE_REVIEW = """
+        MERGE (review:ReviewInteraction {reviewId: $reviewId})
+        ON CREATE SET review.updatedAt = datetime('1970-01-01T00:00:00Z')
+        WITH review
+        WHERE review.updatedAt <= datetime($occurredAt)
+        SET review.status = $status,
+            review.updatedAt = datetime($occurredAt)
+        WITH review
+        OPTIONAL MATCH ()-[rated:RATED {reviewId: $reviewId}]->()
+        DELETE rated
         """;
 
     private final Driver driver;
@@ -145,15 +165,22 @@ public class Neo4jRecommendationEventProjectionStore implements RecommendationEv
 
     private void applyReview(TransactionContext transaction, JsonNode payload, Instant occurredAt) {
         Long movieId = optionalLong(payload, "movieId");
-        if (movieId == null || !"VISIBLE".equals(requiredText(payload, "status"))) {
+        long reviewId = requiredLong(payload, "reviewId");
+        String status = requiredText(payload, "status");
+        if (movieId == null || !"VISIBLE".equals(status)) {
+            transaction.run(HIDE_REVIEW, Values.value(Map.of(
+                "reviewId", reviewId,
+                "status", status,
+                "occurredAt", occurredAt.toString()
+            ))).consume();
             return;
         }
         int rating = requiredInt(payload, "rating");
         if (rating < 1 || rating > 5) {
             throw new IllegalArgumentException("Review rating must be between 1 and 5");
         }
-        transaction.run(UPSERT_REVIEW, Values.value(Map.of(
-            "reviewId", requiredLong(payload, "reviewId"),
+        transaction.run(UPSERT_VISIBLE_REVIEW, Values.value(Map.of(
+            "reviewId", reviewId,
             "userId", requiredLong(payload, "userId"),
             "movieId", movieId,
             "rating", rating,

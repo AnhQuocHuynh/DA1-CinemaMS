@@ -34,6 +34,15 @@ recommendation:
     enabled: ${RECOMMENDATION_MESSAGING_ENABLED:false}
     catalog-queue: ${RECOMMENDATION_CATALOG_QUEUE:recommendation.catalog.v1}
     booking-queue: ${RECOMMENDATION_BOOKING_QUEUE:recommendation.booking.v1}
+  backfill:
+    enabled: ${RECOMMENDATION_BACKFILL_ENABLED:false}
+    dry-run: ${RECOMMENDATION_BACKFILL_DRY_RUN:true}
+    confirmation: ${RECOMMENDATION_BACKFILL_CONFIRMATION:}
+    source:
+      url: ${RECOMMENDATION_BACKFILL_SOURCE_URL:jdbc:postgresql://localhost:5432/cinema_db}
+      username: ${RECOMMENDATION_BACKFILL_SOURCE_USERNAME:postgres}
+      password: ${RECOMMENDATION_BACKFILL_SOURCE_PASSWORD:}
+    fetch-size: ${RECOMMENDATION_BACKFILL_FETCH_SIZE:500}
 
 management:
   endpoints:

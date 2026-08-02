@@ -17,7 +17,8 @@ public class RecommendationGraphSchemaInitializer implements InitializingBean {
         "CREATE CONSTRAINT recommendation_user_id IF NOT EXISTS FOR (user:User) REQUIRE user.userId IS UNIQUE",
         "CREATE CONSTRAINT recommendation_movie_id IF NOT EXISTS FOR (movie:Movie) REQUIRE movie.movieId IS UNIQUE",
         "CREATE CONSTRAINT recommendation_genre_name IF NOT EXISTS FOR (genre:Genre) REQUIRE genre.name IS UNIQUE",
-        "CREATE CONSTRAINT recommendation_order_id IF NOT EXISTS FOR (order:OrderInteraction) REQUIRE order.orderId IS UNIQUE"
+        "CREATE CONSTRAINT recommendation_order_id IF NOT EXISTS FOR (order:OrderInteraction) REQUIRE order.orderId IS UNIQUE",
+        "CREATE CONSTRAINT recommendation_review_id IF NOT EXISTS FOR (review:ReviewInteraction) REQUIRE review.reviewId IS UNIQUE"
     );
 
     private final Driver driver;
