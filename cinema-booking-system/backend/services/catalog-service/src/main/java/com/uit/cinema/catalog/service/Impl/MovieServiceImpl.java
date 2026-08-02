@@ -5,6 +5,7 @@ import com.uit.cinema.catalog.dto.response.MovieResponse;
 import com.uit.cinema.catalog.entity.Genre;
 import com.uit.cinema.catalog.entity.Movie;
 import com.uit.cinema.catalog.mapper.MovieMapper;
+import com.uit.cinema.catalog.outbox.CatalogOutboxEventWriter;
 import com.uit.cinema.catalog.repository.GenreRepository;
 import com.uit.cinema.catalog.repository.MovieRepository;
 import com.uit.cinema.catalog.service.MovieService;
@@ -26,6 +27,7 @@ public class MovieServiceImpl implements MovieService {
     private final MovieRepository movieRepository;
     private final GenreRepository genreRepository;
     private final MovieMapper movieMapper;
+    private final CatalogOutboxEventWriter catalogOutboxEventWriter;
 
     @Override
     public List<MovieResponse> getAllActiveMovies() {
@@ -53,6 +55,7 @@ public class MovieServiceImpl implements MovieService {
         movie.setGenres(genres);
 
         Movie savedMovie = movieRepository.save(movie);
+        catalogOutboxEventWriter.movieCreated(savedMovie);
         return movieMapper.toResponse(savedMovie);
     }
 
@@ -66,6 +69,7 @@ public class MovieServiceImpl implements MovieService {
         existing.setGenres(genres);
 
         Movie updatedMovie = movieRepository.save(existing);
+        catalogOutboxEventWriter.movieUpdated(updatedMovie);
         return movieMapper.toResponse(updatedMovie);
     }
 
@@ -75,6 +79,7 @@ public class MovieServiceImpl implements MovieService {
         Movie movie = getMovieEntityById(id);
         movie.setActive(false);
         movieRepository.save(movie);
+        catalogOutboxEventWriter.movieDeleted(movie);
     }
 
     private Set<Genre> fetchGenres(Set<Long> genreIds) {

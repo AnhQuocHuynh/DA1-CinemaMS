@@ -5,6 +5,7 @@ import com.uit.cinema.catalog.dto.response.MovieResponse;
 import com.uit.cinema.catalog.entity.Genre;
 import com.uit.cinema.catalog.entity.Movie;
 import com.uit.cinema.catalog.mapper.MovieMapper;
+import com.uit.cinema.catalog.outbox.CatalogOutboxEventWriter;
 import com.uit.cinema.catalog.repository.GenreRepository;
 import com.uit.cinema.catalog.repository.MovieRepository;
 import com.uit.cinema.core.exception.CustomException;
@@ -34,6 +35,9 @@ class MovieServiceImplTest {
 
     @Mock
     private MovieMapper movieMapper;
+
+    @Mock
+    private CatalogOutboxEventWriter catalogOutboxEventWriter;
 
     @InjectMocks
     private MovieServiceImpl movieService;
@@ -86,6 +90,7 @@ class MovieServiceImplTest {
 
         assertNotNull(response);
         verify(movieRepository).save(any(Movie.class));
+        verify(catalogOutboxEventWriter).movieCreated(movie);
     }
 
     @Test
@@ -98,6 +103,7 @@ class MovieServiceImplTest {
 
         assertFalse(movie.isActive());
         verify(movieRepository).save(movie);
+        verify(catalogOutboxEventWriter).movieDeleted(movie);
     }
     @Test
     void updateMovie_Success() {
@@ -123,6 +129,7 @@ class MovieServiceImplTest {
         assertNotNull(result);
         verify(movieMapper).updateEntity(movie, request);
         verify(movieRepository).save(movie);
+        verify(catalogOutboxEventWriter).movieUpdated(movie);
     }
 
 }
