@@ -27,6 +27,12 @@ services:
   showtime:
     url: ${SHOWTIME_SERVICE_URL:http://localhost:8082}
 
+outbox:
+  dispatcher:
+    enabled: ${OUTBOX_DISPATCHER_ENABLED:false}
+    fixed-delay-ms: ${OUTBOX_DISPATCHER_FIXED_DELAY_MS:5000}
+    batch-size: ${OUTBOX_DISPATCHER_BATCH_SIZE:50}
+
 management:
   endpoints:
     web:

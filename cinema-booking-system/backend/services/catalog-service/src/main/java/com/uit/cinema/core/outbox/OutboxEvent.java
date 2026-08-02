@@ -13,6 +13,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.time.Duration;
 import java.util.UUID;
 
 @Entity
@@ -80,5 +81,22 @@ public class OutboxEvent {
         PUBLISHED,
         FAILED
     }
-}
 
+    public void markPublished(Instant publishedAt) {
+        this.status = OutboxStatus.PUBLISHED;
+        this.publishedAt = publishedAt;
+        this.lastError = null;
+    }
+
+    public void recordFailure(Instant now, String error) {
+        this.attemptCount++;
+        this.lastError = error == null ? "Unknown publish failure" : error.substring(0, Math.min(error.length(), 2_000));
+        if (attemptCount >= 10) {
+            this.status = OutboxStatus.FAILED;
+            return;
+        }
+        long delaySeconds = Math.min(60, 1L << Math.min(attemptCount, 6));
+        this.status = OutboxStatus.PENDING;
+        this.nextAttemptAt = now.plus(Duration.ofSeconds(delaySeconds));
+    }
+}
