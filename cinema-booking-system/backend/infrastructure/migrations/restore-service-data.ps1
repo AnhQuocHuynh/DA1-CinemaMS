@@ -13,10 +13,16 @@ param(
     [string]$PgRestore = "pg_restore",
     [string]$Psql = "psql",
     [switch]$TruncateFirst,
+    [string]$ResetConfirmation = "",
     [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
+$requiredResetConfirmation = "RESET-COPIED-SERVICE-DATABASES"
+
+if ($TruncateFirst -and -not $DryRun -and $ResetConfirmation -ne $requiredResetConfirmation) {
+    throw "TruncateFirst requires -ResetConfirmation '$requiredResetConfirmation'. Use it only for snapshotted or disposable copied databases."
+}
 
 function Resolve-TargetPort {
     param(
@@ -45,6 +51,20 @@ function Invoke-CheckedCommand {
     & $Tool @Arguments
     if ($LASTEXITCODE -ne 0) {
         throw $FailureMessage
+    }
+}
+
+function Test-DumpFile {
+    param([string]$DumpFile)
+
+    if ($DryRun) {
+        Write-Host "DRY RUN: $PgRestore --list $DumpFile"
+        return
+    }
+
+    & $PgRestore --list $DumpFile | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Invalid or unreadable dump file: $DumpFile"
     }
 }
 
@@ -83,16 +103,30 @@ foreach ($serviceName in $services) {
     if (-not (Test-Path $dumpFile) -and $DryRun) {
         Write-Host "DRY RUN: dump file does not exist yet: $dumpFile"
     }
+    Test-DumpFile $dumpFile
 
     if ($TruncateFirst) {
         $tableList = ($target.tables | ForEach-Object { "public.$_" }) -join ", "
         $truncateSql = "TRUNCATE TABLE $tableList RESTART IDENTITY CASCADE;"
         Write-Host "Truncating $($target.db) on $DbHost`:${targetPort}: $tableList"
-        $truncateArgs = @("--host", $DbHost, "--port", "$targetPort", "--username", $User, "--dbname", $target.db, "--command", $truncateSql)
+        $truncateArgs = @("--host", $DbHost, "--port", "$targetPort", "--username", $User, "--no-password", "--dbname", $target.db, "--command", $truncateSql)
         Invoke-CheckedCommand $Psql $truncateArgs "psql truncate failed for $serviceName"
     }
 
     Write-Host "Restoring $dumpFile into $($target.db) on $DbHost`:${targetPort}"
-    $restoreArgs = @("--host", $DbHost, "--port", "$targetPort", "--username", $User, "--dbname", $target.db, "--data-only", "--disable-triggers", $dumpFile)
+    $restoreArgs = @(
+        "--host", $DbHost,
+        "--port", "$targetPort",
+        "--username", $User,
+        "--no-password",
+        "--dbname", $target.db,
+        "--data-only",
+        "--disable-triggers",
+        "--no-owner",
+        "--no-privileges",
+        "--exit-on-error",
+        "--single-transaction",
+        $dumpFile
+    )
     Invoke-CheckedCommand $PgRestore $restoreArgs "pg_restore failed for $serviceName"
 }

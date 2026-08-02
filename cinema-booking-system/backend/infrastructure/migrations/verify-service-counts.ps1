@@ -38,6 +38,7 @@ function Invoke-PsqlScalar {
         "--host", $DbHost,
         "--port", "$DbPort",
         "--username", $User,
+        "--no-password",
         "--dbname", $Database,
         "--tuples-only",
         "--no-align",

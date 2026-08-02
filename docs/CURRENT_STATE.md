@@ -119,7 +119,9 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 - Docker images were not built; compose syntax was validated.
 - Data backfill scripts/runbook exist, but they have not been executed against a real database snapshot.
 - Migration scripts now support dry-run validation, row-count comparison across legacy/service databases, and Analytics read-model backfill.
+- Migration dry-runs were revalidated on 2026-08-03. Destructive resets now require explicit confirmation, dumps are checked before reset, and Analytics imports are atomic.
 - Local preflight on 2026-07-08 found PostgreSQL 18 client tools under `C:\Program Files\PostgreSQL\18\bin`, but Docker and local DB/service ports were not running.
+- Local PostgreSQL 18 was started safely on 2026-08-03, but real snapshot export is blocked because no valid `postgres` credential or `.pgpass` entry is available; password guessing and auth-file modification were intentionally avoided.
 - Runtime service smoke script exists, but it has not been executed against a running extracted-service stack in this handoff.
 - API gateway routing, JWT propagation, AMQP listener adapters, and Recommendation graph consumers are not wired yet.
 

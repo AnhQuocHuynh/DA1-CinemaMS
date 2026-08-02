@@ -27,6 +27,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Added internal Showtime event command endpoints for Catalog event showtime creation/deletion.
 - Added draft data migration export/restore scripts and rollback runbook under `backend/infrastructure/migrations`.
 - Hardened migration scripts with dry-run support, compose-port restore defaults, row-count comparison, and Analytics read-model backfill.
+- Revalidated all migration dry-runs on 2026-08-03 and added fail-fast noninteractive authentication, explicit reset confirmation phrases, dump integrity checks, transactional service restores, and atomic Analytics imports.
 - Added static contract tests that guard Spring Boot inter-service client paths against OpenAPI drafts.
 - Added a baseline runtime smoke script for service health and internal-token guard checks.
 - Added transactional outboxes to Catalog and Booking. Catalog records movie lifecycle events; Booking records paid/refunded order and created-review events with versioned envelopes.
@@ -58,9 +59,9 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Booking/order/ticket/voucher/review data has not been backfilled from `cinema_db` to `cinema_booking_db`.
 - Analytics read-model data has not been backfilled from a copied legacy database to `cinema_analytics_db`.
 - Recommendation graph data has not been backfilled; Neo4j/Redis/RabbitMQ integration is not wired.
-- Migration scripts have not been executed against a real database snapshot yet.
+- Migration scripts have not been executed against a real database snapshot yet. Local PostgreSQL 18 can start on port 5432, but the configured `postgres` credential is unavailable and the documented default password is not valid for that cluster.
 - Admin/staff write endpoints in direct Catalog, Facility, Showtime, and Booking services still depend on future gateway/JWT integration.
-- Catalog event creation now synchronously calls Showtime internal commands; durable outbox recording exists, but RabbitMQ dispatch is still not implemented.
+- Catalog event creation still synchronously calls Showtime internal commands. The movie outbox relay is implemented, but replacing that command with an asynchronous saga remains future work.
 - Standalone Facility rejects destructive room/cinema deletes with `SHOWTIME_GUARD_UNAVAILABLE` if it cannot query `showtime-service`.
 - Standalone Showtime requires Catalog and Facility to be reachable for create/enrichment paths.
 - No production-grade service discovery, gateway routing, tracing, RabbitMQ publisher confirms, or AMQP listener adapters are wired yet.

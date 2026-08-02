@@ -44,6 +44,7 @@ foreach ($service in $serviceTables.Keys) {
         "--host", $DbHost,
         "--port", "$Port",
         "--username", $User,
+        "--no-password",
         "--dbname", $LegacyDb,
         "--data-only",
         "--format", "custom",

@@ -10,10 +10,16 @@ param(
     [string]$Psql = "psql",
     [string]$WorkDir = "infrastructure/migrations/analytics-dumps",
     [switch]$TruncateFirst,
+    [string]$ResetConfirmation = "",
     [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
+$requiredResetConfirmation = "RESET-COPIED-ANALYTICS-DATABASE"
+
+if ($TruncateFirst -and -not $DryRun -and $ResetConfirmation -ne $requiredResetConfirmation) {
+    throw "TruncateFirst requires -ResetConfirmation '$requiredResetConfirmation'. Use it only for a snapshotted or disposable copied analytics database."
+}
 
 function Resolve-BackendPath {
     param([string]$Path)
@@ -61,6 +67,7 @@ function Invoke-Psql {
         "--host", $DbHost,
         "--port", "$Port",
         "--username", $User,
+        "--no-password",
         "--dbname", $Database,
         "--command", $Command
     )
@@ -79,6 +86,7 @@ function Invoke-PsqlFile {
         "--host", $DbHost,
         "--port", "$Port",
         "--username", $User,
+        "--no-password",
         "--dbname", $Database,
         "--file", $File
     )
@@ -199,11 +207,23 @@ FROM public.users
     }
 )
 
+foreach ($dataset in $datasets) {
+    $csvPath = ConvertTo-PsqlPath (Join-Path $ResolvedWorkDir $dataset.File)
+    $copyOut = "\copy ($($dataset.Query)) TO '$csvPath' WITH (FORMAT csv, HEADER true)"
+
+    Write-Host "Exporting $($dataset.Name) from $LegacyDb"
+    Invoke-Psql $LegacyDb $LegacyPort $copyOut "Failed to export $($dataset.Name)"
+}
+
 Write-Host "Ensuring analytics schema in $AnalyticsDb on $DbHost`:${AnalyticsPort}"
 Invoke-PsqlFile $AnalyticsDb $AnalyticsPort $SchemaFile "Failed to apply analytics schema"
 
+$importCommands = [System.Collections.Generic.List[string]]::new()
+$importCommands.Add("\set ON_ERROR_STOP on")
+$importCommands.Add("BEGIN;")
+
 if ($TruncateFirst) {
-    $truncateSql = @"
+    $importCommands.Add(@"
 TRUNCATE TABLE
     analytics_orders,
     analytics_showtime_seats,
@@ -211,19 +231,23 @@ TRUNCATE TABLE
     analytics_contents,
     analytics_rooms,
     analytics_users;
-"@
-    Write-Host "Truncating analytics read-model tables"
-    Invoke-Psql $AnalyticsDb $AnalyticsPort $truncateSql "Failed to truncate analytics tables"
+"@)
 }
 
 foreach ($dataset in $datasets) {
     $csvPath = ConvertTo-PsqlPath (Join-Path $ResolvedWorkDir $dataset.File)
-    $copyOut = "\copy ($($dataset.Query)) TO '$csvPath' WITH (FORMAT csv, HEADER true)"
-    $copyIn = "\copy $($dataset.Target) ($($dataset.Columns)) FROM '$csvPath' WITH (FORMAT csv, HEADER true)"
+    $escapedCsvPath = $csvPath.Replace("'", "''")
+    $importCommands.Add("\copy $($dataset.Target) ($($dataset.Columns)) FROM '$escapedCsvPath' WITH (FORMAT csv, HEADER true)")
+}
 
-    Write-Host "Exporting $($dataset.Name) from $LegacyDb"
-    Invoke-Psql $LegacyDb $LegacyPort $copyOut "Failed to export $($dataset.Name)"
+$importCommands.Add("COMMIT;")
+$importFile = Join-Path $ResolvedWorkDir "import-analytics-read-model.sql"
 
-    Write-Host "Importing $($dataset.Name) into $AnalyticsDb"
-    Invoke-Psql $AnalyticsDb $AnalyticsPort $copyIn "Failed to import $($dataset.Name)"
+if ($DryRun) {
+    Write-Host "DRY RUN: atomic analytics import into $AnalyticsDb using $importFile"
+    $importCommands | ForEach-Object { Write-Host $_ }
+} else {
+    [System.IO.File]::WriteAllLines($importFile, $importCommands, [System.Text.UTF8Encoding]::new($false))
+    Write-Host "Importing analytics read model atomically into $AnalyticsDb"
+    Invoke-PsqlFile $AnalyticsDb $AnalyticsPort $importFile "Failed to import analytics read model; transaction was rolled back"
 }

@@ -1,6 +1,6 @@
 # Service Data Migration Runbook
 
-Status: draft, not yet executed. `backend_legacy` remains the rollback source of truth until gateway traffic is switched and validated.
+Status: dry-run validated on 2026-08-03; real export/restore is blocked until a valid PostgreSQL credential is supplied. `backend_legacy` remains the rollback source of truth until gateway traffic is switched and validated.
 
 ## Owned Tables
 
@@ -20,6 +20,8 @@ Status: draft, not yet executed. `backend_legacy` remains the rollback source of
 4. No frontend or gateway traffic points at extracted services during backfill.
 5. `PGPASSWORD` is set in the shell, or `.pgpass` is configured.
 6. `pg_dump`, `pg_restore`, and `psql` are available in PATH, or their full paths are passed to the scripts.
+
+The scripts pass `--no-password` so unattended migration fails immediately instead of hanging on a password prompt. Set `PGPASSWORD` only for the migration process or configure a protected `.pgpass` file; do not commit credentials.
 
 If PostgreSQL client tools are installed but not in PATH on Windows, pass them explicitly:
 
@@ -58,7 +60,10 @@ By default, the restore script targets the Docker Compose database ports:
 - Booking: `5436`
 
 ```powershell
-.\infrastructure\migrations\restore-service-data.ps1 -Service all -TruncateFirst
+.\infrastructure\migrations\restore-service-data.ps1 `
+  -Service all `
+  -TruncateFirst `
+  -ResetConfirmation RESET-COPIED-SERVICE-DATABASES
 ```
 
 Use `-DryRun` before the actual restore, or pass `-Port 5432` only when all service databases live on one PostgreSQL server.
@@ -68,10 +73,21 @@ Use `-DryRun` before the actual restore, or pass `-Port 5432` only when all serv
 Analytics uses a derived read model instead of a table-for-table restore. After the normal service restore, create/populate `cinema_analytics_db` from a copied legacy database:
 
 ```powershell
-.\infrastructure\migrations\backfill-analytics-read-model.ps1 -TruncateFirst
+.\infrastructure\migrations\backfill-analytics-read-model.ps1 `
+  -TruncateFirst `
+  -ResetConfirmation RESET-COPIED-ANALYTICS-DATABASE
 ```
 
 Run with `-DryRun` first. The script applies `services/analytics-service/src/main/resources/schema.sql`, exports the legacy dashboard source tables to CSV, then imports the derived rows into the analytics read-model tables.
+
+All Analytics source datasets are exported before the target schema is touched. Target truncation and all CSV imports run in one database transaction, so an import failure rolls the read model back instead of leaving it partially populated.
+
+## Destructive Guards
+
+- `-TruncateFirst` is rejected unless the matching `-ResetConfirmation` phrase is supplied.
+- Each service dump is validated with `pg_restore --list` before target truncation.
+- Service restores use `--exit-on-error` and `--single-transaction`.
+- These guards do not make a production database an acceptable target. Only use copied, disposable, or independently snapshotted service databases.
 
 ## Verification
 
