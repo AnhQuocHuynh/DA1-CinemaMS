@@ -1,6 +1,6 @@
 # Catalog Events
 
-Status: version 1 contract. `catalog-service` records movie events in its transactional outbox. A RabbitMQ dispatcher is deliberately not enabled yet.
+Status: version 1 contract. `catalog-service` records movie events in its transactional outbox and relays them when its dispatcher is enabled.
 
 ## Envelope
 

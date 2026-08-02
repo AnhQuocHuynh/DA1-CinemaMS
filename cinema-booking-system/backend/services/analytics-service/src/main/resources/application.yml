@@ -14,10 +14,28 @@ spring:
   sql:
     init:
       mode: ${SPRING_SQL_INIT_MODE:never}
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: ${ANALYTICS_AMQP_MAX_ATTEMPTS:5}
+          initial-interval: ${ANALYTICS_AMQP_INITIAL_INTERVAL:500ms}
+          multiplier: ${ANALYTICS_AMQP_RETRY_MULTIPLIER:2}
+          max-interval: ${ANALYTICS_AMQP_MAX_INTERVAL:5s}
 
 analytics:
   read-model:
     enabled: ${ANALYTICS_READ_MODEL_ENABLED:false}
+  messaging:
+    enabled: ${ANALYTICS_MESSAGING_ENABLED:false}
+    catalog-queue: ${ANALYTICS_CATALOG_QUEUE:analytics.catalog.v1}
+    booking-queue: ${ANALYTICS_BOOKING_QUEUE:analytics.booking.v1}
 
 management:
   endpoints:

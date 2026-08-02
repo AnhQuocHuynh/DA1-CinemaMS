@@ -254,10 +254,16 @@ services:
       SPRING_DATASOURCE_PASSWORD: "123"
       SPRING_SQL_INIT_MODE: always
       ANALYTICS_READ_MODEL_ENABLED: "true"
+      ANALYTICS_MESSAGING_ENABLED: "true"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: cinema
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-cinema-rabbitmq-dev}
     ports:
       - "8084:8084"
     depends_on:
       analytics-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - cinema-services

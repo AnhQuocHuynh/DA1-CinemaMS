@@ -1,6 +1,6 @@
 # Booking Events
 
-Status: version 1 contract. `booking-service` records these messages in its transactional outbox. A RabbitMQ dispatcher is deliberately not enabled yet.
+Status: version 1 contract. `booking-service` records these messages in its transactional outbox and relays them when its dispatcher is enabled.
 
 All messages use the common [event envelope](README.md#envelope).
 
@@ -61,4 +61,3 @@ Routing key: `review.created`
 ```
 
 Recommendation currently consumes movie reviews only. Event reviews remain in the contract so downstream consumers do not need a breaking schema change when event recommendations are introduced.
-

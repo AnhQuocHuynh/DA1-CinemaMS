@@ -30,11 +30,11 @@ The transactional outbox stores both exchange and routing key. It is the dispatc
 
 ## Consumer Progress
 
-`analytics-service` now has an idempotent projection component for `order.paid`,
-`order.refunded`, and movie lifecycle events. It is deliberately not an HTTP
-endpoint and does not connect to RabbitMQ yet; the future AMQP listener must
-delegate its decoded envelope to that component and acknowledge only after the
-projection transaction commits.
+`analytics-service` consumes `order.paid`, `order.refunded`, and movie lifecycle
+events through dedicated durable queues when `ANALYTICS_MESSAGING_ENABLED=true`.
+It validates version 1 envelopes, delegates to an idempotent transactional
+projection, retries transient listener failures, and dead-letters messages that
+still fail. Messaging remains opt-in outside the extracted-service Compose stack.
 
 ## Contracts
 
