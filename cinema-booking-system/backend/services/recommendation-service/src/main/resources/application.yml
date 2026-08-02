@@ -5,7 +5,17 @@ spring:
   application:
     name: recommendation-service
   autoconfigure:
-    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+      - org.springframework.boot.autoconfigure.neo4j.Neo4jAutoConfiguration
+
+recommendation:
+  graph:
+    enabled: ${RECOMMENDATION_GRAPH_ENABLED:false}
+    uri: ${SPRING_NEO4J_URI:bolt://localhost:7687}
+    username: ${SPRING_NEO4J_AUTHENTICATION_USERNAME:neo4j}
+    password: ${SPRING_NEO4J_AUTHENTICATION_PASSWORD:cinema_graph_2026}
+    max-connection-pool-size: ${RECOMMENDATION_NEO4J_MAX_CONNECTION_POOL_SIZE:20}
 
 management:
   endpoints:

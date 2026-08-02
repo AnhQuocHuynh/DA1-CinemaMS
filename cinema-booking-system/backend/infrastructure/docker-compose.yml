@@ -268,6 +268,27 @@ services:
     networks:
       - cinema-services
 
+  neo4j:
+    image: neo4j:5.23-community
+    container_name: cinema-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-cinema_graph_2026}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-cinema_graph_2026}
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 256m
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p \"$${NEO4J_PASSWORD}\" 'RETURN 1' >/dev/null"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks:
+      - cinema-services
+
   recommendation-service:
     build:
       context: ..
@@ -275,8 +296,15 @@ services:
     container_name: cinema-recommendation-service
     environment:
       SERVER_PORT: 8085
+      RECOMMENDATION_GRAPH_ENABLED: "true"
+      SPRING_NEO4J_URI: bolt://neo4j:7687
+      SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
+      SPRING_NEO4J_AUTHENTICATION_PASSWORD: ${NEO4J_PASSWORD:-cinema_graph_2026}
     ports:
       - "8085:8085"
+    depends_on:
+      neo4j:
+        condition: service_healthy
     networks:
       - cinema-services
 
@@ -287,6 +315,7 @@ volumes:
   showtime_db_data:
   booking_db_data:
   analytics_db_data:
+  neo4j_data:
 
 networks:
   cinema-services:
