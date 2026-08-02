@@ -38,6 +38,7 @@
 - Booking records order-paid, order-refunded, and review-created envelopes in a transactional outbox; paid events are enriched with the owning Showtime content identifier.
 - Shared event contracts define the envelope, RabbitMQ exchanges, routing keys, and idempotent consumer rule before any broker is enabled.
 - Analytics has an idempotent, ordering-aware read-model projection for paid/refunded orders and movie lifecycle events. It is ready for a future AMQP listener but does not connect to RabbitMQ yet.
+- Catalog and Booking have opt-in RabbitMQ outbox relays. The extracted-service Compose definition declares RabbitMQ and enables those relays, but the stack has not been started in this handoff.
 - Static contract tests now guard Spring Boot client paths against the OpenAPI drafts for Catalog, Facility, Showtime, and Booking.
 - Do not expand ASP.NET-assigned services in this Spring Boot track: Identity, target Facility, Payment, Notification, and API Gateway.
 
@@ -120,7 +121,7 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 - Migration scripts now support dry-run validation, row-count comparison across legacy/service databases, and Analytics read-model backfill.
 - Local preflight on 2026-07-08 found PostgreSQL 18 client tools under `C:\Program Files\PostgreSQL\18\bin`, but Docker and local DB/service ports were not running.
 - Runtime service smoke script exists, but it has not been executed against a running extracted-service stack in this handoff.
-- API gateway routing, JWT propagation, RabbitMQ outbox dispatch, and event consumers are not wired yet.
+- API gateway routing, JWT propagation, AMQP listener adapters, and Recommendation graph consumers are not wired yet.
 
 ## Suggested Next Steps
 

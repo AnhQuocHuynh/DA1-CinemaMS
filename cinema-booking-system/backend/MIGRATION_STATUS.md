@@ -30,6 +30,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Added static contract tests that guard Spring Boot inter-service client paths against OpenAPI drafts.
 - Added a baseline runtime smoke script for service health and internal-token guard checks.
 - Added transactional outboxes to Catalog and Booking. Catalog records movie lifecycle events; Booking records paid/refunded order and created-review events with versioned envelopes.
+- Added opt-in RabbitMQ outbox relays for Catalog and Booking with pessimistic row locking, exponential backoff, and terminal failed-event status after ten attempts.
 - Defined shared event contracts, exchanges, routing keys, and idempotent-consumer requirements for future RabbitMQ delivery.
 - Verified `backend_legacy` tests pass after boundary changes.
 - Verified `backend` tests pass for the extracted services.
@@ -38,10 +39,10 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 
 | Service | Status | Notes |
 |---|---|---|
-| catalog-service | Extracted, buildable | Own Spring Boot app, own DB config, OpenAPI draft present. Movie lifecycle events are recorded in a transactional outbox. Event showtime sync still calls Showtime over internal HTTP. |
+| catalog-service | Extracted, buildable | Own Spring Boot app, own DB config, OpenAPI draft present. Movie lifecycle events are stored and relayed through an opt-in transactional outbox. Event showtime sync still calls Showtime over internal HTTP. |
 | facility-service | Extracted, buildable | Existing Spring Boot compatibility slice; target implementation is ASP.NET per architecture doc. Keep further changes minimal and contract-driven. |
 | showtime-service | Extracted, buildable | Own Spring Boot app, own DB/Redis config, OpenAPI draft present. Reads Catalog/Facility through HTTP clients and exposes internal guard/seat-reservation endpoints. |
-| booking-service | Extracted, buildable | Own Spring Boot app, own DB config, OpenAPI draft present. Calls Showtime internal seat-reservation endpoints and Catalog/Facility projections over HTTP; payment/review lifecycle events are recorded in a transactional outbox. |
+| booking-service | Extracted, buildable | Own Spring Boot app, own DB config, OpenAPI draft present. Calls Showtime internal seat-reservation endpoints and Catalog/Facility projections over HTTP; payment/review lifecycle events are stored and relayed through an opt-in transactional outbox. |
 | analytics-service | Partial, buildable | Own Spring Boot app, OpenAPI draft, optional PostgreSQL read model, and backfill script. Its projection component is idempotent and ignores stale order/movie updates; the AMQP listener is not wired yet. |
 | recommendation-service | Skeleton, buildable | Own Spring Boot app and OpenAPI draft. Neo4j, Redis, RabbitMQ consumers, and graph backfill are not wired yet. |
 | identity-service | Placeholder | Still in legacy IAM. |
@@ -62,7 +63,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Catalog event creation now synchronously calls Showtime internal commands; durable outbox recording exists, but RabbitMQ dispatch is still not implemented.
 - Standalone Facility rejects destructive room/cinema deletes with `SHOWTIME_GUARD_UNAVAILABLE` if it cannot query `showtime-service`.
 - Standalone Showtime requires Catalog and Facility to be reachable for create/enrichment paths.
-- No production-grade service discovery, gateway routing, tracing, RabbitMQ outbox dispatcher, or AMQP listener adapters are wired yet.
+- No production-grade service discovery, gateway routing, tracing, RabbitMQ publisher confirms, or AMQP listener adapters are wired yet.
 
 ## Next Safe Steps
 

@@ -1,6 +1,25 @@
 name: cinema-backend-services
 
 services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: cinema-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: cinema
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-cinema-rabbitmq-dev}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - cinema-services
+
   catalog-db:
     image: postgres:16-alpine
     container_name: cinema-catalog-db
@@ -34,10 +53,16 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-local-dev-internal-token}
       SHOWTIME_SERVICE_URL: http://showtime-service:8082
+      OUTBOX_DISPATCHER_ENABLED: "true"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: cinema
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-cinema-rabbitmq-dev}
     ports:
       - "8081:8081"
     depends_on:
       catalog-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - cinema-services
@@ -178,6 +203,10 @@ services:
       SHOWTIME_SERVICE_URL: http://showtime-service:8082
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-local-dev-internal-token}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      OUTBOX_DISPATCHER_ENABLED: "true"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: cinema
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-cinema-rabbitmq-dev}
     ports:
       - "8083:8083"
     depends_on:
@@ -189,6 +218,8 @@ services:
         condition: service_started
       showtime-service:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - cinema-services
 
@@ -244,6 +275,7 @@ services:
       - cinema-services
 
 volumes:
+  rabbitmq_data:
   catalog_db_data:
   facility_db_data:
   showtime_db_data:

@@ -85,6 +85,8 @@ The host database ports are intentionally `5433`, `5434`, `5435`, and `5436` so 
 
 Internal service-to-service endpoints under `/internal/**` require `X-Internal-Token`. For local Docker, set `INTERNAL_API_TOKEN` or use the documented dev default `local-dev-internal-token`.
 
+RabbitMQ is declared at `localhost:5672` (management UI `http://localhost:15672`). Docker enables the Catalog and Booking outbox relays with the `cinema` user; set `RABBITMQ_PASSWORD` outside local development. Local service runs leave `OUTBOX_DISPATCHER_ENABLED=false` unless a reachable broker and the matching exchanges are configured.
+
 Catalog uses `SHOWTIME_SERVICE_URL` to create and delete event showtimes through Showtime internal command endpoints.
 Facility uses `SHOWTIME_SERVICE_URL` to call Showtime internal guard endpoints before destructive cinema/room deactivation.
 Booking uses `CATALOG_SERVICE_URL`, `FACILITY_SERVICE_URL`, and `SHOWTIME_SERVICE_URL` for read enrichment and seat-reservation state transitions.
@@ -115,6 +117,8 @@ For Facility, use the same pattern from `services\facility-service`; the default
 - Event contracts: `shared/events/README.md`
 
 Contracts are versioned before wiring consumers so downstream services can be migrated without direct repository access.
+
+Catalog and Booking write domain events into local `outbox_events` tables in the same transaction as the domain change. Their opt-in relay publishes pending rows to durable topic exchanges and retries failures with exponential backoff; rows that fail ten times become `FAILED` for manual inspection. The relay is at-least-once, so consumers must deduplicate on the envelope `eventId`.
 
 ## Data Migration
 

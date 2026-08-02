@@ -26,7 +26,7 @@ Every message is JSON and has this shape:
 | Catalog | `catalog.events` | `movie.created`, `movie.updated`, `movie.deleted` | Analytics, Recommendation |
 | Booking | `booking.events` | `order.paid`, `order.refunded`, `review.created` | Analytics, Recommendation, Notification |
 
-The transactional outbox stores both exchange and routing key. It is the dispatcher, not the domain transaction, that talks to RabbitMQ. A failed publish leaves the row pending for retry and must never cause the domain write to be repeated.
+The transactional outbox stores both exchange and routing key. It is the dispatcher, not the domain transaction, that talks to RabbitMQ. Catalog and Booking now have opt-in relays that lock pending rows, retry failures with exponential backoff, and move rows to `FAILED` after ten failed attempts. Delivery is at-least-once, so duplicate handling by `eventId` remains mandatory.
 
 ## Consumer Progress
 
