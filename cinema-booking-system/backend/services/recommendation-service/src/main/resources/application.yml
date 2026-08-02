@@ -8,6 +8,20 @@ spring:
     exclude:
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
       - org.springframework.boot.autoconfigure.neo4j.Neo4jAutoConfiguration
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: ${RECOMMENDATION_AMQP_MAX_ATTEMPTS:5}
+          initial-interval: ${RECOMMENDATION_AMQP_INITIAL_INTERVAL:500ms}
+          multiplier: ${RECOMMENDATION_AMQP_RETRY_MULTIPLIER:2}
+          max-interval: ${RECOMMENDATION_AMQP_MAX_INTERVAL:5s}
 
 recommendation:
   graph:
@@ -16,6 +30,10 @@ recommendation:
     username: ${SPRING_NEO4J_AUTHENTICATION_USERNAME:neo4j}
     password: ${SPRING_NEO4J_AUTHENTICATION_PASSWORD:cinema_graph_2026}
     max-connection-pool-size: ${RECOMMENDATION_NEO4J_MAX_CONNECTION_POOL_SIZE:20}
+  messaging:
+    enabled: ${RECOMMENDATION_MESSAGING_ENABLED:false}
+    catalog-queue: ${RECOMMENDATION_CATALOG_QUEUE:recommendation.catalog.v1}
+    booking-queue: ${RECOMMENDATION_BOOKING_QUEUE:recommendation.booking.v1}
 
 management:
   endpoints:

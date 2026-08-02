@@ -300,10 +300,16 @@ services:
       SPRING_NEO4J_URI: bolt://neo4j:7687
       SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
       SPRING_NEO4J_AUTHENTICATION_PASSWORD: ${NEO4J_PASSWORD:-cinema_graph_2026}
+      RECOMMENDATION_MESSAGING_ENABLED: "true"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: cinema
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-cinema-rabbitmq-dev}
     ports:
       - "8085:8085"
     depends_on:
       neo4j:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - cinema-services

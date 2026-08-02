@@ -36,6 +36,11 @@ It validates version 1 envelopes, delegates to an idempotent transactional
 projection, retries transient listener failures, and dead-letters messages that
 still fail. Messaging remains opt-in outside the extracted-service Compose stack.
 
+`recommendation-service` consumes movie, paid/refunded order, and review events
+through its own durable queues. Event receipts and graph mutations commit in one
+Neo4j transaction. Order interaction timestamps prevent an older paid event from
+recreating a watch after a newer refund has already been applied.
+
 ## Contracts
 
 - [Catalog events](catalog-events.md)

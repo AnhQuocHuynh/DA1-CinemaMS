@@ -1,5 +1,8 @@
 package com.uit.cinema.recommendation.graph;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.uit.cinema.recommendation.messaging.Neo4jRecommendationEventProjectionStore;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -17,6 +20,8 @@ class Neo4jRecommendationGraphStoreTest {
     private static Neo4j neo4j;
     private static Driver driver;
     private static Neo4jRecommendationGraphStore graphStore;
+    private static Neo4jRecommendationEventProjectionStore projectionStore;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @BeforeAll
     static void setUpGraph() {
@@ -24,6 +29,7 @@ class Neo4jRecommendationGraphStoreTest {
         driver = GraphDatabase.driver(neo4j.boltURI(), AuthTokens.none());
         new RecommendationGraphSchemaInitializer(driver).afterPropertiesSet();
         graphStore = new Neo4jRecommendationGraphStore(driver);
+        projectionStore = new Neo4jRecommendationEventProjectionStore(driver);
 
         try (Session session = driver.session()) {
             session.run("""
@@ -74,5 +80,102 @@ class Neo4jRecommendationGraphStoreTest {
 
         assertThat(profile.watchedMovies()).isEqualTo(1);
         assertThat(profile.preferredGenres()).containsExactly("Drama");
+    }
+
+    @Test
+    void eventProjection_isIdempotentAndBuildsRecommendationGraph() throws Exception {
+        JsonNode movieEvent = event(
+            "550e8400-e29b-41d4-a716-446655440010",
+            "movie.created",
+            "catalog-service",
+            "2026-07-10T12:00:00Z",
+            """
+                {
+                  "movieId": 50,
+                  "title": "Projected movie",
+                  "posterUrl": "projected.jpg",
+                  "active": true,
+                  "genreNames": ["Drama"]
+                }
+                """
+        );
+        JsonNode paidEvent = event(
+            "550e8400-e29b-41d4-a716-446655440011",
+            "order.paid",
+            "booking-service",
+            "2026-07-10T12:01:00Z",
+            """
+                {
+                  "orderId": 500,
+                  "userId": 500,
+                  "showtimeId": 700,
+                  "movieId": 50
+                }
+                """
+        );
+
+        assertThat(projectionStore.project(movieEvent)).isTrue();
+        assertThat(projectionStore.project(movieEvent)).isFalse();
+        assertThat(projectionStore.project(paidEvent)).isTrue();
+
+        assertThat(graphStore.findTasteProfile(500).watchedMovies()).isEqualTo(1);
+        assertThat(queryCount("MATCH (:User {userId: 500})-[:WATCHED]->(:Movie {movieId: 50}) RETURN count(*)"))
+            .isEqualTo(1);
+    }
+
+    @Test
+    void newerRefund_preventsOlderPaidEventFromRestoringWatch() throws Exception {
+        JsonNode refund = event(
+            "550e8400-e29b-41d4-a716-446655440012",
+            "order.refunded",
+            "booking-service",
+            "2026-07-10T12:05:00Z",
+            "{\"orderId\": 501}"
+        );
+        JsonNode olderPaid = event(
+            "550e8400-e29b-41d4-a716-446655440013",
+            "order.paid",
+            "booking-service",
+            "2026-07-10T12:04:00Z",
+            """
+                {
+                  "orderId": 501,
+                  "userId": 501,
+                  "showtimeId": 701,
+                  "movieId": 50
+                }
+                """
+        );
+
+        assertThat(projectionStore.project(refund)).isTrue();
+        assertThat(projectionStore.project(olderPaid)).isTrue();
+
+        assertThat(queryCount("MATCH ()-[watch:WATCHED {orderId: 501}]->() RETURN count(watch)"))
+            .isZero();
+    }
+
+    private JsonNode event(
+        String eventId,
+        String eventType,
+        String source,
+        String occurredAt,
+        String payload
+    ) throws Exception {
+        return OBJECT_MAPPER.readTree("""
+            {
+              "eventId": "%s",
+              "eventType": "%s",
+              "occurredAt": "%s",
+              "schemaVersion": 1,
+              "source": "%s",
+              "payload": %s
+            }
+            """.formatted(eventId, eventType, occurredAt, source, payload));
+    }
+
+    private long queryCount(String query) {
+        try (Session session = driver.session()) {
+            return session.run(query).single().get(0).asLong();
+        }
     }
 }
