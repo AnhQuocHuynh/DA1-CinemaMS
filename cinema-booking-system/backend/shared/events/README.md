@@ -28,8 +28,15 @@ Every message is JSON and has this shape:
 
 The transactional outbox stores both exchange and routing key. It is the dispatcher, not the domain transaction, that talks to RabbitMQ. A failed publish leaves the row pending for retry and must never cause the domain write to be repeated.
 
+## Consumer Progress
+
+`analytics-service` now has an idempotent projection component for `order.paid`,
+`order.refunded`, and movie lifecycle events. It is deliberately not an HTTP
+endpoint and does not connect to RabbitMQ yet; the future AMQP listener must
+delegate its decoded envelope to that component and acknowledge only after the
+projection transaction commits.
+
 ## Contracts
 
 - [Catalog events](catalog-events.md)
 - [Booking events](booking-events.md)
-

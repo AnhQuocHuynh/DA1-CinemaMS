@@ -31,7 +31,16 @@ CREATE TABLE IF NOT EXISTS analytics_contents (
     title VARCHAR(255) NOT NULL,
     poster_url TEXT,
     active BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at TIMESTAMP,
     PRIMARY KEY (content_type, content_id)
+);
+
+ALTER TABLE analytics_contents ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
+
+CREATE TABLE IF NOT EXISTS analytics_processed_events (
+    event_id UUID PRIMARY KEY,
+    event_type VARCHAR(100) NOT NULL,
+    processed_at TIMESTAMP NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS analytics_rooms (

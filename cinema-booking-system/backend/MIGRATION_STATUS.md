@@ -15,7 +15,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Extracted `facility-service` from `backend_legacy` into `backend/services/facility-service`.
 - Extracted `showtime-service` from `backend_legacy` into `backend/services/showtime-service`.
 - Extracted `booking-service` from `backend_legacy` into `backend/services/booking-service`.
-- Added a buildable Spring Boot `analytics-service` dashboard API surface and optional PostgreSQL read-model query path.
+- Added a buildable Spring Boot `analytics-service` dashboard API surface, optional PostgreSQL read-model query path, and idempotent event projection component for order/movie events.
 - Added a buildable Spring Boot `recommendation-service` API surface with safe empty fallback responses.
 - Added isolated Catalog, Facility, Showtime, Booking, Analytics, and Recommendation application bootstraps, configuration, tests, Dockerfiles, and Docker Compose support.
 - Replaced the direct Catalog -> Showtime call during event creation with `EventShowtimeClient`; standalone Catalog now calls Showtime internal command endpoints and fails closed if sync fails.
@@ -42,7 +42,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 | facility-service | Extracted, buildable | Existing Spring Boot compatibility slice; target implementation is ASP.NET per architecture doc. Keep further changes minimal and contract-driven. |
 | showtime-service | Extracted, buildable | Own Spring Boot app, own DB/Redis config, OpenAPI draft present. Reads Catalog/Facility through HTTP clients and exposes internal guard/seat-reservation endpoints. |
 | booking-service | Extracted, buildable | Own Spring Boot app, own DB config, OpenAPI draft present. Calls Showtime internal seat-reservation endpoints and Catalog/Facility projections over HTTP; payment/review lifecycle events are recorded in a transactional outbox. |
-| analytics-service | Partial, buildable | Own Spring Boot app, OpenAPI draft, optional PostgreSQL read model, and backfill script. Event ingestion is not wired yet. |
+| analytics-service | Partial, buildable | Own Spring Boot app, OpenAPI draft, optional PostgreSQL read model, and backfill script. Its projection component is idempotent and ignores stale order/movie updates; the AMQP listener is not wired yet. |
 | recommendation-service | Skeleton, buildable | Own Spring Boot app and OpenAPI draft. Neo4j, Redis, RabbitMQ consumers, and graph backfill are not wired yet. |
 | identity-service | Placeholder | Still in legacy IAM. |
 | api-gateway | Placeholder | Required before external cutover. |
@@ -62,7 +62,7 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Catalog event creation now synchronously calls Showtime internal commands; durable outbox recording exists, but RabbitMQ dispatch is still not implemented.
 - Standalone Facility rejects destructive room/cinema deletes with `SHOWTIME_GUARD_UNAVAILABLE` if it cannot query `showtime-service`.
 - Standalone Showtime requires Catalog and Facility to be reachable for create/enrichment paths.
-- No production-grade service discovery, gateway routing, tracing, RabbitMQ outbox dispatcher, or projection consumers are wired yet.
+- No production-grade service discovery, gateway routing, tracing, RabbitMQ outbox dispatcher, or AMQP listener adapters are wired yet.
 
 ## Next Safe Steps
 

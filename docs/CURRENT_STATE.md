@@ -37,6 +37,7 @@
 - Catalog records movie-created, movie-updated, and movie-deleted envelopes in a transactional outbox.
 - Booking records order-paid, order-refunded, and review-created envelopes in a transactional outbox; paid events are enriched with the owning Showtime content identifier.
 - Shared event contracts define the envelope, RabbitMQ exchanges, routing keys, and idempotent consumer rule before any broker is enabled.
+- Analytics has an idempotent, ordering-aware read-model projection for paid/refunded orders and movie lifecycle events. It is ready for a future AMQP listener but does not connect to RabbitMQ yet.
 - Static contract tests now guard Spring Boot client paths against the OpenAPI drafts for Catalog, Facility, Showtime, and Booking.
 - Do not expand ASP.NET-assigned services in this Spring Boot track: Identity, target Facility, Payment, Notification, and API Gateway.
 
