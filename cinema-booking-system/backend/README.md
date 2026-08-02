@@ -112,7 +112,7 @@ For Facility, use the same pattern from `services\facility-service`; the default
 ## Contracts
 
 - OpenAPI drafts: `shared/contracts/catalog-service.openapi.yml`, `shared/contracts/facility-service.openapi.yml`, `shared/contracts/showtime-service.openapi.yml`, `shared/contracts/booking-service.openapi.yml`
-- Event contract draft: `shared/events/catalog-events.md`
+- Event contracts: `shared/events/README.md`
 
 Contracts are versioned before wiring consumers so downstream services can be migrated without direct repository access.
 

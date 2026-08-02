@@ -1,13 +1,13 @@
 # Catalog Events
 
-Status: draft. These events are not emitted by `catalog-service` yet. They define the payload shape that downstream services should consume once the outbox/message broker is introduced.
+Status: version 1 contract. `catalog-service` records movie events in its transactional outbox. A RabbitMQ dispatcher is deliberately not enabled yet.
 
 ## Envelope
 
 ```json
 {
   "eventId": "uuid",
-  "eventType": "catalog.movie.created",
+  "eventType": "movie.created",
   "occurredAt": "2026-07-08T00:00:00Z",
   "schemaVersion": 1,
   "source": "catalog-service",
@@ -19,13 +19,13 @@ Status: draft. These events are not emitted by `catalog-service` yet. They defin
 
 | Event type | When |
 |---|---|
-| `catalog.movie.created` | A movie is created. |
-| `catalog.movie.updated` | Movie metadata, status, or genre links change. |
-| `catalog.movie.deleted` | A movie is soft-deleted or disabled. |
-| `catalog.genre.created` | A genre is created. |
-| `catalog.genre.deleted` | A genre is deleted. |
-| `catalog.event.created` | An event is created. |
-| `catalog.event.deleted` | An event is soft-deleted or disabled. |
+| `movie.created` | A movie is created. |
+| `movie.updated` | Movie metadata, status, or genre links change. |
+| `movie.deleted` | A movie is soft-deleted or disabled. |
+| `genre.created` | A genre is created. |
+| `genre.deleted` | A genre is deleted. |
+| `event.created` | An event is created. |
+| `event.deleted` | An event is soft-deleted or disabled. |
 
 ## Movie Payload
 
@@ -38,7 +38,9 @@ Status: draft. These events are not emitted by `catalog-service` yet. They defin
   "ageRating": "PG-13",
   "language": "English",
   "active": true,
-  "genreIds": [1, 2]
+  "genreIds": [1, 2],
+  "genreNames": ["Sci-Fi", "Thriller"],
+  "posterUrl": "https://example.com/poster.jpg"
 }
 ```
 
@@ -57,7 +59,7 @@ Status: draft. These events are not emitted by `catalog-service` yet. They defin
 
 ## Delivery Rules
 
-- Emit events after the catalog transaction commits.
-- Use an outbox table before introducing RabbitMQ to prevent dual-write loss.
+- Emit events through the `catalog.events` exchange with the event type as the routing key.
+- Record the envelope in the outbox within the catalog transaction before a dispatcher publishes it.
 - Consumers must be idempotent by `eventId`.
 - Deletions are logical domain changes; consumers should not assume hard database deletes.

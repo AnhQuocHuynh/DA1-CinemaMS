@@ -2,7 +2,7 @@
 
 ## Snapshot
 
-- Date of handoff: 2026-07-10.
+- Date of handoff: 2026-08-03.
 - Branch: `refactor-n-decoupling`.
 - Runnable full backend remains `cinema-booking-system/backend_legacy/`.
 - `cinema-booking-system/backend/` now contains extracted `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, `analytics-service`, and `recommendation-service` Spring Boot services.
@@ -34,6 +34,9 @@
 - Standalone Booking calls Showtime internal seat-reservation endpoints and uses Catalog/Facility internal projections for response enrichment.
 - Standalone Analytics exposes admin dashboard route compatibility and can query an optional PostgreSQL read model; event ingestion is not wired yet.
 - Standalone Recommendation exposes recommendation route compatibility with safe empty fallback responses until Neo4j/RabbitMQ integration is wired.
+- Catalog records movie-created, movie-updated, and movie-deleted envelopes in a transactional outbox.
+- Booking records order-paid, order-refunded, and review-created envelopes in a transactional outbox; paid events are enriched with the owning Showtime content identifier.
+- Shared event contracts define the envelope, RabbitMQ exchanges, routing keys, and idempotent consumer rule before any broker is enabled.
 - Static contract tests now guard Spring Boot client paths against the OpenAPI drafts for Catalog, Facility, Showtime, and Booking.
 - Do not expand ASP.NET-assigned services in this Spring Boot track: Identity, target Facility, Payment, Notification, and API Gateway.
 
@@ -116,7 +119,7 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 - Migration scripts now support dry-run validation, row-count comparison across legacy/service databases, and Analytics read-model backfill.
 - Local preflight on 2026-07-08 found PostgreSQL 18 client tools under `C:\Program Files\PostgreSQL\18\bin`, but Docker and local DB/service ports were not running.
 - Runtime service smoke script exists, but it has not been executed against a running extracted-service stack in this handoff.
-- API gateway routing and JWT propagation are not wired yet.
+- API gateway routing, JWT propagation, RabbitMQ outbox dispatch, and event consumers are not wired yet.
 
 ## Suggested Next Steps
 
