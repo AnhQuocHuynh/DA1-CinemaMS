@@ -35,7 +35,7 @@ jobs:
               - 'cinema-booking-system/frontend/**'
 
   backend-tests:
-    name: Backend unit tests
+    name: Spring backend verification
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
@@ -50,6 +50,64 @@ jobs:
           distribution: "temurin"
           cache: "maven"
 
-      - name: Run backend tests
+      - name: Verify Spring service reactor
         working-directory: cinema-booking-system/backend
-        run: mvn test
+        run: mvn --batch-mode clean verify
+
+      - name: Validate runtime and migration scripts
+        shell: pwsh
+        working-directory: cinema-booking-system/backend
+        run: |
+          $parseFailures = @()
+          Get-ChildItem infrastructure -Recurse -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName,
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $parseFailures += "$($_.FullName): $($errors -join '; ')"
+            }
+          }
+          if ($parseFailures.Count -gt 0) {
+            throw "PowerShell parse failures:`n$($parseFailures -join "`n")"
+          }
+          docker compose -f infrastructure/docker-compose.yml config --quiet
+          docker compose -f infrastructure/docker-compose.migration-rehearsal.yml config --quiet
+          ./infrastructure/smoke-test.ps1 -ValidateOnly
+          ./infrastructure/event-flow-smoke.ps1 -ValidateOnly
+          ./infrastructure/migrations/export-legacy-data.ps1 -DryRun
+          ./infrastructure/migrations/restore-service-data.ps1 -DryRun
+          ./infrastructure/migrations/verify-service-counts.ps1 -DryRun
+          ./infrastructure/migrations/backfill-analytics-read-model.ps1 -DryRun
+
+  backend-event-flow:
+    name: Spring event-flow integration
+    needs:
+      - changes
+      - backend-tests
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify RabbitMQ projections and ordering
+        shell: pwsh
+        working-directory: cinema-booking-system/backend
+        run: ./infrastructure/event-flow-smoke.ps1 -StartCompose -StopCompose -TimeoutSeconds 180
+
+      - name: Capture service diagnostics
+        if: failure()
+        working-directory: cinema-booking-system/backend
+        run: |
+          docker compose -f infrastructure/docker-compose.yml ps
+          docker compose -f infrastructure/docker-compose.yml logs --no-color --tail=200
+
+      - name: Ensure stack teardown
+        if: always()
+        working-directory: cinema-booking-system/backend
+        run: docker compose -f infrastructure/docker-compose.yml down --remove-orphans
