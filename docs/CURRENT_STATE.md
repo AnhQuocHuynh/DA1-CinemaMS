@@ -5,7 +5,7 @@
 - Date of handoff: 2026-08-03.
 - Branch: `refactor-n-decoupling`.
 - Runnable full backend remains `cinema-booking-system/backend_legacy/`.
-- `cinema-booking-system/backend/` now contains extracted `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, `analytics-service`, and `recommendation-service` Spring Boot services.
+- `cinema-booking-system/backend/` now contains extracted, independently buildable, and full-stack-smoke-tested `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, `analytics-service`, and `recommendation-service` Spring Boot services.
 
 ## Exact Repository State
 
@@ -19,7 +19,7 @@
   - `backend/services/analytics-service`
   - `backend/services/recommendation-service`
 - Remaining service folders are placeholders unless documented otherwise.
-- `backend/infrastructure/docker-compose.yml` runs Catalog, Facility, Showtime, Booking, Analytics, and Recommendation with separate PostgreSQL databases plus Showtime Redis.
+- `backend/infrastructure/docker-compose.yml` runs Catalog, Facility, Showtime, Booking, Analytics, and Recommendation with separate PostgreSQL databases, Showtime Redis, RabbitMQ, and Neo4j.
 - `backend_legacy/src/main/resources/application.yml` now has a valid Base64 JWT default while preserving `APP_JWT_SECRET`.
 - `backend_legacy/src/main/resources/DB_PATCH_2026_06_25_SEAT_MAP.sql` is present in source.
 
@@ -32,14 +32,19 @@
 - Standalone Catalog now uses `EventShowtimeClient` over internal HTTP to create/delete event showtimes and fails closed if Showtime sync fails.
 - Standalone Showtime reads Catalog/Facility through HTTP clients and exposes internal command, guard, and seat-reservation endpoints for future service extraction.
 - Standalone Booking calls Showtime internal seat-reservation endpoints and uses Catalog/Facility internal projections for response enrichment.
-- Standalone Analytics exposes admin dashboard route compatibility and can query an optional PostgreSQL read model; event ingestion is not wired yet.
-- Standalone Recommendation exposes recommendation route compatibility with safe empty fallback responses until Neo4j/RabbitMQ integration is wired.
+- Standalone Analytics exposes admin dashboard route compatibility and maintains its PostgreSQL read model through durable, idempotent RabbitMQ consumers for Catalog and Booking events.
+- Standalone Recommendation serves popular, similar, personalized, and hybrid recommendations from Neo4j, with safe fallback responses when graph mode is disabled.
 - Catalog records movie-created, movie-updated, and movie-deleted envelopes in a transactional outbox.
 - Booking records order-paid, order-refunded, and review-created envelopes in a transactional outbox; paid events are enriched with the owning Showtime content identifier.
 - Shared event contracts define the envelope, RabbitMQ exchanges, routing keys, and idempotent consumer rule before any broker is enabled.
-- Analytics has an idempotent, ordering-aware read-model projection for paid/refunded orders and movie lifecycle events. It is ready for a future AMQP listener but does not connect to RabbitMQ yet.
-- Catalog and Booking have opt-in RabbitMQ outbox relays. The extracted-service Compose definition declares RabbitMQ and enables those relays, but the stack has not been started in this handoff.
+- Analytics has idempotent, ordering-aware AMQP projections for paid/refunded orders and movie lifecycle events, with bounded retry, DLQs, validation, and metrics.
+- Recommendation consumes the same durable event streams into Neo4j using atomic processed-event markers and timestamp guards for out-of-order order events.
+- Recommendation includes a read-only copied-legacy-DB backfill that defaults to dry-run and requires exact confirmation before graph writes.
+- Catalog and Booking have opt-in RabbitMQ outbox relays with mandatory routing and publisher-confirm checks before events are marked published.
 - Static contract tests now guard Spring Boot client paths against the OpenAPI drafts for Catalog, Facility, Showtime, and Booking.
+- Spring context tests protect JPA repository scanning, constructor injection, Redis typing, and AMQP queue binding; a packaged-runtime regression test protects Spring MVC parameter metadata.
+- All six Docker images build as executable non-root Java 21 images. The full Compose stack and expanded runtime smoke suite passed locally on 2026-08-03, then the stack was stopped while named data volumes were retained.
+- Spring-owned migration implementation readiness is estimated at 90%; remaining risk is concentrated in real-data validation and coordinated cutover/rollback rather than missing service code.
 - Do not expand ASP.NET-assigned services in this Spring Boot track: Identity, target Facility, Payment, Notification, and API Gateway.
 
 ## Commands To Verify
@@ -102,6 +107,8 @@ npm run build
 - Booking service: `localhost:8083`, DB `localhost:5436/cinema_booking_db`.
 - Analytics service: `localhost:8084`, DB `localhost:5437/cinema_analytics_db`.
 - Recommendation service: `localhost:8085`.
+- RabbitMQ: `localhost:5672`, management UI `localhost:15672`.
+- Neo4j: browser `localhost:7474`, Bolt `localhost:7687`.
 - Legacy Redis: `localhost:6379`.
 
 ## Seed/Test Accounts
@@ -116,17 +123,18 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 ## Known Verification Gaps
 
 - Frontend build was not rerun during the latest backend-service extraction.
-- Docker images were not built; compose syntax was validated.
+- All extracted-service Docker images and the full Compose runtime were verified locally on 2026-08-03.
 - Data backfill scripts/runbook exist, but they have not been executed against a real database snapshot.
 - Migration scripts now support dry-run validation, row-count comparison across legacy/service databases, and Analytics read-model backfill.
 - Migration dry-runs were revalidated on 2026-08-03. Destructive resets now require explicit confirmation, dumps are checked before reset, and Analytics imports are atomic.
 - Local preflight on 2026-07-08 found PostgreSQL 18 client tools under `C:\Program Files\PostgreSQL\18\bin`, but Docker and local DB/service ports were not running.
 - Local PostgreSQL 18 was started safely on 2026-08-03, but real snapshot export is blocked because no valid `postgres` credential or `.pgpass` entry is available; password guessing and auth-file modification were intentionally avoided.
-- Runtime service smoke script exists, but it has not been executed against a running extracted-service stack in this handoff.
-- API gateway routing, JWT propagation, AMQP listener adapters, and Recommendation graph consumers are not wired yet.
+- Runtime smoke verifies six service health endpoints, Analytics/Recommendation response envelopes, eight RabbitMQ consumer/DLQ queues, and internal-token guards; it passed with automatic Compose teardown.
+- API gateway routing and end-user JWT propagation are not wired because those are owned by the separate ASP.NET workstream.
+- Production distributed tracing and multi-host service discovery are not configured.
 
 ## Suggested Next Steps
 
-1. Execute data backfill scripts against a copied legacy database and verify row counts.
-2. Run extracted-service runtime smoke tests before switching frontend traffic away from `backend_legacy`.
-3. Continue Spring Boot-only roadmap with Analytics or Recommendation after migration dry-run gates.
+1. Obtain valid credentials for a copied legacy database and execute all migration/backfill dry-runs against disposable service databases.
+2. Reconcile row counts and business invariants, rerun to prove idempotency, and retain the reports as migration evidence.
+3. Coordinate shadow traffic, gateway routing, write cutover, and rollback rehearsal with the ASP.NET workstream while keeping `backend_legacy` available.
