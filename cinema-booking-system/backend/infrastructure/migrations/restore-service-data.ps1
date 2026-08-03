@@ -10,6 +10,7 @@ param(
     [int]$BookingPort = 5436,
     [string]$User = "postgres",
     [string]$DumpDir = "infrastructure/migrations/dumps",
+    [string]$ManifestFile = "",
     [string]$PgRestore = "pg_restore",
     [string]$Psql = "psql",
     [switch]$TruncateFirst,
@@ -68,6 +69,70 @@ function Test-DumpFile {
     }
 }
 
+function Test-RestoreCompatibility {
+    param(
+        [string]$Database,
+        [int]$DbPort
+    )
+
+    if ($DryRun) {
+        Write-Host "DRY RUN: verify pg_restore major version is not newer than $Database server on $DbHost`:$DbPort"
+        return
+    }
+
+    $versionOutput = & $PgRestore --version
+    if ($LASTEXITCODE -ne 0 -or ($versionOutput -join " ") -notmatch '(\d+)(?:\.\d+)?') {
+        throw "Could not determine pg_restore version from: $PgRestore"
+    }
+    $clientMajor = [int]$Matches[1]
+
+    $serverVersionArgs = @(
+        "--host", $DbHost,
+        "--port", "$DbPort",
+        "--username", $User,
+        "--no-password",
+        "--dbname", $Database,
+        "--tuples-only",
+        "--no-align",
+        "--command", "SHOW server_version_num;"
+    )
+    $serverVersionOutput = & $Psql @serverVersionArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not determine PostgreSQL server version for $Database"
+    }
+    $serverVersionNumber = [int](($serverVersionOutput | Select-Object -Last 1).Trim())
+    $serverMajor = [Math]::Floor($serverVersionNumber / 10000)
+    if ($clientMajor -gt $serverMajor) {
+        throw "pg_restore $clientMajor is newer than target PostgreSQL $serverMajor for $Database. Use client tools matching the target major version."
+    }
+}
+
+function Test-DumpChecksum {
+    param(
+        [string]$ServiceName,
+        [string]$DumpFile
+    )
+
+    if ($DryRun) {
+        Write-Host "DRY RUN: verify $ServiceName dump against SHA-256 manifest $ResolvedManifestFile"
+        return
+    }
+
+    $entry = @($Manifest.services | Where-Object { $_.service -eq $ServiceName }) | Select-Object -First 1
+    if ($null -eq $entry) {
+        throw "Manifest does not contain service entry: $ServiceName"
+    }
+    if ([IO.Path]::GetFileName($DumpFile) -ne [string]$entry.file) {
+        throw "Manifest file mismatch for $ServiceName`: expected $($entry.file), got $([IO.Path]::GetFileName($DumpFile))"
+    }
+
+    $actualHash = (Get-FileHash -LiteralPath $DumpFile -Algorithm SHA256).Hash
+    if (-not $actualHash.Equals([string]$entry.sha256, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "SHA-256 mismatch for $ServiceName dump; restore aborted before target mutation"
+    }
+    Write-Host "Verified SHA-256 for $ServiceName dump"
+}
+
 $targets = [ordered]@{
     catalog = @{
         db = "cinema_catalog_db"
@@ -92,6 +157,21 @@ $targets = [ordered]@{
 }
 
 $services = if ($Service -eq "all") { $targets.Keys } else { @($Service) }
+$ResolvedManifestFile = if ([string]::IsNullOrWhiteSpace($ManifestFile)) {
+    Join-Path $DumpDir "migration-manifest.json"
+} else {
+    $ManifestFile
+}
+$Manifest = $null
+if (-not $DryRun) {
+    if (-not (Test-Path -LiteralPath $ResolvedManifestFile)) {
+        throw "Missing migration manifest: $ResolvedManifestFile"
+    }
+    $Manifest = Get-Content -LiteralPath $ResolvedManifestFile -Raw | ConvertFrom-Json
+    if ($Manifest.formatVersion -ne 1) {
+        throw "Unsupported migration manifest format: $($Manifest.formatVersion)"
+    }
+}
 
 foreach ($serviceName in $services) {
     $target = $targets[$serviceName]
@@ -103,6 +183,8 @@ foreach ($serviceName in $services) {
     if (-not (Test-Path $dumpFile) -and $DryRun) {
         Write-Host "DRY RUN: dump file does not exist yet: $dumpFile"
     }
+    Test-RestoreCompatibility $target.db $targetPort
+    Test-DumpChecksum $serviceName $dumpFile
     Test-DumpFile $dumpFile
 
     if ($TruncateFirst) {

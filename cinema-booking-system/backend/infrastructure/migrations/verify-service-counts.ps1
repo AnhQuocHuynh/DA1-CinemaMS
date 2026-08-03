@@ -58,15 +58,25 @@ function Invoke-PsqlScalar {
     return (($output | Select-Object -Last 1).Trim())
 }
 
-function Get-TableCount {
+function Get-TableFingerprint {
     param(
         [string]$Database,
         [int]$DbPort,
         [string]$TableName
     )
 
-    $sql = "SELECT CASE WHEN to_regclass('public.$TableName') IS NULL THEN -1 ELSE (SELECT COUNT(*) FROM public.$TableName) END;"
-    return [int](Invoke-PsqlScalar $Database $DbPort $sql)
+    $sql = @"
+SELECT CASE
+    WHEN to_regclass('public.$TableName') IS NULL THEN 'MISSING'
+    ELSE (
+        SELECT COUNT(*)::text
+               || ':' || COALESCE(SUM(hashtextextended(to_jsonb(row_data)::text, 0)::numeric), 0)::text
+               || ':' || COALESCE(SUM(hashtextextended(to_jsonb(row_data)::text, 2147483647)::numeric), 0)::text
+        FROM public.$TableName row_data
+    )
+END;
+"@
+    return Invoke-PsqlScalar $Database $DbPort $sql
 }
 
 $targets = [ordered]@{
@@ -99,20 +109,23 @@ foreach ($serviceName in $targets.Keys) {
     $targetPort = Resolve-TargetPort $target
 
     foreach ($table in $target.tables) {
-        $legacyCount = Get-TableCount $LegacyDb $LegacyPort $table
-        $targetCount = Get-TableCount $target.db $targetPort $table
-        $status = if ($legacyCount -eq $targetCount) { "OK" } else { "MISMATCH" }
+        $legacyFingerprint = Get-TableFingerprint $LegacyDb $LegacyPort $table
+        $targetFingerprint = Get-TableFingerprint $target.db $targetPort $table
+        $status = if ($legacyFingerprint -eq $targetFingerprint) { "OK" } else { "MISMATCH" }
+        $legacyCount = if ($DryRun) { "DRY_RUN" } else { ($legacyFingerprint -split ':', 2)[0] }
+        $targetCount = if ($DryRun) { "DRY_RUN" } else { ($targetFingerprint -split ':', 2)[0] }
 
         [PSCustomObject]@{
             Service = $serviceName
             Table = $table
             LegacyCount = $legacyCount
             TargetCount = $targetCount
+            ContentFingerprint = if ($status -eq "OK") { "MATCH" } else { "MISMATCH" }
             Status = $status
         }
 
-        if ($status -ne "OK") {
-            $mismatches += "$serviceName.$table legacy=$legacyCount target=$targetCount"
+        if (-not $DryRun -and $status -ne "OK") {
+            $mismatches += "$serviceName.$table legacy=$legacyFingerprint target=$targetFingerprint"
         }
     }
 }
