@@ -11,8 +11,12 @@ param(
     [string]$BookingUrl = "",
     [string]$AnalyticsUrl = "",
     [string]$RecommendationUrl = "",
+    [string]$RabbitManagementUrl = "",
+    [string]$RabbitUsername = "",
+    [string]$RabbitPassword = "",
     [switch]$SkipAnalytics,
-    [switch]$SkipRecommendation
+    [switch]$SkipRecommendation,
+    [switch]$SkipMessagingTopology
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,7 +45,6 @@ function Join-ServiceUrl {
 
 function Invoke-Compose {
     param(
-        [Parameter(ValueFromRemainingArguments = $true)]
         [string[]]$Arguments
     )
 
@@ -115,6 +118,58 @@ function Assert-InternalEndpoint {
     Write-Host "[OK] $Name internal token guard returned HTTP $withToken"
 }
 
+function Assert-JsonEndpoint {
+    param(
+        [string]$Name,
+        [string]$BaseUrl,
+        [string]$Path
+    )
+
+    $uri = Join-ServiceUrl $BaseUrl $Path
+    try {
+        $response = Invoke-RestMethod -Uri $uri -Method GET -TimeoutSec 10
+    } catch {
+        throw "[FAIL] $Name request failed: $($_.Exception.Message) ($uri)"
+    }
+
+    if ($null -eq $response -or $response.success -ne $true -or $null -eq $response.data) {
+        throw "[FAIL] $Name did not return a successful API envelope ($uri)"
+    }
+
+    Write-Host "[OK] $Name returned a successful API envelope"
+}
+
+function Assert-RabbitTopology {
+    $pair = "${RabbitUsername}:${RabbitPassword}"
+    $basicToken = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
+    $headers = @{ Authorization = "Basic $basicToken" }
+    $uri = Join-ServiceUrl $RabbitManagementUrl "/api/queues/%2F"
+
+    try {
+        $queues = @(Invoke-RestMethod -Uri $uri -Method GET -Headers $headers -TimeoutSec 10)
+    } catch {
+        throw "[FAIL] RabbitMQ topology request failed: $($_.Exception.Message) ($uri)"
+    }
+
+    $queueNames = @($queues | ForEach-Object { $_.name })
+    $expectedQueues = @(
+        "analytics.catalog.v1",
+        "analytics.catalog.v1.dlq",
+        "analytics.booking.v1",
+        "analytics.booking.v1.dlq",
+        "recommendation.catalog.v1",
+        "recommendation.catalog.v1.dlq",
+        "recommendation.booking.v1",
+        "recommendation.booking.v1.dlq"
+    )
+    $missingQueues = @($expectedQueues | Where-Object { $_ -notin $queueNames })
+    if ($missingQueues.Count -gt 0) {
+        throw "[FAIL] RabbitMQ is missing queues: $($missingQueues -join ', ')"
+    }
+
+    Write-Host "[OK] RabbitMQ consumer and dead-letter topology is present"
+}
+
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ComposeFile = Join-Path $ScriptDir "docker-compose.yml"
 
@@ -125,6 +180,9 @@ $ShowtimeUrl = Resolve-Default $ShowtimeUrl (Resolve-Default $env:SHOWTIME_SERVI
 $BookingUrl = Resolve-Default $BookingUrl (Resolve-Default $env:BOOKING_SERVICE_URL "http://localhost:8083")
 $AnalyticsUrl = Resolve-Default $AnalyticsUrl (Resolve-Default $env:ANALYTICS_SERVICE_URL "http://localhost:8084")
 $RecommendationUrl = Resolve-Default $RecommendationUrl (Resolve-Default $env:RECOMMENDATION_SERVICE_URL "http://localhost:8085")
+$RabbitManagementUrl = Resolve-Default $RabbitManagementUrl (Resolve-Default $env:RABBITMQ_MANAGEMENT_URL "http://localhost:15672")
+$RabbitUsername = Resolve-Default $RabbitUsername (Resolve-Default $env:RABBITMQ_USERNAME "cinema")
+$RabbitPassword = Resolve-Default $RabbitPassword (Resolve-Default $env:RABBITMQ_PASSWORD "cinema-rabbitmq-dev")
 
 if ($ValidateOnly) {
     Write-Host "Smoke test script configuration is valid."
@@ -134,24 +192,32 @@ if ($ValidateOnly) {
     Write-Host "Booking:  $BookingUrl"
     Write-Host "Analytics: $AnalyticsUrl"
     Write-Host "Recommendation: $RecommendationUrl"
+    Write-Host "RabbitMQ management: $RabbitManagementUrl"
     return
 }
 
-if ($StartCompose) {
-    Invoke-Compose config
-    Invoke-Compose up -d --build
-}
-
 try {
+    if ($StartCompose) {
+        Invoke-Compose -Arguments @("config")
+        Invoke-Compose -Arguments @("build")
+        Invoke-Compose -Arguments @("up", "--detach", "--no-build")
+    }
+
     Wait-Health "catalog-service" $CatalogUrl
     Wait-Health "facility-service compatibility dependency" $FacilityUrl
     Wait-Health "showtime-service" $ShowtimeUrl
     Wait-Health "booking-service" $BookingUrl
     if (-not $SkipAnalytics) {
         Wait-Health "analytics-service" $AnalyticsUrl
+        Assert-JsonEndpoint "Analytics dashboard" $AnalyticsUrl "/api/admin/dashboard/overview"
     }
     if (-not $SkipRecommendation) {
         Wait-Health "recommendation-service" $RecommendationUrl
+        Assert-JsonEndpoint "Recommendation popularity" $RecommendationUrl "/api/recommendations/movies/popular?limit=5"
+        Assert-JsonEndpoint "Recommendation similarity" $RecommendationUrl "/api/recommendations/movies/1/similar?limit=5"
+    }
+    if (-not $SkipMessagingTopology) {
+        Assert-RabbitTopology
     }
 
     Assert-InternalEndpoint "Catalog movie projection" $CatalogUrl "/internal/catalog/movies/1"
@@ -163,6 +229,6 @@ try {
     Write-Host "[OK] Runtime smoke tests passed."
 } finally {
     if ($StopCompose) {
-        Invoke-Compose down
+        Invoke-Compose -Arguments @("down")
     }
 }
