@@ -7,6 +7,7 @@ import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -62,32 +63,32 @@ public class RecommendationAmqpConfiguration {
 
     @Bean
     Binding recommendationMovieEventsBinding(
-        Queue recommendationCatalogQueue,
-        TopicExchange recommendationCatalogEventsExchange
+        @Qualifier("recommendationCatalogQueue") Queue recommendationCatalogQueue,
+        @Qualifier("recommendationCatalogEventsExchange") TopicExchange recommendationCatalogEventsExchange
     ) {
         return BindingBuilder.bind(recommendationCatalogQueue).to(recommendationCatalogEventsExchange).with("movie.*");
     }
 
     @Bean
     Binding recommendationOrderEventsBinding(
-        Queue recommendationBookingQueue,
-        TopicExchange recommendationBookingEventsExchange
+        @Qualifier("recommendationBookingQueue") Queue recommendationBookingQueue,
+        @Qualifier("recommendationBookingEventsExchange") TopicExchange recommendationBookingEventsExchange
     ) {
         return BindingBuilder.bind(recommendationBookingQueue).to(recommendationBookingEventsExchange).with("order.*");
     }
 
     @Bean
     Binding recommendationReviewEventsBinding(
-        Queue recommendationBookingQueue,
-        TopicExchange recommendationBookingEventsExchange
+        @Qualifier("recommendationBookingQueue") Queue recommendationBookingQueue,
+        @Qualifier("recommendationBookingEventsExchange") TopicExchange recommendationBookingEventsExchange
     ) {
         return BindingBuilder.bind(recommendationBookingQueue).to(recommendationBookingEventsExchange).with("review.created");
     }
 
     @Bean
     Binding recommendationCatalogDeadLetterBinding(
-        Queue recommendationCatalogDeadLetterQueue,
-        DirectExchange recommendationDeadLetterExchange,
+        @Qualifier("recommendationCatalogDeadLetterQueue") Queue recommendationCatalogDeadLetterQueue,
+        @Qualifier("recommendationDeadLetterExchange") DirectExchange recommendationDeadLetterExchange,
         @Value("${recommendation.messaging.catalog-queue:recommendation.catalog.v1}") String queueName
     ) {
         return BindingBuilder.bind(recommendationCatalogDeadLetterQueue)
@@ -97,8 +98,8 @@ public class RecommendationAmqpConfiguration {
 
     @Bean
     Binding recommendationBookingDeadLetterBinding(
-        Queue recommendationBookingDeadLetterQueue,
-        DirectExchange recommendationDeadLetterExchange,
+        @Qualifier("recommendationBookingDeadLetterQueue") Queue recommendationBookingDeadLetterQueue,
+        @Qualifier("recommendationDeadLetterExchange") DirectExchange recommendationDeadLetterExchange,
         @Value("${recommendation.messaging.booking-queue:recommendation.booking.v1}") String queueName
     ) {
         return BindingBuilder.bind(recommendationBookingDeadLetterQueue)

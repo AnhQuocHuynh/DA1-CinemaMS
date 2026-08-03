@@ -273,7 +273,7 @@ services:
     container_name: cinema-neo4j
     environment:
       NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-cinema_graph_2026}
-      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-cinema_graph_2026}
+      CINEMA_NEO4J_PASSWORD: ${NEO4J_PASSWORD:-cinema_graph_2026}
       NEO4J_server_memory_heap_max__size: 512m
       NEO4J_server_memory_pagecache_size: 256m
     ports:
@@ -282,7 +282,7 @@ services:
     volumes:
       - neo4j_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "cypher-shell -u neo4j -p \"$${NEO4J_PASSWORD}\" 'RETURN 1' >/dev/null"]
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p \"$${CINEMA_NEO4J_PASSWORD}\" 'RETURN 1' >/dev/null"]
       interval: 15s
       timeout: 10s
       retries: 10

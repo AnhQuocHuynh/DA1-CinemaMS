@@ -7,6 +7,7 @@ import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -61,19 +62,25 @@ public class AnalyticsAmqpConfiguration {
     }
 
     @Bean
-    Binding analyticsMovieEventsBinding(Queue analyticsCatalogQueue, TopicExchange analyticsCatalogEventsExchange) {
+    Binding analyticsMovieEventsBinding(
+        @Qualifier("analyticsCatalogQueue") Queue analyticsCatalogQueue,
+        @Qualifier("analyticsCatalogEventsExchange") TopicExchange analyticsCatalogEventsExchange
+    ) {
         return BindingBuilder.bind(analyticsCatalogQueue).to(analyticsCatalogEventsExchange).with("movie.*");
     }
 
     @Bean
-    Binding analyticsOrderEventsBinding(Queue analyticsBookingQueue, TopicExchange analyticsBookingEventsExchange) {
+    Binding analyticsOrderEventsBinding(
+        @Qualifier("analyticsBookingQueue") Queue analyticsBookingQueue,
+        @Qualifier("analyticsBookingEventsExchange") TopicExchange analyticsBookingEventsExchange
+    ) {
         return BindingBuilder.bind(analyticsBookingQueue).to(analyticsBookingEventsExchange).with("order.*");
     }
 
     @Bean
     Binding analyticsCatalogDeadLetterBinding(
-        Queue analyticsCatalogDeadLetterQueue,
-        DirectExchange analyticsDeadLetterExchange,
+        @Qualifier("analyticsCatalogDeadLetterQueue") Queue analyticsCatalogDeadLetterQueue,
+        @Qualifier("analyticsDeadLetterExchange") DirectExchange analyticsDeadLetterExchange,
         @Value("${analytics.messaging.catalog-queue:analytics.catalog.v1}") String queueName
     ) {
         return BindingBuilder.bind(analyticsCatalogDeadLetterQueue)
@@ -83,8 +90,8 @@ public class AnalyticsAmqpConfiguration {
 
     @Bean
     Binding analyticsBookingDeadLetterBinding(
-        Queue analyticsBookingDeadLetterQueue,
-        DirectExchange analyticsDeadLetterExchange,
+        @Qualifier("analyticsBookingDeadLetterQueue") Queue analyticsBookingDeadLetterQueue,
+        @Qualifier("analyticsDeadLetterExchange") DirectExchange analyticsDeadLetterExchange,
         @Value("${analytics.messaging.booking-queue:analytics.booking.v1}") String queueName
     ) {
         return BindingBuilder.bind(analyticsBookingDeadLetterQueue)

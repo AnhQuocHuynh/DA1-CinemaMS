@@ -2,6 +2,7 @@ package com.uit.cinema.catalog.service.client;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.uit.cinema.core.exception.CustomException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ public class HttpEventShowtimeClient implements EventShowtimeClient {
 
     private final RestClient restClient;
 
+    @Autowired
     public HttpEventShowtimeClient(
         RestClient.Builder builder,
         @Value("${services.showtime.url:http://localhost:8082}") String showtimeBaseUrl,

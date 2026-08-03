@@ -2,6 +2,7 @@ package com.uit.cinema.facility.service.client;
 
 import com.uit.cinema.core.dto.response.ApiResponse;
 import com.uit.cinema.core.exception.CustomException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,7 @@ public class HttpFacilityShowtimeGuard implements FacilityShowtimeGuard {
 
     private final RestClient restClient;
 
+    @Autowired
     public HttpFacilityShowtimeGuard(
         RestClient.Builder builder,
         @Value("${services.showtime.url:http://localhost:8082}") String showtimeBaseUrl,

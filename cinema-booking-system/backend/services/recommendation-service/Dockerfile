@@ -9,10 +9,8 @@ COPY services/showtime-service/pom.xml services/showtime-service/pom.xml
 COPY services/booking-service/pom.xml services/booking-service/pom.xml
 COPY services/analytics-service/pom.xml services/analytics-service/pom.xml
 COPY services/recommendation-service/pom.xml services/recommendation-service/pom.xml
-RUN mvn -q -pl services/recommendation-service -am dependency:go-offline
-
 COPY services/recommendation-service/src services/recommendation-service/src
-RUN mvn -q -pl services/recommendation-service -am package -DskipTests
+RUN --mount=type=cache,target=/root/.m2,sharing=locked mvn -q -pl services/recommendation-service -am package -Dmaven.test.skip=true
 
 FROM eclipse-temurin:21-jre
 
