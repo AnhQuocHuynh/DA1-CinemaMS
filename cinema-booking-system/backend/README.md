@@ -8,8 +8,8 @@ This folder is the microservice migration target. The full runnable application 
 - `services/facility-service` is the current Spring Boot compatibility slice for facility data. The target Facility service is ASP.NET per `../docs/architecture_refactor.md`, so keep further Spring changes minimal and contract-driven.
 - `services/showtime-service` owns showtimes, showtime seats, seat holds, and seat reservation state transitions.
 - `services/booking-service` owns orders, payments, tickets, vouchers, and reviews.
-- `services/analytics-service` exposes the Spring Boot admin dashboard API surface with a safe zero/empty read model until analytics ingestion/query storage is wired.
-- `services/recommendation-service` exposes the Spring Boot recommendation API surface with safe empty fallback responses until Neo4j/RabbitMQ integration is wired.
+- `services/analytics-service` maintains a PostgreSQL dashboard read model through durable, idempotent RabbitMQ projections.
+- `services/recommendation-service` serves Neo4j-backed popular, similar, personalized, and hybrid recommendations, with durable event projections and a safe disabled-graph fallback.
 - Other service folders are still placeholders unless noted in `MIGRATION_STATUS.md`.
 - The legacy monolith remains the source of truth for the complete booking flow while migration continues.
 
@@ -18,10 +18,10 @@ This folder is the microservice migration target. The full runnable application 
 From `cinema-booking-system/backend`:
 
 ```powershell
-& ..\..\.codex-tools\apache-maven-3.9.9\bin\mvn.cmd test
+& ..\..\.codex-tools\apache-maven-3.9.9\bin\mvn.cmd clean verify
 ```
 
-If Maven is available globally, `mvn test` is enough.
+If Maven is available globally, `mvn clean verify` is enough.
 
 Runtime smoke test after services are running:
 
@@ -36,6 +36,13 @@ To build/start the Docker stack and then smoke test it:
 ```
 
 Add `-StopCompose` when the script should tear the stack down after the checks.
+
+To verify RabbitMQ delivery, duplicate handling, stale-event ordering, Analytics
+projection, and Recommendation projection in one disposable evidence flow:
+
+```powershell
+.\infrastructure\event-flow-smoke.ps1 -StartCompose -StopCompose
+```
 
 ## Run Services With Docker
 
@@ -122,5 +129,12 @@ Catalog and Booking write domain events into local `outbox_events` tables in the
 
 ## Data Migration
 
-Draft export/restore scripts and rollback notes live in `infrastructure/migrations/`. Run them only against a copied legacy database first; the scripts are not a cutover by themselves.
-Use `-DryRun` on export/restore scripts before touching real databases, and run `infrastructure\migrations\verify-service-counts.ps1` before any route switch.
+Guarded export/restore scripts and rollback notes live in `infrastructure/migrations/`. Run them only against a copied legacy database first; the scripts are not a cutover by themselves.
+Use `-DryRun` on export/restore scripts before touching real databases, and run `infrastructure\migrations\verify-service-counts.ps1` before any route switch. Verification compares both row counts and order-independent content fingerprints.
+
+The complete migration procedure can be rehearsed against an isolated PostgreSQL
+fixture on host port `55432` without touching existing databases:
+
+```powershell
+.\infrastructure\migrations\migration-rehearsal.ps1
+```

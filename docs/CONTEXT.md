@@ -6,7 +6,7 @@ Cinema Booking System is a university project for movie/event ticket booking, ad
 ## Current Repository Shape
 - `cinema-booking-system/backend_legacy/`: runnable Spring Boot modular monolith and source of truth for backend behavior.
 - `cinema-booking-system/frontend/`: runnable React/Vite frontend.
-- `cinema-booking-system/backend/`: microservice-refactor target. Catalog, Facility, Showtime, Booking, Analytics, and Recommendation are independently buildable and have passed full-stack runtime smoke; other service folders are still placeholders.
+- `cinema-booking-system/backend/`: microservice-refactor target. Catalog, Facility, Showtime, Booking, Analytics, and Recommendation are independently buildable and have passed full-stack runtime, event-flow, and disposable migration-rehearsal gates; other service folders are still placeholders.
 - `cinema-booking-system/docs/architecture_refactor.md`: proposed future microservice architecture. Current implementation is migrating incrementally toward it.
 - Root-level `docs/`: handoff docs for Codex agents.
 
@@ -39,7 +39,7 @@ Frontend areas in `frontend/src/`:
 
 ## Major Decisions
 - Current complete demo/backend deliverable remains the modular monolith in `backend_legacy`.
-- `backend/` now contains buildable and runtime-verified `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, `analytics-service`, and `recommendation-service`; it is not yet a complete replacement for `backend_legacy` because real data and external traffic have not been cut over.
+- `backend/` now contains buildable and runtime-verified `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, `analytics-service`, and `recommendation-service`. Repository-controlled preparation for the Spring-owned scope is complete, but it is not yet a replacement for `backend_legacy` because a real copied snapshot and external traffic have not been cut over.
 - Spring Boot work should continue on Spring-assigned services only: Catalog, Showtime, Booking, Analytics, and Recommendation. ASP.NET-assigned services from `architecture_refactor.md` should not be expanded in this workstream.
 - Event-only showtimes are allowed; `showtimes.movie_id` may be nullable via manual DB patch.
 - Staff counter booking adds customer name/phone, `sales_channel`, and `created_by_staff_id` on orders.
@@ -67,3 +67,5 @@ Local dev:
 Docker:
 - `cinema-booking-system/docker-compose-app.yml` exists for full app, but on this branch it may point to `./backend` rather than `./backend_legacy`; inspect/fix before relying on it.
 - `cinema-booking-system/backend/infrastructure/docker-compose.yml` runs the extracted services with isolated PostgreSQL databases, Showtime Redis, RabbitMQ, and Neo4j. `backend/infrastructure/smoke-test.ps1 -StartCompose -StopCompose` builds, starts, verifies, and tears down the stack while retaining named data volumes.
+- `backend/infrastructure/event-flow-smoke.ps1` verifies RabbitMQ-to-Analytics/Neo4j delivery, deduplication, ordering, API output, and evidence cleanup.
+- `backend/infrastructure/migrations/migration-rehearsal.ps1` exercises guarded export, checksum validation, two-pass fingerprint reconciliation, and repeatable Analytics backfill against an isolated PostgreSQL fixture.

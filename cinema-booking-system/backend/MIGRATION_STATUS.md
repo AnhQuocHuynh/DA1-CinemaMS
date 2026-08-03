@@ -28,11 +28,12 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Added Showtime internal seat-reservation endpoints for Booking extraction.
 - Added internal Showtime future-showtime guard endpoints for Facility destructive deletes.
 - Added internal Showtime event command endpoints for Catalog event showtime creation/deletion.
-- Added draft data migration export/restore scripts and rollback runbook under `backend/infrastructure/migrations`.
-- Hardened migration scripts with dry-run support, compose-port restore defaults, row-count comparison, and Analytics read-model backfill.
-- Revalidated all migration dry-runs on 2026-08-03 and added fail-fast noninteractive authentication, explicit reset confirmation phrases, dump integrity checks, transactional service restores, and atomic Analytics imports.
+- Added guarded data migration export/restore scripts and rollback runbook under `backend/infrastructure/migrations`.
+- Hardened migration with source relational-invariant checks, an atomic SHA-256 manifest, client/server compatibility checks, transactional restores, and row-count plus content-fingerprint reconciliation.
+- Added a disposable PostgreSQL rehearsal that proves two repeatable restore/verification passes, two repeatable Analytics backfills, and rejection of a tampered dump before target mutation.
 - Added static contract tests that guard Spring Boot inter-service client paths against OpenAPI drafts.
 - Added a runtime smoke script for service health, API envelopes, internal-token guards, and all Analytics/Recommendation consumer and dead-letter queues.
+- Added an end-to-end event-flow test for RabbitMQ routing, duplicate delivery, stale-order-event rejection, Analytics persistence, Neo4j persistence, Recommendation API behavior, and evidence cleanup.
 - Added transactional outboxes to Catalog and Booking. Catalog records movie lifecycle events; Booking records paid/refunded order and created-review events with versioned envelopes.
 - Added opt-in RabbitMQ outbox relays for Catalog and Booking with pessimistic row locking, exponential backoff, publisher confirms/mandatory-return checks, metrics, and terminal failed-event status after ten attempts.
 - Defined shared event contracts, exchanges, routing keys, and idempotent-consumer requirements for future RabbitMQ delivery.
@@ -40,30 +41,29 @@ Spring Boot workstream scope: continue Catalog, Showtime, Booking, Analytics, an
 - Verified all six Spring service Docker images build as executable non-root Java 21 images.
 - Verified the full extracted stack boots with PostgreSQL, Redis, RabbitMQ, and Neo4j; all runtime smoke assertions pass and the stack is stopped afterward without deleting data volumes.
 - Verified `backend` tests pass: 149 tests, 0 failures, 0 errors, and 0 skipped.
+- Upgraded backend CI to run `mvn clean verify`, validate Compose and migration scripts, and execute the full event-flow integration test with failure diagnostics and guaranteed teardown.
 
 ## Spring Workstream Readiness
 
-The Spring-owned migration scope is estimated at **90% implementation readiness**. This is a scoped delivery estimate, not a claim of 90% Java line coverage.
+The repository-controlled preparation work for the Spring-owned migration scope is **complete (100%)**. This is a scoped implementation and migration-readiness statement, not a claim of 100% Java line coverage or a claim that production traffic has been cut over.
 
 - Catalog, Showtime, and Booking are independently buildable, have isolated persistence configuration, and use explicit HTTP/event boundaries instead of cross-service repositories.
 - Analytics and Recommendation now have functional event ingestion, idempotent projections, dead-letter handling, metrics, and persistent read models.
 - Catalog and Booking event delivery uses transactional outboxes and waits for broker publisher confirms before marking an event published.
 - Unit, contract, Spring-context, Neo4j integration, package, Docker build, and full-stack smoke checks are green.
-- The remaining work is operational validation on a real copied database, data reconciliation, and coordinated gateway/cutover/rollback rehearsal. It is not more Spring service extraction.
+- Event-flow idempotency/ordering and disposable data-migration repeatability/integrity checks are green and enforced by CI where practical.
+- No further Spring service extraction is required before snapshot rehearsal. Remaining actions require an actual copied database and coordinated external traffic ownership.
 
 ## Current Service Matrix
 
 | Service | Status | Notes |
 |---|---|---|
-| catalog-service | Migration-ready before data backfill | Own Spring Boot app, DB, OpenAPI draft, confirmed transactional outbox, internal projections, and runtime smoke coverage. Event showtime sync still calls Showtime over internal HTTP. |
+| catalog-service | Migration-prepared, awaiting real snapshot | Own Spring Boot app, DB, OpenAPI draft, confirmed transactional outbox, internal projections, and runtime smoke coverage. Event showtime sync still calls Showtime over internal HTTP. |
 | facility-service | Extracted, buildable | Existing Spring Boot compatibility slice; target implementation is ASP.NET per architecture doc. Keep further changes minimal and contract-driven. |
-| showtime-service | Migration-ready before data backfill | Own Spring Boot app, DB/Redis configuration, OpenAPI draft, HTTP clients, and internal guard/seat-reservation endpoints. |
-| booking-service | Migration-ready before data backfill | Own Spring Boot app, DB, OpenAPI draft, confirmed transactional outbox, and HTTP boundaries for Showtime/Catalog/Facility. |
-| analytics-service | Functional, awaiting real backfill | Own Spring Boot app, PostgreSQL read model, OpenAPI draft, idempotent AMQP projections, retries, DLQs, ordering guards, metrics, and backfill support. |
-| recommendation-service | Functional, awaiting real backfill | Own Spring Boot app, Neo4j graph queries, AMQP projections, retries, DLQs, metrics, safe fallback, schema checks, and guarded idempotent legacy backfill. |
-| identity-service | Placeholder | Still in legacy IAM. |
-| api-gateway | Placeholder | Required before external cutover. |
-| payment-service | Placeholder | Dedicated payment service is not extracted; payment handling currently lives inside booking-service and legacy backend. |
+| showtime-service | Migration-prepared, awaiting real snapshot | Own Spring Boot app, DB/Redis configuration, OpenAPI draft, HTTP clients, and internal guard/seat-reservation endpoints. |
+| booking-service | Migration-prepared, awaiting real snapshot | Own Spring Boot app, DB, OpenAPI draft, confirmed transactional outbox, and HTTP boundaries for Showtime/Catalog/Facility. |
+| analytics-service | Migration-prepared, awaiting real snapshot | Own Spring Boot app, PostgreSQL read model, OpenAPI draft, idempotent AMQP projections, retries, DLQs, ordering guards, metrics, and repeatable backfill support. |
+| recommendation-service | Migration-prepared, awaiting real snapshot | Own Spring Boot app, Neo4j graph queries, AMQP projections, retries, DLQs, metrics, safe fallback, schema checks, and guarded idempotent legacy backfill. |
 
 ## Not Cut Over Yet
 
@@ -74,7 +74,7 @@ The Spring-owned migration scope is estimated at **90% implementation readiness*
 - Booking/order/ticket/voucher/review data has not been backfilled from `cinema_db` to `cinema_booking_db`.
 - Analytics read-model data has not been backfilled from a copied legacy database to `cinema_analytics_db`.
 - Recommendation graph data has not been backfilled from a real copied legacy database; the Neo4j/RabbitMQ implementation itself is wired and smoke-tested.
-- Migration scripts have not been executed against a real database snapshot yet. Local PostgreSQL 18 can start on port 5432, but the configured `postgres` credential is unavailable and the documented default password is not valid for that cluster.
+- Migration scripts have not been executed against a real database snapshot yet. The disposable rehearsal is green, but no valid copied-snapshot credential is available in the repository environment.
 - Admin/staff write endpoints in direct Catalog, Facility, Showtime, and Booking services still depend on future gateway/JWT integration.
 - Catalog event creation still synchronously calls Showtime internal commands. The movie outbox relay is implemented, but replacing that command with an asynchronous saga remains future work.
 - Standalone Facility rejects destructive room/cinema deletes with `SHOWTIME_GUARD_UNAVAILABLE` if it cannot query `showtime-service`.
@@ -83,9 +83,9 @@ The Spring-owned migration scope is estimated at **90% implementation readiness*
 
 ## Next Safe Steps
 
-1. Obtain credentials for a copied legacy PostgreSQL snapshot, run every migration/backfill in dry-run mode, then restore into disposable service databases.
-2. Reconcile row counts and business invariants, rerun backfills to prove idempotency, and archive the reports as cutover evidence.
-3. Rehearse shadow traffic, cutover, and rollback with the future gateway while `backend_legacy` remains available; do not switch writes until rollback and data ownership are approved.
+1. Obtain credentials for a copied legacy PostgreSQL snapshot and run the documented dry-run, restore, fingerprint, Analytics, and Recommendation sequence against disposable targets.
+2. Archive the manifest and reconciliation reports as cutover evidence; investigate any mismatch instead of bypassing a guard.
+3. Coordinate shadow traffic, cutover, and rollback with the external traffic owner while `backend_legacy` remains available; do not switch writes until rollback and data ownership are approved.
 
 ## Cutover Gates
 
@@ -93,6 +93,8 @@ The Spring-owned migration scope is estimated at **90% implementation readiness*
 - Extracted service tests pass.
 - Contract tests pass for every service call replacing a direct repository/service dependency.
 - Runtime smoke script passes against the extracted-service stack. **Passed locally on 2026-08-03.**
-- Database migration is repeatable and idempotent.
+- RabbitMQ-to-Analytics/Neo4j event flow is duplicate-safe and ordering-safe. **Passed locally on 2026-08-03 and automated in CI.**
+- Database migration is repeatable and content-verified on the disposable fixture. **Passed two consecutive cycles locally on 2026-08-03.**
+- The same migration evidence passes against a real copied snapshot. **Pending snapshot credential/execution.**
 - Frontend smoke tests pass against the gateway route.
 - Rollback can return traffic to `backend_legacy` without data loss.

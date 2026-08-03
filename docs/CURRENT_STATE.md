@@ -41,10 +41,14 @@
 - Recommendation consumes the same durable event streams into Neo4j using atomic processed-event markers and timestamp guards for out-of-order order events.
 - Recommendation includes a read-only copied-legacy-DB backfill that defaults to dry-run and requires exact confirmation before graph writes.
 - Catalog and Booking have opt-in RabbitMQ outbox relays with mandatory routing and publisher-confirm checks before events are marked published.
+- The event-flow smoke publishes duplicate and out-of-order events through RabbitMQ and verifies durable Analytics/Neo4j state plus Recommendation API behavior.
+- Migration export now checks legacy relational invariants and writes a SHA-256 manifest; restore validates compatibility/checksums before mutation, and reconciliation compares content fingerprints rather than counts alone.
+- A disposable PostgreSQL rehearsal passed two restore/reconciliation cycles, two Analytics backfills, and a tampered-dump rejection check on 2026-08-03.
 - Static contract tests now guard Spring Boot client paths against the OpenAPI drafts for Catalog, Facility, Showtime, and Booking.
 - Spring context tests protect JPA repository scanning, constructor injection, Redis typing, and AMQP queue binding; a packaged-runtime regression test protects Spring MVC parameter metadata.
 - All six Docker images build as executable non-root Java 21 images. The full Compose stack and expanded runtime smoke suite passed locally on 2026-08-03, then the stack was stopped while named data volumes were retained.
-- Spring-owned migration implementation readiness is estimated at 90%; remaining risk is concentrated in real-data validation and coordinated cutover/rollback rather than missing service code.
+- Repository-controlled preparation for the Spring-owned migration scope is complete. Remaining risk is external execution against a real copied snapshot and coordinated cutover/rollback, not missing Spring service code.
+- Backend CI now enforces `mvn clean verify`, Compose and PowerShell validation, migration dry-runs, and the RabbitMQ-to-Analytics/Neo4j event-flow test.
 - Do not expand ASP.NET-assigned services in this Spring Boot track: Identity, target Facility, Payment, Notification, and API Gateway.
 
 ## Commands To Verify
@@ -59,7 +63,7 @@ Legacy backend tests:
 
 ```powershell
 cd cinema-booking-system\backend_legacy
-..\..\.codex-tools\apache-maven-3.9.9\bin\mvn.cmd test
+..\..\.codex-tools\apache-maven-3.9.9\bin\mvn.cmd clean verify
 ```
 
 Extracted service tests:
@@ -88,6 +92,20 @@ Extracted service runtime smoke:
 ```powershell
 cd cinema-booking-system\backend
 .\infrastructure\smoke-test.ps1
+```
+
+Event-flow integration with automatic stack lifecycle:
+
+```powershell
+cd cinema-booking-system\backend
+.\infrastructure\event-flow-smoke.ps1 -StartCompose -StopCompose
+```
+
+Disposable data-migration rehearsal:
+
+```powershell
+cd cinema-booking-system\backend
+.\infrastructure\migrations\migration-rehearsal.ps1
 ```
 
 Frontend build:
@@ -124,17 +142,16 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 
 - Frontend build was not rerun during the latest backend-service extraction.
 - All extracted-service Docker images and the full Compose runtime were verified locally on 2026-08-03.
-- Data backfill scripts/runbook exist, but they have not been executed against a real database snapshot.
-- Migration scripts now support dry-run validation, row-count comparison across legacy/service databases, and Analytics read-model backfill.
-- Migration dry-runs were revalidated on 2026-08-03. Destructive resets now require explicit confirmation, dumps are checked before reset, and Analytics imports are atomic.
-- Local preflight on 2026-07-08 found PostgreSQL 18 client tools under `C:\Program Files\PostgreSQL\18\bin`, but Docker and local DB/service ports were not running.
-- Local PostgreSQL 18 was started safely on 2026-08-03, but real snapshot export is blocked because no valid `postgres` credential or `.pgpass` entry is available; password guessing and auth-file modification were intentionally avoided.
+- Data backfill has not been executed against a real copied database snapshot because no valid snapshot credential is available.
+- Migration dry-runs and the isolated PostgreSQL rehearsal passed on 2026-08-03. Destructive resets require explicit confirmation, dumps require matching SHA-256 manifest entries, restores are transactional, and reconciliation verifies row content.
+- PostgreSQL client/source/target major versions must be aligned for the real migration; the restore guard rejects a newer client before touching an older target.
 - Runtime smoke verifies six service health endpoints, Analytics/Recommendation response envelopes, eight RabbitMQ consumer/DLQ queues, and internal-token guards; it passed with automatic Compose teardown.
+- Event-flow smoke verifies duplicate delivery, stale-event ordering, Analytics and Neo4j projections, Recommendation API output, and evidence cleanup; it passed with automatic Compose teardown.
 - API gateway routing and end-user JWT propagation are not wired because those are owned by the separate ASP.NET workstream.
 - Production distributed tracing and multi-host service discovery are not configured.
 
 ## Suggested Next Steps
 
-1. Obtain valid credentials for a copied legacy database and execute all migration/backfill dry-runs against disposable service databases.
-2. Reconcile row counts and business invariants, rerun to prove idempotency, and retain the reports as migration evidence.
-3. Coordinate shadow traffic, gateway routing, write cutover, and rollback rehearsal with the ASP.NET workstream while keeping `backend_legacy` available.
+1. Obtain valid credentials for a copied legacy database and execute the guarded migration/backfill runbook against disposable targets.
+2. Retain the SHA-256 manifest and fingerprint reports as migration evidence; stop on any mismatch.
+3. Coordinate shadow traffic, write cutover, and rollback with the external traffic owner while keeping `backend_legacy` available.

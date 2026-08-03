@@ -1,6 +1,6 @@
 # Service Data Migration Runbook
 
-Status: dry-run validated on 2026-08-03; real export/restore is blocked until a valid PostgreSQL credential is supplied. `backend_legacy` remains the rollback source of truth until gateway traffic is switched and validated.
+Status: dry-runs and a two-pass disposable PostgreSQL rehearsal passed on 2026-08-03, including invariant checks, dump checksums, content fingerprints, repeatable Analytics backfill, and tamper rejection. Execution against a real copied snapshot still requires its credential. `backend_legacy` remains the rollback source of truth until traffic is switched and validated.
 
 ## Owned Tables
 
@@ -21,14 +21,16 @@ Status: dry-run validated on 2026-08-03; real export/restore is blocked until a 
 4. No frontend or gateway traffic points at extracted services during backfill.
 5. `PGPASSWORD` is set in the shell, or `.pgpass` is configured.
 6. `pg_dump`, `pg_restore`, and `psql` are available in PATH, or their full paths are passed to the scripts.
+7. PostgreSQL client and server major versions are aligned. Use client tools matching the copied source and a target server on the same or newer major; restore rejects a newer `pg_restore` client before mutating an older target.
 
 The scripts pass `--no-password` so unattended migration fails immediately instead of hanging on a password prompt. Set `PGPASSWORD` only for the migration process or configure a protected `.pgpass` file; do not commit credentials.
 
-If PostgreSQL client tools are installed but not in PATH on Windows, pass them explicitly:
+If PostgreSQL client tools are installed but not in PATH on Windows, pass them explicitly. Set the example major to the major shared by the copied source and migration targets:
 
 ```powershell
-$pgBin = "C:\Program Files\PostgreSQL\18\bin"
-.\infrastructure\migrations\export-legacy-data.ps1 -PgDump "$pgBin\pg_dump.exe" -DryRun
+$pgMajor = "18" # Replace with the major shared by the source and targets.
+$pgBin = "C:\Program Files\PostgreSQL\$pgMajor\bin"
+.\infrastructure\migrations\export-legacy-data.ps1 -PgDump "$pgBin\pg_dump.exe" -Psql "$pgBin\psql.exe" -DryRun
 .\infrastructure\migrations\restore-service-data.ps1 -PgRestore "$pgBin\pg_restore.exe" -Psql "$pgBin\psql.exe" -DryRun
 .\infrastructure\migrations\verify-service-counts.ps1 -Psql "$pgBin\psql.exe" -DryRun
 .\infrastructure\migrations\backfill-analytics-read-model.ps1 -Psql "$pgBin\psql.exe" -DryRun
@@ -46,9 +48,25 @@ From `cinema-booking-system/backend`:
   -User postgres
 ```
 
-This writes one custom-format dump per service into `infrastructure/migrations/dumps/`.
+Before exporting, the script rejects orphaned or invalid cross-domain rows. It then writes one custom-format dump per service and an atomic `migration-manifest.json` containing source metadata, table ownership, file size, and SHA-256 checksum into `infrastructure/migrations/dumps/`.
 
 Use `-DryRun` first when validating the generated `pg_dump` commands.
+
+## Disposable Rehearsal
+
+Before using a real snapshot, run the complete procedure against the isolated
+fixture:
+
+```powershell
+.\infrastructure\migrations\migration-rehearsal.ps1
+```
+
+The rehearsal starts its own PostgreSQL container on port `55432` with tmpfs
+storage, initializes source and target schemas, exports and restores twice,
+compares all 14 table fingerprints, backfills Analytics twice, verifies stable
+derived counts, and proves that a tampered dump is rejected before restore. It
+always removes its container, network, and temporary files unless
+`-KeepArtifacts` is supplied.
 
 ## Restore
 
@@ -86,6 +104,8 @@ All Analytics source datasets are exported before the target schema is touched. 
 ## Destructive Guards
 
 - `-TruncateFirst` is rejected unless the matching `-ResetConfirmation` phrase is supplied.
+- Restore requires the export manifest and validates each dump SHA-256 before any target mutation.
+- Restore verifies that `pg_restore` is not newer than the target PostgreSQL server.
 - Each service dump is validated with `pg_restore --list` before target truncation.
 - Service restores use `--exit-on-error` and `--single-transaction`.
 - These guards do not make a production database an acceptable target. Only use copied, disposable, or independently snapshotted service databases.
@@ -129,7 +149,7 @@ snapshotted database remains a required operational boundary.
 
 ## Verification
 
-Compare legacy and service row counts before any route switch:
+Compare legacy and service row counts plus order-independent content fingerprints before any route switch:
 
 ```powershell
 .\infrastructure\migrations\verify-service-counts.ps1
@@ -141,6 +161,12 @@ After count checks, run the baseline runtime smoke script from `cinema-booking-s
 
 ```powershell
 .\infrastructure\smoke-test.ps1
+```
+
+Then verify the complete event path and consumer idempotency/ordering:
+
+```powershell
+.\infrastructure\event-flow-smoke.ps1
 ```
 
 Then run seeded service-level flow checks:
