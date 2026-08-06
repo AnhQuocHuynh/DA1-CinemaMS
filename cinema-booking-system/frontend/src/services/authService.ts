@@ -1,154 +1,46 @@
-import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
-import { ApiResponse, BackendAuthResponse, LoginFormData, LoginResponse, RegisterFormData } from '../types/auth';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
-
-const apiClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-type RetryConfig = AxiosRequestConfig & { _retry?: boolean };
-
-const refreshAccessToken = async (): Promise<string | null> => {
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) {
-    return null;
-  }
-
-  try {
-    const response = await axios.post<ApiResponse<BackendAuthResponse>>(
-      `${API_BASE_URL}/auth/refresh`,
-      { refreshToken },
-      { headers: { 'Content-Type': 'application/json' } }
-    );
-    const payload = response.data?.data;
-
-    if (!payload?.accessToken) {
-      return null;
-    }
-
-    localStorage.setItem('authToken', payload.accessToken);
-    if (payload.refreshToken) {
-      localStorage.setItem('refreshToken', payload.refreshToken);
-    }
-
-    return payload.accessToken;
-  } catch {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('refreshToken');
-    return null;
-  }
-};
-
-// Add token to requests if available
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError) => {
-    const originalRequest = error.config as RetryConfig | undefined;
-
-    if (!originalRequest || error.response?.status !== 401 || originalRequest._retry) {
-      return Promise.reject(error);
-    }
-
-    originalRequest._retry = true;
-    const newToken = await refreshAccessToken();
-
-    if (!newToken) {
-      return Promise.reject(error);
-    }
-
-    originalRequest.headers = originalRequest.headers ?? {};
-    originalRequest.headers.Authorization = `Bearer ${newToken}`;
-    return apiClient(originalRequest);
-  }
-);
+import keycloak from '../lib/keycloak';
+import { useAuthStore } from '../store/authStore';
+import apiClient from '../lib/apiClient';
 
 export const authService = {
-  register: async (registerData: RegisterFormData): Promise<void> => {
-    const response = await apiClient.post('/auth/register', registerData);
-    return response.data;
+  login: (): void => {
+    keycloak.login({ redirectUri: `${window.location.origin}/auth/callback` });
   },
-  login: async (credentials: LoginFormData): Promise<LoginResponse> => {
-    const response = await apiClient.post<ApiResponse<BackendAuthResponse>>('/auth/login', credentials);
-    const payload = response.data?.data;
 
-    if (!payload?.accessToken) {
-      throw new Error('Login failed: missing access token');
-    }
+  register: (): void => {
+    keycloak.register({ redirectUri: `${window.location.origin}/auth/callback` });
+  },
 
-    const normalizedRole = (payload.user?.roles || [])
-      .map((role) => role.replace('ROLE_', ''))
-      .find((role) => role === 'ADMIN' || role === 'STAFF' || role === 'CUSTOMER');
-
-    const role: LoginResponse['user']['role'] = normalizedRole === 'ADMIN'
-      ? 'ADMIN'
-      : normalizedRole === 'STAFF'
-      ? 'STAFF'
-      : 'USER';
-
-    const loginResponse: LoginResponse = {
-      token: payload.accessToken,
-      refreshToken: payload.refreshToken,
-      user: {
-        id: payload.user?.id ?? 'unknown',
-        email: payload.user?.email ?? credentials.email,
-        role,
-      },
-    };
-
-    localStorage.setItem('authToken', loginResponse.token);
-    if (loginResponse.refreshToken) {
-      localStorage.setItem('refreshToken', loginResponse.refreshToken);
-    }
-
-    return loginResponse;
+  forgotPassword: (): void => {
+    keycloak.login({ action: 'UPDATE_PASSWORD', redirectUri: `${window.location.origin}/` });
   },
 
   refreshToken: async (): Promise<string | null> => {
-    return refreshAccessToken();
-  },
-
-  logout: async (): Promise<void> => {
-    console.log('🔓 [AUTH] Logout');
-    const refreshToken = localStorage.getItem('refreshToken');
-
-    if (refreshToken) {
-      try {
-        await apiClient.post('/auth/logout', { refreshToken });
-      } catch (error) {
-        console.warn('Logout request failed. Clearing local tokens anyway.', error);
-      }
+    try {
+      const refreshed = await keycloak.updateToken(60);
+      if (refreshed) useAuthStore.getState().setToken(keycloak.token!);
+      return keycloak.token ?? null;
+    } catch {
+      authService.logout();
+      return null;
     }
-
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('refreshToken');
   },
 
-  isAuthenticated: (): boolean => {
-    return !!localStorage.getItem('authToken');
+  logout: (): void => {
+    useAuthStore.getState().clearUser();
+    keycloak.logout({ redirectUri: `${window.location.origin}/` });
   },
 
-  getToken: (): string | null => {
-    return localStorage.getItem('authToken');
-  },
+  isAuthenticated: (): boolean => keycloak.authenticated ?? false,
+  getToken:        (): string | null => keycloak.token ?? null,
 
-  forgotPassword: async (email: string): Promise<void> => {
-    await apiClient.post('/auth/forgot-password', { email });
-  },
-
-  resetPassword: async (data: any): Promise<void> => {
-    await apiClient.post('/auth/reset-password', data);
+  getUserInfo: () => {
+    if (!keycloak.tokenParsed) return null;
+    const { sub, email, preferred_username, given_name, family_name, realm_access } =
+      keycloak.tokenParsed;
+    return { keycloakId: sub, email, username: preferred_username,
+             firstName: given_name, lastName: family_name,
+             roles: realm_access?.roles ?? [] };
   },
 };
 
