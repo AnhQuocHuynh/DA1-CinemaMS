@@ -49,8 +49,19 @@ function Invoke-CheckedCommand {
         return
     }
 
-    & $Tool @Arguments
-    if ($LASTEXITCODE -ne 0) {
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        # Windows PowerShell surfaces harmless native stderr (for example, a
+        # PostgreSQL NOTICE) as an ErrorRecord when callers redirect the log.
+        # Normalize both native streams and determine success by process exit code.
+        $ErrorActionPreference = "Continue"
+        & $Tool @Arguments 2>&1 | ForEach-Object { Write-Host ($_.ToString()) }
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    if ($exitCode -ne 0) {
         throw $FailureMessage
     }
 }

@@ -49,8 +49,16 @@ function Invoke-CheckedCommand {
         return
     }
 
-    & $Tool @Arguments
-    if ($LASTEXITCODE -ne 0) {
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        & $Tool @Arguments 2>&1 | ForEach-Object { Write-Host ($_.ToString()) }
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    if ($exitCode -ne 0) {
         throw $FailureMessage
     }
 }

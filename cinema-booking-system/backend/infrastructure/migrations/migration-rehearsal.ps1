@@ -44,8 +44,16 @@ function Invoke-CheckedTool {
         [string]$FailureMessage
     )
 
-    & $Tool @Arguments
-    if ($LASTEXITCODE -ne 0) {
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        & $Tool @Arguments 2>&1 | ForEach-Object { Write-Host ($_.ToString()) }
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    if ($exitCode -ne 0) {
         throw $FailureMessage
     }
 }
@@ -53,8 +61,16 @@ function Invoke-CheckedTool {
 function Invoke-Compose {
     param([string[]]$Arguments)
 
-    & docker compose -f $ComposeFile @Arguments
-    if ($LASTEXITCODE -ne 0) {
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        & docker compose -f $ComposeFile @Arguments 2>&1 | ForEach-Object { Write-Host ($_.ToString()) }
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    if ($exitCode -ne 0) {
         throw "Migration rehearsal compose failed: $($Arguments -join ' ')"
     }
 }
