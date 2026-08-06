@@ -1,9 +1,9 @@
 using FluentValidation;
-using IdentityService.Application.Contracts;
 using IdentityService.Application.Exceptions;
 using IdentityService.Application.Messages;
 using IdentityService.Domain.Enums;
 using IdentityService.Domain.Interfaces;
+using MassTransit;
 using MediatR;
 using System;
 using System.Threading;
@@ -34,16 +34,16 @@ public class UpdateUserProfileCommandHandler : IRequestHandler<UpdateUserProfile
 {
     private readonly IUserRepository _userRepository;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IEventPublisher _eventPublisher;
+    private readonly IPublishEndpoint _publishEndpoint;
 
     public UpdateUserProfileCommandHandler(
         IUserRepository userRepository, 
         IUnitOfWork unitOfWork, 
-        IEventPublisher eventPublisher)
+        IPublishEndpoint publishEndpoint)
     {
         _userRepository = userRepository;
         _unitOfWork = unitOfWork;
-        _eventPublisher = eventPublisher;
+        _publishEndpoint = publishEndpoint;
     }
 
     public async Task Handle(UpdateUserProfileCommand request, CancellationToken cancellationToken)
@@ -55,10 +55,12 @@ public class UpdateUserProfileCommandHandler : IRequestHandler<UpdateUserProfile
         user.UpdateProfile(request.Phone, request.Gender, request.DateOfBirth);
 
         _userRepository.Update(user);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // Publish event to RabbitMQ so other services know
+        // Publish event via MassTransit Outbox pattern
         var payload = new UserProfileUpdatedPayload(user.Id, user.Email, user.FullName);
-        await _eventPublisher.PublishAsync(payload, cancellationToken);
+        await _publishEndpoint.Publish(payload, cancellationToken);
+
+        // SaveChanges will commit both the User update and the Outbox message in one transaction
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

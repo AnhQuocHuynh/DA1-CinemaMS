@@ -1,130 +1,56 @@
 using IdentityService.Application.Features.KeycloakSync.Commands;
 using IdentityService.Domain.Enums;
+using MassTransit;
 using MediatR;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
-using System.Text;
-using System.Text.Json;
+using System;
+using System.Threading.Tasks;
 
 namespace IdentityService.Infrastructure.Messaging.Consumers;
 
-public class KeycloakUserRegisteredConsumer : BackgroundService
+public class KeycloakUserRegisteredConsumer : IConsumer<KeycloakRegistrationPayload>
 {
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IMediator _mediator;
     private readonly ILogger<KeycloakUserRegisteredConsumer> _logger;
-    private readonly IRabbitMQConnectionProvider _connectionProvider;
-    private IConnection? _connection;
-    private IChannel? _channel;
-    private const string QUEUE_NAME = "identity-service.user-registered";
-    private const string EXCHANGE_NAME = "user.events";
-    private const string ROUTING_KEY = "user.registered";
 
-    public KeycloakUserRegisteredConsumer(
-        IServiceProvider serviceProvider,
-        ILogger<KeycloakUserRegisteredConsumer> logger,
-        IRabbitMQConnectionProvider connectionProvider)
+    public KeycloakUserRegisteredConsumer(IMediator mediator, ILogger<KeycloakUserRegisteredConsumer> logger)
     {
-        _serviceProvider = serviceProvider;
+        _mediator = mediator;
         _logger = logger;
-        _connectionProvider = connectionProvider;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    public async Task Consume(ConsumeContext<KeycloakRegistrationPayload> context)
     {
-        try
+        var payload = context.Message;
+        _logger.LogInformation("Received Keycloak Registration Event for KeycloakId: {KeycloakId}", payload.KeycloakId);
+
+        if (!string.IsNullOrEmpty(payload.KeycloakId))
         {
-            _connection = await _connectionProvider.GetConnectionAsync(stoppingToken);
-            _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
-  
-            await _channel.ExchangeDeclareAsync(exchange: EXCHANGE_NAME, type: ExchangeType.Topic, durable: true, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
-            await _channel.QueueDeclareAsync(queue: QUEUE_NAME, durable: true, exclusive: false, autoDelete: false, arguments: null, cancellationToken: stoppingToken);
-            await _channel.QueueBindAsync(queue: QUEUE_NAME, exchange: EXCHANGE_NAME, routingKey: ROUTING_KEY, cancellationToken: stoppingToken);
+            var fullName = $"{payload.FirstName} {payload.LastName}".Trim();
             
-            _logger.LogInformation("Connected to RabbitMQ and listening to {QueueName}", QUEUE_NAME);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to connect to RabbitMQ broker");
-            return;
-        }
-        
-        if (_channel == null)
-        {
-            return;
-        }
-
-        var consumer = new AsyncEventingBasicConsumer(_channel);
-        consumer.ReceivedAsync += async (model, ea) =>
-        {
-            try
+            Gender? parsedGender = null;
+            if (!string.IsNullOrEmpty(payload.Gender) && Enum.TryParse<Gender>(payload.Gender, true, out var gender))
             {
-                var body = ea.Body.ToArray();
-                var message = Encoding.UTF8.GetString(body);
-                
-                _logger.LogInformation("Received Keycloak Registration Event: {Message}", message);
-
-                var payload = JsonSerializer.Deserialize<KeycloakRegistrationPayload>(message);
-
-                if (payload != null && !string.IsNullOrEmpty(payload.KeycloakId))
-                {
-                    var fullName = $"{payload.FirstName} {payload.LastName}".Trim();
-                    
-                    Gender? parsedGender = null;
-                    if (!string.IsNullOrEmpty(payload.Gender) && Enum.TryParse<IdentityService.Domain.Enums.Gender>(payload.Gender, true, out var gender))
-                    {
-                        parsedGender = gender;
-                    }
-
-                    DateTime? parsedDob = null;
-                    if (!string.IsNullOrEmpty(payload.DateOfBirth) && DateTime.TryParse(payload.DateOfBirth, out var dob))
-                    {
-                        parsedDob = dob;
-                    }
-
-                    var command = new CreateUserFromKeycloakEventCommand(
-                        payload.KeycloakId,
-                        payload.Email,
-                        fullName,
-                        payload.Phone,
-                        parsedGender,
-                        parsedDob
-                    );
-
-                    using var scope = _serviceProvider.CreateScope();
-                    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-
-                    await mediator.Send(command, stoppingToken);
-                }
-
-                await _channel.BasicAckAsync(ea.DeliveryTag, false, stoppingToken);
+                parsedGender = gender;
             }
-            catch (Exception ex)
+
+            DateTime? parsedDob = null;
+            if (!string.IsNullOrEmpty(payload.DateOfBirth) && DateTime.TryParse(payload.DateOfBirth, out var dob))
             {
-                _logger.LogError(ex, "Error processing Keycloak Registration Event");
-                await _channel.BasicNackAsync(ea.DeliveryTag, false, requeue: false, stoppingToken);
+                parsedDob = dob;
             }
-        };
 
-        await _channel.BasicConsumeAsync(queue: QUEUE_NAME, autoAck: false, consumer: consumer, cancellationToken: stoppingToken);
+            var command = new CreateUserFromKeycloakEventCommand(
+                payload.KeycloakId,
+                payload.Email,
+                fullName,
+                payload.Phone,
+                parsedGender,
+                parsedDob
+            );
 
-        // Keep the background service running
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            await Task.Delay(1000, stoppingToken);
+            await _mediator.Send(command, context.CancellationToken);
         }
-    }
-
-    public override async Task StopAsync(CancellationToken cancellationToken)
-    {
-        if (_channel != null)
-        {
-            await _channel.CloseAsync(cancellationToken);
-        }
-        await base.StopAsync(cancellationToken);
     }
 }
 

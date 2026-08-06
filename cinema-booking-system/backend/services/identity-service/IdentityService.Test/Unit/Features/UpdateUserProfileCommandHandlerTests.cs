@@ -1,11 +1,11 @@
 using FluentAssertions;
-using IdentityService.Application.Contracts;
 using IdentityService.Application.Exceptions;
 using IdentityService.Application.Features.Users.Commands;
 using IdentityService.Application.Messages;
 using IdentityService.Domain.Entities;
 using IdentityService.Domain.Enums;
 using IdentityService.Domain.Interfaces;
+using MassTransit;
 using Moq;
 using System;
 using System.Threading;
@@ -18,7 +18,7 @@ public class UpdateUserProfileCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IUnitOfWork> _unitOfWorkMock = new();
-    private readonly Mock<IEventPublisher> _eventPublisherMock = new();
+    private readonly Mock<IPublishEndpoint> _publishEndpointMock = new();
     private readonly UpdateUserProfileCommandHandler _handler;
 
     public UpdateUserProfileCommandHandlerTests()
@@ -26,7 +26,7 @@ public class UpdateUserProfileCommandHandlerTests
         _handler = new UpdateUserProfileCommandHandler(
             _userRepositoryMock.Object,
             _unitOfWorkMock.Object,
-            _eventPublisherMock.Object);
+            _publishEndpointMock.Object);
     }
 
     // ─── Error: user not found ───────────────────────────────────────────────
@@ -65,7 +65,7 @@ public class UpdateUserProfileCommandHandlerTests
 
         _userRepositoryMock.Verify(r => r.Update(user), Times.Once);
         _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _eventPublisherMock.Verify(pub => pub.PublishAsync(
+        _publishEndpointMock.Verify(pub => pub.Publish(
             It.Is<UserProfileUpdatedPayload>(p => p.UserId == 1 && p.Email == "test@test.com" && p.FullName == "Test"),
             It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -90,7 +90,7 @@ public class UpdateUserProfileCommandHandlerTests
 
         _userRepositoryMock.Verify(r => r.Update(user), Times.Once);
         _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _eventPublisherMock.Verify(pub => pub.PublishAsync(
+        _publishEndpointMock.Verify(pub => pub.Publish(
             It.IsAny<UserProfileUpdatedPayload>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -107,14 +107,14 @@ public class UpdateUserProfileCommandHandlerTests
             .Should().ThrowAsync<InvalidOperationException>().WithMessage("DB error");
 
         _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
-        _eventPublisherMock.Verify(pub => pub.PublishAsync(It.IsAny<UserProfileUpdatedPayload>(),
+        _publishEndpointMock.Verify(pub => pub.Publish(It.IsAny<UserProfileUpdatedPayload>(),
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    // ─── Error: save fails → event not published ─────────────────────────────
+    // ─── Error: save fails → outbox message not committed ────────────────────
 
     [Fact]
-    public async Task Handle_SaveChangesThrows_EventNotPublished()
+    public async Task Handle_SaveChangesThrows_ExceptionPropagates()
     {
         var user = new User("some-uuid", "test@test.com", "Test");
         typeof(User).GetProperty("Id")?.SetValue(user, 1L);
@@ -128,7 +128,9 @@ public class UpdateUserProfileCommandHandlerTests
         await FluentActions.Invoking(() => _handler.Handle(command, CancellationToken.None))
             .Should().ThrowAsync<Exception>();
 
-        _eventPublisherMock.Verify(pub => pub.PublishAsync(
-            It.IsAny<UserProfileUpdatedPayload>(), It.IsAny<CancellationToken>()), Times.Never);
+        // Note: Publish will be called because it's called before SaveChanges with the Outbox pattern.
+        // However, since SaveChanges throws, the outbox message is never committed to the database.
+        _publishEndpointMock.Verify(pub => pub.Publish(
+            It.IsAny<UserProfileUpdatedPayload>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

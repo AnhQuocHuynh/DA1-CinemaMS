@@ -1,8 +1,12 @@
 using IdentityService.Application.Contracts;
+using IdentityService.Application.Messages;
 using IdentityService.Domain.Interfaces;
 using IdentityService.Infrastructure.Data;
 using IdentityService.Infrastructure.Keycloak;
+using IdentityService.Infrastructure.Messaging;
+using IdentityService.Infrastructure.Messaging.Consumers;
 using IdentityService.Infrastructure.Repositories;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,13 +28,24 @@ public static class DependencyInjection
         services.AddMemoryCache();
         services.AddHttpClient<IKeycloakAdminClient, KeycloakAdminClient>();
 
-        services.AddSingleton<Messaging.IRabbitMQConnectionProvider, Messaging.RabbitMQConnectionProvider>();
-        services.AddScoped<IdentityService.Application.Contracts.IEventPublisher, Messaging.Publishers.RabbitMqEventPublisher>();
+        services.AddMassTransit(x =>
+        {
+            x.AddEntityFrameworkOutbox<UserProfileDbContext>(o =>
+            {
+                o.UsePostgres();
+                o.UseBusOutbox();
+            });
 
-        services.AddHostedService<Messaging.Consumers.KeycloakUserRegisteredConsumer>();
-        services.AddHostedService<Messaging.Consumers.KeycloakUserDeletedConsumer>();
+            x.AddConsumers(typeof(DependencyInjection).Assembly);
+
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                cfg.Host(configuration.GetConnectionString("RabbitMq") ?? "amqp://guest:guest@localhost:5672/");
+                
+                cfg.ConfigureCustomTopology(context);
+            });
+        });
 
         return services;
     }
 }
-
