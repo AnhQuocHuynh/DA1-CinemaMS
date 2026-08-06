@@ -37,6 +37,14 @@ analytics:
     catalog-queue: ${ANALYTICS_CATALOG_QUEUE:analytics.catalog.v1}
     booking-queue: ${ANALYTICS_BOOKING_QUEUE:analytics.booking.v1}
 
+cinema:
+  security:
+    jwt:
+      enabled: ${CINEMA_SECURITY_JWT_ENABLED:false}
+      issuer-uri: ${KEYCLOAK_ISSUER_URI:}
+      audience: ${KEYCLOAK_AUDIENCE:cinema-api}
+      jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:}
+
 management:
   endpoints:
     web:

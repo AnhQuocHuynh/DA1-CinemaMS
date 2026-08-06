@@ -44,6 +44,14 @@ recommendation:
       password: ${RECOMMENDATION_BACKFILL_SOURCE_PASSWORD:}
     fetch-size: ${RECOMMENDATION_BACKFILL_FETCH_SIZE:500}
 
+cinema:
+  security:
+    jwt:
+      enabled: ${CINEMA_SECURITY_JWT_ENABLED:false}
+      issuer-uri: ${KEYCLOAK_ISSUER_URI:}
+      audience: ${KEYCLOAK_AUDIENCE:cinema-api}
+      jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:}
+
 management:
   endpoints:
     web:
