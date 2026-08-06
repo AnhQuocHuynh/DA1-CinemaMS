@@ -92,6 +92,34 @@ The host database ports are intentionally `5433`, `5434`, `5435`, and `5436` so 
 
 Internal service-to-service endpoints under `/internal/**` require `X-Internal-Token`. For local Docker, set `INTERNAL_API_TOKEN` or use the documented dev default `local-dev-internal-token`.
 
+## Keycloak Integration
+
+Catalog, Showtime, Booking, Analytics, and Recommendation can validate Keycloak
+JWTs directly as OAuth2 Resource Servers. Facility is intentionally excluded
+because the target Facility service belongs to the ASP.NET workstream.
+
+JWT enforcement is opt-in until the shared Keycloak realm and Gateway are
+merged. Configure all Spring services with:
+
+- `CINEMA_SECURITY_JWT_ENABLED=true`
+- `KEYCLOAK_ISSUER_URI`: exact canonical realm issuer from the token `iss`
+- `KEYCLOAK_AUDIENCE`: required backend audience, default `cinema-api`
+- `KEYCLOAK_JWK_SET_URI`: optional internal JWKS backchannel URL when containers
+  cannot reach discovery through the canonical issuer hostname
+
+When JWT enforcement is enabled, the services validate signature, issuer,
+audience, expiry, and not-before time. Keycloak realm roles map only `ADMIN`,
+`STAFF`, and `CUSTOMER` to Spring `ROLE_*` authorities; system roles and legacy
+`USER` are ignored. Booking, Showtime seat holds, and personalized
+Recommendation use the signed numeric `user_id` claim and reject conflicting
+body, query, path, or transitional header values.
+
+Keep `CINEMA_SECURITY_JWT_ENABLED=false` for the current standalone smoke stack.
+Do not enable it until Keycloak publishes the agreed audience and `user_id`
+claim and Gateway forwards the original bearer token. See
+`../docs/authentication_integration_contract.md` for the cross-framework
+contract and remaining Gateway/.NET work.
+
 RabbitMQ is declared at `localhost:5672` (management UI `http://localhost:15672`). Docker enables the Catalog and Booking outbox relays with the `cinema` user; set `RABBITMQ_PASSWORD` outside local development. Local service runs leave `OUTBOX_DISPATCHER_ENABLED=false` unless a reachable broker and the matching exchanges are configured.
 
 Catalog uses `SHOWTIME_SERVICE_URL` to create and delete event showtimes through Showtime internal command endpoints.

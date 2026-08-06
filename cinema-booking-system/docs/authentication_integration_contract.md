@@ -1,6 +1,6 @@
 # Authentication and Internal Security Integration Contract
 
-Status: integration contract for review and implementation
+Status: approved integration contract; Spring implementation ready for coordinated activation
 
 Updated: 2026-08-06
 
@@ -391,3 +391,41 @@ Authentication integration is complete when:
 - Internal calls are authenticated by client credentials, except explicitly
   tracked compatibility paths.
 - Signing-key rotation and all tests in Section 14 pass.
+
+## 17. Implementation Status
+
+As of 2026-08-06, the Spring-owned Catalog, Showtime, Booking, Analytics, and
+Recommendation services implement the public/user-token portion of this
+contract behind `CINEMA_SECURITY_JWT_ENABLED`. The compatibility Facility slice
+is intentionally unchanged because the target Facility service is owned by the
+ASP.NET workstream.
+
+Implemented in Spring:
+
+- OAuth2 Resource Server support with exact issuer, required audience, JWKS
+  signature, expiry, and not-before validation.
+- Optional `KEYCLOAK_JWK_SET_URI` backchannel while preserving validation of the
+  canonical `KEYCLOAK_ISSUER_URI`.
+- Canonical `ADMIN`, `STAFF`, and `CUSTOMER` realm-role mapping plus standard
+  `SCOPE_*` authorities for later client-credentials policies.
+- Route-level authorization for Catalog writes, Showtime writes/seat holds,
+  Booking operations, Analytics dashboard, and personalized Recommendation.
+- Signed `user_id` binding for order creation, reviews, tickets, seat holds, and
+  personalized Recommendation. Conflicting caller-supplied IDs are rejected.
+- Booking ownership checks before pay, refund, and ticket reads; owner-aware,
+  atomic release of public Showtime seat holds.
+- Compatibility mode remains the default so current smoke tests and rollback do
+  not require Keycloak. Missing/invalid mapping fails closed once JWT is enabled.
+
+Still required before activation:
+
+- Merge/configure Keycloak realm, audience mapper, canonical issuer, and numeric
+  `user_id` mapper or idempotent profile provisioning.
+- Make Gateway validate issuer/audience, strip spoofable headers, forward the
+  bearer token, and block `/internal/**`.
+- Add the four environment variables documented in `../backend/README.md` to
+  the integrated deployment and then set `CINEMA_SECURITY_JWT_ENABLED=true`.
+- Run the integrated tests in Section 14 with real Keycloak tokens, including
+  key rotation and Google-federated account mapping.
+- Migrate Spring internal callers from `X-Internal-Token` to least-privilege
+  client-credentials tokens. The compatibility header remains unchanged for now.

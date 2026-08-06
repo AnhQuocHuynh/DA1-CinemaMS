@@ -2,7 +2,7 @@
 
 ## Snapshot
 
-- Date of handoff: 2026-08-03.
+- Date of handoff: 2026-08-06.
 - Branch: `refactor-n-decoupling`.
 - Runnable full backend remains `cinema-booking-system/backend_legacy/`.
 - `cinema-booking-system/backend/` now contains extracted, independently buildable, and full-stack-smoke-tested `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, `analytics-service`, and `recommendation-service` Spring Boot services.
@@ -46,6 +46,9 @@
 - A disposable PostgreSQL rehearsal passed two restore/reconciliation cycles, two Analytics backfills, and a tampered-dump rejection check on 2026-08-03.
 - Static contract tests now guard Spring Boot client paths against the OpenAPI drafts for Catalog, Facility, Showtime, and Booking.
 - Spring context tests protect JPA repository scanning, constructor injection, Redis typing, and AMQP queue binding; a packaged-runtime regression test protects Spring MVC parameter metadata.
+- The extracted backend now has 179 passing tests. The 2026-08-06 verification
+  ran all six service modules, including JWT validators/route policies,
+  authenticated `user_id` binding, booking ownership, and seat-hold ownership.
 - All six Docker images build as executable non-root Java 21 images. The full Compose stack and expanded runtime smoke suite passed locally on 2026-08-03, then the stack was stopped while named data volumes were retained.
 - Repository-controlled preparation for the Spring-owned migration scope is complete. Remaining risk is external execution against a real copied snapshot and coordinated cutover/rollback, not missing Spring service code.
 - Backend CI now enforces `mvn clean verify`, Compose and PowerShell validation, migration dry-runs, and the RabbitMQ-to-Analytics/Neo4j event-flow test.
@@ -148,6 +151,12 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 - Runtime smoke verifies six service health endpoints, Analytics/Recommendation response envelopes, eight RabbitMQ consumer/DLQ queues, and internal-token guards; it passed with automatic Compose teardown.
 - Event-flow smoke verifies duplicate delivery, stale-event ordering, Analytics and Neo4j projections, Recommendation API output, and evidence cleanup; it passed with automatic Compose teardown.
 - API gateway routing and end-user JWT propagation are not wired because those are owned by the separate ASP.NET workstream.
+- Catalog, Showtime, Booking, Analytics, and Recommendation now have opt-in
+  Keycloak Resource Server enforcement with issuer/audience/JWKS validation and
+  canonical role mapping. Booking, Showtime holds, and personalized
+  Recommendation bind numeric identity to the signed `user_id` claim and reject
+  caller-supplied mismatches. Activation remains off until the teammate-owned
+  Keycloak/Gateway stack supplies the agreed claims and forwards bearer tokens.
 - Production distributed tracing and multi-host service discovery are not configured.
 
 ## Suggested Next Steps
