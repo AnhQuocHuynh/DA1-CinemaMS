@@ -1,6 +1,6 @@
 # Service Data Migration Runbook
 
-Status: dry-runs and a two-pass disposable PostgreSQL rehearsal passed on 2026-08-03, including invariant checks, dump checksums, content fingerprints, repeatable Analytics backfill, and tamper rejection. Execution against a real copied snapshot still requires its credential. `backend_legacy` remains the rollback source of truth until traffic is switched and validated.
+Status: dry-runs and a two-pass disposable PostgreSQL rehearsal passed on 2026-08-07, including invariant checks, dump checksums, content fingerprints, sequence-state reconciliation, repeatable Analytics backfill, dump-tamper rejection, and sequence-drift rejection. The same two-pass restore and verification also passed against the current local development database on disposable PostgreSQL 18 targets. Execution against the canonical copied cutover snapshot still requires its credential and PostgreSQL version alignment. `backend_legacy` remains the rollback source of truth until traffic is switched and validated.
 
 ## Owned Tables
 
@@ -63,10 +63,12 @@ fixture:
 
 The rehearsal starts its own PostgreSQL container on port `55432` with tmpfs
 storage, initializes source and target schemas, exports and restores twice,
-compares all 14 table fingerprints, backfills Analytics twice, verifies stable
-derived counts, and proves that a tampered dump is rejected before restore. It
-always removes its container, network, and temporary files unless
-`-KeepArtifacts` is supplied.
+compares all 14 table fingerprints and owned sequence states, backfills
+Analytics twice, verifies stable derived counts, and proves that both a
+tampered dump and a deliberately stale target sequence are rejected. The
+guarded restore then repairs the test sequence drift. The rehearsal always
+removes its container, network, and temporary files unless `-KeepArtifacts` is
+supplied.
 
 ## Restore
 
@@ -149,11 +151,16 @@ snapshotted database remains a required operational boundary.
 
 ## Verification
 
-Compare legacy and service row counts plus order-independent content fingerprints before any route switch:
+Compare legacy and service row counts, order-independent content fingerprints,
+and owned ID-sequence state before any route switch:
 
 ```powershell
 .\infrastructure\migrations\verify-service-counts.ps1
 ```
+
+The verification fails when source and target sequence state differs or when
+the next sequence value would collide with an existing ID. This protects the
+first post-cutover write, which row counts alone cannot verify.
 
 The lower-level `verify-counts.sql` can still be run manually against the legacy DB and each target DB when inspecting one database at a time.
 

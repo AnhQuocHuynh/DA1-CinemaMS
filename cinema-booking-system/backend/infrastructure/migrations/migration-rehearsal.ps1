@@ -195,6 +195,60 @@ SELECT (SELECT COUNT(*) FROM analytics_orders)
     Write-Host "[OK] Analytics backfill is repeatable and count-verified"
 }
 
+function Test-SequenceGuard {
+    $sequenceDriftArguments = @(
+        "--host", "localhost",
+        "--port", "$Port",
+        "--username", "postgres",
+        "--no-password",
+        "--dbname", "cinema_catalog_db",
+        "--command", "SELECT setval(pg_get_serial_sequence('public.movies', 'id'), 1, FALSE);"
+    )
+    Invoke-CheckedTool $ResolvedPsql $sequenceDriftArguments "Could not introduce rehearsal sequence drift"
+
+    $sequenceRejected = $false
+    try {
+        & $VerifyScript `
+            -LegacyDb cinema_legacy_fixture `
+            -DbHost localhost `
+            -LegacyPort $Port `
+            -Port $Port `
+            -User postgres `
+            -Psql $ResolvedPsql
+    } catch {
+        if ($_.Exception.Message.Contains("sequence=[TARGET_BEHIND")) {
+            $sequenceRejected = $true
+        } else {
+            throw
+        }
+    }
+
+    if (-not $sequenceRejected) {
+        throw "Sequence drift was not rejected by reconciliation"
+    }
+
+    & $RestoreScript `
+        -Service catalog `
+        -DbHost localhost `
+        -Port $Port `
+        -User postgres `
+        -DumpDir $DumpDir `
+        -PgRestore $ResolvedPgRestore `
+        -Psql $ResolvedPsql `
+        -TruncateFirst `
+        -ResetConfirmation "RESET-COPIED-SERVICE-DATABASES"
+
+    & $VerifyScript `
+        -LegacyDb cinema_legacy_fixture `
+        -DbHost localhost `
+        -LegacyPort $Port `
+        -Port $Port `
+        -User postgres `
+        -Psql $ResolvedPsql | Out-Null
+
+    Write-Host "[OK] Sequence drift was rejected and repaired by a guarded restore"
+}
+
 function Test-ChecksumGuard {
     $tamperedDir = Join-Path $ArtifactDir "tampered"
     New-Item -ItemType Directory -Path $tamperedDir -Force | Out-Null
@@ -254,6 +308,7 @@ try {
     Invoke-Compose -Arguments @("up", "--detach", "--wait")
     Initialize-TargetSchemas
     Invoke-DataMigration
+    Test-SequenceGuard
     Invoke-AnalyticsRehearsal
     Test-ChecksumGuard
     Write-Host "[OK] Disposable migration rehearsal passed."

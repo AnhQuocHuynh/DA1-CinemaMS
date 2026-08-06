@@ -163,3 +163,23 @@ INSERT INTO tickets (id, order_id, showtime_seat_id, ticket_code, price, status,
 VALUES (1, 1, 1, 'REHEARSAL-TICKET', 90000, 'VALID', '2026-08-03 00:01:00');
 INSERT INTO reviews (id, user_id, movie_id, event_id, rating, status, created_at, updated_at)
 VALUES (1, 1, 1, NULL, 5, 'VISIBLE', '2026-08-03 00:02:00', '2026-08-03 00:02:00');
+
+DO $$
+DECLARE
+    table_name TEXT;
+BEGIN
+    FOREACH table_name IN ARRAY ARRAY[
+        'users', 'genres', 'movies', 'events', 'cinemas', 'rooms',
+        'seat_types', 'seat_templates', 'showtimes', 'showtime_seats',
+        'vouchers', 'orders', 'tickets', 'reviews'
+    ]
+    LOOP
+        EXECUTE format(
+            'SELECT setval(pg_get_serial_sequence(%L, %L), MAX(id), TRUE) FROM %I',
+            table_name,
+            'id',
+            table_name
+        );
+    END LOOP;
+END
+$$;

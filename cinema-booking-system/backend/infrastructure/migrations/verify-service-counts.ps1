@@ -79,6 +79,71 @@ END;
     return Invoke-PsqlScalar $Database $DbPort $sql
 }
 
+function Get-TableSequenceState {
+    param(
+        [string]$Database,
+        [int]$DbPort,
+        [string]$TableName
+    )
+
+    if ($DryRun) {
+        Write-Host "DRY RUN: verify sequence state for $Database.public.$TableName on $DbHost`:$DbPort"
+        return [PSCustomObject]@{
+            Present = $false
+            Ready = $true
+            Fingerprint = "DRY_RUN"
+            Detail = "dry-run"
+        }
+    }
+
+    $sequenceSql = @"
+SELECT CASE
+    WHEN EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = '$TableName'
+          AND column_name = 'id'
+    ) THEN COALESCE(pg_get_serial_sequence('public.$TableName', 'id'), '')
+    ELSE ''
+END;
+"@
+    $sequenceName = Invoke-PsqlScalar $Database $DbPort $sequenceSql
+    if ([string]::IsNullOrWhiteSpace($sequenceName)) {
+        return [PSCustomObject]@{
+            Present = $false
+            Ready = $true
+            Fingerprint = "NONE"
+            Detail = "none"
+        }
+    }
+
+    $escapedSequenceName = $sequenceName.Replace("'", "''")
+    $stateSql = @"
+SELECT last_value::text
+       || ':' || is_called::text
+       || ':' || (SELECT seqincrement::text FROM pg_sequence WHERE seqrelid = '$escapedSequenceName'::regclass)
+FROM $sequenceName;
+"@
+    $stateParts = (Invoke-PsqlScalar $Database $DbPort $stateSql) -split ':'
+    if ($stateParts.Count -ne 3) {
+        throw "Could not read sequence state for $Database.public.$TableName"
+    }
+
+    $lastValue = [decimal]$stateParts[0]
+    $isCalled = $stateParts[1] -in @("t", "true", "1")
+    $increment = [decimal]$stateParts[2]
+    $maxId = [decimal](Invoke-PsqlScalar $Database $DbPort "SELECT COALESCE(MAX(id), 0)::text FROM public.$TableName;")
+    $nextValue = if ($isCalled) { $lastValue + $increment } else { $lastValue }
+
+    return [PSCustomObject]@{
+        Present = $true
+        Ready = $nextValue -gt $maxId
+        Fingerprint = "$lastValue`:$isCalled`:$increment"
+        Detail = "next=$nextValue max=$maxId"
+    }
+}
+
 $targets = [ordered]@{
     catalog = @{
         db = "cinema_catalog_db"
@@ -111,7 +176,23 @@ foreach ($serviceName in $targets.Keys) {
     foreach ($table in $target.tables) {
         $legacyFingerprint = Get-TableFingerprint $LegacyDb $LegacyPort $table
         $targetFingerprint = Get-TableFingerprint $target.db $targetPort $table
-        $status = if ($legacyFingerprint -eq $targetFingerprint) { "OK" } else { "MISMATCH" }
+        $fingerprintStatus = if ($legacyFingerprint -eq $targetFingerprint) { "MATCH" } else { "MISMATCH" }
+        $legacySequence = Get-TableSequenceState $LegacyDb $LegacyPort $table
+        $targetSequence = Get-TableSequenceState $target.db $targetPort $table
+        $sequenceStatus = if (-not $legacySequence.Ready) {
+            "SOURCE_BEHIND"
+        } elseif (-not $targetSequence.Ready) {
+            "TARGET_BEHIND"
+        } elseif ($legacySequence.Present -ne $targetSequence.Present) {
+            "MISMATCH"
+        } elseif (-not $legacySequence.Present) {
+            "N/A"
+        } elseif ($legacySequence.Fingerprint -eq $targetSequence.Fingerprint) {
+            "MATCH"
+        } else {
+            "MISMATCH"
+        }
+        $status = if ($fingerprintStatus -eq "MATCH" -and $sequenceStatus -in @("MATCH", "N/A")) { "OK" } else { "MISMATCH" }
         $legacyCount = if ($DryRun) { "DRY_RUN" } else { ($legacyFingerprint -split ':', 2)[0] }
         $targetCount = if ($DryRun) { "DRY_RUN" } else { ($targetFingerprint -split ':', 2)[0] }
 
@@ -120,16 +201,17 @@ foreach ($serviceName in $targets.Keys) {
             Table = $table
             LegacyCount = $legacyCount
             TargetCount = $targetCount
-            ContentFingerprint = if ($status -eq "OK") { "MATCH" } else { "MISMATCH" }
+            ContentFingerprint = $fingerprintStatus
+            SequenceState = $sequenceStatus
             Status = $status
         }
 
         if (-not $DryRun -and $status -ne "OK") {
-            $mismatches += "$serviceName.$table legacy=$legacyFingerprint target=$targetFingerprint"
+            $mismatches += "$serviceName.$table rows=[$legacyFingerprint -> $targetFingerprint] sequence=[$sequenceStatus; source $($legacySequence.Detail); target $($targetSequence.Detail)]"
         }
     }
 }
 
 if ($mismatches.Count -gt 0) {
-    throw "Row-count verification failed: $($mismatches -join '; ')"
+    throw "Data verification failed: $($mismatches -join '; ')"
 }
