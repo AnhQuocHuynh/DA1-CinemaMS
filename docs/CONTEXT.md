@@ -1,5 +1,9 @@
 # Project Context
 
+Agent entry point: read `../AGENTS.md` and `SESSION_BOOTSTRAP.md` first. This
+file is stable product context and should be opened only when the current task
+needs modular-monolith background, repository shape, or run-mode details.
+
 ## Goal
 Cinema Booking System is a university project for movie/event ticket booking, admin management, and staff counter operations. The practical goal is a solid, demo-ready booking management app, not production-grade microservices.
 
@@ -9,6 +13,8 @@ Cinema Booking System is a university project for movie/event ticket booking, ad
 - `cinema-booking-system/backend/`: microservice-refactor target. Catalog, Facility, Showtime, Booking, Analytics, and Recommendation are independently buildable and have passed full-stack runtime, event-flow, and disposable migration-rehearsal gates; other service folders are still placeholders.
 - `cinema-booking-system/docs/architecture_refactor.md`: proposed future microservice architecture. Current implementation is migrating incrementally toward it.
 - Root-level `docs/`: handoff docs for Codex agents.
+- `docs/SESSION_BOOTSTRAP.md`: concise current entry point and task-to-files
+  routing for new agent sessions.
 
 ## Runnable Architecture
 The implemented app is a modular monolith backend plus SPA frontend.
@@ -56,6 +62,7 @@ Frontend areas in `frontend/src/`:
 - FE API docs: `cinema-booking-system/frontend/docs/API_DOCS.md`.
 - FE package: `cinema-booking-system/frontend/package.json`.
 - Proposed refactor doc: `cinema-booking-system/docs/architecture_refactor.md`.
+- Current migration handoff: `cinema-booking-system/backend/MIGRATION_STATUS.md`.
 
 ## Run Modes
 Local dev:
@@ -68,4 +75,4 @@ Docker:
 - `cinema-booking-system/docker-compose-app.yml` exists for full app, but on this branch it may point to `./backend` rather than `./backend_legacy`; inspect/fix before relying on it.
 - `cinema-booking-system/backend/infrastructure/docker-compose.yml` runs the extracted services with isolated PostgreSQL databases, Showtime Redis, RabbitMQ, and Neo4j. `backend/infrastructure/smoke-test.ps1 -StartCompose -StopCompose` builds, starts, verifies, and tears down the stack while retaining named data volumes.
 - `backend/infrastructure/event-flow-smoke.ps1` verifies RabbitMQ-to-Analytics/Neo4j delivery, deduplication, ordering, API output, and evidence cleanup.
-- `backend/infrastructure/migrations/migration-rehearsal.ps1` exercises guarded export, checksum validation, two-pass fingerprint reconciliation, and repeatable Analytics backfill against an isolated PostgreSQL fixture.
+- `backend/infrastructure/migrations/migration-rehearsal.ps1` exercises guarded export, checksum validation, two-pass row/content/sequence reconciliation, deliberate sequence-drift rejection, and repeatable Analytics backfill against an isolated PostgreSQL fixture.

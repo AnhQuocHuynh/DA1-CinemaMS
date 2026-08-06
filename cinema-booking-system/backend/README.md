@@ -158,7 +158,7 @@ Catalog and Booking write domain events into local `outbox_events` tables in the
 ## Data Migration
 
 Guarded export/restore scripts and rollback notes live in `infrastructure/migrations/`. Run them only against a copied legacy database first; the scripts are not a cutover by themselves.
-Use `-DryRun` on export/restore scripts before touching real databases, and run `infrastructure\migrations\verify-service-counts.ps1` before any route switch. Verification compares both row counts and order-independent content fingerprints.
+Use `-DryRun` on export/restore scripts before touching real databases, and run `infrastructure\migrations\verify-service-counts.ps1` before any route switch. Verification compares row counts, order-independent content fingerprints, and owned ID-sequence state so the first post-cutover write cannot reuse an existing ID.
 
 The complete migration procedure can be rehearsed against an isolated PostgreSQL
 fixture on host port `55432` without touching existing databases:

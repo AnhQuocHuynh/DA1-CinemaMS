@@ -2,6 +2,14 @@
 
 Durable rules for agents working in this repository.
 
+## Session Startup
+- Read `AGENTS.md` and `docs/SESSION_BOOTSTRAP.md` first.
+- Before reading implementation files, run `git status --short --branch` and `git log --oneline --decorate --max-count=8`.
+- Use the `Task-To-Files` table in `docs/SESSION_BOOTSTRAP.md` to select only the contract, module, and tests needed for the current task.
+- Do not scan the whole repository or read all of `architecture_refactor.md` by default. Read `docs/CONTEXT.md`, `docs/CURRENT_STATE.md`, and detailed contracts only when the bootstrap routes the task there.
+- `cinema-booking-system/backend/MIGRATION_STATUS.md` is the current source for migration evidence, blockers, and cutover gates.
+- If documentation and targeted code disagree, inspect the narrow implementation and report the mismatch instead of expanding the scan without a reason.
+
 ## Repository Scope
 - Workspace root: `D:\UNI_DOCS\HK6\DA1\DA1-CinemaMS`.
 - Main project directory: `cinema-booking-system/`.
@@ -36,8 +44,9 @@ Durable rules for agents working in this repository.
 
 ## Commands
 - Backend tests: `cd cinema-booking-system/backend_legacy; mvn test`.
+- Extracted services: `cd cinema-booking-system/backend; mvn clean verify`.
 - Backend run: `cd cinema-booking-system/backend_legacy; mvn spring-boot:run`.
-- Frontend install/build: `cd cinema-booking-system/frontend; npm install; npm run build`.
+- Frontend install/build: `cd cinema-booking-system/frontend; npm ci; npm run build`.
 - Frontend dev: `cd cinema-booking-system/frontend; npm run dev`.
 - Full legacy app Docker compose file exists at `cinema-booking-system/docker-compose-app.yml` but references `./backend`, while the runnable backend is currently under `backend_legacy`; verify before using.
 - Extracted service compose: `cd cinema-booking-system/backend; docker compose -f infrastructure/docker-compose.yml config`.

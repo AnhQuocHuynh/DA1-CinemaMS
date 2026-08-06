@@ -1,8 +1,13 @@
 # Current State
 
+For a new agent session, read `../AGENTS.md` and `SESSION_BOOTSTRAP.md` first.
+This file is the detailed operational reference. Migration evidence and cutover
+gates are maintained in
+`../cinema-booking-system/backend/MIGRATION_STATUS.md`.
+
 ## Snapshot
 
-- Date of handoff: 2026-08-06.
+- Date of handoff: 2026-08-07.
 - Branch: `refactor-n-decoupling`.
 - Runnable full backend remains `cinema-booking-system/backend_legacy/`.
 - `cinema-booking-system/backend/` now contains extracted, independently buildable, and full-stack-smoke-tested `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, `analytics-service`, and `recommendation-service` Spring Boot services.
@@ -42,14 +47,16 @@
 - Recommendation includes a read-only copied-legacy-DB backfill that defaults to dry-run and requires exact confirmation before graph writes.
 - Catalog and Booking have opt-in RabbitMQ outbox relays with mandatory routing and publisher-confirm checks before events are marked published.
 - The event-flow smoke publishes duplicate and out-of-order events through RabbitMQ and verifies durable Analytics/Neo4j state plus Recommendation API behavior.
-- Migration export now checks legacy relational invariants and writes a SHA-256 manifest; restore validates compatibility/checksums before mutation, and reconciliation compares content fingerprints rather than counts alone.
-- A disposable PostgreSQL rehearsal passed two restore/reconciliation cycles, two Analytics backfills, and a tampered-dump rejection check on 2026-08-03.
+- Migration export now checks legacy relational invariants and writes a SHA-256 manifest; restore validates compatibility/checksums before mutation, and reconciliation compares row counts, content fingerprints, and owned ID-sequence state.
+- A disposable PostgreSQL rehearsal passed two restore/reconciliation cycles, two Analytics backfills, tampered-dump rejection, and deliberate stale-sequence rejection/repair on 2026-08-07.
+- The current local development `cinema_db` also passed two restore/content/sequence reconciliation cycles and two Analytics backfills against disposable PostgreSQL 18 targets. This was a local-data audit, not the canonical cutover rehearsal.
 - Static contract tests now guard Spring Boot client paths against the OpenAPI drafts for Catalog, Facility, Showtime, and Booking.
 - Spring context tests protect JPA repository scanning, constructor injection, Redis typing, and AMQP queue binding; a packaged-runtime regression test protects Spring MVC parameter metadata.
-- The extracted backend now has 179 passing tests. The 2026-08-06 verification
+- The extracted backend now has 179 passing tests. The 2026-08-07 verification
   ran all six service modules, including JWT validators/route policies,
   authenticated `user_id` binding, booking ownership, and seat-hold ownership.
-- All six Docker images build as executable non-root Java 21 images. The full Compose stack and expanded runtime smoke suite passed locally on 2026-08-03, then the stack was stopped while named data volumes were retained.
+- All six Docker images build as executable non-root Java 21 images. The full Compose stack, expanded runtime smoke, and RabbitMQ/Neo4j event-flow suite passed locally on 2026-08-07, then the stack was stopped while named data volumes were retained.
+- Frontend `npm ci` and the Vite production build passed on 2026-08-07. Production dependency audit still reports 6 advisories, and `@zxing/library@0.22.0` declares Node 24 or newer while the verified environment used Node 22.16.0.
 - Repository-controlled preparation for the Spring-owned migration scope is complete. Remaining risk is external execution against a real copied snapshot and coordinated cutover/rollback, not missing Spring service code.
 - Backend CI now enforces `mvn clean verify`, Compose and PowerShell validation, migration dry-runs, and the RabbitMQ-to-Analytics/Neo4j event-flow test.
 - Do not expand ASP.NET-assigned services in this Spring Boot track: Identity, target Facility, Payment, Notification, and API Gateway.
@@ -115,8 +122,9 @@ Frontend build:
 
 ```powershell
 cd cinema-booking-system\frontend
-npm install
+npm ci
 npm run build
+npm audit --omit=dev
 ```
 
 ## Runtime Ports
@@ -143,11 +151,10 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 
 ## Known Verification Gaps
 
-- Frontend build was not rerun during the latest backend-service extraction.
-- All extracted-service Docker images and the full Compose runtime were verified locally on 2026-08-03.
-- Data backfill has not been executed against a real copied database snapshot because no valid snapshot credential is available.
-- Migration dry-runs and the isolated PostgreSQL rehearsal passed on 2026-08-03. Destructive resets require explicit confirmation, dumps require matching SHA-256 manifest entries, restores are transactional, and reconciliation verifies row content.
-- PostgreSQL client/source/target major versions must be aligned for the real migration; the restore guard rejects a newer client before touching an older target.
+- Frontend build passes, but the 6 production dependency advisories and Node-version mismatch must be resolved and regression-tested before release.
+- Data backfill has not been executed against the canonical copied database snapshot because no approved snapshot credential is available.
+- Migration dry-runs, the isolated PostgreSQL rehearsal, and a local-development-data audit passed on 2026-08-07. Destructive resets require explicit confirmation, dumps require matching SHA-256 manifest entries, restores are transactional, and reconciliation verifies row content plus ID sequences.
+- The audited local source uses PostgreSQL 18 while project Compose targets PostgreSQL 16. Confirm the authoritative source version and align source/client/target majors before the canonical rehearsal; do not bypass the restore guard.
 - Runtime smoke verifies six service health endpoints, Analytics/Recommendation response envelopes, eight RabbitMQ consumer/DLQ queues, and internal-token guards; it passed with automatic Compose teardown.
 - Event-flow smoke verifies duplicate delivery, stale-event ordering, Analytics and Neo4j projections, Recommendation API output, and evidence cleanup; it passed with automatic Compose teardown.
 - API gateway routing and end-user JWT propagation are not wired because those are owned by the separate ASP.NET workstream.
@@ -161,6 +168,8 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 
 ## Suggested Next Steps
 
-1. Obtain valid credentials for a copied legacy database and execute the guarded migration/backfill runbook against disposable targets.
-2. Retain the SHA-256 manifest and fingerprint reports as migration evidence; stop on any mismatch.
-3. Coordinate shadow traffic, write cutover, and rollback with the external traffic owner while keeping `backend_legacy` available.
+1. Rebase or recreate teammate Auth/Gateway, Facility, and Payment branches from the latest `refactor-n-decoupling` before resolving Compose ownership.
+2. Integrate Keycloak/Gateway and pass the authentication contract's real-token and forged-header tests before enabling Spring JWT.
+3. Integrate ASP.NET Facility, then freeze Payment envelopes and implement idempotent Booking Saga outcome consumers.
+4. Run one conflict-resolved full-stack backend, event, auth, Payment, and frontend booking suite.
+5. Confirm PostgreSQL versions, execute the guarded procedure twice against a canonical copied snapshot, archive evidence, and rehearse rollback before cutover.
