@@ -8,7 +8,7 @@
 
 ## 1. Responsibility
 
-Payment processing, transaction management, refund processing, payment gateway integration (VNPay, Stripe). Participates in the Booking Saga via RabbitMQ events.
+Payment processing, transaction management, refund processing, payment gateway integration (Stripe test mode, PayPal Sandbox, Cash). Participates in the Booking Saga via RabbitMQ events.
 
 ---
 
@@ -47,6 +47,8 @@ PaymentService.Presentation  →  PaymentService.Application  →  PaymentServic
 | `Microsoft.EntityFrameworkCore.Tools` | 9.0.0 | CLI tools |
 | `RabbitMQ.Client` | 7.2.1 | RabbitMQ messaging (consume + publish) |
 | `Microsoft.AspNetCore.Authentication` | 9.0.0 | Custom authentication handler for Gateway-forwarded headers (`X-User-Id`, `X-User-Roles`) |
+| `Stripe.net` | latest | Stripe Checkout Session + webhook verification |
+| `PayPalCheckoutSdk` | latest | PayPal Orders API v2 (Sandbox) |
 
 ### Presentation Layer (`PaymentService.Presentation`)
 | Package | Version | Purpose |
@@ -66,7 +68,7 @@ PaymentService.Presentation  →  PaymentService.Application  →  PaymentServic
 | `TransactionId` | `string` | Unique, external gateway transaction ID |
 | `Amount` | `decimal` | Total payment amount |
 | `Currency` | `string` | Default: "VND" |
-| `PaymentMethod` | `PaymentMethod` (enum) | CREDIT_CARD, BANK_TRANSFER, VNPAY, MOMO, CASH |
+| `PaymentMethod` | `PaymentMethod` (enum) | STRIPE, PAYPAL, CASH |
 | `Status` | `PaymentStatus` (enum) | PENDING, COMPLETED, FAILED, REFUNDED, PARTIALLY_REFUNDED |
 | `GatewayResponse` | `string?` | Raw response from payment gateway |
 | `PaidAt` | `DateTime?` | When payment was confirmed |
@@ -97,7 +99,7 @@ PaymentService.Presentation  →  PaymentService.Application  →  PaymentServic
 | `Timestamp` | `DateTime` | UTC |
 
 ### Enums
-- `PaymentMethod`: `CREDIT_CARD`, `BANK_TRANSFER`, `VNPAY`, `MOMO`, `CASH`
+- `PaymentMethod`: `STRIPE`, `PAYPAL`, `CASH`
 - `PaymentStatus`: `PENDING`, `COMPLETED`, `FAILED`, `REFUNDED`, `PARTIALLY_REFUNDED`
 - `RefundStatus`: `PENDING`, `APPROVED`, `PROCESSED`, `REJECTED`
 
@@ -109,7 +111,7 @@ PaymentService.Presentation  →  PaymentService.Application  →  PaymentServic
 | Type | Name | Description |
 |---|---|---|
 | Command | `InitiatePaymentCommand` | Create payment record, redirect to gateway |
-| Command | `HandlePaymentCallbackCommand` | Process gateway callback (VNPay IPN) |
+| Command | `HandlePaymentCallbackCommand` | Process gateway webhook/callback (Stripe webhook, PayPal return URL) |
 | Command | `RequestRefundCommand` | Initiate refund for a paid order |
 | Command | `ProcessRefundCommand` | Admin: approve/reject refund |
 | Query | `GetPaymentByOrderIdQuery` | Get payment status by order ID |
@@ -169,7 +171,10 @@ public record OrderPaidPayload(
 | Method | Route | Auth | Handler |
 |---|---|---|---|
 | `POST` | `/api/payments/initiate` | ✓ | `InitiatePaymentCommand` |
-| `POST` | `/api/payments/callback/vnpay` | ✗ (IPN) | `HandlePaymentCallbackCommand` |
+| `POST` | `/api/payments/callback/stripe` | ✗ (Webhook) | `HandlePaymentCallbackCommand` |
+| `GET` | `/api/payments/callback/paypal/return` | ✗ (Redirect) | `HandlePaymentCallbackCommand` |
+| `GET` | `/api/payments/callback/paypal/cancel` | ✗ (Redirect) | `HandlePaymentCallbackCommand` |
+| `POST` | `/api/payments/cash/confirm` | ✓ (ADMIN) | `ConfirmCashPaymentCommand` |
 | `GET` | `/api/payments/order/{orderId}` | ✓ | `GetPaymentByOrderIdQuery` |
 | `GET` | `/api/payments/{id}` | ✓ | `GetPaymentByIdQuery` |
 | `GET` | `/api/payments/me` | ✓ | `GetPaymentsByUserQuery` |
@@ -195,10 +200,26 @@ public record OrderPaidPayload(
 
 ## 8. Payment Gateway Integration
 
-### VNPay
-- **Initiate**: Build VNPay payment URL with HMAC-SHA512 signature → redirect user
-- **Callback**: VNPay IPN hits `/api/payments/callback/vnpay` with transaction result
-- **Verify**: Validate HMAC signature, check transaction status, update payment record
+> **School Project Note**: All three gateways use free sandbox/test modes with no business registration required. No real money is involved.
+
+### Stripe (Test Mode)
+- **Initiate**: Create a Stripe Checkout Session via the `Stripe.net` SDK → return the session URL to the frontend for redirect
+- **Callback**: Stripe sends a signed webhook event to `/api/payments/callback/stripe` upon payment completion
+- **Verify**: Validate the `Stripe-Signature` header using the webhook secret, extract `payment_intent.id` as `TransactionId`, update payment record
+- **Test Cards**: Use Stripe's built-in test card numbers (e.g., `4242 4242 4242 4242`) — no real card data needed
+- **NuGet**: `Stripe.net`
+
+### PayPal (Sandbox)
+- **Signup**: Free developer account at [developer.paypal.com](https://developer.paypal.com) — no business info required; sandbox buyer/seller accounts are auto-generated
+- **Initiate**: Create a PayPal Order via the Orders API v2 using `PayPalCheckoutSdk` → return the PayPal approval URL to the frontend for redirect
+- **Callback**: PayPal redirects the user to `/api/payments/callback/paypal/return?token=...` on success, or `/api/payments/callback/paypal/cancel` on cancellation
+- **Verify**: Capture the Order using the `token` (Order ID) returned in the query string; use the captured `purchase_unit.payments.captures[0].id` as `TransactionId`
+- **NuGet**: `PayPalCheckoutSdk`
+
+### Cash
+- **Initiate**: Create payment record with status `PENDING` and method `CASH` — no external gateway call
+- **Confirm**: Admin calls `POST /api/payments/cash/confirm` to manually mark the payment as `COMPLETED` after collecting payment at the counter
+- **No callback/webhook**: Cash flow is fully internal
 
 ### Strategy Pattern
 Use `IPaymentGateway` interface for gateway abstraction:
@@ -210,7 +231,7 @@ public interface IPaymentGateway
 }
 ```
 
-Implementations: `VnPayGateway`, `StripeGateway`, `CashGateway`
+Implementations: `StripeGateway`, `PayPalGateway`, `CashGateway`
 
 ---
 
@@ -299,8 +320,8 @@ payment-service/
 │   │   ├── TransactionLogRepository.cs
 │   │   └── UnitOfWork.cs
 │   ├── Gateways/
-│   │   ├── VnPayGateway.cs
 │   │   ├── StripeGateway.cs
+│   │   ├── PayPalGateway.cs
 │   │   ├── CashGateway.cs
 │   │   └── PaymentGatewayFactory.cs
 │   └── Messaging/
@@ -324,14 +345,16 @@ payment-service/
 │
 ├── PaymentService.Test/
 │   ├── PaymentService.Test.csproj
-│   ├── Unit/
-│   │   ├── Entities/
-│   │   │   └── PaymentTests.cs
-│   │   ├── Features/
-│   │   │   ├── InitiatePaymentCommandHandlerTests.cs
-│   │   │   └── HandlePaymentCallbackCommandHandlerTests.cs
-│   │   └── Gateways/
-│   │       └── VnPayGatewayTests.cs
+│   └── Unit/
+│       ├── Entities/
+│       │   └── PaymentTests.cs
+│       ├── Features/
+│       │   ├── InitiatePaymentCommandHandlerTests.cs
+│       │   └── HandlePaymentCallbackCommandHandlerTests.cs
+│       └── Gateways/
+│           ├── StripeGatewayTests.cs
+│           ├── PayPalGatewayTests.cs
+│           └── CashGatewayTests.cs
 │   └── Integration/
 │       └── PaymentsControllerTests.cs
 │
