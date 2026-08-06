@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using FacilityService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using FacilityService.Domain.Enum;
 using System.Linq;
 using System;
 
@@ -23,9 +24,9 @@ namespace FacilityService.Infrastructure.Repositories
             return await _context.SeatTypes.FindAsync(id);
         }
 
-        public Task<SeatType?> GetByCodeAsync(FacilityService.Domain.Enum.SeatTypeCode code)
+        public async Task<SeatType?> GetByCodeAsync(SeatTypeCode code)
         {
-            throw new NotImplementedException();
+            return await _context.SeatTypes.FirstOrDefaultAsync(st => st.Code == code);
         }
 
         public async Task<IEnumerable<SeatType>> GetAllAsync()
@@ -35,14 +36,14 @@ namespace FacilityService.Infrastructure.Repositories
             .ToListAsync();
         }
 
-        public Task AddAsync(SeatType seatType)
+        public async Task AddAsync(SeatType seatType)
         {
-            throw new NotImplementedException();
+            await _context.SeatTypes.AddAsync(seatType);
         }
 
         public void Update(SeatType seatType)
         {
-            throw new NotImplementedException();
+            _context.SeatTypes.Update(seatType);
         }
     }
 }

@@ -17,6 +17,8 @@ namespace FacilityService.Application.Features.Rooms.Commands
         public string? Type { get; set; }
         public int? Rows { get; set; }
         public int? Columns { get; set; }
+        public bool Active { get; set; } = true;
+        public bool UnderMaintenance { get; set; } = false;
     }
 
     public class CreateRoomCommandValidator : AbstractValidator<CreateRoomCommand>
@@ -45,6 +47,8 @@ namespace FacilityService.Application.Features.Rooms.Commands
             if (cinema == null) throw new CinemaNotFoundException(request.CinemaId);
 
             var room = new Room(cinema, request.Name, request.Type, null, request.Rows, request.Columns);
+            if (!request.Active) room.Disable();
+            room.SetMaintenance(request.UnderMaintenance);
 
             var standardType = await _unitOfWork.SeatTypes.GetByCodeAsync(FacilityService.Domain.Enum.SeatTypeCode.STANDARD);
             if (standardType == null)

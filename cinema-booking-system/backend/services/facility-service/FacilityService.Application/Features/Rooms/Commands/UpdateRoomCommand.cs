@@ -16,6 +16,8 @@ namespace FacilityService.Application.Features.Rooms.Commands
         public string? Type { get; set; }
         public int? Rows { get; set; }
         public int? Columns { get; set; }
+        public bool Active { get; set; } = true;
+        public bool UnderMaintenance { get; set; } = false;
     }
 
     public class UpdateRoomCommandValidator : AbstractValidator<UpdateRoomCommand>
@@ -50,6 +52,9 @@ namespace FacilityService.Application.Features.Rooms.Commands
             }
 
             room.Update(request.Name, request.Type, room.TotalSeats, request.Rows, request.Columns);
+            if (request.Active) room.Enable();
+            else room.Disable();
+            room.SetMaintenance(request.UnderMaintenance);
             _unitOfWork.Rooms.Update(room);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 

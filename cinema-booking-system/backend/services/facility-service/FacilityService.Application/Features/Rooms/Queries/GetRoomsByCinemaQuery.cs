@@ -26,7 +26,7 @@ namespace FacilityService.Application.Features.Rooms.Queries
         {
             var rooms = await _unitOfWork.Rooms.GetRoomsByCinemaIdAsync(request.CinemaId);
             
-            return rooms.Where(r => r.Active).Select(r => new RoomDto
+            return rooms.Select(r => new RoomDto
             {
                 Id = r.Id,
                 CinemaId = r.CinemaId,
