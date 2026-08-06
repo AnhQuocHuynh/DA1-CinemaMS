@@ -10,4 +10,5 @@ import java.util.List;
 public interface SeatLockingService {
     void holdSeats(Long showtimeId, List<Long> seatIds, Long userId);
     void releaseHold(Long showtimeId, Long seatId);
+    void releaseHold(Long showtimeId, Long seatId, Long userId);
 }

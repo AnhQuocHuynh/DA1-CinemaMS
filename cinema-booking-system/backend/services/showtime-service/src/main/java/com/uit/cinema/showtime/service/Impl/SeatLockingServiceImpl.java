@@ -8,6 +8,7 @@ import com.uit.cinema.showtime.service.SeatLockingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,11 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class SeatLockingServiceImpl implements SeatLockingService {
+
+    private static final DefaultRedisScript<Long> RELEASE_OWNED_HOLD = new DefaultRedisScript<>(
+        "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
+        Long.class
+    );
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final ShowtimeSeatRepository showtimeSeatRepository;
@@ -61,8 +67,31 @@ public class SeatLockingServiceImpl implements SeatLockingService {
     }
 
     @Override
+    @Transactional
     public void releaseHold(Long showtimeId, Long seatId) {
         redisTemplate.delete(SeatHoldPolicy.holdKey(showtimeId, seatId));
+        markSeatAvailable(seatId);
+    }
+
+    @Override
+    @Transactional
+    public void releaseHold(Long showtimeId, Long seatId, Long userId) {
+        String lockKey = SeatHoldPolicy.holdKey(showtimeId, seatId);
+        Long released = redisTemplate.execute(RELEASE_OWNED_HOLD, List.of(lockKey), userId.toString());
+        if (!Long.valueOf(1L).equals(released)) {
+            Object currentHolder = redisTemplate.opsForValue().get(lockKey);
+            if (currentHolder != null) {
+                throw new CustomException(
+                    "Seat hold belongs to another user",
+                    HttpStatus.FORBIDDEN,
+                    "SEAT_HOLD_ACCESS_DENIED"
+                );
+            }
+        }
+        markSeatAvailable(seatId);
+    }
+
+    private void markSeatAvailable(Long seatId) {
         showtimeSeatRepository.findById(seatId).ifPresent(seat -> {
             if (seat.getStatus() == ShowtimeSeat.SeatStatus.HELD) {
                 seat.setStatus(ShowtimeSeat.SeatStatus.AVAILABLE);

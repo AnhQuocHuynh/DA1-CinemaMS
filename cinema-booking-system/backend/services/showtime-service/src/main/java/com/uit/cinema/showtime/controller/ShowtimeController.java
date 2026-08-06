@@ -4,6 +4,7 @@ import com.uit.cinema.core.dto.response.ApiResponse;
 import com.uit.cinema.showtime.dto.request.ShowtimeRequest;
 import com.uit.cinema.showtime.dto.response.ShowtimeResponse;
 import com.uit.cinema.showtime.dto.response.ShowtimeSeatResponse;
+import com.uit.cinema.showtime.security.AuthenticatedUserIdResolver;
 import com.uit.cinema.showtime.service.SeatLockingService;
 import com.uit.cinema.showtime.service.ShowtimeService;
 import jakarta.validation.Valid;
@@ -21,6 +22,7 @@ public class ShowtimeController {
 
     private final ShowtimeService showtimeService;
     private final SeatLockingService seatLockingService;
+    private final AuthenticatedUserIdResolver userIdResolver;
 
     @GetMapping("/movie/{movieId}")
     public ResponseEntity<ApiResponse<List<ShowtimeResponse>>> getShowtimesByMovie(@PathVariable Long movieId) {
@@ -55,11 +57,12 @@ public class ShowtimeController {
     @PostMapping("/{id}/hold")
     public ResponseEntity<ApiResponse<Void>> holdSeats(
             @PathVariable Long id,
-            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader(name = "X-User-Id", required = false) Long requestedUserId,
             @RequestBody java.util.Map<String, Object> request
     ) {
         @SuppressWarnings("unchecked")
         List<Long> seatIds = ((List<Integer>) request.get("seatIds")).stream().map(Long::valueOf).toList();
+        Long userId = userIdResolver.resolveSelf(requestedUserId);
         seatLockingService.holdSeats(id, seatIds, userId);
         return ResponseEntity.ok(ApiResponse.success(null, "Seats held successfully"));
     }
@@ -67,12 +70,20 @@ public class ShowtimeController {
     @DeleteMapping("/{id}/hold")
     public ResponseEntity<ApiResponse<Void>> releaseHeldSeats(
             @PathVariable Long id,
+            @RequestHeader(name = "X-User-Id", required = false) Long requestedUserId,
             @RequestBody java.util.Map<String, Object> request
     ) {
         @SuppressWarnings("unchecked")
         List<Long> seatIds = ((List<Integer>) request.get("seatIds")).stream().map(Long::valueOf).toList();
-        for (Long seatId : seatIds) {
-            seatLockingService.releaseHold(id, seatId);
+        if (userIdResolver.isJwtEnabled()) {
+            Long userId = userIdResolver.resolveSelf(requestedUserId);
+            for (Long seatId : seatIds) {
+                seatLockingService.releaseHold(id, seatId, userId);
+            }
+        } else {
+            for (Long seatId : seatIds) {
+                seatLockingService.releaseHold(id, seatId);
+            }
         }
         return ResponseEntity.ok(ApiResponse.success(null, "Seat holds released successfully"));
     }

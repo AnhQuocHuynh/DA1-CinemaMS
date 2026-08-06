@@ -4,6 +4,7 @@ import com.uit.cinema.booking.dto.request.CreateReviewRequest;
 import com.uit.cinema.booking.dto.response.ReviewEligibilityResponse;
 import com.uit.cinema.booking.dto.response.ReviewInsightResponse;
 import com.uit.cinema.booking.dto.response.ReviewResponse;
+import com.uit.cinema.booking.security.AuthenticatedUserIdResolver;
 import com.uit.cinema.booking.service.ReviewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,9 +19,11 @@ import java.util.List;
 public class ReviewController {
 
     private final ReviewService reviewService;
+    private final AuthenticatedUserIdResolver userIdResolver;
 
     @PostMapping
     public ResponseEntity<ReviewResponse> create(@Valid @RequestBody CreateReviewRequest request) {
+        request.setUserId(userIdResolver.resolveSelf(request.getUserId()));
         return ResponseEntity.ok(reviewService.createReview(request));
     }
 
@@ -49,7 +52,8 @@ public class ReviewController {
         @PathVariable Long movieId,
         @RequestParam Long userId
     ) {
-        return ResponseEntity.ok(reviewService.getMovieEligibility(userId, movieId));
+        Long authorizedUserId = userIdResolver.authorizeRequestedUser(userId);
+        return ResponseEntity.ok(reviewService.getMovieEligibility(authorizedUserId, movieId));
     }
 
     @GetMapping("/events/{eventId}/eligibility")
@@ -57,6 +61,7 @@ public class ReviewController {
         @PathVariable Long eventId,
         @RequestParam Long userId
     ) {
-        return ResponseEntity.ok(reviewService.getEventEligibility(userId, eventId));
+        Long authorizedUserId = userIdResolver.authorizeRequestedUser(userId);
+        return ResponseEntity.ok(reviewService.getEventEligibility(authorizedUserId, eventId));
     }
 }

@@ -1,6 +1,8 @@
 package com.uit.cinema.booking.controller;
 
 import com.uit.cinema.booking.dto.response.TicketResponse;
+import com.uit.cinema.booking.security.AuthenticatedUserIdResolver;
+import com.uit.cinema.booking.security.BookingAuthorizationService;
 import com.uit.cinema.booking.service.TicketService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,8 @@ import java.util.Map;
 public class TicketController {
 
     private final TicketService ticketService;
+    private final AuthenticatedUserIdResolver userIdResolver;
+    private final BookingAuthorizationService authorizationService;
 
     @PostMapping("/check-in")
     @PreAuthorize("hasRole('STAFF') or hasRole('ADMIN')")
@@ -25,16 +29,19 @@ public class TicketController {
 
     @GetMapping("/code/{ticketCode}")
     public ResponseEntity<TicketResponse> getByCode(@PathVariable String ticketCode) {
+        authorizationService.requireTicketAccess(ticketCode);
         return ResponseEntity.ok(ticketService.getByCode(ticketCode));
     }
 
     @GetMapping("/users/{userId}")
     public ResponseEntity<List<TicketResponse>> getByUser(@PathVariable Long userId) {
-        return ResponseEntity.ok(ticketService.getByUserId(userId));
+        Long authorizedUserId = userIdResolver.authorizeRequestedUser(userId);
+        return ResponseEntity.ok(ticketService.getByUserId(authorizedUserId));
     }
 
     @GetMapping("/orders/{orderId}")
     public ResponseEntity<List<TicketResponse>> getByOrder(@PathVariable Long orderId) {
+        authorizationService.requireOrderAccess(orderId);
         return ResponseEntity.ok(ticketService.getByOrderId(orderId));
     }
 }

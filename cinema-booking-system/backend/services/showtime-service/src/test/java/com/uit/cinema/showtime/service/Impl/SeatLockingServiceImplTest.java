@@ -100,4 +100,32 @@ class SeatLockingServiceImplTest {
         verify(showtimeSeatRepository).save(seat);
         verify(redisTemplate).delete(anyString());
     }
+
+    @Test
+    void releaseHold_WithOwner_AtomicallyDeletesOwnedLock() {
+        ShowtimeSeat seat = new ShowtimeSeat();
+        seat.setStatus(ShowtimeSeat.SeatStatus.HELD);
+        when(showtimeSeatRepository.findById(10L)).thenReturn(Optional.of(seat));
+        when(redisTemplate.execute(any(), anyList(), eq("1"))).thenReturn(1L);
+
+        seatLockingService.releaseHold(1L, 10L, 1L);
+
+        assertEquals(ShowtimeSeat.SeatStatus.AVAILABLE, seat.getStatus());
+        verify(showtimeSeatRepository).save(seat);
+    }
+
+    @Test
+    void releaseHold_WhenHeldByAnotherUser_RejectsRequest() {
+        when(redisTemplate.execute(any(), anyList(), eq("1"))).thenReturn(0L);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(anyString())).thenReturn("2");
+
+        CustomException exception = assertThrows(
+            CustomException.class,
+            () -> seatLockingService.releaseHold(1L, 10L, 1L)
+        );
+
+        assertEquals("SEAT_HOLD_ACCESS_DENIED", exception.getErrorCode());
+        verify(showtimeSeatRepository, never()).save(any());
+    }
 }
