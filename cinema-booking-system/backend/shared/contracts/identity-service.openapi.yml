@@ -1,0 +1,117 @@
+openapi: 3.0.3
+info:
+  title: Cinema Identity Service API
+  version: 0.1.0
+paths:
+  /api/users:
+    get:
+      summary: Get users.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Paginated users.
+  /api/users/me:
+    get:
+      summary: Get current user.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user details.
+    put:
+      summary: Update current user.
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: "#/components/requestBodies/UpdateUserProfileCommand"
+      responses:
+        "200":
+          description: User updated.
+  /api/users/{id}:
+    get:
+      summary: Get user by id.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: User details.
+  /api/users/{id}/role:
+    put:
+      summary: Change user role.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        $ref: "#/components/requestBodies/ChangeUserRoleRequest"
+      responses:
+        "200":
+          description: Role changed.
+  /internal/users/resolve:
+    get:
+      summary: Resolve internal Keycloak ID.
+      security:
+        - internalToken: []
+      parameters:
+        - name: keycloakId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Resolved user.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        The API Gateway intercepts the JWT, validates it against Keycloak, and injects the following headers for downstream services:
+        - `X-User-Id`: Resolved internal User ID (long)
+        - `X-User-Roles`: Comma-separated roles
+        - `X-User-Email`: User's email
+        - `X-Keycloak-Id`: Original Keycloak UUID
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        default: 10
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+  requestBodies:
+    ChangeUserRoleRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    UpdateUserProfileCommand:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object

@@ -2,3 +2,6 @@
 .vscode/
 !.vscode/extensions.json
 .vs
+.agents/*
+.claude/*
+.cursor/*
