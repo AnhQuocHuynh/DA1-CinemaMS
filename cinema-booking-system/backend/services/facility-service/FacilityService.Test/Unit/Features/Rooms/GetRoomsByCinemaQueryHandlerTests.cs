@@ -8,7 +8,7 @@ using FacilityService.Domain.Interfaces;
 using Moq;
 using Xunit;
 
-namespace FacilityService.Test.ApplicationTests.Features.Rooms
+namespace FacilityService.Test.Unit.Features.Rooms
 {
     public class GetRoomsByCinemaQueryHandlerTests
     {
@@ -22,7 +22,7 @@ namespace FacilityService.Test.ApplicationTests.Features.Rooms
         }
 
         [Fact]
-        public async Task Handle_ReturnsOnlyActiveRooms()
+        public async Task Handle_ReturnsAllRooms()
         {
             // Arrange
             var cinema = new Cinema("Test", "Addr", null, null);
@@ -40,8 +40,9 @@ namespace FacilityService.Test.ApplicationTests.Features.Rooms
 
             // Assert
             Assert.NotNull(result);
-            Assert.Single(result);
-            Assert.Equal("Active Room", result.First().Name);
+            Assert.Equal(2, result.Count);
+            Assert.Contains(result, r => r.Name == "Active Room");
+            Assert.Contains(result, r => r.Name == "Inactive Room");
         }
     }
 }

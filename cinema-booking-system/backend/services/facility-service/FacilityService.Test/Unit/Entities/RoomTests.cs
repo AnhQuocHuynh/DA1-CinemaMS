@@ -2,7 +2,7 @@ using System;
 using FacilityService.Domain.Entities;
 using Xunit;
 
-namespace FacilityService.Test.DomainTests
+namespace FacilityService.Test.Unit.Entities
 {
     public class RoomTests
     {

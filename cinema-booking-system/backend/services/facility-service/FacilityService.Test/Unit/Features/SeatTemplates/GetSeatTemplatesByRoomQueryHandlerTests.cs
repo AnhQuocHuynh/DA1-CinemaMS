@@ -9,7 +9,7 @@ using FacilityService.Domain.Interfaces;
 using Moq;
 using Xunit;
 
-namespace FacilityService.Test.ApplicationTests.Features.SeatTemplates
+namespace FacilityService.Test.Unit.Features.SeatTemplates
 {
     public class GetSeatTemplatesByRoomQueryHandlerTests
     {

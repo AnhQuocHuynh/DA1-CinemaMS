@@ -3,7 +3,7 @@ using FacilityService.Domain.Entities;
 using FacilityService.Domain.Enum;
 using Xunit;
 
-namespace FacilityService.Test.DomainTests
+namespace FacilityService.Test.Unit.Entities
 {
     public class SeatTemplateTests
     {

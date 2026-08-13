@@ -9,7 +9,7 @@ using FacilityService.Domain.Interfaces;
 using Moq;
 using Xunit;
 
-namespace FacilityService.Test.ApplicationTests.Features.Cinemas
+namespace FacilityService.Test.Unit.Features.Cinemas
 {
     public class GetCinemasQueryHandlerTests
     {

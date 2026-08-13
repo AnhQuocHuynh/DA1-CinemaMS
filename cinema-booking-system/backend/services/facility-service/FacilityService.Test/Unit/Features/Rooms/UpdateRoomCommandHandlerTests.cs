@@ -7,7 +7,7 @@ using FacilityService.Domain.Interfaces;
 using Moq;
 using Xunit;
 
-namespace FacilityService.Test.ApplicationTests.Features.Rooms
+namespace FacilityService.Test.Unit.Features.Rooms
 {
     public class UpdateRoomCommandHandlerTests
     {
