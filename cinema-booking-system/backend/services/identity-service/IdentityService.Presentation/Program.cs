@@ -1,5 +1,7 @@
 using IdentityService.Application;
 using IdentityService.Infrastructure;
+using IdentityService.Presentation.Security;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,7 +20,7 @@ builder.Services.AddAuthentication(options =>
     options.DefaultAuthenticateScheme = "GatewayAuth";
     options.DefaultChallengeScheme = "GatewayAuth";
 })
-.AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, IdentityService.Presentation.Security.GatewayAuthenticationHandler>("GatewayAuth", null);
+.AddScheme<AuthenticationSchemeOptions, GatewayAuthenticationHandler>("GatewayAuth", null);
 
 var app = builder.Build();
 
@@ -35,3 +37,5 @@ app.MapControllers();
 app.MapGet("/", () => "IdentityService is running!");
 
 app.Run();
+
+public partial class Program { }

@@ -5,6 +5,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using IdentityService.Application.Features.Internal.Queries;
 
 namespace IdentityService.Presentation.Controllers;
 
@@ -74,7 +75,7 @@ public class UsersController : ControllerBase
             return Unauthorized();
         }
 
-        var userId = await _mediator.Send(new IdentityService.Application.Features.Internal.Queries.ResolveKeycloakIdQuery(keycloakId));
+        var userId = await _mediator.Send(new ResolveKeycloakIdQuery(keycloakId));
 
         command = command with { UserId = userId };
 
