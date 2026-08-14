@@ -56,39 +56,39 @@ Catalog API:
 
 - Service: `http://localhost:8081`
 - Health: `http://localhost:8081/actuator/health`
-- Database: `localhost:5433/cinema_catalog_db`
+- Database: `localhost:5432/cinema_catalog_db`
 
 Facility API:
 
 - Service: `http://localhost:5002`
 - Health: `http://localhost:5002/actuator/health`
-- Database: `localhost:5434/cinema_facility_db`
+- Database: `localhost:5432/cinema_facility_db`
 
 Showtime API:
 
 - Service: `http://localhost:8082`
 - Health: `http://localhost:8082/actuator/health`
-- Database: `localhost:5435/cinema_showtime_db`
+- Database: `localhost:5432/cinema_showtime_db`
 - Redis: `localhost:6380`
 
 Booking API:
 
 - Service: `http://localhost:8083`
 - Health: `http://localhost:8083/actuator/health`
-- Database: `localhost:5436/cinema_booking_db`
+- Database: `localhost:5432/cinema_booking_db`
 
 Analytics API:
 
 - Service: `http://localhost:8084`
 - Health: `http://localhost:8084/actuator/health`
-- Database: `localhost:5437/cinema_analytics_db`
+- Database: `localhost:5432/cinema_analytics_db`
 
 Recommendation API:
 
 - Service: `http://localhost:8085`
 - Health: `http://localhost:8085/actuator/health`
 
-The host database ports are intentionally `5433`, `5434`, `5435`, and `5436` so services can run beside the legacy monolith database on `5432`. Showtime Redis uses host port `6380` so it can run beside legacy Redis on `6379`.
+The microservices share a single PostgreSQL 18 container on host port `5432` with logical database isolation (`cinema_catalog_db`, `cinema_facility_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, etc.) initialized via `init-multiple-databases.sql`. Showtime Redis uses host port `6380` so it can run beside legacy Redis on `6379`.
 
 Internal service-to-service endpoints under `/internal/**` require `X-Internal-Token`. For local Docker, set `INTERNAL_API_TOKEN` or use the documented dev default `local-dev-internal-token`.
 

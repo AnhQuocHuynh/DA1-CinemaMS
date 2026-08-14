@@ -99,7 +99,7 @@ function Invoke-RabbitPublish {
 function Invoke-AnalyticsScalar {
     param([string]$Sql)
 
-    $output = & docker exec cinema-analytics-db psql `
+    $output = & docker exec cinema-postgres psql `
         --username postgres `
         --dbname cinema_analytics_db `
         --tuples-only `
@@ -114,7 +114,7 @@ function Invoke-AnalyticsScalar {
 function Invoke-AnalyticsCommand {
     param([string]$Sql)
 
-    & docker exec cinema-analytics-db psql `
+    & docker exec cinema-postgres psql `
         --username postgres `
         --dbname cinema_analytics_db `
         --set ON_ERROR_STOP=1 `

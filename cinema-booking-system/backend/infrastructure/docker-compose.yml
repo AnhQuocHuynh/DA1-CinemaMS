@@ -20,20 +20,20 @@ services:
     networks:
       - cinema-services
 
-  catalog-db:
-    image: postgres:16-alpine
-    container_name: cinema-catalog-db
+  postgres:
+    image: postgres:18-alpine
+    container_name: cinema-postgres
     environment:
-      POSTGRES_DB: cinema_catalog_db
+      POSTGRES_DB: cinema_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: "123"
     ports:
-      # Host port 5433 avoids colliding with the legacy monolith DB on 5432.
-      - "5433:5432"
+      - "5432:5432"
     volumes:
-      - catalog_db_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-multiple-databases.sql:/docker-entrypoint-initdb.d/init-multiple-databases.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d cinema_catalog_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cinema_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -47,7 +47,7 @@ services:
     container_name: cinema-catalog-service
     environment:
       SERVER_PORT: 8081
-      SPRING_DATASOURCE_URL: jdbc:postgresql://catalog-db:5432/cinema_catalog_db
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cinema_catalog_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: "123"
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
@@ -64,29 +64,10 @@ services:
     ports:
       - "8081:8081"
     depends_on:
-      catalog-db:
+      postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    networks:
-      - cinema-services
-
-  facility-db:
-    image: postgres:16-alpine
-    container_name: cinema-facility-db
-    environment:
-      POSTGRES_DB: cinema_facility_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: "123"
-    ports:
-      - "5434:5432"
-    volumes:
-      - facility_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d cinema_facility_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - cinema-services
 
@@ -97,7 +78,7 @@ services:
     container_name: cinema-facility-service
     environment:
       SERVER_PORT: 5002
-      SPRING_DATASOURCE_URL: jdbc:postgresql://facility-db:5432/cinema_facility_db
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cinema_facility_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: "123"
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
@@ -106,27 +87,8 @@ services:
     ports:
       - "5002:5002"
     depends_on:
-      facility-db:
+      postgres:
         condition: service_healthy
-    networks:
-      - cinema-services
-
-  showtime-db:
-    image: postgres:16-alpine
-    container_name: cinema-showtime-db
-    environment:
-      POSTGRES_DB: cinema_showtime_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: "123"
-    ports:
-      - "5435:5432"
-    volumes:
-      - showtime_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d cinema_showtime_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - cinema-services
 
@@ -150,7 +112,7 @@ services:
     container_name: cinema-showtime-service
     environment:
       SERVER_PORT: 8082
-      SPRING_DATASOURCE_URL: jdbc:postgresql://showtime-db:5432/cinema_showtime_db
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cinema_showtime_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: "123"
       SPRING_DATA_REDIS_HOST: showtime-redis
@@ -170,29 +132,10 @@ services:
         condition: service_started
       facility-service:
         condition: service_started
-      showtime-db:
+      postgres:
         condition: service_healthy
       showtime-redis:
         condition: service_healthy
-    networks:
-      - cinema-services
-
-  booking-db:
-    image: postgres:16-alpine
-    container_name: cinema-booking-db
-    environment:
-      POSTGRES_DB: cinema_booking_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: "123"
-    ports:
-      - "5436:5432"
-    volumes:
-      - booking_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d cinema_booking_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - cinema-services
 
@@ -203,7 +146,7 @@ services:
     container_name: cinema-booking-service
     environment:
       SERVER_PORT: 8083
-      SPRING_DATASOURCE_URL: jdbc:postgresql://booking-db:5432/cinema_booking_db
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cinema_booking_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: "123"
       CATALOG_SERVICE_URL: http://catalog-service:8081
@@ -222,7 +165,7 @@ services:
     ports:
       - "8083:8083"
     depends_on:
-      booking-db:
+      postgres:
         condition: service_healthy
       catalog-service:
         condition: service_started
@@ -235,25 +178,6 @@ services:
     networks:
       - cinema-services
 
-  analytics-db:
-    image: postgres:16-alpine
-    container_name: cinema-analytics-db
-    environment:
-      POSTGRES_DB: cinema_analytics_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: "123"
-    ports:
-      - "5437:5432"
-    volumes:
-      - analytics_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d cinema_analytics_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - cinema-services
-
   analytics-service:
     build:
       context: ..
@@ -261,7 +185,7 @@ services:
     container_name: cinema-analytics-service
     environment:
       SERVER_PORT: 8084
-      SPRING_DATASOURCE_URL: jdbc:postgresql://analytics-db:5432/cinema_analytics_db
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cinema_analytics_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: "123"
       SPRING_SQL_INIT_MODE: always
@@ -277,7 +201,7 @@ services:
     ports:
       - "8084:8084"
     depends_on:
-      analytics-db:
+      postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
@@ -336,11 +260,7 @@ services:
 
 volumes:
   rabbitmq_data:
-  catalog_db_data:
-  facility_db_data:
-  showtime_db_data:
-  booking_db_data:
-  analytics_db_data:
+  postgres_data:
   neo4j_data:
 
 networks:
