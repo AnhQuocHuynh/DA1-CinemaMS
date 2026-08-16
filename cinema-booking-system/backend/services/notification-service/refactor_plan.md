@@ -46,7 +46,7 @@ NotificationService.Presentation  →  NotificationService.Application  →  Not
 | `MailKit` | 4.8.0 | SMTP email sending (modern, cross-platform) |
 | `MimeKit` | 4.8.0 | Email composition (HTML templates) |
 | `Microsoft.AspNetCore.SignalR.Core` | — | Real-time push (built into ASP.NET) |
-| `Microsoft.AspNetCore.Authentication` | 9.0.0 | Custom authentication handler for Gateway-forwarded headers (`X-User-Id`, `X-User-Roles`) |
+| `Microsoft.AspNetCore.Authentication.JwtBearer` | 9.0.0 | Native Keycloak JWT validation |
 
 ### Presentation Layer (`NotificationService.Presentation`)
 | Package | Version | Purpose |
@@ -141,6 +141,7 @@ This service is **consumer-only** — it does not publish events.
 ### Consumed Event Payloads
 
 ```csharp
+// All consumed payloads are wrapped in the standard EventEnvelope<T>
 // Keycloak SPI events use string KeycloakId (UUID), not internal long UserId
 public record KeycloakUserRegisteredPayload(string KeycloakId, string Email, string FullName);
 public record KeycloakPasswordResetPayload(string KeycloakId, string Email, string ResetToken);
@@ -395,4 +396,4 @@ db.delivery_logs.createIndex({ notificationId: 1 });
 4. **MailKit over System.Net.Mail**: MailKit is modern, cross-platform, and supports OAuth2 SMTP auth (important for Gmail/Outlook).
 5. **SignalR for real-time**: Admin dashboard connects via SignalR hub at `/hubs/notifications` for live booking/payment notifications.
 6. **Template rendering**: Simple `{{key}}` replacement — no heavy templating engine needed at this scale.
-7. **Authentication via Gateway**: This service does not validate JWTs directly. It trusts the API Gateway, reading user identity and roles from the `X-User-Id` and `X-User-Roles` headers to construct the `ClaimsPrincipal`.
+7. **Authentication via Keycloak JWT**: This service uses `JwtBearer` to validate Keycloak JWTs directly for authorization. It still reads the `X-User-Id` header (forwarded by the API Gateway) to map the internal numeric user ID to the `ClaimsPrincipal` for business logic.
