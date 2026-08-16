@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using PaymentService.Application.IntegrationEvents;
+using PaymentService.Application.Contracts;
 using PaymentService.Infrastructure.Sagas;
 
 namespace PaymentService.Test.Unit.Sagas;
@@ -102,9 +103,9 @@ public class PaymentStateMachineTests : IAsyncLifetime
         await AssertSagaInState(correlationId, "Completed");
 
         // Assert — PaymentCompleted was published
-        Assert.True(await _harness.Published.Any<PaymentCompleted>(
-            m => m.Context.Message.CorrelationId == correlationId &&
-                 m.Context.Message.TransactionId == "pi_test123"));
+        Assert.True(await _harness.Published.Any<EventEnvelope<PaymentCompleted>>(
+            m => m.Context.Message.Payload.CorrelationId == correlationId &&
+                 m.Context.Message.Payload.TransactionId == "pi_test123"));
     }
 
     // ── Pending → Failed (failure callback) ───────────────────────────────────
@@ -141,9 +142,9 @@ public class PaymentStateMachineTests : IAsyncLifetime
         await AssertSagaInState(correlationId, "Failed");
 
         // Assert — PaymentFailed was published with the correct reason
-        Assert.True(await _harness.Published.Any<PaymentFailed>(
-            m => m.Context.Message.CorrelationId == correlationId &&
-                 m.Context.Message.Reason == "insufficient_funds"));
+        Assert.True(await _harness.Published.Any<EventEnvelope<PaymentFailed>>(
+            m => m.Context.Message.Payload.CorrelationId == correlationId &&
+                 m.Context.Message.Payload.Reason == "insufficient_funds"));
     }
 
     // ── Pending → Completed (cash confirmation) ───────────────────────────────
@@ -179,9 +180,9 @@ public class PaymentStateMachineTests : IAsyncLifetime
         await AssertSagaInState(correlationId, "Completed");
 
         // Assert — PaymentCompleted was published
-        Assert.True(await _harness.Published.Any<PaymentCompleted>(
-            m => m.Context.Message.CorrelationId == correlationId &&
-                 m.Context.Message.PaymentMethod == "CASH"));
+        Assert.True(await _harness.Published.Any<EventEnvelope<PaymentCompleted>>(
+            m => m.Context.Message.Payload.CorrelationId == correlationId &&
+                 m.Context.Message.Payload.PaymentMethod == "CASH"));
     }
 
     // ── Completed → Refunded ──────────────────────────────────────────────────
@@ -226,9 +227,9 @@ public class PaymentStateMachineTests : IAsyncLifetime
         await AssertSagaInState(correlationId, "Refunded");
 
         // Assert — PaymentRefunded published
-        Assert.True(await _harness.Published.Any<PaymentRefunded>(
-            m => m.Context.Message.CorrelationId == correlationId &&
-                 m.Context.Message.Reason == "Customer changed mind"));
+        Assert.True(await _harness.Published.Any<EventEnvelope<PaymentRefunded>>(
+            m => m.Context.Message.Payload.CorrelationId == correlationId &&
+                 m.Context.Message.Payload.Reason == "Customer changed mind"));
     }
 
     // ── Duplicate PaymentInitiated — idempotent ───────────────────────────────
@@ -281,8 +282,8 @@ public class PaymentStateMachineTests : IAsyncLifetime
         await Task.Delay(100);
 
         // Assert — no PaymentCompleted published for an unknown saga
-        Assert.False(await _harness.Published.Any<PaymentCompleted>(
-            m => m.Context.Message.CorrelationId == unknownCorrelationId));
+        Assert.False(await _harness.Published.Any<EventEnvelope<PaymentCompleted>>(
+            m => m.Context.Message.Payload.CorrelationId == unknownCorrelationId));
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────

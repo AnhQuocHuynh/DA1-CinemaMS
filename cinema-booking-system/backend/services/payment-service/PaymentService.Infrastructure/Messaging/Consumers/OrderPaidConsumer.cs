@@ -2,6 +2,8 @@ using MassTransit;
 using Microsoft.Extensions.Logging;
 using PaymentService.Application.IntegrationEvents;
 
+using PaymentService.Application.Contracts;
+
 namespace PaymentService.Infrastructure.Messaging.Consumers;
 
 /// <summary>
@@ -14,7 +16,7 @@ namespace PaymentService.Infrastructure.Messaging.Consumers;
 /// MassTransit inbox stores the message in DB before processing,
 /// ensuring idempotent consumption even if the consumer restarts mid-processing.
 /// </summary>
-public class OrderPaidConsumer : IConsumer<OrderPaid>
+public class OrderPaidConsumer : IConsumer<EventEnvelope<OrderPaid>>
 {
     private readonly ILogger<OrderPaidConsumer> _logger;
 
@@ -23,9 +25,9 @@ public class OrderPaidConsumer : IConsumer<OrderPaid>
         _logger = logger;
     }
 
-    public Task Consume(ConsumeContext<OrderPaid> context)
+    public Task Consume(ConsumeContext<EventEnvelope<OrderPaid>> context)
     {
-        var msg = context.Message;
+        var msg = context.Message.Payload;
 
         // Payment Service currently has no action to take when order.paid is received
         // (the payment was already completed before the booking service generates this event).

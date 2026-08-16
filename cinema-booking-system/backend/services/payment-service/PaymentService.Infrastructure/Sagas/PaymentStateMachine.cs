@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using PaymentService.Application.IntegrationEvents;
 using PaymentService.Domain.Enums;
 using PaymentService.Domain.Interfaces;
+using PaymentService.Application.Contracts;
 
 namespace PaymentService.Infrastructure.Sagas;
 
@@ -62,43 +63,58 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
         During(Pending,
             When(GatewayCallbackReceivedEvent, ctx => ctx.Message.IsSuccess)
                 .ThenAsync(OnPaymentSucceeded)
-                .PublishAsync(ctx => ctx.Init<PaymentCompleted>(new PaymentCompleted
+                .PublishAsync(ctx => ctx.Init<EventEnvelope<PaymentCompleted>>(new EventEnvelope<PaymentCompleted>
                 {
-                    CorrelationId = ctx.Saga.CorrelationId,
-                    PaymentId = ctx.Saga.PaymentId,
-                    OrderId = ctx.Saga.OrderId,
-                    UserId = ctx.Saga.UserId,
-                    Amount = ctx.Saga.Amount,
-                    TransactionId = ctx.Saga.TransactionId ?? string.Empty,
-                    PaymentMethod = ctx.Saga.PaymentMethod,
-                    PaidAt = ctx.Saga.CompletedAt ?? DateTime.UtcNow
+                    EventType = "payment.completed",
+                    Source = "payment-service",
+                    Payload = new PaymentCompleted
+                    {
+                        CorrelationId = ctx.Saga.CorrelationId,
+                        PaymentId = ctx.Saga.PaymentId,
+                        OrderId = ctx.Saga.OrderId,
+                        UserId = ctx.Saga.UserId,
+                        Amount = ctx.Saga.Amount,
+                        TransactionId = ctx.Saga.TransactionId ?? string.Empty,
+                        PaymentMethod = ctx.Saga.PaymentMethod,
+                        PaidAt = ctx.Saga.CompletedAt ?? DateTime.UtcNow
+                    }
                 }))
                 .TransitionTo(Completed),
 
             When(GatewayCallbackReceivedEvent, ctx => !ctx.Message.IsSuccess)
                 .ThenAsync(OnPaymentFailed)
-                .PublishAsync(ctx => ctx.Init<PaymentFailed>(new PaymentFailed
+                .PublishAsync(ctx => ctx.Init<EventEnvelope<PaymentFailed>>(new EventEnvelope<PaymentFailed>
                 {
-                    CorrelationId = ctx.Saga.CorrelationId,
-                    PaymentId = ctx.Saga.PaymentId,
-                    OrderId = ctx.Saga.OrderId,
-                    UserId = ctx.Saga.UserId,
-                    Reason = ctx.Saga.FailureReason ?? "Unknown failure"
+                    EventType = "payment.failed",
+                    Source = "payment-service",
+                    Payload = new PaymentFailed
+                    {
+                        CorrelationId = ctx.Saga.CorrelationId,
+                        PaymentId = ctx.Saga.PaymentId,
+                        OrderId = ctx.Saga.OrderId,
+                        UserId = ctx.Saga.UserId,
+                        Reason = ctx.Saga.FailureReason ?? "Unknown failure"
+                    }
                 }))
                 .TransitionTo(Failed),
 
             When(CashPaymentConfirmedEvent)
                 .ThenAsync(OnCashPaymentConfirmed)
-                .PublishAsync(ctx => ctx.Init<PaymentCompleted>(new PaymentCompleted
+                .PublishAsync(ctx => ctx.Init<EventEnvelope<PaymentCompleted>>(new EventEnvelope<PaymentCompleted>
                 {
-                    CorrelationId = ctx.Saga.CorrelationId,
-                    PaymentId = ctx.Saga.PaymentId,
-                    OrderId = ctx.Saga.OrderId,
-                    UserId = ctx.Saga.UserId,
-                    Amount = ctx.Saga.Amount,
-                    TransactionId = ctx.Saga.TransactionId ?? string.Empty,
-                    PaymentMethod = ctx.Saga.PaymentMethod,
-                    PaidAt = ctx.Saga.CompletedAt ?? DateTime.UtcNow
+                    EventType = "payment.completed",
+                    Source = "payment-service",
+                    Payload = new PaymentCompleted
+                    {
+                        CorrelationId = ctx.Saga.CorrelationId,
+                        PaymentId = ctx.Saga.PaymentId,
+                        OrderId = ctx.Saga.OrderId,
+                        UserId = ctx.Saga.UserId,
+                        Amount = ctx.Saga.Amount,
+                        TransactionId = ctx.Saga.TransactionId ?? string.Empty,
+                        PaymentMethod = ctx.Saga.PaymentMethod,
+                        PaidAt = ctx.Saga.CompletedAt ?? DateTime.UtcNow
+                    }
                 }))
                 .TransitionTo(Completed));
 
@@ -106,14 +122,19 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
         During(Completed,
             When(RefundRequestedEvent)
                 .ThenAsync(OnRefundRequested)
-                .PublishAsync(ctx => ctx.Init<PaymentRefunded>(new PaymentRefunded
+                .PublishAsync(ctx => ctx.Init<EventEnvelope<PaymentRefunded>>(new EventEnvelope<PaymentRefunded>
                 {
-                    CorrelationId = ctx.Saga.CorrelationId,
-                    PaymentId = ctx.Saga.PaymentId,
-                    OrderId = ctx.Saga.OrderId,
-                    UserId = ctx.Saga.UserId,
-                    RefundAmount = ctx.Message.Amount,
-                    Reason = ctx.Message.Reason
+                    EventType = "payment.refunded",
+                    Source = "payment-service",
+                    Payload = new PaymentRefunded
+                    {
+                        CorrelationId = ctx.Saga.CorrelationId,
+                        PaymentId = ctx.Saga.PaymentId,
+                        OrderId = ctx.Saga.OrderId,
+                        UserId = ctx.Saga.UserId,
+                        RefundAmount = ctx.Message.Amount,
+                        Reason = ctx.Message.Reason
+                    }
                 }))
                 .TransitionTo(Refunded));
     }

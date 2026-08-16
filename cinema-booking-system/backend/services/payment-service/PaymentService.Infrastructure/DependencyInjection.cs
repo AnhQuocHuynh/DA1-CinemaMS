@@ -74,6 +74,9 @@ public static class DependencyInjection
                     h.Password(rabbitPass);
                 });
 
+                // Use Raw JSON Serializer to match custom Envelope schema exactly
+                cfg.UseRawJsonSerializer();
+
                 // Retry policy: 3 attempts with exponential back-off before dead-letter
                 cfg.UseMessageRetry(r => r.Exponential(3,
                     TimeSpan.FromSeconds(1),
@@ -82,8 +85,8 @@ public static class DependencyInjection
 
                 // ── Custom topology: backward-compatible with Booking Service ──
                 // PaymentCompleted → payment.events / payment.completed
-                cfg.Message<PaymentCompleted>(t => t.SetEntityName("payment.events"));
-                cfg.Publish<PaymentCompleted>(p =>
+                cfg.Message<EventEnvelope<PaymentCompleted>>(t => t.SetEntityName("payment.events"));
+                cfg.Publish<EventEnvelope<PaymentCompleted>>(p =>
                 {
                     p.ExchangeType = "topic";
                     p.BindQueue("payment.events", "booking.payment.completed",
@@ -91,8 +94,8 @@ public static class DependencyInjection
                 });
 
                 // PaymentFailed → payment.events / payment.failed
-                cfg.Message<PaymentFailed>(t => t.SetEntityName("payment.events"));
-                cfg.Publish<PaymentFailed>(p =>
+                cfg.Message<EventEnvelope<PaymentFailed>>(t => t.SetEntityName("payment.events"));
+                cfg.Publish<EventEnvelope<PaymentFailed>>(p =>
                 {
                     p.ExchangeType = "topic";
                     p.BindQueue("payment.events", "booking.payment.failed",
@@ -100,8 +103,8 @@ public static class DependencyInjection
                 });
 
                 // PaymentRefunded → payment.events / payment.refunded
-                cfg.Message<PaymentRefunded>(t => t.SetEntityName("payment.events"));
-                cfg.Publish<PaymentRefunded>(p =>
+                cfg.Message<EventEnvelope<PaymentRefunded>>(t => t.SetEntityName("payment.events"));
+                cfg.Publish<EventEnvelope<PaymentRefunded>>(p =>
                 {
                     p.ExchangeType = "topic";
                     p.BindQueue("payment.events", "booking.refund.completed",
