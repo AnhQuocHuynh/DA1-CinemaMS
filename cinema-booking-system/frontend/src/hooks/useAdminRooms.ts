@@ -47,6 +47,16 @@ export const useAdminRooms = () => {
     await loadRooms();
   };
 
+  const updateRoom = async (cinemaId: number | string, roomId: number | string, data: any) => {
+    try {
+      await adminService.updateRoom(cinemaId, roomId, { ...data, id: Number(roomId), cinemaId: Number(cinemaId) });
+    } catch (e) {
+      console.error('Failed to update room:', e);
+      throw e;
+    }
+    await loadRooms();
+  };
+
   const deleteRoom = async (cinemaId: number | string, roomId: number | string) => {
     await adminService.deleteRoom(cinemaId, roomId);
     await loadRooms();
@@ -60,6 +70,7 @@ export const useAdminRooms = () => {
     updateTheater,
     deleteTheater,
     addRoom,
+    updateRoom,
     deleteRoom,
   };
 };

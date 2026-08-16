@@ -11,8 +11,8 @@ import { RoomModal } from '../../components/admin/modals/RoomModal';
 
 export const RoomManagement: React.FC = () => {
   const navigate = useNavigate();
-  const { theaters, isLoading, addTheater, updateTheater, deleteTheater, addRoom, deleteRoom } = useAdminRooms();
-  
+  const { theaters, isLoading, addTheater, updateTheater, deleteTheater, addRoom, updateRoom, deleteRoom } = useAdminRooms();
+
   const [expandedTheaters, setExpandedTheaters] = useState<Record<string, boolean>>({
     'theater-1': true,
   });
@@ -20,9 +20,10 @@ export const RoomManagement: React.FC = () => {
   // Modal States
   const [isTheaterModalOpen, setIsTheaterModalOpen] = useState(false);
   const [selectedTheater, setSelectedTheater] = useState<any>(null);
-  
+
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [selectedTheaterForRoom, setSelectedTheaterForRoom] = useState<{ id: string; name: string } | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<any>(null);
 
   const toggleTheater = (theater: AdminTheater) => {
     setExpandedTheaters((prev) => ({
@@ -48,6 +49,13 @@ export const RoomManagement: React.FC = () => {
   };
 
   const handleAddRoomClick = (theater: AdminTheater) => {
+    setSelectedRoom(null);
+    setSelectedTheaterForRoom({ id: theater.id, name: theater.name });
+    setIsRoomModalOpen(true);
+  };
+
+  const handleEditRoomClick = (theater: AdminTheater, room: any) => {
+    setSelectedRoom(room);
     setSelectedTheaterForRoom({ id: theater.id, name: theater.name });
     setIsRoomModalOpen(true);
   };
@@ -68,11 +76,15 @@ export const RoomManagement: React.FC = () => {
 
   const handleRoomSubmit = async (data: any) => {
     if (selectedTheaterForRoom) {
-      await addRoom(selectedTheaterForRoom.id, data);
+      if (selectedRoom) {
+        await updateRoom(selectedTheaterForRoom.id, selectedRoom.id, data);
+      } else {
+        await addRoom(selectedTheaterForRoom.id, data);
+      }
     }
   };
 
-  const totalCapacity = theaters.reduce((acc, theater) => 
+  const totalCapacity = theaters.reduce((acc, theater) =>
     acc + theater.rooms.reduce((roomAcc, room) => roomAcc + (room.capacity || 0), 0), 0
   );
 
@@ -181,14 +193,12 @@ export const RoomManagement: React.FC = () => {
                                   </td>
                                   <td className="px-6 py-4">
                                     <span
-                                      className={`flex items-center gap-1.5 text-[11px] font-semibold ${
-                                        room.status === 'operational' ? 'text-emerald-600' : 'text-amber-600'
-                                      }`}
+                                      className={`flex items-center gap-1.5 text-[11px] font-semibold ${room.status === 'operational' ? 'text-emerald-600' : 'text-amber-600'
+                                        }`}
                                     >
                                       <span
-                                        className={`h-1.5 w-1.5 rounded-full ${
-                                          room.status === 'operational' ? 'bg-emerald-500' : 'bg-amber-500'
-                                        }`}
+                                        className={`h-1.5 w-1.5 rounded-full ${room.status === 'operational' ? 'bg-emerald-500' : 'bg-amber-500'
+                                          }`}
                                       ></span>
                                       {room.status === 'operational' ? 'Operational' : 'Maintenance'}
                                     </span>
@@ -196,12 +206,18 @@ export const RoomManagement: React.FC = () => {
                                   <td className="px-6 py-4 text-right">
                                     <div className="flex items-center justify-end gap-2">
                                       <button
-                                        className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-surface-container-low text-primary rounded"
+                                        className="px-3 h-7 flex items-center justify-center text-[10px] font-bold uppercase tracking-wider bg-surface-container-low text-primary rounded whitespace-nowrap"
                                         onClick={() => navigate(`/admin/rooms/${room.id}/seats`)}
                                       >
                                         Configure Seats
                                       </button>
-                                      <button onClick={() => handleDeleteRoomClick(theater.id, room.id)} className="p-2 hover:bg-red-50 rounded text-slate-400 hover:text-error transition-colors">
+                                      <button
+                                        className="px-3 h-7 flex items-center justify-center text-[10px] font-bold uppercase tracking-wider bg-surface-container-low text-primary rounded whitespace-nowrap"
+                                        onClick={() => handleEditRoomClick(theater, room)}
+                                      >
+                                        Edit
+                                      </button>
+                                      <button onClick={() => handleDeleteRoomClick(theater.id, room.id)} className="p-2 h-7 flex items-center justify-center hover:bg-red-50 rounded text-slate-400 hover:text-error transition-colors">
                                         Delete
                                       </button>
                                     </div>
@@ -242,6 +258,7 @@ export const RoomManagement: React.FC = () => {
         onClose={() => setIsRoomModalOpen(false)}
         onSubmit={handleRoomSubmit}
         cinemaName={selectedTheaterForRoom?.name || ''}
+        initialData={selectedRoom}
       />
     </AdminLayout>
   );
