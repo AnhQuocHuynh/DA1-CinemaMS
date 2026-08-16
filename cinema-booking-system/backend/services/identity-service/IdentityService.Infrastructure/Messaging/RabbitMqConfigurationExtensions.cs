@@ -13,9 +13,9 @@ public static class RabbitMqConfigurationExtensions
         cfg.UseRawJsonSerializer();
 
         // Custom Topology for Publishers
-        cfg.Message<UserProfileUpdatedPayload>(e => e.SetEntityName("user.events"));
-        cfg.Publish<UserProfileUpdatedPayload>(e => e.ExchangeType = ExchangeType.Topic);
-        cfg.Send<UserProfileUpdatedPayload>(e => e.UseRoutingKeyFormatter(context => "user.profile.updated"));
+        cfg.Message<IdentityService.Application.Contracts.EventEnvelope<UserProfileUpdatedPayload>>(e => e.SetEntityName("user.events"));
+        cfg.Publish<IdentityService.Application.Contracts.EventEnvelope<UserProfileUpdatedPayload>>(e => e.ExchangeType = ExchangeType.Topic);
+        cfg.Send<IdentityService.Application.Contracts.EventEnvelope<UserProfileUpdatedPayload>>(e => e.UseRoutingKeyFormatter(context => "user.profile.updated"));
 
         // Custom Topology for Consumers
         cfg.ReceiveEndpoint("identity-service.user-registered", e =>

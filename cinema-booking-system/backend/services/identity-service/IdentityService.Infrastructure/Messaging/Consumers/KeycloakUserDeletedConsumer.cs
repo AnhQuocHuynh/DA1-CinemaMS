@@ -4,9 +4,11 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
 
+using IdentityService.Application.Contracts;
+
 namespace IdentityService.Infrastructure.Messaging.Consumers;
 
-public class KeycloakUserDeletedConsumer : IConsumer<KeycloakDeletePayload>
+public class KeycloakUserDeletedConsumer : IConsumer<EventEnvelope<KeycloakDeletePayload>>
 {
     private readonly IMediator _mediator;
     private readonly ILogger<KeycloakUserDeletedConsumer> _logger;
@@ -17,9 +19,9 @@ public class KeycloakUserDeletedConsumer : IConsumer<KeycloakDeletePayload>
         _logger = logger;
     }
 
-    public async Task Consume(ConsumeContext<KeycloakDeletePayload> context)
+    public async Task Consume(ConsumeContext<EventEnvelope<KeycloakDeletePayload>> context)
     {
-        var payload = context.Message;
+        var payload = context.Message.Payload;
         _logger.LogInformation("Received Keycloak Delete Event for KeycloakId: {KeycloakId}", payload.KeycloakId);
 
         if (!string.IsNullOrEmpty(payload.KeycloakId))

@@ -2,6 +2,7 @@ using FluentAssertions;
 using IdentityService.Application.Exceptions;
 using IdentityService.Application.Features.Users.Commands;
 using IdentityService.Application.Messages;
+using IdentityService.Application.Contracts;
 using IdentityService.Domain.Entities;
 using IdentityService.Domain.Enums;
 using IdentityService.Domain.Interfaces;
@@ -66,7 +67,7 @@ public class UpdateUserProfileCommandHandlerTests
         _userRepositoryMock.Verify(r => r.Update(user), Times.Once);
         _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         _publishEndpointMock.Verify(pub => pub.Publish(
-            It.Is<UserProfileUpdatedPayload>(p => p.UserId == 1 && p.Email == "test@test.com" && p.FullName == "Test"),
+            It.Is<EventEnvelope<UserProfileUpdatedPayload>>(e => e.Payload.UserId == 1 && e.Payload.Email == "test@test.com" && e.Payload.FullName == "Test"),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -91,7 +92,7 @@ public class UpdateUserProfileCommandHandlerTests
         _userRepositoryMock.Verify(r => r.Update(user), Times.Once);
         _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         _publishEndpointMock.Verify(pub => pub.Publish(
-            It.IsAny<UserProfileUpdatedPayload>(), It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<EventEnvelope<UserProfileUpdatedPayload>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // ─── Error: repository throws ────────────────────────────────────────────
@@ -107,7 +108,7 @@ public class UpdateUserProfileCommandHandlerTests
             .Should().ThrowAsync<InvalidOperationException>().WithMessage("DB error");
 
         _unitOfWorkMock.Verify(uow => uow.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
-        _publishEndpointMock.Verify(pub => pub.Publish(It.IsAny<UserProfileUpdatedPayload>(),
+        _publishEndpointMock.Verify(pub => pub.Publish(It.IsAny<EventEnvelope<UserProfileUpdatedPayload>>(),
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -131,6 +132,6 @@ public class UpdateUserProfileCommandHandlerTests
         // Note: Publish will be called because it's called before SaveChanges with the Outbox pattern.
         // However, since SaveChanges throws, the outbox message is never committed to the database.
         _publishEndpointMock.Verify(pub => pub.Publish(
-            It.IsAny<UserProfileUpdatedPayload>(), It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<EventEnvelope<UserProfileUpdatedPayload>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

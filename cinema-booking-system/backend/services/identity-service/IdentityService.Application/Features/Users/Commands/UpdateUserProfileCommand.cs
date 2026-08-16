@@ -3,6 +3,7 @@ using IdentityService.Application.Exceptions;
 using IdentityService.Application.Messages;
 using IdentityService.Domain.Enums;
 using IdentityService.Domain.Interfaces;
+using IdentityService.Application.Contracts;
 using MassTransit;
 using MediatR;
 using System;
@@ -58,7 +59,13 @@ public class UpdateUserProfileCommandHandler : IRequestHandler<UpdateUserProfile
 
         // Publish event via MassTransit Outbox pattern
         var payload = new UserProfileUpdatedPayload(user.Id, user.Email, user.FullName);
-        await _publishEndpoint.Publish(payload, cancellationToken);
+        var envelope = new EventEnvelope<UserProfileUpdatedPayload>
+        {
+            EventType = "user.profile.updated",
+            Source = "identity-service",
+            Payload = payload
+        };
+        await _publishEndpoint.Publish(envelope, cancellationToken);
 
         // SaveChanges will commit both the User update and the Outbox message in one transaction
         await _unitOfWork.SaveChangesAsync(cancellationToken);

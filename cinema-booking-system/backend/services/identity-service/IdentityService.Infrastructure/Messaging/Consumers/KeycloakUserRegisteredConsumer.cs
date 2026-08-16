@@ -6,9 +6,11 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Threading.Tasks;
 
+using IdentityService.Application.Contracts;
+
 namespace IdentityService.Infrastructure.Messaging.Consumers;
 
-public class KeycloakUserRegisteredConsumer : IConsumer<KeycloakRegistrationPayload>
+public class KeycloakUserRegisteredConsumer : IConsumer<EventEnvelope<KeycloakRegistrationPayload>>
 {
     private readonly IMediator _mediator;
     private readonly ILogger<KeycloakUserRegisteredConsumer> _logger;
@@ -19,9 +21,9 @@ public class KeycloakUserRegisteredConsumer : IConsumer<KeycloakRegistrationPayl
         _logger = logger;
     }
 
-    public async Task Consume(ConsumeContext<KeycloakRegistrationPayload> context)
+    public async Task Consume(ConsumeContext<EventEnvelope<KeycloakRegistrationPayload>> context)
     {
-        var payload = context.Message;
+        var payload = context.Message.Payload;
         _logger.LogInformation("Received Keycloak Registration Event for KeycloakId: {KeycloakId}", payload.KeycloakId);
 
         if (!string.IsNullOrEmpty(payload.KeycloakId))
