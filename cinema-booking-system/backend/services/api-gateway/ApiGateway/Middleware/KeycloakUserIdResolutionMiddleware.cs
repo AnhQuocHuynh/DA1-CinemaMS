@@ -36,6 +36,12 @@ namespace ApiGateway.Middleware
 
         public async Task InvokeAsync(HttpContext context)
         {
+            // Strip any incoming spoofable headers from external requests
+            context.Request.Headers.Remove("X-User-Id");
+            context.Request.Headers.Remove("X-Keycloak-Id");
+            context.Request.Headers.Remove("X-User-Roles");
+            context.Request.Headers.Remove("X-User-Email");
+
             if (context.User.Identity?.IsAuthenticated == true)
             {
                 var keycloakId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -44,19 +50,6 @@ namespace ApiGateway.Middleware
                 if (!string.IsNullOrEmpty(keycloakId))
                 {
                     context.Request.Headers["X-Keycloak-Id"] = keycloakId;
-                    
-                    if (!string.IsNullOrEmpty(email))
-                    {
-                        context.Request.Headers["X-User-Email"] = email;
-                    }
-
-                    // Extract roles and put them in X-User-Roles
-                    var roles = context.User.FindAll(ClaimTypes.Role);
-                    var rolesString = string.Join(",", roles.Select(r => r.Value));
-                    if (!string.IsNullOrEmpty(rolesString))
-                    {
-                        context.Request.Headers["X-User-Roles"] = rolesString;
-                    }
 
                     // Resolve Keycloak UUID to internal Long ID
                     var internalId = await ResolveInternalUserIdAsync(keycloakId);

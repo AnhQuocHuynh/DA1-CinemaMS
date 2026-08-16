@@ -9,6 +9,8 @@ using Serilog;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System;
+using Polly;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,8 +23,21 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-// Configure HttpClient for User Profile Resolution
-builder.Services.AddHttpClient("UserProfileClient");
+// Configure HttpClient for User Profile Resolution with Resilience
+builder.Services.AddHttpClient("UserProfileClient")
+    .AddStandardResilienceHandler(options =>
+    {
+        // 3 retries, exponential backoff starting at 2s + jitter
+        options.Retry.MaxRetryAttempts = 3;
+        options.Retry.Delay = TimeSpan.FromSeconds(2);
+        options.Retry.BackoffType = DelayBackoffType.Exponential;
+        options.Retry.UseJitter = true;
+
+        // Circuit Breaker: Break for 30s after ~5 consecutive failures
+        options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
+        options.CircuitBreaker.MinimumThroughput = 5;
+        options.CircuitBreaker.FailureRatio = 0.9;
+    });
 
 // YARP
 builder.Services.AddReverseProxy()
