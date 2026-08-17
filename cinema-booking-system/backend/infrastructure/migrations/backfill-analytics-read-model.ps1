@@ -5,7 +5,7 @@ param(
     [Alias("Host")]
     [string]$DbHost = "localhost",
     [int]$LegacyPort = 5432,
-    [int]$AnalyticsPort = 5437,
+    [int]$AnalyticsPort = 5432,
     [string]$User = "postgres",
     [string]$Psql = "psql",
     [string]$WorkDir = "infrastructure/migrations/analytics-dumps",

@@ -7,8 +7,8 @@ gates are maintained in
 
 ## Snapshot
 
-- Date of handoff: 2026-08-07.
-- Branch: `refactor-n-decoupling`.
+- Date of handoff: 2026-08-18.
+- Branch: `refactor-compose-single-postgres`.
 - Runnable full backend remains `cinema-booking-system/backend_legacy/`.
 - `cinema-booking-system/backend/` now contains extracted, independently buildable, and full-stack-smoke-tested `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, `analytics-service`, and `recommendation-service` Spring Boot services.
 
@@ -24,7 +24,7 @@ gates are maintained in
   - `backend/services/analytics-service`
   - `backend/services/recommendation-service`
 - Remaining service folders are placeholders unless documented otherwise.
-- `backend/infrastructure/docker-compose.yml` runs Catalog, Facility, Showtime, Booking, Analytics, and Recommendation with separate PostgreSQL databases, Showtime Redis, RabbitMQ, and Neo4j.
+- `backend/infrastructure/docker-compose.yml` runs Catalog, Facility, Showtime, Booking, Analytics, and Recommendation against one PostgreSQL 18 container on host port `5432` with logical databases (`cinema_catalog_db`, `cinema_facility_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, plus teammate placeholders). Showtime Redis, RabbitMQ, and Neo4j remain separate containers.
 - `backend_legacy/src/main/resources/application.yml` now has a valid Base64 JWT default while preserving `APP_JWT_SECRET`.
 - `backend_legacy/src/main/resources/DB_PATCH_2026_06_25_SEAT_MAP.sql` is present in source.
 
@@ -129,12 +129,17 @@ npm audit --omit=dev
 
 ## Runtime Ports
 
-- Legacy backend DB: `localhost:5432/cinema_db`.
-- Catalog service: `localhost:8081`, DB `localhost:5433/cinema_catalog_db`.
-- Facility service: `localhost:5002`, DB `localhost:5434/cinema_facility_db`.
-- Showtime service: `localhost:8082`, DB `localhost:5435/cinema_showtime_db`, Redis `localhost:6380`.
-- Booking service: `localhost:8083`, DB `localhost:5436/cinema_booking_db`.
-- Analytics service: `localhost:8084`, DB `localhost:5437/cinema_analytics_db`.
+- Shared extracted PostgreSQL 18: `localhost:5432`. Logical databases:
+  `cinema_catalog_db`, `cinema_facility_db`, `cinema_showtime_db`,
+  `cinema_booking_db`, `cinema_analytics_db`.
+- Legacy backend DB (when `backend_legacy` or a local `my-postgres` is used
+  instead of extracted Compose): `localhost:5432/cinema_db`. Do not run both
+  stacks on `5432` at the same time.
+- Catalog service: `localhost:8081`.
+- Facility service: `localhost:5002`.
+- Showtime service: `localhost:8082`, Redis `localhost:6380`.
+- Booking service: `localhost:8083`.
+- Analytics service: `localhost:8084`.
 - Recommendation service: `localhost:8085`.
 - RabbitMQ: `localhost:5672`, management UI `localhost:15672`.
 - Neo4j: browser `localhost:7474`, Bolt `localhost:7687`.
@@ -154,7 +159,7 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 - Frontend build passes, but the 6 production dependency advisories and Node-version mismatch must be resolved and regression-tested before release.
 - Data backfill has not been executed against the canonical copied database snapshot because no approved snapshot credential is available.
 - Migration dry-runs, the isolated PostgreSQL rehearsal, and a local-development-data audit passed on 2026-08-07. Destructive resets require explicit confirmation, dumps require matching SHA-256 manifest entries, restores are transactional, and reconciliation verifies row content plus ID sequences.
-- The audited local source uses PostgreSQL 18 while project Compose targets PostgreSQL 16. Confirm the authoritative source version and align source/client/target majors before the canonical rehearsal; do not bypass the restore guard.
+- Extracted Compose now targets PostgreSQL 18, matching the 2026-08-07 local-data audit major. Confirm the canonical snapshot is also PostgreSQL 18 before rehearsal; do not bypass the restore version guard.
 - Runtime smoke verifies six service health endpoints, Analytics/Recommendation response envelopes, eight RabbitMQ consumer/DLQ queues, and internal-token guards; it passed with automatic Compose teardown.
 - Event-flow smoke verifies duplicate delivery, stale-event ordering, Analytics and Neo4j projections, Recommendation API output, and evidence cleanup; it passed with automatic Compose teardown.
 - API gateway routing and end-user JWT propagation are not wired because those are owned by the separate ASP.NET workstream.
@@ -168,7 +173,7 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 
 ## Suggested Next Steps
 
-1. Rebase or recreate teammate Auth/Gateway, Facility, and Payment branches from the latest `refactor-n-decoupling` before resolving Compose ownership.
+1. Rebase or recreate teammate Auth/Gateway, Facility, and Payment branches from the latest `refactor-compose-single-postgres` before resolving Compose ownership. Do not restore the old per-service Postgres port map.
 2. Integrate Keycloak/Gateway and pass the authentication contract's real-token and forged-header tests before enabling Spring JWT.
 3. Integrate ASP.NET Facility, then freeze Payment envelopes and implement idempotent Booking Saga outcome consumers.
 4. Run one conflict-resolved full-stack backend, event, auth, Payment, and frontend booking suite.

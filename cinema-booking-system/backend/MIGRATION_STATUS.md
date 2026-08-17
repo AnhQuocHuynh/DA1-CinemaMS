@@ -1,6 +1,6 @@
 # Backend Migration Status
 
-Updated: 2026-08-07
+Updated: 2026-08-18
 
 ## Executive Decision
 
@@ -146,13 +146,13 @@ container. It is development data, not the canonical cutover snapshot.
 The repeatable Analytics result was 6 orders, 19 showtimes, 258 showtime seats,
 12 content records, 12 rooms, and 16 users.
 
-The source container currently uses PostgreSQL 18, while the project Compose
-target is PostgreSQL 16. The audit therefore used disposable PostgreSQL 18
-targets to respect the compatibility guard. Before the canonical rehearsal,
-the team must confirm the authoritative source major version and align client
-and target versions. Do not bypass the version guard. If the canonical source
-is PostgreSQL 18, either approve PostgreSQL 18 targets or design and test an
-explicit downgrade-compatible logical migration.
+The 2026-08-07 audit used disposable PostgreSQL 18 targets because the local
+`my-postgres` source was 18 and Compose still targeted 16. Extracted Compose
+on `refactor-compose-single-postgres` now runs PostgreSQL 18 on host port
+`5432` with logical service databases. Before the canonical rehearsal, confirm
+the copied snapshot is also PostgreSQL 18 and keep client tools on that major.
+Do not bypass the version guard. Do not restore an older multi-Postgres port
+map (`5433`-`5437`) onto this branch.
 
 Local dump files and credentials were not retained. For the canonical rehearsal,
 archive the manifest, checksums, reconciliation output, and approved rollback
@@ -173,9 +173,10 @@ point in the team's protected evidence location.
 
 ### Auth and Gateway
 
-The teammate should branch or rebase from the latest `refactor-n-decoupling`
-before integration. The existing remote auth/gateway branch was created from an
-older base and should not be merged blindly over the Spring extraction.
+The teammate should branch or rebase from the latest
+`refactor-compose-single-postgres` before integration. Older auth/gateway
+branches that still ship one PostgreSQL container per service must not be
+merged blindly over the single-Postgres Compose file.
 
 Merge Keycloak and Gateway first, then run every security test in Section 14 of
 the authentication contract. Only after those tests pass should
@@ -233,8 +234,9 @@ guards. Avoid parallel feature development in the Spring compatibility slice.
 
 ## Safe Integration and Cutover Order
 
-1. Push/rebase teammate work from the latest `refactor-n-decoupling`; resolve
-   Compose ownership without replacing Spring service definitions.
+1. Push/rebase teammate work from the latest
+   `refactor-compose-single-postgres`; resolve Compose ownership without
+   replacing Spring service definitions or the single PostgreSQL 18 container.
 2. Merge Keycloak and Gateway; freeze issuer, audience, roles, claims, route
    policies, header stripping, and `/internal/**` blocking.
 3. Enable Spring JWT only in the integrated environment and pass the complete

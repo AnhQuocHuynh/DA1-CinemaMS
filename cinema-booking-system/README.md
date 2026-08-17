@@ -1,6 +1,14 @@
 # Cinema Booking System
 
-A **Movie and Event Ticket Booking System** built as a university project using a **Modular Monolithic Architecture**.
+> Current runtime and migration handoff: `backend_legacy/` is the complete
+> monolith; `backend/` is the microservice target. Extracted Compose uses
+> PostgreSQL 18 on `localhost:5432` with logical service databases. Start from
+> `../docs/SESSION_BOOTSTRAP.md` and `backend/README.md`, not the Java 17
+> layout below.
+
+A **Movie and Event Ticket Booking System** built as a university project. The
+original deliverable was a **modular monolith**; the current orientation is
+incremental extraction to microservices plus a DevOps pipeline.
 
 ---
 

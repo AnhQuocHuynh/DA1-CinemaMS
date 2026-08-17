@@ -39,7 +39,9 @@ Frontend areas in `frontend/src/`:
 
 ## Tech Stack
 - Backend: Java 21, Spring Boot 3.3.4, Maven, Spring Security, JWT via jjwt 0.12.6, Spring Data JPA/Hibernate, MapStruct, Lombok.
-- Database/cache/messaging: PostgreSQL 16 compatible, Redis 7, RabbitMQ 3.13, Neo4j 5.23.
+- Database/cache/messaging: PostgreSQL 18 for extracted Compose (logical
+  database-per-service on one container); Redis 7, RabbitMQ 3.13, Neo4j 5.23.
+  Legacy local Docker may still use PostgreSQL 16.
 - Frontend: React 18, Vite 5, TypeScript, Tailwind CSS, Zustand, Axios, Lucide React.
 - Containers: Docker/Docker Compose files exist, but verify paths because branch layout moved runnable backend to `backend_legacy`.
 
@@ -73,6 +75,6 @@ Local dev:
 
 Docker:
 - `cinema-booking-system/docker-compose-app.yml` exists for full app, but on this branch it may point to `./backend` rather than `./backend_legacy`; inspect/fix before relying on it.
-- `cinema-booking-system/backend/infrastructure/docker-compose.yml` runs the extracted services with isolated PostgreSQL databases, Showtime Redis, RabbitMQ, and Neo4j. `backend/infrastructure/smoke-test.ps1 -StartCompose -StopCompose` builds, starts, verifies, and tears down the stack while retaining named data volumes.
+- `cinema-booking-system/backend/infrastructure/docker-compose.yml` runs the extracted services with one PostgreSQL 18 container, logical service databases, Showtime Redis, RabbitMQ, and Neo4j. `backend/infrastructure/smoke-test.ps1 -StartCompose -StopCompose` builds, starts, verifies, and tears down the stack while retaining named data volumes.
 - `backend/infrastructure/event-flow-smoke.ps1` verifies RabbitMQ-to-Analytics/Neo4j delivery, deduplication, ordering, API output, and evidence cleanup.
 - `backend/infrastructure/migrations/migration-rehearsal.ps1` exercises guarded export, checksum validation, two-pass row/content/sequence reconciliation, deliberate sequence-drift rejection, and repeatable Analytics backfill against an isolated PostgreSQL fixture.
