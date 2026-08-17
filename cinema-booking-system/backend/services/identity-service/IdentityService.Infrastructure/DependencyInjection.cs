@@ -40,7 +40,15 @@ public static class DependencyInjection
 
             x.UsingRabbitMq((context, cfg) =>
             {
-                cfg.Host(configuration.GetConnectionString("RabbitMq") ?? "amqp://guest:guest@localhost:5672/");
+                var rabbitHost = configuration["RabbitMQ:HostName"] ?? "localhost";
+                var rabbitUser = configuration["RabbitMQ:UserName"] ?? "guest";
+                var rabbitPass = configuration["RabbitMQ:Password"] ?? "guest";
+                
+                cfg.Host(rabbitHost, "/", h =>
+                {
+                    h.Username(rabbitUser);
+                    h.Password(rabbitPass);
+                });
                 
                 cfg.ConfigureCustomTopology(context);
             });
