@@ -27,14 +27,21 @@ export const useAdminPermissions = () => {
     loadPermissions();
   }, []);
 
-  const updateUserRole = async (id: string | number, data: any) => {
-    // Note: mock backend
-    await adminService.updateUser(id, data);
+  /**
+   * Derives the single role name from the boolean roles map and calls the
+   * real backend endpoint PUT /api/users/{id}/role.
+   */
+  const updateUserRole = async (id: string | number, data: { roles: Record<string, boolean> }) => {
+    const newRole =
+      Object.entries(data.roles).find(([, v]) => v)?.[0]?.toUpperCase() ?? 'CUSTOMER';
+    await adminService.updateUserRole(id, newRole);
     await loadPermissions();
   };
 
+  /**
+   * @todo NOT IMPLEMENTED — see adminService.deleteUser for details.
+   */
   const deleteUser = async (id: string | number) => {
-    // Note: mock backend
     await adminService.deleteUser(id);
     await loadPermissions();
   };

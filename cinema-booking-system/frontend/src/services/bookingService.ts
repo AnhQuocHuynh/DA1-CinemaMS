@@ -1,14 +1,14 @@
+// TODO: Migrate to src/lib/apiClient.ts
 import apiClient from './authService';
 import {
   BackendOrder,
   BackendVoucher,
-  Seat,
   SeatMap,
-  SeatRow,
   TicketDetails,
 } from '../types/booking';
 import { ShowtimeSeatResponse } from '../types/showtime';
 import { parseVND } from '../utils/formatters';
+import { groupSeatsByRow } from '../utils/seatGridUtils';
 
 // ── Seat map ────────────────────────────────────────────────────────────────
 
@@ -23,35 +23,7 @@ export const bookingService = {
     );
 
     const apiSeats: ShowtimeSeatResponse[] = response.data?.data ?? [];
-
-    // Group by rowLabel preserving row order
-    const rowMap = new Map<string, Seat[]>();
-    for (const s of apiSeats) {
-      const seat: Seat = {
-        id: String(s.id),
-        numericId: s.id,
-        label: s.label,
-        row: s.rowLabel,
-        number: s.columnNumber,
-        status: (s.pathway || s.isPathway) ? 'available' : (s.status as Seat['status']),
-        type: s.seatType as Seat['type'],
-        columnSpan: s.columnSpan || 1,
-        price: parseVND(s.price),
-        isPathway: s.pathway || s.isPathway,
-      };
-
-      if (!rowMap.has(s.rowLabel)) {
-        rowMap.set(s.rowLabel, []);
-      }
-      rowMap.get(s.rowLabel)!.push(seat);
-    }
-
-    const rows: SeatRow[] = Array.from(rowMap.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([rowLabel, seats]) => ({
-        rowLabel,
-        seats: seats.sort((a, b) => a.number - b.number),
-      }));
+    const rows = groupSeatsByRow(apiSeats);
 
     return { rows };
   },

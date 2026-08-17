@@ -1,1 +1,9 @@
+# ── IDE — VS Code / Cursor ───────────────────────────────────
+.vscode/
+!.vscode/extensions.json
+.vs
+.agents/*
+.claude/*
+.cursor/*
 .codex-tools/
+.github/copilot-instructions.md

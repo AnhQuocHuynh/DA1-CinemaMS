@@ -67,6 +67,8 @@ export interface AdminTheater {
   id: string;
   name: string;
   region: string;
+  address?: string;
+  phone?: string;
   rooms: AdminRoom[];
   isExpanded?: boolean;
 }
@@ -99,4 +101,26 @@ export interface AdminPermissionRule {
   title: string;
   description: string;
   tags: string[];
+}
+
+// ─── Backend response shapes ────────────────────────────────────────────────
+
+/** Mirrors IdentityService.Application.DTOs.UserDto */
+export interface UserDto {
+  id: number;
+  keycloakId: string;
+  email: string;
+  fullName: string;
+  phone?: string;
+  active: boolean;
+  /** Uppercase Keycloak realm roles, e.g. ["CUSTOMER"] or ["ADMIN"] */
+  roles: string[];
+}
+
+/** Mirrors IdentityService.Application.DTOs.PagedResult<T> */
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }

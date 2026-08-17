@@ -36,12 +36,21 @@ tsconfig.*.tsbuildinfo
 *.iws
 out/
 
-# ── IDE — VS Code / Cursor ───────────────────────────────────
+# ── IDE — VS / VS Code / Cursor ───────────────────────────────────
 .vscode/
 !.vscode/extensions.json
+.vs/
+bin/
+obj/
+
 
 # ── OS ───────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 *.swp
 *.swo
+
+
+# ── .NET ───────────────────────────────────────────────────────
+**/appsettings.Development.json
+**/appsettings.Production.json

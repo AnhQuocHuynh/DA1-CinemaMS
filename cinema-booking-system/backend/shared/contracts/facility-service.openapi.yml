@@ -2,6 +2,7 @@ openapi: 3.0.3
 info:
   title: Cinema Facility Service API
   version: 0.1.0
+<<<<<<< HEAD
   description: Draft contract for the extracted Facility service.
 servers:
   - url: http://localhost:5002
@@ -77,22 +78,49 @@ paths:
   /api/cinemas/{cinemaId}:
     get:
       summary: Get cinema by id
+=======
+paths:
+  /api/cinemas:
+    get:
+      summary: Get all cinemas.
+      responses:
+        "200":
+          description: List of cinemas.
+    post:
+      summary: Create a cinema.
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: "#/components/requestBodies/CreateCinemaCommand"
+      responses:
+        "201":
+          description: Created cinema.
+  /api/cinemas/{cinemaId}:
+    get:
+      summary: Get cinema by id.
+>>>>>>> refactor-auth-setup-apigateway
       parameters:
         - $ref: "#/components/parameters/CinemaId"
       responses:
         "200":
           description: Cinema details.
+<<<<<<< HEAD
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/CinemaApiResponse"
     put:
       summary: Update cinema
+=======
+    put:
+      summary: Update a cinema.
+>>>>>>> refactor-auth-setup-apigateway
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/CinemaId"
       requestBody:
+<<<<<<< HEAD
         required: true
         content:
           application/json:
@@ -107,20 +135,37 @@ paths:
                 $ref: "#/components/schemas/CinemaApiResponse"
     delete:
       summary: Soft delete cinema
+=======
+        $ref: "#/components/requestBodies/UpdateCinemaCommand"
+      responses:
+        "200":
+          description: Cinema updated.
+    delete:
+      summary: Delete a cinema.
+>>>>>>> refactor-auth-setup-apigateway
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/CinemaId"
       responses:
+<<<<<<< HEAD
         "200":
           description: Deleted cinema.
   /api/cinemas/{cinemaId}/rooms:
     get:
       summary: List rooms by cinema
+=======
+        "204":
+          description: Cinema deleted.
+  /api/cinemas/{cinemaId}/rooms:
+    get:
+      summary: Get rooms for a cinema.
+>>>>>>> refactor-auth-setup-apigateway
       parameters:
         - $ref: "#/components/parameters/CinemaId"
       responses:
         "200":
+<<<<<<< HEAD
           description: Rooms.
           content:
             application/json:
@@ -128,11 +173,17 @@ paths:
                 $ref: "#/components/schemas/RoomListApiResponse"
     post:
       summary: Create room
+=======
+          description: List of rooms.
+    post:
+      summary: Create a room.
+>>>>>>> refactor-auth-setup-apigateway
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/CinemaId"
       requestBody:
+<<<<<<< HEAD
         required: true
         content:
           application/json:
@@ -148,24 +199,39 @@ paths:
   /api/cinemas/{cinemaId}/rooms/{roomId}:
     get:
       summary: Get room by id
+=======
+        $ref: "#/components/requestBodies/CreateRoomCommand"
+      responses:
+        "201":
+          description: Room created.
+  /api/cinemas/{cinemaId}/rooms/{roomId}:
+    get:
+      summary: Get a room by id.
+>>>>>>> refactor-auth-setup-apigateway
       parameters:
         - $ref: "#/components/parameters/CinemaId"
         - $ref: "#/components/parameters/RoomId"
       responses:
         "200":
           description: Room details.
+<<<<<<< HEAD
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/RoomApiResponse"
     put:
       summary: Update room
+=======
+    put:
+      summary: Update a room.
+>>>>>>> refactor-auth-setup-apigateway
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/CinemaId"
         - $ref: "#/components/parameters/RoomId"
       requestBody:
+<<<<<<< HEAD
         required: true
         content:
           application/json:
@@ -180,35 +246,57 @@ paths:
                 $ref: "#/components/schemas/RoomApiResponse"
     delete:
       summary: Soft delete room
+=======
+        $ref: "#/components/requestBodies/UpdateRoomCommand"
+      responses:
+        "200":
+          description: Room updated.
+    delete:
+      summary: Delete a room.
+>>>>>>> refactor-auth-setup-apigateway
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/CinemaId"
         - $ref: "#/components/parameters/RoomId"
       responses:
+<<<<<<< HEAD
         "200":
           description: Deleted room.
   /api/cinemas/{cinemaId}/rooms/{roomId}/seats:
     get:
       summary: Get room seat map template
+=======
+        "204":
+          description: Room deleted.
+  /api/cinemas/{cinemaId}/rooms/{roomId}/seats:
+    get:
+      summary: Get seat templates.
+>>>>>>> refactor-auth-setup-apigateway
       parameters:
         - $ref: "#/components/parameters/CinemaId"
         - $ref: "#/components/parameters/RoomId"
       responses:
         "200":
           description: Seat templates.
+<<<<<<< HEAD
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/SeatTemplateListApiResponse"
     put:
       summary: Replace room seat map template
+=======
+    put:
+      summary: Update seat map.
+>>>>>>> refactor-auth-setup-apigateway
       security:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/CinemaId"
         - $ref: "#/components/parameters/RoomId"
       requestBody:
+<<<<<<< HEAD
         required: true
         content:
           application/json:
@@ -217,12 +305,37 @@ paths:
       responses:
         "200":
           description: Updated seat map.
+=======
+        $ref: "#/components/requestBodies/SeatMapUpdateRequestDto"
+      responses:
+        "200":
+          description: Seat map updated.
+  /internal/rooms/{roomId}/seats:
+    get:
+      summary: Get seat templates internally.
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: "#/components/parameters/RoomId"
+      responses:
+        "200":
+          description: Seat templates.
+>>>>>>> refactor-auth-setup-apigateway
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+<<<<<<< HEAD
+=======
+      description: |
+        The API Gateway intercepts the JWT, validates it against Keycloak, and injects the following headers for downstream services:
+        - `X-User-Id`: Resolved internal User ID (long)
+        - `X-User-Roles`: Comma-separated roles
+        - `X-User-Email`: User's email
+        - `X-Keycloak-Id`: Original Keycloak UUID
+>>>>>>> refactor-auth-setup-apigateway
     internalToken:
       type: apiKey
       in: header
@@ -242,6 +355,7 @@ components:
       schema:
         type: integer
         format: int64
+<<<<<<< HEAD
   schemas:
     ApiResponse:
       type: object
@@ -400,3 +514,36 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/SeatTemplateResponse"
+=======
+  requestBodies:
+    CreateCinemaCommand:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    UpdateCinemaCommand:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    CreateRoomCommand:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    UpdateRoomCommand:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    SeatMapUpdateRequestDto:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+>>>>>>> refactor-auth-setup-apigateway

@@ -1,41 +1,35 @@
 import { create } from 'zustand';
-import { LoginResponse, AuthError } from '../types/auth';
+import { AuthUser, AuthError } from '../types/auth';
 
 interface AuthState {
-  user: LoginResponse['user'] | null;
+  user: AuthUser | null;
   token: string | null;
   isLoading: boolean;
   error: AuthError | null;
 
   // Actions
-  setUser: (user: LoginResponse['user'] | null) => void;
+  setUser: (user: AuthUser | null) => void;
   setToken: (token: string | null) => void;
   setIsLoading: (isLoading: boolean) => void;
   setError: (error: AuthError | null) => void;
   logout: () => void;
   reset: () => void;
+  clearUser: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  token: localStorage.getItem('authToken'),
+  token: null,
   isLoading: false,
   error: null,
 
-  setUser: (user) => set({ user }),
+  setUser: (user) => set({ user, token: user?.token || null }),
   setToken: (token) => {
-    if (token) {
-      localStorage.setItem('authToken', token);
-    } else {
-      localStorage.removeItem('authToken');
-    }
     set({ token });
   },
   setIsLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
   logout: () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('refreshToken');
     set({ user: null, token: null, error: null });
   },
   reset: () =>
@@ -45,4 +39,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       isLoading: false,
       error: null,
     }),
+  clearUser: () => {
+    set({ user: null, token: null });
+  },
 }));

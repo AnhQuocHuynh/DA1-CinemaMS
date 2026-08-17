@@ -1,0 +1,14 @@
+FacilityService.Test
+
+Dockerfile
+.dockerignore
+
+**/bin/
+**/obj/
+.vs/
+
+.env
+
+
+.github/
+.git/

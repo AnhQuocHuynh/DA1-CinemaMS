@@ -1,3 +1,4 @@
+// TODO: Migrate to src/lib/apiClient.ts
 import apiClient from './authService';
 import {
   AdminDashboardOverview,
@@ -9,6 +10,8 @@ import {
   AdminTheater,
   AdminUserPermission,
   AdminVoucher,
+  PagedResult,
+  UserDto,
 } from '../types/admin';
 
 // Admin Service
@@ -72,9 +75,10 @@ export const adminService = {
       revenue: Number(movie.revenue || 0),
     }));
   },
-  // â”€â”€ Movies (CRUD) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  // ── Movies (CRUD) ──────────────────────────────────────────────────────────
   getMovieManagement: async (): Promise<AdminMovieListItem[]> => {
-    console.log('ðŸŽ¬ [ADMIN] Fetching movies for management...');
+    console.log('🎬 [ADMIN] Fetching movies for management...');
     const response = await apiClient.get<{ success: boolean; data: any[] }>('/movies');
     return response.data.data.map(m => ({
       id: m.id,
@@ -85,26 +89,26 @@ export const adminService = {
   },
 
   createMovie: async (movieData: any) => {
-    console.log('ðŸŽ¬ [ADMIN] Creating movie:', movieData);
+    console.log('🎬 [ADMIN] Creating movie:', movieData);
     const response = await apiClient.post<{ success: boolean; data: any }>('/movies', movieData);
     return response.data.data;
   },
 
   updateMovie: async (id: number | string, movieData: any) => {
-    console.log(`ðŸŽ¬ [ADMIN] Updating movie ${id}:`, movieData);
+    console.log(`🎬 [ADMIN] Updating movie ${id}:`, movieData);
     const response = await apiClient.put<{ success: boolean; data: any }>(`/movies/${id}`, movieData);
     return response.data.data;
   },
 
   deleteMovie: async (id: number | string) => {
-    console.log(`ðŸŽ¬ [ADMIN] Deleting movie ${id}...`);
+    console.log(`🎬 [ADMIN] Deleting movie ${id}...`);
     const response = await apiClient.delete<{ success: boolean; data: any }>(`/movies/${id}`);
     return response.data.data;
   },
 
-  // â”€â”€ Schedules (Skipped/Mocked) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Schedules (Skipped/Mocked) ─────────────────────────────────────────────
   getShowtimeSchedules: async () => {
-    console.log('ðŸ—“ï¸ [ADMIN] Fetching showtime schedules (Mock)...');
+    console.log('🗓️ [ADMIN] Fetching showtime schedules (Mock)...');
     const mockSchedules = [
       {
         id: 'show-1',
@@ -120,79 +124,86 @@ export const adminService = {
     return mockSchedules;
   },
 
-  // â”€â”€ Theaters (CRUD) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Theaters (CRUD) ────────────────────────────────────────────────────────
   getTheaters: async (): Promise<AdminTheater[]> => {
-    console.log('ðŸ›ï¸ [ADMIN] Fetching theaters...');
+    console.log('🏛️ [ADMIN] Fetching theaters...');
     const response = await apiClient.get<{ success: boolean; data: any[] }>('/cinemas');
     const theaters = await Promise.all(response.data.data.map(async (c) => {
-       // Fetch rooms for each cinema
-       const roomsRes = await apiClient.get<{ success: boolean; data: any[] }>(`/cinemas/${c.id}/rooms`);
-       const rooms = roomsRes.data.data.map((r: any) => ({
-           id: String(r.id),
-           name: r.name,
-           level: r.type || 'Standard',
-           capacity: r.totalSeats || (r.rows * r.columns),
-           technologies: [r.type].filter(Boolean),
-           status: (r.underMaintenance ? 'maintenance' : 'operational') as 'maintenance' | 'operational',
-           rows: r.rows || 10,
-           columns: r.columns || 14,
-       }));
-       return {
-           id: String(c.id),
-           name: c.name,
-           region: c.city || 'Unknown',
-           isExpanded: false,
-           rooms: rooms
-       };
+      const roomsRes = await apiClient.get<{ success: boolean; data: any[] }>(`/cinemas/${c.id}/rooms`);
+      const rooms = roomsRes.data.data.map((r: any) => ({
+        id: String(r.id),
+        name: r.name,
+        level: r.type || 'Standard',
+        capacity: r.totalSeats || (r.rows * r.columns),
+        technologies: [r.type].filter(Boolean),
+        status: (r.underMaintenance ? 'maintenance' : 'operational') as 'maintenance' | 'operational',
+        rows: r.rows || 10,
+        columns: r.columns || 14,
+      }));
+      return {
+        id: String(c.id),
+        name: c.name,
+        region: c.city || 'Unknown',
+        address: c.address,
+        phone: c.phone,
+        isExpanded: false,
+        rooms: rooms
+      };
     }));
     return theaters;
   },
 
   createTheater: async (theaterData: any) => {
-    console.log('ðŸ›ï¸ [ADMIN] Creating theater:', theaterData);
+    console.log('🏛️ [ADMIN] Creating theater:', theaterData);
     const response = await apiClient.post<{ success: boolean; data: any }>('/cinemas', theaterData);
     return response.data.data;
   },
 
   updateTheater: async (id: number | string, theaterData: any) => {
-    console.log(`ðŸ›ï¸ [ADMIN] Updating theater ${id}:`, theaterData);
+    console.log(`🏛️ [ADMIN] Updating theater ${id}:`, theaterData);
     const response = await apiClient.put<{ success: boolean; data: any }>(`/cinemas/${id}`, theaterData);
     return response.data.data;
   },
 
   deleteTheater: async (id: number | string) => {
-    console.log(`ðŸ›ï¸ [ADMIN] Deleting theater ${id}...`);
+    console.log(`🏛️ [ADMIN] Deleting theater ${id}...`);
     const response = await apiClient.delete<{ success: boolean; data: any }>(`/cinemas/${id}`);
     return response.data.data;
   },
 
   createRoom: async (cinemaId: number | string, roomData: any) => {
-    console.log(`ðŸ›ï¸ [ADMIN] Creating room for cinema ${cinemaId}:`, roomData);
+    console.log(`🏛️ [ADMIN] Creating room for cinema ${cinemaId}:`, roomData);
     const response = await apiClient.post<{ success: boolean; data: any }>(`/cinemas/${cinemaId}/rooms`, roomData);
     return response.data.data;
   },
 
+  updateRoom: async (cinemaId: number | string, roomId: number | string, roomData: any) => {
+    console.log(`🏛️ [ADMIN] Updating room ${roomId} for cinema ${cinemaId}:`, roomData);
+    const response = await apiClient.put<{ success: boolean; data: any }>(`/cinemas/${cinemaId}/rooms/${roomId}`, roomData);
+    return response.data.data;
+  },
+
   deleteRoom: async (cinemaId: number | string, roomId: number | string) => {
-    console.log(`ðŸ›ï¸ [ADMIN] Deleting room ${roomId} in cinema ${cinemaId}...`);
+    console.log(`🏛️ [ADMIN] Deleting room ${roomId} in cinema ${cinemaId}...`);
     const response = await apiClient.delete<{ success: boolean; data: any }>(`/cinemas/${cinemaId}/rooms/${roomId}`);
     return response.data.data;
   },
 
   getRoomSeatMap: async (cinemaId: number | string, roomId: number | string) => {
-    console.log(`ðŸ’º [ADMIN] Fetching seat map for room ${roomId}...`);
+    console.log(`💺 [ADMIN] Fetching seat map for room ${roomId}...`);
     const response = await apiClient.get<{ success: boolean; data: any[] }>(`/cinemas/${cinemaId}/rooms/${roomId}/seats`);
     return response.data.data;
   },
 
   updateRoomSeatMap: async (cinemaId: number | string, roomId: number | string, data: any) => {
-    console.log(`ðŸ’º [ADMIN] Updating seat map for room ${roomId}...`, data);
+    console.log(`💺 [ADMIN] Updating seat map for room ${roomId}...`, data);
     const response = await apiClient.put<{ success: boolean; data: any }>(`/cinemas/${cinemaId}/rooms/${roomId}/seats`, data);
     return response.data.data;
   },
 
-  // â”€â”€ Pricing (Skipped/Mocked) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Pricing (Skipped/Mocked) ───────────────────────────────────────────────
   getPricingOverview: async () => {
-    console.log('ðŸ’³ [ADMIN] Fetching pricing overview (Mock)...');
+    console.log('💳 [ADMIN] Fetching pricing overview (Mock)...');
     const mockPricing = {
       baseRate: 14.5,
       tiers: [
@@ -208,7 +219,7 @@ export const adminService = {
     return mockPricing;
   },
 
-  // ————————————————————————————————————————————————————————————————————————————————————————
+  // ── Vouchers ───────────────────────────────────────────────────────────────
   getVouchers: async (): Promise<AdminVoucher[]> => {
     console.log('🎟️ [ADMIN] Fetching vouchers...');
     // Backend returns raw list (no ApiResponse wrapper)
@@ -242,49 +253,58 @@ export const adminService = {
     return response.data;
   },
 
-  // ————————————————————————————————————————————————————————————————————————————————————————
+  // ── User Management ────────────────────────────────────────────────────────
   getUserManagement: async () => {
     console.log('👥 [ADMIN] Fetching users for management...');
-    const response = await apiClient.get<{ success: boolean; data: any[] }>('/users');
-    return response.data.data.map(u => ({
+    const response = await apiClient.get<{ success: boolean; data: PagedResult<UserDto> }>('/users');
+    return response.data.data.items.map((u: UserDto) => ({
       id: u.id,
       email: u.email,
-      role: u.roles && u.roles.length > 0 ? u.roles[0].replace('ROLE_', '') : 'USER',
+      role: u.roles && u.roles.length > 0 ? u.roles[0] : 'CUSTOMER',
       bookings: Math.floor(Math.random() * 10) // Mock booking count
     }));
   },
 
   getUserPermissions: async (): Promise<AdminUserPermission[]> => {
-    console.log('ðŸ§‘â€ðŸ’¼ [ADMIN] Fetching user permissions...');
-    const response = await apiClient.get<{ success: boolean; data: any[] }>('/users');
-    return response.data.data.map(u => ({
+    console.log('🧑‍💼 [ADMIN] Fetching user permissions...');
+    const response = await apiClient.get<{ success: boolean; data: PagedResult<UserDto> }>('/users');
+    return response.data.data.items.map((u: UserDto) => ({
       id: String(u.id),
       name: u.fullName || u.email.split('@')[0],
       email: u.email,
-      status: 'active', // Backend doesn't track user active status currently
+      status: u.active ? 'active' : 'deactivated',
       lastActivity: 'Unknown',
       roles: {
-         customer: u.roles?.includes('ROLE_CUSTOMER') || false,
-         staff: u.roles?.includes('ROLE_STAFF') || false,
-         admin: u.roles?.includes('ROLE_ADMIN') || false
-      }
+        customer: u.roles?.includes('CUSTOMER') ?? false,
+        staff: u.roles?.includes('STAFF') ?? false,
+        admin: u.roles?.includes('ADMIN') ?? false,
+      },
     }));
   },
 
-  updateUser: async (id: string | number, userData: any) => {
-    console.log(`ðŸ§‘â€ðŸ’¼ [ADMIN] Mock updating user ${id}...`, userData);
-    // Missing in backend; mock for now
-    return { id, ...userData };
+  /**
+   * Changes the Keycloak realm role of a user.
+   * Calls PUT /api/users/{id}/role on the Identity Service.
+   * @param id      Internal user ID (Long)
+   * @param newRole One of: 'CUSTOMER' | 'ADMIN' | 'STAFF'
+   */
+  updateUserRole: async (id: string | number, newRole: string): Promise<void> => {
+    console.log(`🧑‍💼 [ADMIN] Changing role of user ${id} to ${newRole}...`);
+    await apiClient.put(`/users/${id}/role`, { newRole: newRole.toUpperCase() });
   },
 
+  /**
+   * @todo NOT IMPLEMENTED — deleting a user from Keycloak is intentionally deferred.
+   *       This mock exists only to prevent UI errors.
+   *       Implement when the feature scope is confirmed.
+   */
   deleteUser: async (id: string | number) => {
-    console.log(`ðŸ§‘â€ðŸ’¼ [ADMIN] Mock deleting user ${id}...`);
-    // Missing in backend; mock for now
+    console.warn(`🧑‍💼 [ADMIN] deleteUser(${id}) is NOT implemented — this is a deliberate mock.`);
     return { success: true };
   },
 
   getPermissionRules: async (): Promise<AdminPermissionRule[]> => {
-    console.log('ðŸ§© [ADMIN] Fetching permission rules (Mock)...');
+    console.log('🧩 [ADMIN] Fetching permission rules (Mock)...');
     const mockRules: AdminPermissionRule[] = [
       {
         id: 'rule-1',
@@ -296,5 +316,3 @@ export const adminService = {
     return mockRules;
   },
 };
-
-

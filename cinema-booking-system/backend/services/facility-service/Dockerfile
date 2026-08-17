@@ -1,25 +1,42 @@
-FROM maven:3.9.9-eclipse-temurin-21 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 
-WORKDIR /workspace
+WORKDIR /src
 
-COPY pom.xml pom.xml
-COPY services/catalog-service/pom.xml services/catalog-service/pom.xml
-COPY services/facility-service/pom.xml services/facility-service/pom.xml
-COPY services/showtime-service/pom.xml services/showtime-service/pom.xml
-COPY services/booking-service/pom.xml services/booking-service/pom.xml
-COPY services/analytics-service/pom.xml services/analytics-service/pom.xml
-COPY services/recommendation-service/pom.xml services/recommendation-service/pom.xml
-COPY services/facility-service/src services/facility-service/src
-RUN --mount=type=cache,target=/root/.m2,sharing=locked mvn -q -pl services/facility-service -am package -Dmaven.test.skip=true
+# Copy the .slnx file first to leverage Docker layer caching
+COPY *.slnx ./
 
-FROM eclipse-temurin:21-jre
+# Copy the csproj files for each project
+COPY ["FacilityService.Application/FacilityService.Application.csproj", "FacilityService.Application/"]
+COPY ["FacilityService.Domain/FacilityService.Domain.csproj", "FacilityService.Domain/"]
+COPY ["FacilityService.Infrastructure/FacilityService.Infrastructure.csproj", "FacilityService.Infrastructure/"]
+COPY ["FacilityService.Presentation/FacilityService.Presentation.csproj", "FacilityService.Presentation/"]
+
+# Restore dependencies
+RUN dotnet restore "FacilityService.Presentation/FacilityService.Presentation.csproj" -nowarn:msb3202
+
+# Copy the rest of the source code
+COPY . .
+
+# Build the application
+RUN dotnet build "FacilityService.Presentation/FacilityService.Presentation.csproj" -c Release -o /app/build -v m
+
+# Publish the application
+RUN dotnet publish "FacilityService.Presentation/FacilityService.Presentation.csproj" -c Release -o /app/publish /p:UseAppHost=false /p:BlazorWebAssemblyEnableLinking=false
+
+# Use the ASP.NET Core runtime image for the final stage
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 
 WORKDIR /app
 
-RUN useradd --system --create-home --uid 10001 appuser
-COPY --from=build /workspace/services/facility-service/target/facility-service-*.jar /app/app.jar
+# Copy the published output from the build stage
+COPY --from=build /app/publish ./
 
-USER appuser
+# Set environment variables (these act as default values and can be overridden by docker-compose)
+ENV DOTNET_ENVIRONMENT=Development
+ENV ASPNETCORE_ENVIRONMENT=Development
+ENV ConnectionStrings__DefaultConnection="Host=localhost;Database=facility_db;Username=postgres;Password=password"
+ENV ServiceUrls__ShowtimeService="http://localhost:5001"
+
 EXPOSE 5002
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["dotnet", "FacilityService.Presentation.dll"]

@@ -10,14 +10,16 @@ export interface RegisterFormData {
   phone: string;
 }
 
-export interface LoginResponse {
+export interface AuthUser {
+  id: string;
+  keycloakId: string;
+  email: string;
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  role: 'ADMIN' | 'STAFF' | 'USER';
   token: string;
-  refreshToken?: string;
-  user: {
-    id: string | number;
-    email: string;
-    role: 'USER' | 'ADMIN' | 'STAFF';
-  };
+  refreshToken: string;
 }
 
 export interface ApiResponse<T> {
@@ -31,19 +33,6 @@ export interface ApiErrorResponse {
   errorCode?: string;
   details?: unknown;
   timestamp?: number;
-}
-
-export interface BackendAuthResponse {
-  accessToken: string;
-  tokenType: string;
-  refreshToken?: string;
-  user?: {
-    id: number;
-    email: string;
-    fullName?: string;
-    phone?: string;
-    roles?: string[];
-  };
 }
 
 export interface AuthError {
