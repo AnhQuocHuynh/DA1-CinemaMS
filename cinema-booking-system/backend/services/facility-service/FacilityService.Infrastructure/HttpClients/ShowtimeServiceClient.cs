@@ -24,16 +24,18 @@ namespace FacilityService.Infrastructure.HttpClients
                 return false;
             }
 
-            // var queryString = string.Join("&", roomIds.Select(id => $"roomIds={id}"));
-            // var response = await _httpClient.GetAsync($"/api/internal/showtimes/check-active?{queryString}", token);
-            // response.EnsureSuccessStatusCode();
-            // var result = await response.Content.ReadFromJsonAsync<CheckActiveShowtimesResponse>(cancellationToken: token);
-            // return result?.HasFutureShowtimes ?? false;
-
-            // FAKE DATA FOR TESTING
-            return await Task.FromResult(false);
+            var requestBody = new { roomIds = roomIds.ToList() };
+            var response = await _httpClient.PostAsJsonAsync("/internal/showtimes/rooms/future-exists", requestBody, token);
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<bool>>(cancellationToken: token);
+            return result?.Data ?? false;
         }
-        // private record CheckActiveShowtimesResponse(bool HasFutureShowtimes);
+    }
+    
+    public class ApiResponse<T>
+    {
+        public bool Success { get; set; }
+        public T Data { get; set; }
     }
 
 }
