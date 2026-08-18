@@ -46,7 +46,7 @@ namespace FacilityService.Presentation.Controllers
         public async Task<IActionResult> GetSeatTemplatesInternal(long roomId)
         {
             var result = await _mediator.Send(new GetSeatTemplatesByRoomQuery { RoomId = roomId });
-            return Ok(result);
+            return Ok(ApiResponse<IEnumerable<SeatTemplateDto>>.Ok(result));
         }
     }
 }

@@ -42,9 +42,9 @@ public static class DependencyInjection
         });
 
         // --- MassTransit: RabbitMQ + EF Core Outbox + Saga ---
-        var rabbitHost = configuration["RabbitMQ:Host"] ?? "localhost";
+        var rabbitHost = configuration["RabbitMQ:HostName"] ?? "localhost";
         var rabbitPort = ushort.Parse(configuration["RabbitMQ:Port"] ?? "5672");
-        var rabbitUser = configuration["RabbitMQ:Username"] ?? "guest";
+        var rabbitUser = configuration["RabbitMQ:UserName"] ?? "guest";
         var rabbitPass = configuration["RabbitMQ:Password"] ?? "guest";
         var rabbitVHost = configuration["RabbitMQ:VirtualHost"] ?? "/";
 
