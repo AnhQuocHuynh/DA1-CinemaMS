@@ -6,6 +6,7 @@ using FacilityService.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 using System.Net.Http;
 
 namespace FacilityService.Infrastructure
@@ -27,6 +28,13 @@ namespace FacilityService.Infrastructure
             {
                 var baseUrl = configuration["ServiceUrls:ShowtimeService"] ?? throw new ArgumentNullException("ServiceUrls:ShowtimeService is missing");
                 client.BaseAddress = new Uri(baseUrl);
+            })
+            .AddStandardResilienceHandler(options =>
+            {
+                options.Retry.MaxRetryAttempts = 2;
+                options.Retry.Delay = TimeSpan.FromSeconds(2);
+                options.Retry.BackoffType = DelayBackoffType.Exponential;
+                options.Retry.UseJitter = true;
             });
             
 
