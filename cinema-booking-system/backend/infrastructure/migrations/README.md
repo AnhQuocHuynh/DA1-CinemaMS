@@ -73,12 +73,12 @@ supplied.
 ## Restore
 
 Restore into empty service databases first. Use `-TruncateFirst` only when the target DB is disposable or already snapshotted.
-By default, the restore script targets the Docker Compose database ports:
-
-- Catalog: `5433`
-- Facility compatibility DB: `5434`
-- Showtime: `5435`
-- Booking: `5436`
+By default, the restore script targets the current extracted Compose layout:
+one PostgreSQL 18 server on host port `5432` with logical databases
+`cinema_catalog_db`, `cinema_facility_db`, `cinema_showtime_db`, and
+`cinema_booking_db`. Pass per-service `-CatalogPort` / `-FacilityPort` /
+`-ShowtimePort` / `-BookingPort` only when an older multi-container layout is
+still running.
 
 ```powershell
 .\infrastructure\migrations\restore-service-data.ps1 `
@@ -87,7 +87,9 @@ By default, the restore script targets the Docker Compose database ports:
   -ResetConfirmation RESET-COPIED-SERVICE-DATABASES
 ```
 
-Use `-DryRun` before the actual restore, or pass `-Port 5432` only when all service databases live on one PostgreSQL server.
+Use `-DryRun` before the actual restore. `-Port 5432` still forces every
+service onto one host port if a script invocation mixed old per-service
+defaults.
 
 ## Analytics Read Model
 

@@ -1,6 +1,6 @@
 # Agent Session Bootstrap
 
-Updated: 2026-08-07
+Updated: 2026-08-18
 
 Purpose: give a new agent enough current context to continue safely without
 scanning the repository or rereading the full architecture document.
@@ -49,7 +49,7 @@ contract unless the team explicitly changes it.
 
 ## Current Snapshot
 
-- Branch: `refactor-n-decoupling`.
+- Branch: `refactor-compose-single-postgres`.
 - Complete runnable backend: `cinema-booking-system/backend_legacy/`.
 - Microservice migration target: `cinema-booking-system/backend/`.
 - Frontend: `cinema-booking-system/frontend/`.
@@ -57,6 +57,8 @@ contract unless the team explicitly changes it.
   Booking, Analytics, and Recommendation.
 - The Spring Facility service is a compatibility slice only. Target Facility
   ownership belongs to the ASP.NET workstream.
+- Extracted Compose now uses one PostgreSQL 18 container on host port `5432`
+  with logical databases created by `init-multiple-databases.sql`.
 - The product has not switched traffic or canonical data away from
   `backend_legacy`.
 - Standalone Spring JWT enforcement remains disabled until teammate-owned
@@ -168,9 +170,10 @@ Guards already implemented:
 - Tampered-dump and stale-sequence negative rehearsals.
 
 The fixture and current local development data passed two restore cycles on
-2026-08-07. This is not a canonical cutover rehearsal. The local source is
-PostgreSQL 18 while project Compose targets PostgreSQL 16, so the authoritative
-source/client/target major versions must be aligned before migration.
+2026-08-07. This is not a canonical cutover rehearsal. Extracted Compose now
+targets PostgreSQL 18 on host port `5432`, matching the audited local source
+major. Restore and verify scripts default to that single host port; pass
+per-service ports only if an older multi-container layout is still running.
 
 ## Latest Verification Evidence
 
@@ -197,7 +200,8 @@ For detailed evidence and all cutover gates, read
 ## Remaining Gates
 
 - Rebase or recreate teammate branches from the latest
-  `refactor-n-decoupling`; do not merge old Compose/service definitions blindly.
+  `refactor-compose-single-postgres`; do not merge old multi-Postgres Compose
+  or service definitions blindly.
 - Merge Keycloak and Gateway first, then pass the authentication contract's
   real-token, forged-header, `/internal/**`, key-rotation, and Google mapping
   tests.
@@ -214,7 +218,7 @@ For detailed evidence and all cutover gates, read
 
 ## Safe Next Order
 
-1. Sync teammate branches from the latest `refactor-n-decoupling`.
+1. Sync teammate branches from the latest `refactor-compose-single-postgres`.
 2. Integrate Keycloak and Gateway contracts.
 3. Run real-token security tests and only then enable Spring JWT.
 4. Integrate ASP.NET Facility and contract-test Showtime/Booking dependencies.
