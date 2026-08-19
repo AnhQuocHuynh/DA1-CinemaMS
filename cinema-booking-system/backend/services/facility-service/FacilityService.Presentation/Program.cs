@@ -83,6 +83,7 @@ app.Services.MigrateFacilityDatabase();
 
 // Configure the HTTP request pipeline.
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseMiddleware<InternalApiSecurityMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

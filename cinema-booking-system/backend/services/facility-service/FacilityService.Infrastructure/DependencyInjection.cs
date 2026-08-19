@@ -6,6 +6,7 @@ using FacilityService.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Polly;
 using Microsoft.Extensions.Http.Resilience;
 using System.Net.Http;
 

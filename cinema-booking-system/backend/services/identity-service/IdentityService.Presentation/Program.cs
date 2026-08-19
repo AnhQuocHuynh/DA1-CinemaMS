@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
+using IdentityService.Presentation.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -76,7 +77,10 @@ var app = builder.Build();
 // Apply EF Core Migrations on startup
 await DatabaseMigration.ApplyMigrationAsync(app.Services);
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseMiddleware<InternalApiSecurityMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();

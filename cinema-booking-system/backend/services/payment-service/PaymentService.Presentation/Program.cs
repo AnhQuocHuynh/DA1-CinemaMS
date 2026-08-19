@@ -53,6 +53,7 @@ app.Services.MigratePaymentDatabase();
 
 // ── Middleware Pipeline ────────────────────────────────────────────────────
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseMiddleware<InternalApiSecurityMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
