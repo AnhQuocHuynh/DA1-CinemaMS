@@ -14,7 +14,6 @@
 
     <modules>
         <module>services/catalog-service</module>
-        <module>services/facility-service</module>
         <module>services/showtime-service</module>
         <module>services/booking-service</module>
         <module>services/analytics-service</module>
