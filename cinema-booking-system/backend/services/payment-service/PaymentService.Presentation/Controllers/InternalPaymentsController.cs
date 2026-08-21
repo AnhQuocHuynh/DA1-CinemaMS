@@ -16,12 +16,9 @@ namespace PaymentService.Presentation.Controllers;
 public class InternalPaymentsController : ControllerBase
 {
     private readonly IMediator _mediator;
-    private readonly IConfiguration _configuration;
-
-    public InternalPaymentsController(IMediator mediator, IConfiguration configuration)
+    public InternalPaymentsController(IMediator mediator)
     {
         _mediator = mediator;
-        _configuration = configuration;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -31,21 +28,7 @@ public class InternalPaymentsController : ControllerBase
     [HttpGet("order/{orderId:long}/status")]
     public async Task<IActionResult> GetPaymentStatus(long orderId)
     {
-        // Validate internal API key
-        if (!ValidateInternalApiKey())
-            return Unauthorized(new { error = "Invalid or missing X-Internal-Api-Key" });
-
         var status = await _mediator.Send(new GetPaymentStatusInternalQuery(orderId));
         return Ok(ApiResponse<object>.Ok(new { orderId, status = status.ToString() }));
-    }
-
-    private bool ValidateInternalApiKey()
-    {
-        var expectedKey = _configuration["InternalApi:Key"];
-        if (string.IsNullOrEmpty(expectedKey))
-            return true; // Key not configured — allow in development
-
-        Request.Headers.TryGetValue("X-Internal-Api-Key", out var receivedKey);
-        return receivedKey.ToString() == expectedKey;
     }
 }
