@@ -20,8 +20,13 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         // --- Database ---
-        services.AddDbContext<PaymentDbContext>(options =>
-            options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
+        services.AddDbContext<PaymentDbContext>((provider, options) =>
+        {
+            var config = provider.GetRequiredService<IConfiguration>();
+            var connectionString = config.GetConnectionString("DefaultConnection") 
+                ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+            options.UseNpgsql(connectionString);
+        });
 
         // --- Repositories ---
         services.AddScoped<IPaymentRepository, PaymentRepository>();
@@ -42,12 +47,6 @@ public static class DependencyInjection
         });
 
         // --- MassTransit: RabbitMQ + EF Core Outbox + Saga ---
-        var rabbitHost = configuration["RabbitMQ:HostName"] ?? "localhost";
-        var rabbitPort = ushort.Parse(configuration["RabbitMQ:Port"] ?? "5672");
-        var rabbitUser = configuration["RabbitMQ:UserName"] ?? "guest";
-        var rabbitPass = configuration["RabbitMQ:Password"] ?? "guest";
-        var rabbitVHost = configuration["RabbitMQ:VirtualHost"] ?? "/";
-
         services.AddMassTransit(x =>
         {
             // ── Consumers ──────────────────────────────────────────────────────
@@ -60,18 +59,41 @@ public static class DependencyInjection
                     r.ConcurrencyMode = ConcurrencyMode.Optimistic;
                     r.AddDbContext<DbContext, PaymentDbContext>((provider, builder) =>
                     {
-                        builder.UseNpgsql(
-                            configuration.GetConnectionString("DefaultConnection"));
+                        var config = provider.GetRequiredService<IConfiguration>();
+                        var connectionString = config.GetConnectionString("DefaultConnection") 
+                            ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+                        builder.UseNpgsql(connectionString);
                     });
                 });
+
+            // ── Outbox ─────────────────────────────────────────────────────────
+            x.AddEntityFrameworkOutbox<PaymentDbContext>(o =>
+            {
+                o.QueryDelay = TimeSpan.FromSeconds(1);
+                o.UsePostgres();
+                o.UseBusOutbox();
+            });
 
             // ── Transport: RabbitMQ ────────────────────────────────────────────
             x.UsingRabbitMq((ctx, cfg) =>
             {
-                cfg.Host(rabbitHost, rabbitPort, rabbitVHost, h =>
+                var config = ctx.GetRequiredService<IConfiguration>();
+                var host = config["RabbitMQ:HostName"] 
+                    ?? Environment.GetEnvironmentVariable("RabbitMQ__HostName") ?? "localhost";
+                var portStr = config["RabbitMQ:Port"] 
+                    ?? Environment.GetEnvironmentVariable("RabbitMQ__Port") ?? "5672";
+                var port = ushort.Parse(portStr);
+                var user = config["RabbitMQ:UserName"] 
+                    ?? Environment.GetEnvironmentVariable("RabbitMQ__UserName") ?? "guest";
+                var pass = config["RabbitMQ:Password"] 
+                    ?? Environment.GetEnvironmentVariable("RabbitMQ__Password") ?? "guest";
+                var vhost = config["RabbitMQ:VirtualHost"] 
+                    ?? Environment.GetEnvironmentVariable("RabbitMQ__VirtualHost") ?? "/";
+
+                cfg.Host(host, port, vhost, h =>
                 {
-                    h.Username(rabbitUser);
-                    h.Password(rabbitPass);
+                    h.Username(user);
+                    h.Password(pass);
                 });
 
                 // Use Raw JSON Serializer to match custom Envelope schema exactly
@@ -83,32 +105,37 @@ public static class DependencyInjection
                     TimeSpan.FromSeconds(15),
                     TimeSpan.FromSeconds(2)));
 
-                // ── Custom topology: backward-compatible with Booking Service ──
-                // PaymentCompleted → payment.events / payment.completed
-                cfg.Message<EventEnvelope<PaymentCompleted>>(t => t.SetEntityName("payment.events"));
+                // PaymentCompleted
                 cfg.Publish<EventEnvelope<PaymentCompleted>>(p =>
                 {
                     p.ExchangeType = "topic";
-                    p.BindQueue("payment.events", "booking.payment.completed",
-                        x => x.RoutingKey = "payment.completed");
+                    p.BindQueue("payment.events", "booking.payment.completed", x =>
+                    {
+                        x.ExchangeType = "topic";
+                        x.RoutingKey = "payment.completed";
+                    });
                 });
 
-                // PaymentFailed → payment.events / payment.failed
-                cfg.Message<EventEnvelope<PaymentFailed>>(t => t.SetEntityName("payment.events"));
+                // PaymentFailed
                 cfg.Publish<EventEnvelope<PaymentFailed>>(p =>
                 {
                     p.ExchangeType = "topic";
-                    p.BindQueue("payment.events", "booking.payment.failed",
-                        x => x.RoutingKey = "payment.failed");
+                    p.BindQueue("payment.events", "booking.payment.failed", x =>
+                    {
+                        x.ExchangeType = "topic";
+                        x.RoutingKey = "payment.failed";
+                    });
                 });
 
-                // PaymentRefunded → payment.events / payment.refunded
-                cfg.Message<EventEnvelope<PaymentRefunded>>(t => t.SetEntityName("payment.events"));
+                // PaymentRefunded
                 cfg.Publish<EventEnvelope<PaymentRefunded>>(p =>
                 {
                     p.ExchangeType = "topic";
-                    p.BindQueue("payment.events", "booking.refund.completed",
-                        x => x.RoutingKey = "payment.refunded");
+                    p.BindQueue("payment.events", "booking.refund.completed", x =>
+                    {
+                        x.ExchangeType = "topic";
+                        x.RoutingKey = "payment.refunded";
+                    });
                 });
 
                 // ── Receive endpoints ──────────────────────────────────────────

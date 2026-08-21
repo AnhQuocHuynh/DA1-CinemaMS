@@ -1,7 +1,10 @@
 using PaymentService.Application;
 using PaymentService.Infrastructure;
 using PaymentService.Presentation.Middleware;
-using PaymentService.Presentation.Security;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,10 +33,62 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices();
 
-// ── Gateway Header Authentication ─────────────────────────────────────────
-builder.Services.AddAuthentication("GatewayAuth")
-    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, GatewayAuthenticationHandler>(
-        "GatewayAuth", null);
+// ── Native Keycloak JWT Authentication ──────────────────────────────────────
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = builder.Configuration["Jwt:Authority"];
+        options.Audience = builder.Configuration["Jwt:Audience"];
+        options.RequireHttpsMetadata = builder.Configuration.GetValue<bool>("Jwt:RequireHttpsMetadata");
+        
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            NameClaimType = "preferred_username",
+            RoleClaimType = ClaimTypes.Role
+        };
+        
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                var identity = context.Principal?.Identity as ClaimsIdentity;
+                if (identity == null) return Task.CompletedTask;
+
+                // 1. Map Keycloak realm roles to standard Role claims
+                var realmAccess = context.Principal?.FindFirst("realm_access");
+                if (realmAccess != null)
+                {
+                    var parsed = JsonDocument.Parse(realmAccess.Value);
+                    if (parsed.RootElement.TryGetProperty("roles", out var roles))
+                    {
+                        foreach (var role in roles.EnumerateArray())
+                        {
+                            identity.AddClaim(new Claim(ClaimTypes.Role, role.GetString()!));
+                        }
+                    }
+                }
+
+                // 2. Read X-User-Id from API Gateway headers to map UUID to Long UserId
+                if (context.Request.Headers.TryGetValue("X-User-Id", out var userIdValues))
+                {
+                    var userIdStr = userIdValues.ToString();
+                    // Overwrite the NameIdentifier claim with the long ID
+                    var existingNameId = identity.FindFirst(ClaimTypes.NameIdentifier);
+                    if (existingNameId != null)
+                    {
+                        identity.RemoveClaim(existingNameId);
+                    }
+                    identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, userIdStr));
+                }
+
+                return Task.CompletedTask;
+            }
+        };
+    });
 builder.Services.AddAuthorization();
 
 // ── Health Checks ──────────────────────────────────────────────────────────
