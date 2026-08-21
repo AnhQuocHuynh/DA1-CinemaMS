@@ -5,6 +5,7 @@ using FluentValidation;
 using MediatR;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace FacilityService.Application.Features.Rooms.Commands
 {
@@ -33,16 +34,20 @@ namespace FacilityService.Application.Features.Rooms.Commands
     public class UpdateRoomCommandHandler : IRequestHandler<UpdateRoomCommand, RoomDto>
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IDistributedCache _cache;
 
-        public UpdateRoomCommandHandler(IUnitOfWork unitOfWork)
+        public UpdateRoomCommandHandler(IUnitOfWork unitOfWork, IDistributedCache cache)
         {
             _unitOfWork = unitOfWork;
+            _cache = cache;
         }
 
         public async Task<RoomDto> Handle(UpdateRoomCommand request, CancellationToken cancellationToken)
         {
             var room = await _unitOfWork.Rooms.GetByIdAsync(request.Id);
             if (room == null) throw new RoomNotFoundException(request.Id);
+
+            var oldCinemaId = room.CinemaId;
 
             if (room.CinemaId != request.CinemaId)
             {
@@ -57,6 +62,14 @@ namespace FacilityService.Application.Features.Rooms.Commands
             room.SetMaintenance(request.UnderMaintenance);
             _unitOfWork.Rooms.Update(room);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await _cache.RemoveAsync($"facility:room:{request.Id}", cancellationToken);
+            await _cache.RemoveAsync($"facility:roomseats:{request.Id}", cancellationToken);
+            await _cache.RemoveAsync($"facility:rooms:cinema:{request.CinemaId}", cancellationToken);
+            if (oldCinemaId != request.CinemaId)
+            {
+                await _cache.RemoveAsync($"facility:rooms:cinema:{oldCinemaId}", cancellationToken);
+            }
 
             return new RoomDto
             {

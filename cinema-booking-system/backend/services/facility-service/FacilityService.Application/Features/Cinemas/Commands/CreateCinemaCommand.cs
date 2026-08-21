@@ -3,6 +3,7 @@ using FluentValidation;
 using MediatR;
 using FacilityService.Domain.Interfaces;
 using FacilityService.Domain.Entities;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace FacilityService.Application.Features.Cinemas.Commands
 {
@@ -38,10 +39,12 @@ namespace FacilityService.Application.Features.Cinemas.Commands
     public class CreateCinemaCommandHandler : IRequestHandler<CreateCinemaCommand, CinemaDto>
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IDistributedCache _cache;
         
-        public CreateCinemaCommandHandler(IUnitOfWork unitOfWork)
+        public CreateCinemaCommandHandler(IUnitOfWork unitOfWork, IDistributedCache cache)
         {
             _unitOfWork = unitOfWork;
+            _cache = cache;
         }
 
         public async Task<CinemaDto> Handle(CreateCinemaCommand request, CancellationToken cancellationToken)
@@ -50,6 +53,8 @@ namespace FacilityService.Application.Features.Cinemas.Commands
             
             await _unitOfWork.Cinemas.AddAsync(cinema);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await _cache.RemoveAsync("facility:cinemas:all", cancellationToken);
 
             return new CinemaDto { Id = cinema.Id, Name = cinema.Name, Address = cinema.Address, City = cinema.City, Phone = cinema.Phone };
         }

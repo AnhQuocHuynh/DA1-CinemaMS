@@ -8,6 +8,8 @@ using MediatR;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Distributed;
+using System.Collections.Generic;
 
 namespace FacilityService.Application.Features.SeatTemplates.Commands
 {
@@ -31,10 +33,12 @@ namespace FacilityService.Application.Features.SeatTemplates.Commands
     public class UpdateSeatMapCommandHandler : IRequestHandler<UpdateSeatMapCommand, bool>
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IDistributedCache _cache;
 
-        public UpdateSeatMapCommandHandler(IUnitOfWork unitOfWork)
+        public UpdateSeatMapCommandHandler(IUnitOfWork unitOfWork, IDistributedCache cache)
         {
             _unitOfWork = unitOfWork;
+            _cache = cache;
         }
 
         public async Task<bool> Handle(UpdateSeatMapCommand request, CancellationToken cancellationToken)
@@ -70,6 +74,13 @@ namespace FacilityService.Application.Features.SeatTemplates.Commands
 
             _unitOfWork.Rooms.Update(room);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            foreach (var existingTemplate in existingTemplates)
+            {
+                await _cache.RemoveAsync($"facility:seattemplate:{existingTemplate.Id}", cancellationToken);
+            }
+            await _cache.RemoveAsync($"facility:seattemplates:room:{room.Id}", cancellationToken);
+            await _cache.RemoveAsync($"facility:roomseats:{room.Id}", cancellationToken);
 
             return true;
         }

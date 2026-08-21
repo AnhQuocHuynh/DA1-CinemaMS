@@ -6,6 +6,7 @@ using MediatR;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace FacilityService.Application.Features.Rooms.Commands
 {
@@ -26,11 +27,13 @@ namespace FacilityService.Application.Features.Rooms.Commands
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IShowtimeServiceClient _showtimeServiceClient;
+        private readonly IDistributedCache _cache;
 
-        public DeleteRoomCommandHandler(IUnitOfWork unitOfWork, IShowtimeServiceClient showtimeServiceClient)
+        public DeleteRoomCommandHandler(IUnitOfWork unitOfWork, IShowtimeServiceClient showtimeServiceClient, IDistributedCache cache)
         {
             _unitOfWork = unitOfWork;
             _showtimeServiceClient = showtimeServiceClient;
+            _cache = cache;
         }
 
         public async Task<bool> Handle(DeleteRoomCommand request, CancellationToken cancellationToken)
@@ -49,6 +52,10 @@ namespace FacilityService.Application.Features.Rooms.Commands
                 room.Disable();
                 _unitOfWork.Rooms.Update(room);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                await _cache.RemoveAsync($"facility:room:{request.Id}", cancellationToken);
+                await _cache.RemoveAsync($"facility:roomseats:{request.Id}", cancellationToken);
+                await _cache.RemoveAsync($"facility:rooms:cinema:{room.CinemaId}", cancellationToken);
             }
 
             return true;

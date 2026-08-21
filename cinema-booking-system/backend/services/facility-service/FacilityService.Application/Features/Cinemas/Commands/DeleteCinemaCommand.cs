@@ -5,6 +5,7 @@ using FacilityService.Domain.Interfaces;
 using FacilityService.Domain.Entities;
 using FacilityService.Application.Contracts;
 using FacilityService.Application.Exceptions;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace FacilityService.Application.Features.Cinemas.Commands
 {
@@ -27,11 +28,13 @@ namespace FacilityService.Application.Features.Cinemas.Commands
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IShowtimeServiceClient _showtimeServiceClient;
+        private readonly IDistributedCache _cache;
 
-        public DeleteCinemaCommandHandler(IUnitOfWork unitOfWork, IShowtimeServiceClient showtimeServiceClient)
+        public DeleteCinemaCommandHandler(IUnitOfWork unitOfWork, IShowtimeServiceClient showtimeServiceClient, IDistributedCache cache)
         {
             _unitOfWork = unitOfWork;
             _showtimeServiceClient = showtimeServiceClient;
+            _cache = cache;
         }
 
         public async Task<bool> Handle(DeleteCinemaCommand request, CancellationToken cancellationToken)
@@ -56,10 +59,10 @@ namespace FacilityService.Application.Features.Cinemas.Commands
                 }
                 cinema.Disable();
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                await _cache.RemoveAsync($"facility:cinema:{request.Id}", cancellationToken);
+                await _cache.RemoveAsync("facility:cinemas:all", cancellationToken);
             }
-
-
-            
 
             return true;
         }

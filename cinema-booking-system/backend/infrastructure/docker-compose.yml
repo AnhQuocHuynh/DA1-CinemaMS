@@ -155,6 +155,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=${ASPNETCORE_URLS}
       - ConnectionStrings__DefaultConnection=Host=${POSTGRES_HOST:-postgres};Port=${POSTGRES_PORT:-5432};Database=${FACILITY_DB_NAME};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-123}
+      - ConnectionStrings__RedisConnection=${REDIS_CONNECTION_STRING:-redis:6379}
       - Jwt__Authority=${KC_AUTHORITY_URL}
       - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
       - Jwt__RequireHttpsMetadata=false
@@ -162,6 +163,7 @@ services:
       - "${FACILITY_SERVICE_PORT:-5002}:80"
     depends_on:
       - postgres
+      - redis
     networks:
       - cinema-services
 

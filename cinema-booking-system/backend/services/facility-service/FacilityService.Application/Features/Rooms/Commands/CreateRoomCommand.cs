@@ -7,6 +7,7 @@ using MediatR;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace FacilityService.Application.Features.Rooms.Commands
 {
@@ -35,10 +36,12 @@ namespace FacilityService.Application.Features.Rooms.Commands
     public class CreateRoomCommandHandler : IRequestHandler<CreateRoomCommand, RoomDto>
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IDistributedCache _cache;
 
-        public CreateRoomCommandHandler(IUnitOfWork unitOfWork)
+        public CreateRoomCommandHandler(IUnitOfWork unitOfWork, IDistributedCache cache)
         {
             _unitOfWork = unitOfWork;
+            _cache = cache;
         }
 
         public async Task<RoomDto> Handle(CreateRoomCommand request, CancellationToken cancellationToken)
@@ -61,6 +64,8 @@ namespace FacilityService.Application.Features.Rooms.Commands
             room.GenerateDefaultSeatMap(standardType);
             await _unitOfWork.Rooms.AddAsync(room);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await _cache.RemoveAsync($"facility:rooms:cinema:{request.CinemaId}", cancellationToken);
 
             return new RoomDto
             {

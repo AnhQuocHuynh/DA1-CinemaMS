@@ -4,6 +4,7 @@ using MediatR;
 using FacilityService.Domain.Interfaces;
 using FacilityService.Domain.Entities;
 using FacilityService.Application.Exceptions;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace FacilityService.Application.Features.Cinemas.Commands
 {
@@ -43,10 +44,12 @@ namespace FacilityService.Application.Features.Cinemas.Commands
     public class UpdateCinemaCommandHandler : IRequestHandler<UpdateCinemaCommand, CinemaDto>
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IDistributedCache _cache;
         
-        public UpdateCinemaCommandHandler(IUnitOfWork unitOfWork)
+        public UpdateCinemaCommandHandler(IUnitOfWork unitOfWork, IDistributedCache cache)
         {
             _unitOfWork = unitOfWork;
+            _cache = cache;
         }
 
         public async Task<CinemaDto> Handle(UpdateCinemaCommand request, CancellationToken cancellationToken)
@@ -60,6 +63,9 @@ namespace FacilityService.Application.Features.Cinemas.Commands
             cinema.Update(request.Name, request.Address, request.City, request.Phone);
             
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await _cache.RemoveAsync($"facility:cinema:{request.Id}", cancellationToken);
+            await _cache.RemoveAsync("facility:cinemas:all", cancellationToken);
 
             return new CinemaDto { Id = cinema.Id, Name = cinema.Name, Address = cinema.Address, City = cinema.City, Phone = cinema.Phone };
         }
