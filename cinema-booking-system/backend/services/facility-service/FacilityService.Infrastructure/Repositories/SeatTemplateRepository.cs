@@ -27,6 +27,13 @@ namespace FacilityService.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<SeatTemplate?> GetByIdAsync(long id)
+        {
+            return await _context.SeatTemplates
+                .Include(st => st.SeatType)
+                .FirstOrDefaultAsync(st => st.Id == id);
+        }
+
         public void RemoveRange(IEnumerable<SeatTemplate> seatTemplates)
         {
             _context.SeatTemplates.RemoveRange(seatTemplates);

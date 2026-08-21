@@ -1,788 +1,660 @@
-# Booking Saga — Full End-to-End Flow
+# Booking Flow — Saga & Service Interaction
 
-> **Pattern**: Choreography-based Saga (event-driven, no central orchestrator)  
-> **Date**: 2026-07-31  
-> **Services Involved**: Frontend SPA · API Gateway (YARP) · Showtime Service · Booking Service · Payment Service · Notification Service  
-> **Message Broker**: RabbitMQ 3.13 (topic exchanges)
+> **Generated from source code analysis** — 2026-08-20
+> Covers: Facility Service, Showtime Service, Booking Service, Payment Service, Notification Service (planned)
 
 ---
 
-## Table of Contents
-
-1. [Overview](#1-overview)
-2. [Actors & Services](#2-actors--services)
-3. [Phase 1 — Seat Selection & Hold](#3-phase-1--seat-selection--hold)
-4. [Phase 2 — Order Creation](#4-phase-2--order-creation)
-5. [Phase 3 — Payment Initiation](#5-phase-3--payment-initiation)
-6. [Phase 4 — Payment Confirmation (Webhook / Callback)](#6-phase-4--payment-confirmation-webhook--callback)
-7. [Phase 5 — Seat Confirmation & Ticket Generation](#7-phase-5--seat-confirmation--ticket-generation)
-8. [Phase 6 — Notification Delivery](#8-phase-6--notification-delivery)
-9. [Happy Path Sequence Diagram](#9-happy-path-sequence-diagram)
-10. [Failure & Compensation Flow](#10-failure--compensation-flow)
-11. [Message Reference — All Routing Keys & Queues](#11-message-reference--all-routing-keys--queues)
-12. [State Transition Tables](#12-state-transition-tables)
-13. [Idempotency Strategy](#13-idempotency-strategy)
-14. [Observability & Tracing](#14-observability--tracing)
-
----
-
-## 1. Overview
-
-The **Booking Saga** is the most complex cross-service transaction in the Cinema Booking System. It coordinates four microservices across a distributed environment — **no single service owns the full transaction**. Instead, each service reacts to events published by the previous step, forming a chain of reactions.
-
-```
-Frontend → API Gateway → Showtime Service (seat hold)
-                       → Booking Service (create order)
-                       → Payment Service (charge user)
-                       → Booking Service (mark paid, generate tickets)
-                       → Showtime Service (confirm seats BOOKED)
-                       → Notification Service (send email/push)
-```
-
-**Saga Type**: **Choreography** — each service listens to events and decides what to do next. There is no central saga orchestrator. Compensation (rollback) is triggered by failure events propagated back through RabbitMQ.
-
----
-
-## 2. Actors & Services
-
-| Actor / Service | Technology | Port | Role in Saga |
-|---|---|---|---|
-| **User (browser)** | React SPA | — | Initiates booking, enters payment details |
-| **API Gateway** | ASP.NET YARP | 5000 | JWT validation, request routing, X-User-Id injection |
-| **Showtime Service** | Spring Boot (Java 21) | 8082 | Seat hold (Redis TTL), seat confirmation, seat release |
-| **Booking Service** | Spring Boot (Java 21) | 8083 | Order lifecycle, ticket generation, voucher validation |
-| **Payment Service** | ASP.NET Core 9 (C#) | 5003 | Payment initiation, gateway callback, refund |
-| **Notification Service** | ASP.NET Core 9 (C#) | 5004 | Email/SMS delivery on booking events |
-| **RabbitMQ** | RabbitMQ 3.13 | 5672 | Async message broker for all saga events |
-| **Redis** | Redis 7 | 6379 | Seat hold TTL locks, idempotency keys |
-| **Stripe / PayPal** | External gateway | — | Payment processing |
-
----
-
-## 3. Phase 1 — Seat Selection & Hold
-
-**Goal**: The user selects seats for a showtime. Seats are temporarily locked for the user (TTL = 10 minutes) so no other user can book them during checkout.
-
-### Steps
-
-| # | Actor | Action | Details |
-|---|---|---|---|
-| 1 | User | Opens seat map | Clicks on an available showtime on the frontend |
-| 2 | Frontend | `GET /api/showtimes/{id}/seats` | Fetches real-time seat availability from Showtime Service |
-| 3 | Showtime Service | Returns seat map | Each seat includes `id`, `row`, `column`, `type`, `price`, `status` (AVAILABLE / HELD / BOOKED) |
-| 4 | User | Selects seats | Clicks on 1–8 available seats |
-| 5 | Frontend | `POST /api/showtimes/{id}/hold` | Sends `{ seatIds: [101, 102, 103] }` with Bearer token |
-| 6 | API Gateway | JWT validation | Validates Keycloak JWT, resolves Keycloak UUID → internal Long `userId` via User Profile Service cache. Injects `X-User-Id`, `X-Keycloak-Id`, `X-User-Roles` headers |
-| 7 | Showtime Service | Hold seats in Redis | For each seat: sets key `seat:hold:{showtimeId}:{seatId}` = `{userId}` with TTL = 600s (10 min). Atomically checks no other user holds them |
-| 8 | Showtime Service | Returns hold confirmation | `{ holdId, seatIds, expiresAt, totalAmount }` |
-| 9 | Frontend | Starts countdown timer | Displays "Seats held for 9:59..." countdown to the user |
-
-### Seat Hold Redis Key Schema
-
-```
-seat:hold:{showtimeId}:{seatId}  →  value: {userId}   TTL: 600s
-```
-
-> **Concurrent access**: Seat hold uses a Lua script for atomic check-and-set in Redis, preventing race conditions when two users try to hold the same seat simultaneously.
-
----
-
-## 4. Phase 2 — Order Creation
-
-**Goal**: Create a pending Order in the Booking Service, validating that held seats belong to the requesting user. Voucher discounts are applied at this step.
-
-### Steps
-
-| # | Actor | Action | Details |
-|---|---|---|---|
-| 10 | User | Clicks "Checkout" | On the seat confirmation screen |
-| 11 | Frontend | `POST /api/orders` | Body: `{ showtimeId, seatIds, voucherCode? }` |
-| 12 | API Gateway | Routes to Booking Service | Requires `Authorization: Bearer <JWT>` |
-| 13 | Booking Service | Validate idempotency key | Checks Redis key `order:idem:{userId}:{showtimeId}:{sortedSeatIds}` (TTL 5 min) — rejects duplicate requests |
-| 14 | Booking Service | `POST /internal/seats/validate` → Showtime Service | Validates that all `seatIds` have a Redis hold owned by `userId`. Internal sync HTTP call (with `X-Internal-Api-Key` header) |
-| 15 | Showtime Service | Returns seat validation result | Returns `{ valid: true, seats: [{id, price, type}] }` or 409 Conflict |
-| 16 | Booking Service | Apply voucher (optional) | If `voucherCode` provided: validates voucher (active, not expired, usage limit), calculates discount. Returns 400 if invalid |
-| 17 | Booking Service | Persist Order | Creates `Order` record: `status=PENDING`, `totalAmount`, `finalAmount`, `userId`, `showtimeId`, `voucherApplied` |
-| 18 | Booking Service | Returns `201 Created` | `{ orderId, totalAmount, finalAmount, status: "PENDING" }` |
-
-### Internal API Call (Sync)
-
-```
-POST http://showtime-service:8082/internal/seats/validate
-Headers: X-Internal-Api-Key: <secret>
-Body: { "showtimeId": 567, "seatIds": [101, 102], "userId": 42 }
-```
-
----
-
-## 5. Phase 3 — Payment Initiation
-
-**Goal**: The frontend sends the user to the payment gateway. Three supported methods: Stripe (hosted checkout), PayPal (redirect flow), Cash (counter, admin-confirmed).
-
-### Steps
-
-| # | Actor | Action | Details |
-|---|---|---|---|
-| 19 | Frontend | `POST /api/payments/initiate` | Body: `{ orderId, paymentMethod: "STRIPE" }` |
-| 20 | API Gateway | Routes to Payment Service | Injects `X-User-Id`, `X-User-Roles` |
-| 21 | Payment Service | Creates Payment record | `status=PENDING`, `orderId`, `userId`, `amount` |
-| 22a *(Stripe)* | Payment Service | Stripe API: Create Checkout Session | `POST https://api.stripe.com/v1/checkout/sessions` with `metadata.orderId`, `success_url=/checkout-success?orderId={orderId}`, `cancel_url=/checkout-canceled` |
-| 22b *(PayPal)* | Payment Service | PayPal API: Create Order | `POST https://api.sandbox.paypal.com/v2/checkout/orders` with `return_url`, `cancel_url` |
-| 22c *(Cash)* | Payment Service | No gateway call | Creates payment record with `status=PENDING, method=CASH`. Staff manually confirms at counter later |
-| 23 | Payment Service | Returns `{ checkoutUrl }` | For Stripe/PayPal: the gateway's hosted payment URL. For Cash: `{ status: "AWAITING_CASH" }` |
-| 24 | Frontend | Redirects user to `checkoutUrl` | Browser leaves the SPA and opens the gateway's secure hosted checkout page |
-
-### Stripe Session Creation
-
-```json
-POST https://api.stripe.com/v1/checkout/sessions
-{
-  "payment_method_types": ["card"],
-  "line_items": [{ "price_data": {...}, "quantity": 1 }],
-  "mode": "payment",
-  "success_url": "https://app.cinema.com/checkout-success?orderId=1234",
-  "cancel_url": "https://app.cinema.com/checkout-canceled?orderId=1234",
-  "metadata": { "orderId": "1234", "userId": "42" }
-}
-```
-
----
-
-## 6. Phase 4 — Payment Confirmation (Webhook / Callback)
-
-**Goal**: The external payment gateway notifies the Payment Service of the outcome. This triggers the core saga choreography via RabbitMQ.
-
-### Stripe Webhook Path
-
-| # | Actor | Action | Details |
-|---|---|---|---|
-| 25 | Stripe | `POST /api/payments/callback/stripe` | Fires `checkout.session.completed` or `payment_intent.payment_failed` webhook to Payment Service |
-| 26 | Payment Service | Verify webhook signature | Validates `Stripe-Signature` header using `STRIPE_WEBHOOK_SECRET`. Rejects tampered requests |
-| 27 | Payment Service | Update Payment record | Sets `status=COMPLETED`, `paidAt=now()`, `transactionId=pi_xxx`, logs to `transaction_logs` |
-| 28 | Payment Service | Publish `payment.completed` | Exchange: `payment.events`, routing key: **`payment.completed`** |
-
-### PayPal Redirect Path
-
-| # | Actor | Action | Details |
-|---|---|---|---|
-| 25 | PayPal | `GET /api/payments/callback/paypal/return?token=ORDER_ID` | Redirects user's browser back to Payment Service |
-| 26 | Payment Service | Capture PayPal Order | Calls `POST https://api.paypal.com/v2/checkout/orders/{token}/capture` |
-| 27 | Payment Service | Update Payment record | `status=COMPLETED`, `transactionId=capture_id` |
-| 28 | Payment Service | Publish `payment.completed` | Exchange: `payment.events`, routing key: **`payment.completed`** |
-
-### Frontend Polling (Parallel)
-
-While the webhook processes on the backend, the user is redirected to `/checkout-success`:
-
-```
-Frontend polls GET /api/payments/order/{orderId}/status every 3s
-→ Returns PENDING (webhook not yet processed)
-→ Returns COMPLETED (webhook processed)
-→ Frontend shows "Booking Confirmed!" screen
-```
-
----
-
-## 7. Phase 5 — Seat Confirmation & Ticket Generation
-
-**Goal**: Once payment is confirmed, the Booking Service marks the order PAID, confirms seats as permanently BOOKED, and generates tickets.
-
-### Steps (Triggered by `payment.completed` event)
-
-| # | Consumer | Action | Details |
-|---|---|---|---|
-| 29 | **Booking Service** | Consumes `payment.completed` | Queue: `booking.payment.completed` |
-| 30 | Booking Service | Update Order status | `Order.status` → `PAID`, records `transactionId` |
-| 31 | Booking Service | `POST /internal/seats/confirm` → Showtime Service | Confirms seats HELD → BOOKED permanently. Sync HTTP call |
-| 32 | Showtime Service | Confirm seats in DB | Updates `showtime_seat.status = BOOKED` for each seatId. Removes Redis hold keys |
-| 33 | Showtime Service | Returns `200 OK` | Confirmation of all seats updated |
-| 34 | Booking Service | Generate Tickets | Creates `Ticket` records: one per seat, with `qrCode`, `orderId`, `seatId`, `showtime` data |
-| 35 | Booking Service | Publish `order.paid` | Exchange: `booking.events`, routing key: **`order.paid`** |
-
-### `order.paid` Payload
-
-```json
-{
-  "eventId": "uuid-v4",
-  "eventType": "order.paid",
-  "timestamp": "2026-07-31T10:00:00Z",
-  "payload": {
-    "orderId": 1234,
-    "userId": 42,
-    "showtimeId": 567,
-    "movieId": 15,
-    "movieTitle": "Inception",
-    "showtimeStartTime": "2026-08-01T19:30:00Z",
-    "cinemaName": "CGV Vincom",
-    "roomName": "Room 3",
-    "seats": [
-      { "seatId": 101, "row": "A", "column": 5, "type": "STANDARD", "price": 90000 },
-      { "seatId": 102, "row": "A", "column": 6, "type": "STANDARD", "price": 90000 }
-    ],
-    "totalAmount": 180000.00,
-    "finalAmount": 162000.00,
-    "voucherCode": "SUMMER10",
-    "ticketCount": 2,
-    "paymentMethod": "STRIPE",
-    "transactionId": "pi_3NxxxSTRIPE",
-    "tickets": [
-      { "ticketId": 5001, "qrCode": "base64...", "seatId": 101 },
-      { "ticketId": 5002, "qrCode": "base64...", "seatId": 102 }
-    ]
-  }
-}
-```
-
----
-
-## 8. Phase 6 — Notification Delivery
-
-**Goal**: The Notification Service consumes `order.paid` and sends the booking confirmation email (and optionally push notification) to the user.
-
-### Steps (Triggered by `order.paid` event)
-
-| # | Consumer | Action | Details |
-|---|---|---|---|
-| 36 | **Notification Service** | Consumes `order.paid` | Queue: `notification.order.confirmation` |
-| 37 | Notification Service | Fetch template | Looks up MongoDB template with `code=BOOKING_CONFIRMED` |
-| 38 | Notification Service | Render template | Substitutes `{{orderId}}`, `{{movieTitle}}`, `{{showtime}}`, `{{seats}}`, `{{totalAmount}}`, `{{ticketQrCodes}}` etc. |
-| 39 | Notification Service | Create `Notification` doc | Persists to MongoDB `notifications` collection with `status=PENDING` |
-| 40 | NotificationDispatcherService | Send email | Background service picks up PENDING notifications and sends via MailKit SMTP |
-| 41 | Notification Service | Update status | Sets `notification.status = SENT`, `sentAt = now()`, logs to `delivery_logs` |
-| 42 | Notification Service | SignalR push (optional) | Broadcasts new booking event to admin dashboard via `/hubs/notifications` |
-
-> **Retry**: On SMTP failure, retries up to 3 times with exponential backoff (5s, 25s, 125s). After 3 failures, status = `FAILED` for manual retry.
-
----
-
-## 9. Happy Path Sequence Diagram
+## 1. End-to-End Booking Sequence Diagram
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    actor User
-    participant FE as Frontend SPA
-    participant GW as API Gateway (YARP)
-    participant SS as Showtime Service
-    participant BS as Booking Service
-    participant PS as Payment Service
-    participant GW_Ext as Payment Gateway<br/>(Stripe / PayPal)
-    participant RMQ as RabbitMQ
-    participant NS as Notification Service
+    participant User
+    participant Gateway as API Gateway
+    participant Showtime as Showtime Service<br/>(Java / Spring Boot)
+    participant Facility as Facility Service<br/>(.NET / C#)
+    participant Booking as Booking Service<br/>(Java / Spring Boot)
+    participant Payment as Payment Service<br/>(.NET / C#)
+    participant Notification as Notification Service<br/>(Not Implemented)
+    participant Redis
+    participant RabbitMQ as RabbitMQ / MassTransit
 
-    rect rgb(220, 240, 255)
-        Note over User, SS: PHASE 1 — Seat Selection & Hold
-        User->>FE: Browse showtimes, select showtime
-        FE->>GW: GET /api/showtimes/{id}/seats
-        GW->>SS: Forward (no auth required)
-        SS-->>FE: Seat map [{seatId, row, col, type, price, status}]
-        User->>FE: Select seats [101, 102]
-        FE->>GW: POST /api/showtimes/{id}/hold {seatIds}
-        GW->>GW: Validate JWT, inject X-User-Id=42
-        GW->>SS: Forward with X-User-Id
-        SS->>SS: Redis atomic lock seat:hold:567:101=42 (TTL 600s)
-        SS-->>FE: 200 {holdId, expiresAt, totalAmount:180000}
-        FE->>User: Show seat summary + 10-min countdown
+    Note over User, Notification: ── PHASE 1: Browse Showtimes ──
+
+    User->>Gateway: GET /api/showtimes/movie/{movieId}
+    Gateway->>Showtime: getShowtimesByMovie(movieId)
+    Showtime->>Facility: GET /internal/facility/rooms/{roomId} (HTTP)
+    Facility-->>Showtime: FacilityRoomView (roomName, cinemaName)
+    Showtime-->>User: List<ShowtimeResponse>
+
+    User->>Gateway: GET /api/showtimes/{id}/seats
+    Gateway->>Showtime: getSeatMap(showtimeId)
+    Showtime->>Facility: GET /internal/facility/seat-templates/{id} (HTTP)
+    Facility-->>Showtime: FacilitySeatTemplateView (rowLabel, type, price multiplier)
+    Showtime->>Redis: GET seat:hold:{showtimeId}:{seatId} (check TTL)
+    Redis-->>Showtime: hold TTL or nil
+    Showtime-->>User: List<ShowtimeSeatResponse> (status: available/holding/sold)
+
+    Note over User, Notification: ── PHASE 2: Hold Seats (Temporary Lock) ──
+
+    User->>Gateway: POST /api/showtimes/{id}/hold {seatIds}
+    Gateway->>Showtime: SeatLockingService.holdSeats()
+    Showtime->>Redis: SETNX seat:hold:{showtimeId}:{seatId} = userId (TTL 10 min)
+    alt Seat available + Redis lock acquired
+        Showtime->>Showtime: ShowtimeSeat.status = HELD (DB)
+        Showtime-->>User: 200 OK "Seats held successfully"
+    else Seat already held by another user
+        Showtime-->>User: 409 SEAT_ALREADY_HELD
     end
 
-    rect rgb(220, 255, 220)
-        Note over User, BS: PHASE 2 — Order Creation
-        User->>FE: Click Checkout (optionally enter voucher)
-        FE->>GW: POST /api/orders {showtimeId, seatIds, voucherCode?}
-        GW->>BS: Forward with X-User-Id=42
-        BS->>BS: Check idempotency key in Redis
-        BS->>SS: POST /internal/seats/validate {showtimeId, seatIds, userId}
-        SS->>SS: Verify Redis holds for userId=42
-        SS-->>BS: 200 {valid:true, seats:[{id,price,type}]}
-        BS->>BS: Apply voucher SUMMER10 → 10% off, finalAmount=162000
-        BS->>BS: Persist Order status=PENDING orderId=1234
-        BS-->>FE: 201 {orderId:1234, totalAmount:180000, finalAmount:162000}
+    Note over User, Notification: ── PHASE 3: Create Order ──
+
+    User->>Gateway: POST /api/orders {userId, showtimeId, seatIds, voucherCode?}
+    Gateway->>Booking: OrderService.createOrder()
+    Booking->>Showtime: POST /internal/showtimes/seats/validate-held (HTTP)
+    Note right of Showtime: Validates: seats are HELD status<br/>+ Redis hold key owner matches userId<br/>Returns: totalAmount
+    Showtime-->>Booking: SeatHoldValidationResult {seats, totalAmount}
+    Booking->>Booking: Validate voucher (if provided)
+    Booking->>Booking: Calculate discount & finalAmount
+    Booking->>Booking: Save Order (status=PENDING)
+    Booking-->>User: OrderResponse (id, status=PENDING, finalAmount)
+
+    Note over User, Notification: ── PHASE 4A: Payment (Online — Stripe/PayPal) ──
+
+    User->>Gateway: POST /api/payments/initiate {orderId, amount, method, cancelUrl, successUrl}
+    Gateway->>Payment: InitiatePaymentCommand
+    Payment->>Payment: Create Payment entity (status=PENDING, generates SagaId)
+    Payment->>Payment: IPaymentGateway.InitiateAsync() → returns redirect URL
+    Payment->>RabbitMQ: Publish PaymentInitiated {sagaId, paymentId, orderId}
+    Note right of RabbitMQ: PaymentStateMachine:<br/>Initial → Pending
+    Payment-->>User: PaymentInitiationResult {redirectUrl}
+    User->>User: Redirected to Stripe/PayPal checkout
+
+    Note over Payment, RabbitMQ: Gateway callback (webhook)
+    User->>Gateway: POST /api/payments/callback/{method}
+    Gateway->>Payment: HandlePaymentCallbackCommand
+    Payment->>Payment: IPaymentGateway.VerifyCallbackAsync() (signature check)
+    Payment->>RabbitMQ: Publish GatewayCallbackReceived {sagaId, isSuccess, txnId}
+
+    alt Payment successful
+        Note right of RabbitMQ: PaymentStateMachine:<br/>Pending → Completed
+        RabbitMQ->>Payment: Saga calls payment.Complete(txnId)
+        RabbitMQ->>RabbitMQ: Publishes PaymentCompleted {orderId, txnId, amount}
+    else Payment failed
+        Note right of RabbitMQ: PaymentStateMachine:<br/>Pending → Failed
+        RabbitMQ->>Payment: Saga calls payment.Fail(reason)
+        RabbitMQ->>RabbitMQ: Publishes PaymentFailed {orderId, reason}
     end
 
-    rect rgb(255, 240, 210)
-        Note over User, GW_Ext: PHASE 3 — Payment Initiation
-        FE->>GW: POST /api/payments/initiate {orderId:1234, method:STRIPE}
-        GW->>PS: Forward with X-User-Id=42
-        PS->>PS: Create Payment record status=PENDING
-        PS->>GW_Ext: Stripe API: Create Checkout Session
-        GW_Ext-->>PS: {sessionId, checkoutUrl}
-        PS-->>FE: {checkoutUrl}
-        FE->>GW_Ext: Redirect browser to checkoutUrl
-        User->>GW_Ext: Enter card details & Pay
-    end
+    Note over User, Notification: ── PHASE 4B: Payment (Cash — Counter) ──
 
-    rect rgb(255, 220, 220)
-        Note over GW_Ext, BS: PHASE 4 — Payment Confirmation (Async Webhook)
-        GW_Ext->>PS: POST /api/payments/callback/stripe Webhook: checkout.session.completed
-        PS->>PS: Verify Stripe-Signature header
-        PS->>PS: Update Payment {status:COMPLETED, transactionId:pi_3Nxxx}
-        PS->>RMQ: Publish payment.events / payment.completed
-        Note over RMQ: Queue: booking.payment.completed
-        RMQ->>BS: Consume payment.completed
-    end
+    User->>Gateway: POST /api/payments/initiate {orderId, method=CASH}
+    Gateway->>Payment: InitiatePaymentCommand (no gateway call)
+    Payment->>RabbitMQ: Publish PaymentInitiated
+    Note right of RabbitMQ: PaymentStateMachine:<br/>Initial → Pending
+    Payment-->>User: PaymentInitiationResult {success, no redirect}
 
-    rect rgb(240, 220, 255)
-        Note over BS, SS: PHASE 5 — Seat Confirmation & Ticket Generation
-        BS->>BS: Update Order status=PAID
-        BS->>SS: POST /internal/seats/confirm {showtimeId, seatIds}
-        SS->>SS: DB: showtime_seat.status=BOOKED, delete Redis hold keys
-        SS-->>BS: 200 OK
-        BS->>BS: Generate Tickets (QR codes for each seat)
-        BS->>RMQ: Publish booking.events / order.paid
-        Note over RMQ: Fan-out to 3 queues:<br/>notification.order.confirmation<br/>analytics.order.paid<br/>recommendation.order.paid
-    end
+    Note over Payment: Staff collects cash at counter
+    User->>Gateway: POST /api/payments/cash/confirm {paymentId, adminUserId}
+    Gateway->>Payment: ConfirmCashPaymentCommand
+    Payment->>RabbitMQ: Publish CashPaymentConfirmed {sagaId, paymentId}
+    Note right of RabbitMQ: PaymentStateMachine:<br/>Pending → Completed
+    RabbitMQ->>Payment: Saga calls payment.Complete("CASH-{id}-{timestamp}")
+    RabbitMQ->>RabbitMQ: Publishes PaymentCompleted
 
-    rect rgb(210, 255, 240)
-        Note over NS, User: PHASE 6 — Notification Delivery
-        RMQ->>NS: Consume order.paid from notification.order.confirmation
-        NS->>NS: Fetch template BOOKING_CONFIRMED from MongoDB
-        NS->>NS: Render HTML email with order + QR codes
-        NS->>NS: Send email via MailKit SMTP
-        NS->>NS: Update Notification status=SENT
-        NS->>NS: Broadcast to admin SignalR hub
-    end
+    Note over User, Notification: ── PHASE 5: Confirm Seats & Generate Tickets ──
+    Note over Booking: Currently triggered via direct HTTP call<br/>POST /api/orders/{id}/pay (not event-driven)
 
-    rect rgb(240, 255, 240)
-        Note over GW_Ext, User: FRONTEND POLLING (Parallel with Phase 4-5)
-        GW_Ext->>FE: Redirect to /checkout-success?orderId=1234
-        FE->>GW: GET /api/payments/order/1234/status
-        GW->>PS: Forward
-        PS-->>FE: {status:PENDING}
-        loop Poll every 3s until COMPLETED
-            FE->>GW: GET /api/payments/order/1234/status
-            GW->>PS: Forward
-            PS-->>FE: {status:COMPLETED}
-        end
-        FE->>User: Booking Confirmed! Check your email for tickets.
-    end
+    User->>Gateway: POST /api/orders/{id}/pay {paymentMethod, transactionId}
+    Gateway->>Booking: PaymentService.processPayment()
+    Booking->>Showtime: POST /internal/showtimes/seats/confirm-held (HTTP)
+    Note right of Showtime: Validates HELD status + Redis owner<br/>Transitions: ShowtimeSeat HELD → BOOKED<br/>Deletes Redis hold keys after commit
+    Showtime-->>Booking: SeatBookingResult {seats, prices}
+    Booking->>Booking: Generate Tickets (ticketCode=TK-UUID, QR data)
+    Booking->>Booking: Order.status = PAID
+    Booking->>RabbitMQ: Outbox → Publish order.paid {orderId, userId, showtimeId, ...}
+    Booking-->>User: OrderResponse (status=PAID, tickets)
+
+    Note over User, Notification: ── PHASE 6: Post-Payment Event Propagation ──
+
+    RabbitMQ->>Payment: OrderPaidConsumer (logs only, no action)
+    RabbitMQ--xNotification: order.paid → Send confirmation email/SMS (NOT IMPLEMENTED)
+    RabbitMQ--xNotification: payment.completed → Send payment receipt (NOT IMPLEMENTED)
+
+    Note over User, Notification: ── PHASE 7: Refund (Optional) ──
+
+    User->>Gateway: POST /api/orders/{id}/refund {reason}
+    Gateway->>Booking: PaymentService.refund()
+    Booking->>Showtime: GET /internal/showtimes/{showtimeId}/schedule (HTTP)
+    Booking->>Booking: Calculate refund % (>24h=100%, ≥4h=50%, <4h=denied)
+    Booking->>Booking: Ticket.status = REFUNDED, Order.status = REFUNDED
+    Booking->>Showtime: POST /internal/showtimes/seats/release-booked (HTTP)
+    Note right of Showtime: ShowtimeSeat BOOKED → AVAILABLE
+    Booking->>RabbitMQ: Outbox → Publish order.refunded
+    Booking-->>User: OrderResponse (status=REFUNDED)
 ```
 
 ---
 
-## 10. Failure & Compensation Flow
+## 2. Services & Their Roles in the Booking Flow
 
-The saga runs **compensating actions** in reverse when any step fails. Below are all documented failure scenarios.
+### 2.1 Facility Service (.NET/C#) — Data Provider
 
-### 10.1 Failure Scenarios & Compensations
+| Aspect | Detail |
+|--------|--------|
+| **Role** | Provides room and seat template master data. Read-only participant in the booking flow. |
+| **Technology** | .NET 9, MediatR, Clean Architecture |
+| **Saga Participation** | **None** — stateless data provider, no saga state, no events published/consumed in the booking flow |
+| **Key APIs consumed** | `GET /internal/facility/rooms/{roomId}` → `FacilityRoomView`<br/>`GET /internal/facility/seat-templates/{id}` → `FacilitySeatTemplateView`<br/>`GET /internal/facility/rooms/{roomId}/seat-templates` → `List<FacilitySeatTemplateView>` |
+| **Called by** | Showtime Service (at showtime creation + seat map enrichment)<br/>Booking Service (seat map enrichment — room/seat display data) |
 
-| Failure Point | Triggered By | Compensation Chain |
-|---|---|---|
-| **Seat hold fails** (another user holds them) | `POST /api/showtimes/{id}/hold` → 409 | Frontend shows "Seats no longer available". No cleanup needed |
-| **Seat validation fails** at order creation | Booking → Showtime `/validate` → 409 | Order creation rejected. Seats still held in Redis until TTL expires |
-| **Seat hold expires** (user takes > 10 min) | Redis TTL natural expiry | Frontend shows "Session expired". Attempted `POST /api/orders` → 409 |
-| **Payment fails at gateway** | Stripe fires `payment_intent.payment_failed` | PS publishes `payment.failed` → BS cancels order → BS publishes `order.cancelled` → SS releases seats |
-| **User cancels payment** | User clicks "Back" on Stripe page | Same as payment failure path |
-| **Seat confirmation fails after payment** | `POST /internal/seats/confirm` → 5xx | BS publishes `seat.confirmation.failed` → PS refunds → PS publishes `payment.refunded` → BS cancels |
-| **Ticket generation fails** | Exception in Booking Service | Order stays `PAID`. Error pushed to `dlq.all`. Manual intervention or async retry |
-| **Notification fails** | SMTP error | Retry 3× with exponential backoff. Non-critical. After 3 failures → `FAILED` for admin retry |
+### 2.2 Showtime Service (Java/Spring Boot) — Seat Lifecycle Manager
 
-### 10.2 Failure Sequence Diagram — Payment Declined
+| Aspect | Detail |
+|--------|--------|
+| **Role** | Manages showtimes, seat maps, temporary seat holds (Redis), and seat status transitions |
+| **Technology** | Java 21, Spring Boot, JPA/PostgreSQL, Redis |
+| **Saga Participation** | **None** — operates as a synchronous service called via internal HTTP APIs. No saga state machine, no event publishing/consuming in the booking flow. |
+| **Seat State Machine** | `AVAILABLE` ↔ `HELD` → `BOOKED` → `AVAILABLE` (on refund) |
+| **Hold Mechanism** | Redis `SETNX` with 10-minute TTL (`seat:hold:{showtimeId}:{seatId}` = userId) |
+| **Key Internal APIs** | `POST /internal/showtimes/seats/validate-held` — Validate seats are HELD by correct user<br/>`POST /internal/showtimes/seats/confirm-held` — HELD → BOOKED<br/>`POST /internal/showtimes/seats/release-held` — HELD → AVAILABLE<br/>`POST /internal/showtimes/seats/release-booked` — BOOKED → AVAILABLE<br/>`POST /internal/showtimes/seats/validate-available` — Validate seats are AVAILABLE<br/>`POST /internal/showtimes/seats/book-available` — AVAILABLE → BOOKED (counter sales)<br/>`GET /internal/showtimes/{id}/schedule` — Get showtime schedule details |
+
+**ShowtimeSeat Status Transitions:**
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant FE as Frontend SPA
-    participant GW_Ext as Stripe
-    participant PS as Payment Service
-    participant RMQ as RabbitMQ
-    participant BS as Booking Service
-    participant SS as Showtime Service
-
-    Note over User, SS: FAILURE PATH — Payment Declined or User Cancels
-
-    GW_Ext->>FE: Redirect to /checkout-canceled?orderId=1234
-    FE->>User: Show "Payment was not completed" screen
-
-    par Backend Webhook (Async)
-        GW_Ext->>PS: Webhook payment_intent.payment_failed
-        PS->>PS: Update Payment status=FAILED
-        PS->>RMQ: Publish payment.events / payment.failed
-        Note over RMQ: Queue: booking.payment.failed
-        RMQ->>BS: Consume payment.failed
-        BS->>BS: Update Order status=CANCELLED
-        BS->>RMQ: Publish booking.events / order.cancelled
-        Note over RMQ: Queue: showtime.seats.release
-        RMQ->>SS: Consume order.cancelled
-        SS->>SS: DB: showtime_seat.status=AVAILABLE<br/>Delete Redis hold keys
-    end
-
-    FE->>FE: User clicks "Try Again" → back to seat selection
+stateDiagram-v2
+    [*] --> AVAILABLE: Showtime created<br/>(seats cloned from FacilityService templates)
+    AVAILABLE --> HELD: User holds seats<br/>(SeatLockingService + Redis TTL 10m)
+    HELD --> AVAILABLE: Hold released by user<br/>OR Redis TTL expires
+    HELD --> BOOKED: Payment confirmed<br/>(confirmHeldSeats)
+    AVAILABLE --> BOOKED: Counter direct-book<br/>(bookAvailableSeats)
+    BOOKED --> AVAILABLE: Refund<br/>(releaseBookedSeats)
 ```
 
-### 10.3 Refund Flow
+### 2.3 Booking Service (Java/Spring Boot) — Orchestrator
+
+| Aspect | Detail |
+|--------|--------|
+| **Role** | Orchestrates the booking flow: creates orders, processes payments (locally), generates tickets, publishes outbox events |
+| **Technology** | Java 21, Spring Boot, JPA/PostgreSQL, RabbitMQ (outbox pattern) |
+| **Saga Participation** | **Transactional Outbox pattern** — not a state-machine saga, but uses transactional outbox to reliably publish events to RabbitMQ. Events are appended in the same DB transaction as the domain write, then dispatched by a background poller (`OutboxDispatcher`). |
+| **Outbox Events Published** | `order.paid` → Exchange `booking.events`<br/>`order.refunded` → Exchange `booking.events`<br/>`review.created` → Exchange `booking.events` |
+
+**Order Status Transitions:**
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant FE as Frontend SPA
-    participant GW as API Gateway
-    participant PS as Payment Service
-    participant GW_Ext as Stripe
-    participant RMQ as RabbitMQ
-    participant BS as Booking Service
-    participant NS as Notification Service
+stateDiagram-v2
+    [*] --> PENDING: Order created<br/>(OrderService.createOrder)
+    PENDING --> PAID: Payment processed<br/>(PaymentServiceImpl.processPayment)
+    PENDING --> CANCELLED: Hold expired / user cancelled<br/>(NOT YET IMPLEMENTED)
+    PAID --> REFUNDED: Refund granted<br/>(PaymentServiceImpl.refund)
+```
 
-    Note over User, NS: REFUND FLOW — User requests refund after booking confirmed
+### 2.4 Payment Service (.NET/C#) — Saga State Machine
 
-    User->>FE: My Orders → Click Cancel & Refund
-    FE->>GW: POST /api/payments/{paymentId}/refund {reason}
-    GW->>PS: Forward with X-User-Id=42
-    PS->>PS: Validate eligibility (showtime not started, within 24h)
-    PS->>PS: Create Refund record status=PENDING
-    PS-->>FE: 202 Accepted {refundId}
+| Aspect | Detail |
+|--------|--------|
+| **Role** | Manages the payment lifecycle via a MassTransit State Machine Saga. Handles online payments (Stripe, PayPal) and cash payments. |
+| **Technology** | .NET 9, MassTransit, MediatR, EF Core, PostgreSQL, RabbitMQ |
+| **Saga Participation** | **YES — MassTransit `MassTransitStateMachine<PaymentSagaState>`** persisted in PostgreSQL (`payment_saga_states` table). Uses EF Core transactional outbox for reliable event dispatch. |
 
-    Note over PS: Admin approves (or auto-approved)
-    PS->>GW_Ext: Stripe API: Create Refund
-    GW_Ext-->>PS: Refund confirmed
-    PS->>PS: Update Refund status=PROCESSED, Payment status=REFUNDED
-    PS->>RMQ: Publish payment.events / payment.refunded
-    Note over RMQ: Queue: booking.refund.completed
-    RMQ->>BS: Consume payment.refunded
-    BS->>BS: Update Order status=REFUNDED
-    BS->>RMQ: Publish booking.events / order.refunded
-    Note over RMQ: Queues: notification.order.refund, analytics.order.refunded
-    RMQ->>NS: Consume order.refunded from notification.order.refund
-    NS->>NS: Send "Refund Processed" email
-    NS-->>User: Email: Your refund is on its way
+**Payment Saga State Machine:**
+
+```mermaid
+stateDiagram-v2
+    [*] --> Initial
+    Initial --> Pending: PaymentInitiated<br/>(Payment record created)
+    Pending --> Completed: GatewayCallbackReceived (success)<br/>OR CashPaymentConfirmed
+    Pending --> Failed: GatewayCallbackReceived (failure)
+    Completed --> Refunded: RefundRequested
+```
+
+**Saga State Details:**
+
+| State | Triggered By | Actions | Publishes |
+|-------|-------------|---------|-----------|
+| **Initial → Pending** | `PaymentInitiated` | Stores PaymentId, OrderId, UserId, Amount, Currency, PaymentMethod on saga state | — |
+| **Pending → Completed** | `GatewayCallbackReceived` (isSuccess=true) | Calls `payment.Complete(txnId)` on domain entity, sets `CompletedAt` | `PaymentCompleted` (via outbox) |
+| **Pending → Completed** | `CashPaymentConfirmed` | Generates `CASH-{id}-{timestamp}` txnId, calls `payment.Complete(...)` | `PaymentCompleted` (via outbox) |
+| **Pending → Failed** | `GatewayCallbackReceived` (isSuccess=false) | Calls `payment.Fail(reason)` on domain entity, stores `FailureReason` | `PaymentFailed` (via outbox) |
+| **Completed → Refunded** | `RefundRequested` | Calls `payment.AddRefund(amount, reason)` on domain entity | `PaymentRefunded` (via outbox) |
+
+**Payment Domain Entity Status:**
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING: new Payment(...)
+    PENDING --> COMPLETED: payment.Complete(txnId, response)
+    PENDING --> FAILED: payment.Fail(response)
+    COMPLETED --> PARTIALLY_REFUNDED: payment.AddRefund() + MarkAsRefunded()
+    COMPLETED --> REFUNDED: payment.AddRefund() + MarkAsRefunded() (full amount)
+    PARTIALLY_REFUNDED --> REFUNDED: Additional refund reaches full amount
+```
+
+### 2.5 Notification Service — NOT IMPLEMENTED
+
+| Aspect | Detail |
+|--------|--------|
+| **Role** | Should consume integration events from RabbitMQ and send notifications (email, SMS, push) to users |
+| **Current State** | Only a `refactor_plan.md` file exists. No code, no service skeleton. |
+| **What it should do** | See Section 5 below |
+
+---
+
+## 3. Event Flow Map
+
+```mermaid
+flowchart LR
+    subgraph Booking["Booking Service (Java)"]
+        B_Outbox["Transactional Outbox<br/>(outbox_events table)"]
+        B_Dispatcher["OutboxDispatcher<br/>(polls every 5s)"]
+        B_Outbox --> B_Dispatcher
+    end
+
+    subgraph PaymentSvc["Payment Service (.NET)"]
+        P_Saga["PaymentStateMachine<br/>(MassTransit Saga)"]
+        P_Outbox["EF Core Transactional Outbox<br/>(MassTransit built-in)"]
+        P_Consumer["OrderPaidConsumer"]
+    end
+
+    subgraph NotifSvc["Notification Service<br/>(NOT IMPLEMENTED)"]
+        N_Consumer["Event Consumers"]
+    end
+
+    subgraph MQ["RabbitMQ"]
+        E_Booking["booking.events exchange"]
+        E_Payment["payment events exchange"]
+    end
+
+    B_Dispatcher -->|"order.paid<br/>order.refunded<br/>review.created"| E_Booking
+
+    E_Booking -->|"order.paid"| P_Consumer
+    E_Booking -.->|"order.paid<br/>order.refunded"| N_Consumer
+
+    P_Saga -->|"PaymentCompleted<br/>PaymentFailed<br/>PaymentRefunded"| P_Outbox
+    P_Outbox --> E_Payment
+
+    E_Payment -.->|"payment.completed<br/>payment.failed<br/>payment.refunded"| N_Consumer
 ```
 
 ---
 
-## 11. Message Reference — All Routing Keys & Queues
+## 4. Cross-Service Communication Summary
 
-### 11.1 `payment.events` Exchange (topic)
-
-| Routing Key | Published By | Consumed By (Queue) | Consumer Handler | Trigger |
-|---|---|---|---|---|
-| **`payment.completed`** | Payment Service | `booking.payment.completed` | `PaymentCompletedEventConsumer` | Stripe/PayPal webhook success |
-| **`payment.failed`** | Payment Service | `booking.payment.failed` | `PaymentFailedEventConsumer` | Stripe/PayPal webhook failure |
-| **`payment.refunded`** | Payment Service | `booking.refund.completed` | `RefundCompletedEventConsumer` | Refund processed |
-
-### 11.2 `booking.events` Exchange (topic)
-
-| Routing Key | Published By | Consumed By (Queue) | Consumer Handler | Trigger |
-|---|---|---|---|---|
-| **`order.created`** | Booking Service | `analytics.order.created` | Analytics consumer | Order persisted with status PENDING |
-| **`order.paid`** | Booking Service | `notification.order.confirmation` | `OrderPaidEventConsumer` | Order PAID, tickets generated |
-| **`order.paid`** | Booking Service | `analytics.order.paid` | Analytics consumer | Fan-out |
-| **`order.paid`** | Booking Service | `recommendation.order.paid` | `OrderEventConsumer` | Graph: CREATE (u)-[:WATCHED]->(m) |
-| **`order.cancelled`** | Booking Service | `showtime.seats.release` | `OrderCancelledEventConsumer` | Release held seats |
-| **`order.refunded`** | Booking Service | `notification.order.refund` | `OrderRefundedEventConsumer` | Send refund email |
-| **`order.refunded`** | Booking Service | `analytics.order.refunded` | Analytics consumer | Fan-out |
-| **`review.created`** | Booking Service | `recommendation.review.created` | `ReviewEventConsumer` | User submits review |
-| **`review.updated`** | Booking Service | `recommendation.review.updated` | `ReviewEventConsumer` | User updates review |
-
-### 11.3 `showtime.events` Exchange (topic)
-
-| Routing Key | Published By | Consumed By (Queue) | Consumer Handler | Trigger |
-|---|---|---|---|---|
-| **`seat.held`** | Showtime Service | `analytics.seat.activity` | Analytics consumer | Seat hold placed in Redis |
-| **`seat.booked`** | Showtime Service | `analytics.seat.activity` | Analytics consumer | Seat confirmed BOOKED in DB |
-| **`seat.released`** | Showtime Service | `analytics.seat.activity` | Analytics consumer | Seat hold released |
-| **`showtime.created`** | Showtime Service | `notification.showtime.new` | `ShowtimeCreatedEventConsumer` | New showtime scheduled |
-
-### 11.4 `user.events` Exchange (topic)
-
-| Routing Key | Published By | Consumed By (Queue) | Consumer Handler | Trigger |
-|---|---|---|---|---|
-| **`user.registered`** | Keycloak SPI | `notification.user.welcome` | `UserRegisteredEventHandler` | New user registers |
-| **`user.registered`** | Keycloak SPI | `analytics.user.registered` | Analytics consumer | Fan-out |
-| **`user.registered`** | Keycloak SPI | `recommendation.user.registered` | `UserEventConsumer` | Graph: CREATE (:User) |
-| **`user.deleted`** | Keycloak SPI | `identity.user.deleted` | `UserDeletedEventHandler` | User account deleted |
-| **`user.deleted`** | Keycloak SPI | `analytics.user.deleted` | Analytics consumer | Fan-out |
-| **`user.password.reset`** | Keycloak SPI | `notification.password.reset` | `PasswordResetEventHandler` | Password reset requested |
-
-### 11.5 `catalog.events` Exchange (topic)
-
-| Routing Key | Published By | Consumed By (Queue) | Consumer Handler | Trigger |
-|---|---|---|---|---|
-| **`movie.created`** | Catalog Service | `analytics.movie.created` | Analytics consumer | New movie created |
-| **`movie.created`** | Catalog Service | `recommendation.movie.created` | `MovieEventConsumer` | Graph: CREATE (:Movie)-[:BELONGS_TO]->(:Genre) |
-| **`movie.updated`** | Catalog Service | `analytics.movie.updated` | Analytics consumer | Movie updated |
-| **`movie.updated`** | Catalog Service | `recommendation.movie.updated` | `MovieEventConsumer` | Update movie node |
-
-### 11.6 Dead Letter Exchange
-
-| Exchange | Routing Key | Queue | Purpose |
-|---|---|---|---|
-| **`dlx.exchange`** | `*.failed` | `dlq.all` | Catch all failed messages after max retries. Manual inspection and replay |
+| From | To | Mechanism | When |
+|------|----|-----------|------|
+| Showtime Service | Facility Service | Synchronous HTTP (internal API) | Showtime creation (get room + seat templates), seat map enrichment |
+| Booking Service | Showtime Service | Synchronous HTTP (`HttpSeatReservationService`) | Order creation (validate held seats), payment (confirm seats), refund (release seats) |
+| Booking Service | Facility Service | Synchronous HTTP (`HttpFacilityReadService`) | Seat map display enrichment (row labels, seat types) |
+| Booking Service | Payment Service | **Async via RabbitMQ** (outbox → `order.paid`) | After order is marked PAID |
+| Payment Service | Booking Service | **Async via RabbitMQ** (`PaymentCompleted`, `PaymentFailed`) | After saga transitions — **but Booking Service does NOT consume these yet** |
+| Booking / Payment | Notification Service | **Async via RabbitMQ** (not implemented) | Post-payment events |
 
 ---
 
-## 12. State Transition Tables
+## 5. What Needs to Be Done to Finish the Booking Flow
 
-### 12.1 Order (`Order.status`)
+### 5.1 Critical — Flow Completion
 
-```
-         ┌─── PENDING ──────────────────────────────────────────────┐
-         │       │                                                   │
-         │  payment.completed                  payment.failed /     │
-         │       │                             order.cancelled      │
-         │       ▼                                   │              │
-         │     PAID ────────────────────────────────►CANCELLED      │
-         │       │                                                   │
-         │  user requests refund                                     │
-         │       │                                                   │
-         │       ▼                                                   │
-         │   REFUNDED                                                │
-         └──────────────────────────────────────────────────────────┘
-```
+| # | Gap | Detail | Services Affected |
+|---|-----|--------|-------------------|
+| 1 | **Booking Service does not consume `PaymentCompleted`/`PaymentFailed` events** | The Booking Service currently processes payment synchronously via `POST /api/orders/{id}/pay` (directly calls showtime confirm + generates tickets). It does NOT listen for the saga's `PaymentCompleted` event. The Payment Service publishes these events, but nobody in the Booking Service consumes them. The two flows (booking's direct HTTP-based payment, and payment service's saga) are **disconnected**. | Booking, Payment |
+| 2 | **Dual payment path conflict** | Payment can be completed two ways: (a) `POST /api/orders/{id}/pay` directly on Booking Service, or (b) via the Payment Service saga. These paths are independent and there's no coordination. Need to decide on one canonical flow and remove/refactor the other. | Booking, Payment |
+| 3 | **Order CANCELLED state never set** | `Order.OrderStatus` has `CANCELLED` but no code path sets it. When payment fails or hold expires, the order remains `PENDING` indefinitely. | Booking |
+| 4 | **No automatic hold expiry handler** | Redis TTL handles Redis key expiry, but the DB `ShowtimeSeat.status` stays `HELD` after the Redis key expires. There is no background job or event listener that transitions stale HELD seats back to AVAILABLE in the database. | Showtime |
+| 5 | **No timeout/expiry for PENDING orders** | If a user creates an order but never pays, the order stays PENDING and the held seats remain locked (until Redis TTL expires the hold key, but DB status isn't cleaned up). Need a scheduled cleanup job. | Booking, Showtime |
 
-| From | To | Trigger | Handler |
-|---|---|---|---|
-| — | `PENDING` | `POST /api/orders` | Booking Service: `createOrder()` |
-| `PENDING` | `PAID` | `payment.completed` event | `PaymentCompletedEventConsumer` |
-| `PENDING` | `CANCELLED` | `payment.failed` event | `PaymentFailedEventConsumer` |
-| `PAID` | `REFUNDED` | `payment.refunded` event | `RefundCompletedEventConsumer` |
+### 5.2 Important — Integration Gaps
 
-### 12.2 Payment (`Payment.status`)
+| # | Gap | Detail | Services Affected |
+|---|-----|--------|-------------------|
+| 6 | **Notification Service not implemented** | Only a plan file exists. Should consume: `order.paid` → booking confirmation email, `payment.completed` → payment receipt, `order.refunded` → refund notification, `payment.failed` → payment failure notification. | Notification |
+| 7 | **Payment Service `RefundRequested` not published by booking flow** | The Booking Service's `refund()` method refunds locally (releases seats, updates order/ticket status) but does NOT publish a `RefundRequested` event to trigger the Payment Service saga's refund transition. The two refund flows are disconnected. | Booking, Payment |
+| 8 | **No compensating transactions for failure cases** | If seat confirmation fails after payment succeeds, there's no automatic rollback. If ticket generation fails mid-way, there's no cleanup. Need compensating saga steps. | Booking, Showtime, Payment |
 
-| From | To | Trigger |
-|---|---|---|
-| — | `PENDING` | `POST /api/payments/initiate` |
-| `PENDING` | `COMPLETED` | Gateway success webhook / capture |
-| `PENDING` | `FAILED` | Gateway failure webhook |
-| `COMPLETED` | `REFUNDED` | Admin processes refund |
-| `COMPLETED` | `PARTIALLY_REFUNDED` | Partial refund processed |
+### 5.3 Recommended — Architecture & UX
 
-### 12.3 Showtime Seat (`ShowtimeSeat.status`)
+| # | Gap | Detail | Services Affected |
+|---|-----|--------|-------------------|
+| 9 | **Unify the payment flow** | Decide: either (a) the Booking Service becomes a saga participant that reacts to `PaymentCompleted` to confirm seats + generate tickets (event-driven), or (b) keep the synchronous flow but remove the Payment Service's saga `PaymentCompleted` → Booking integration since it's not used. | Booking, Payment |
+| 10 | **QR code / PDF generation is stubbed** | `TicketGenerationServiceImpl` generates a placeholder QR string (`CINEMA|TK-XXX|SEAT:Y`). Real ZXing QR + iText/Flying Saucer PDF integration is not done yet. | Booking |
+| 11 | **Voucher rollback on failed payment** | If payment fails after order creation, the voucher's `usedCount` is already incremented but never decremented. | Booking |
+| 12 | **Counter sales flow incomplete** | `bookAvailableSeats()` exists in showtime service but is not wired into the order/payment flow for counter sales. | Booking, Showtime |
 
-```
-AVAILABLE ──[POST /hold]──► HELD (Redis TTL 600s)
-   ▲                            │
-   │               [TTL expiry / order.cancelled]
-   │                            │
-   └────────────────────────────┘
+### 5.4 Notification Service — What It Should Do
 
-HELD ──[POST /internal/seats/confirm]──► BOOKED (permanent)
-```
+The Notification Service should be an **event-driven consumer** that subscribes to integration events and dispatches notifications:
 
-| From | To | Trigger | Method |
-|---|---|---|---|
-| `AVAILABLE` | `HELD` | `POST /api/showtimes/{id}/hold` | Redis Lua atomic lock |
-| `HELD` | `AVAILABLE` | Redis TTL expires or `order.cancelled` event | TTL natural expiry / `OrderCancelledEventConsumer` |
-| `HELD` | `BOOKED` | `POST /internal/seats/confirm` | Sync HTTP from Booking Service after payment |
-| `BOOKED` | `AVAILABLE` | Admin cancels showtime (edge case) | Admin endpoint |
+| Event | Source | Notification Action |
+|-------|--------|-------------------|
+| `order.paid` / `payment.completed` | Booking / Payment | Send booking confirmation email with ticket details, QR codes |
+| `payment.failed` | Payment Service | Send payment failure notification with retry instructions |
+| `order.refunded` / `payment.refunded` | Booking / Payment | Send refund confirmation email with refund amount and timeline |
+| `review.created` | Booking Service | (Optional) Send review acknowledgment |
+
+**Implementation approach:**
+- Subscribe to `booking.events` and payment events exchanges via RabbitMQ
+- Support multiple channels: email (SMTP/SendGrid), SMS (Twilio), push notifications
+- Use templated messages with user/order/showtime context
+- Include idempotency to prevent duplicate notifications
+- Queue-based delivery with retry logic for transient failures
 
 ---
 
-## 13. Idempotency Strategy
+## 6. Outbox Pattern Details
 
-| Service | Scenario | Key | Storage | Behavior |
-|---|---|---|---|---|
-| **Booking Service** | Duplicate `POST /api/orders` | `order:idem:{userId}:{showtimeId}:{sortedSeatIds}` | Redis (TTL 5 min) | Returns cached 201 |
-| **Payment Service** | Duplicate Stripe webhook | `payment.transaction_id` UNIQUE | PostgreSQL constraint | Duplicate INSERT silently ignored |
-| **Showtime Service** | Duplicate `order.cancelled` event | `orderId` check in consumer | DB state check | No-op if already AVAILABLE |
-| **Notification Service** | Duplicate `order.paid` event | `(userId, type, metadata.orderId)` | MongoDB unique index | Prevents duplicate confirmation emails |
-
----
-
-## 14. Observability & Tracing
-
-### 14.1 Distributed Trace Context
-
-All HTTP requests and RabbitMQ messages carry **W3C Trace Context** headers (`traceparent`, `tracestate`) via **OpenTelemetry**. A single booking flow generates one trace spanning 6 services.
+### Booking Service (Java — Custom Outbox)
 
 ```
-TraceId: abc123
-  ├── Span: API Gateway → Showtime Service (POST /hold)              ~15ms
-  ├── Span: API Gateway → Booking Service (POST /orders)             ~45ms
-  │     └── Span: Booking → Showtime (POST /internal/validate)       ~10ms
-  ├── Span: API Gateway → Payment Service (POST /initiate)           ~300ms (Stripe API call)
-  ├── Span: Payment Service webhook handler                           ~20ms
-  │     └── Span: RabbitMQ publish payment.completed                  ~5ms
-  ├── Span: Booking Service consumer (payment.completed)             ~60ms
-  │     └── Span: Booking → Showtime (POST /internal/confirm)        ~15ms
-  │     └── Span: RabbitMQ publish order.paid                         ~5ms
-  └── Span: Notification Service consumer (order.paid)               ~2000ms (SMTP)
+outbox_events table:
+├── event_id (UUID)
+├── event_type (routing key, e.g. "order.paid")
+├── exchange_name ("booking.events")
+├── routing_key
+├── aggregate_type + aggregate_id
+├── payload (JSON envelope)
+├── status (PENDING → PUBLISHED / FAILED)
+├── attempt_count + next_attempt_at
+└── Polled by OutboxDispatcher every 5s with publisher-confirm
 ```
 
-### 14.2 Key Saga Metrics
-
-| Metric | Service | Alert Threshold | Meaning |
-|---|---|---|---|
-| `saga.booking.duration_seconds` | All | p99 > 30s | Saga taking too long end-to-end |
-| `rabbitmq.consumer.lag` | All consumers | > 500 messages | Consumer falling behind |
-| `payment.webhook.signature_failures_total` | Payment Service | > 10/min | Webhook tampering or misconfiguration |
-| `booking.seat_hold.expire_rate` | Showtime Service | > 20% | High abandonment rate during checkout |
-| `payment.failed_rate` | Payment Service | > 10% | High payment failure rate |
-| `notification.delivery_failed_total` | Notification Service | > 0 for 5min | SMTP delivery broken |
-
----
-
-## Appendix A: Complete Message Flow Summary
+### Payment Service (.NET — MassTransit Built-in Outbox)
 
 ```
-User selects seats
-    │
-    ▼
-[Showtime Service] POST /api/showtimes/{id}/hold
-    → Redis: seat:hold:567:101 = 42 (TTL 600s)
-    │
-    ▼
-[Booking Service] POST /api/orders
-    → Sync: POST /internal/seats/validate → Showtime Service
-    → DB: INSERT order (status=PENDING)
-    │
-    ▼
-[Payment Service] POST /api/payments/initiate
-    → Stripe API: Create Checkout Session
-    → Return checkoutUrl to frontend
-    │
-    ▼ (user pays on Stripe hosted page)
-    │
-[Payment Service] Stripe Webhook: checkout.session.completed
-    → DB: UPDATE payment SET status=COMPLETED
-    → RabbitMQ PUBLISH: payment.events / routing key: payment.completed
-    │
-    ├──► [Booking Service] CONSUME: booking.payment.completed
-    │       → DB: UPDATE order SET status=PAID
-    │       → Sync: POST /internal/seats/confirm → Showtime Service
-    │       │        → DB: showtime_seat.status=BOOKED, delete Redis hold
-    │       → DB: INSERT tickets (QR codes)
-    │       → RabbitMQ PUBLISH: booking.events / routing key: order.paid
-    │
-    ├──────► [Notification Service] CONSUME: notification.order.confirmation
-    │           → MongoDB: INSERT notification (status=PENDING)
-    │           → MailKit: SMTP send confirmation email
-    │           → MongoDB: UPDATE notification status=SENT
-    │
-    ├──────► [Analytics Service] CONSUME: analytics.order.paid
-    │           → ClickHouse: INSERT order analytics event
-    │
-    └──────► [Recommendation Service] CONSUME: recommendation.order.paid
-                → Neo4j: CREATE (u:User)-[:WATCHED]->(m:Movie)
+EF Core Transactional Outbox:
+├── Integrated with MassTransit's InMemoryOutbox + EF Core
+├── Events stored in same DB transaction as saga state changes
+├── Dispatched automatically by MassTransit's outbox delivery service
+└── Idempotent inbox for consumers (prevents reprocessing)
 ```
 
 ---
 
-## Appendix B: Internal Sync API Reference
+## 7. Technology Stack Summary
 
-These endpoints are **not exposed externally** (blocked at API Gateway level). Services authenticate internally via `X-Internal-Api-Key` header.
-
-| Caller | Callee | Method | Path | Purpose |
-|---|---|---|---|---|
-| Booking Service | Showtime Service | `POST` | `/internal/seats/validate` | Verify held seats belong to userId |
-| Booking Service | Showtime Service | `POST` | `/internal/seats/confirm` | Mark seats BOOKED after payment |
-| Booking Service | Showtime Service | `POST` | `/internal/seats/release` | Release seats on order cancellation |
-| Booking Service | Showtime Service | `GET` | `/internal/showtimes/{id}` | Get showtime start time (refund window) |
-| API Gateway | User Profile Service | `GET` | `/internal/users/resolve?keycloakId={uuid}` | Resolve Keycloak UUID → internal Long userId |
+| Service | Language | Framework | DB | Messaging | Saga |
+|---------|----------|-----------|-----|-----------|------|
+| Facility Service | C# | .NET 9, MediatR | PostgreSQL | — | None |
+| Showtime Service | Java 21 | Spring Boot | PostgreSQL + Redis | — | None |
+| Booking Service | Java 21 | Spring Boot | PostgreSQL | RabbitMQ (custom outbox) | Transactional Outbox |
+| Payment Service | C# | .NET 9, MassTransit, MediatR | PostgreSQL | RabbitMQ (MassTransit outbox) | MassTransit State Machine |
+| Notification Service | TBD | TBD | TBD | RabbitMQ consumer | None |
 
 ---
 
-## Appendix C: Event Payload Schemas
+## 8. Booking Service — Consuming Payment Service Events
 
-### `payment.completed`
+> **Audience:** Booking Service developer (Java/Spring Boot).
+> The Payment Service saga publishes events via MassTransit's EF Core outbox to RabbitMQ.
+> The Booking Service must add RabbitMQ consumers to react to these events and complete the booking flow.
+
+### 8.1 Events to Consume
+
+| Event | Routing Key | When It's Published | What Booking Service Should Do |
+|-------|------------|---------------------|-------------------------------|
+| `PaymentCompleted` | `payment.completed` | Saga transitions Pending → Completed (online gateway success OR cash confirmed) | Confirm held seats → Generate tickets → Set Order status to `PAID` → Publish `order.paid` outbox event |
+| `PaymentFailed` | `payment.failed` | Saga transitions Pending → Failed (gateway verification failed) | Release held seats → Set Order status to `CANCELLED` → (Optional) Rollback voucher `usedCount` |
+| `PaymentRefunded` | `payment.refunded` | Saga transitions Completed → Refunded | Release booked seats → Set Tickets to `REFUNDED` → Set Order status to `REFUNDED` → Publish `order.refunded` outbox event |
+
+### 8.2 Message JSON Structures
+
+All messages are wrapped in an `EventEnvelope`. The JSON arriving on RabbitMQ looks like this:
+
+#### `PaymentCompleted` (envelope)
+
 ```json
 {
-  "eventId": "uuid-v4",
+  "eventId": "a1b2c3d4-...",
   "eventType": "payment.completed",
-  "timestamp": "2026-07-31T10:00:20Z",
+  "occurredAt": "2026-08-20T12:00:00Z",
+  "schemaVersion": 1,
+  "source": "payment-service",
   "payload": {
-    "paymentId": 9001,
-    "orderId": 1234,
-    "userId": 42,
-    "amount": 162000.00,
-    "transactionId": "pi_3NxxxSTRIPE",
-    "paymentMethod": "STRIPE"
-  }
-}
-```
-
-### `payment.failed`
-```json
-{
-  "eventId": "uuid-v4",
-  "eventType": "payment.failed",
-  "timestamp": "2026-07-31T10:00:20Z",
-  "payload": {
-    "paymentId": 9001,
-    "orderId": 1234,
-    "userId": 42,
-    "reason": "card_declined"
-  }
-}
-```
-
-### `payment.refunded`
-```json
-{
-  "eventId": "uuid-v4",
-  "eventType": "payment.refunded",
-  "timestamp": "2026-07-31T12:00:00Z",
-  "payload": {
-    "paymentId": 9001,
-    "orderId": 1234,
-    "userId": 42,
-    "refundAmount": 162000.00,
-    "reason": "User requested cancellation"
-  }
-}
-```
-
-### `order.paid` (enriched)
-```json
-{
-  "eventId": "uuid-v4",
-  "eventType": "order.paid",
-  "timestamp": "2026-07-31T10:00:30Z",
-  "payload": {
-    "orderId": 1234,
-    "userId": 42,
-    "showtimeId": 567,
-    "movieId": 15,
-    "movieTitle": "Inception",
-    "showtimeStartTime": "2026-08-01T19:30:00Z",
-    "cinemaName": "CGV Vincom",
-    "roomName": "Room 3",
-    "seats": [
-      { "seatId": 101, "row": "A", "column": 5, "type": "STANDARD", "price": 90000 }
-    ],
-    "totalAmount": 180000.00,
-    "finalAmount": 162000.00,
-    "voucherCode": "SUMMER10",
-    "ticketCount": 2,
+    "correlationId": "d4e5f6a7-...",
+    "paymentId": 42,
+    "orderId": 101,
+    "userId": 7,
+    "amount": 350000.00,
+    "transactionId": "txn_stripe_abc123",
     "paymentMethod": "STRIPE",
-    "transactionId": "pi_3NxxxSTRIPE",
-    "tickets": [
-      { "ticketId": 5001, "qrCode": "base64...", "seatId": 101 }
-    ]
+    "paidAt": "2026-08-20T12:00:00Z"
   }
 }
 ```
 
-### `order.cancelled`
-```json
-{
-  "eventId": "uuid-v4",
-  "eventType": "order.cancelled",
-  "timestamp": "2026-07-31T10:00:25Z",
-  "payload": {
-    "orderId": 1234,
-    "showtimeId": 567,
-    "seatIds": [101, 102],
-    "userId": 42
-  }
-}
-```
+**Java DTO (create in booking-service):**
 
-### `order.refunded`
-```json
-{
-  "eventId": "uuid-v4",
-  "eventType": "order.refunded",
-  "timestamp": "2026-07-31T12:00:05Z",
-  "payload": {
-    "orderId": 1234,
-    "userId": 42,
-    "refundAmount": 162000.00,
-    "reason": "User requested cancellation"
-  }
-}
+```java
+public record PaymentCompletedEvent(
+    UUID correlationId,
+    Long paymentId,
+    Long orderId,
+    Long userId,
+    BigDecimal amount,
+    String transactionId,
+    String paymentMethod,
+    LocalDateTime paidAt
+) {}
 ```
 
 ---
 
-*Last updated: 2026-07-31 | Derived from [architecture_refactor.md](./architecture_refactor.md), [payment-service/refactor_plan.md](../backend/services/payment-service/refactor_plan.md), [notification-service/refactor_plan.md](../backend/services/notification-service/refactor_plan.md)*
+#### `PaymentFailed` (envelope)
+
+```json
+{
+  "eventId": "b2c3d4e5-...",
+  "eventType": "payment.failed",
+  "occurredAt": "2026-08-20T12:05:00Z",
+  "schemaVersion": 1,
+  "source": "payment-service",
+  "payload": {
+    "correlationId": "e5f6a7b8-...",
+    "paymentId": 43,
+    "orderId": 102,
+    "userId": 8,
+    "reason": "Card declined by issuer"
+  }
+}
+```
+
+**Java DTO:**
+
+```java
+public record PaymentFailedEvent(
+    UUID correlationId,
+    Long paymentId,
+    Long orderId,
+    Long userId,
+    String reason
+) {}
+```
+
+---
+
+#### `PaymentRefunded` (envelope)
+
+```json
+{
+  "eventId": "c3d4e5f6-...",
+  "eventType": "payment.refunded",
+  "occurredAt": "2026-08-20T13:00:00Z",
+  "schemaVersion": 1,
+  "source": "payment-service",
+  "payload": {
+    "correlationId": "f6a7b8c9-...",
+    "paymentId": 42,
+    "orderId": 101,
+    "userId": 7,
+    "refundAmount": 350000.00,
+    "reason": "Customer requested refund"
+  }
+}
+```
+
+**Java DTO:**
+
+```java
+public record PaymentRefundedEvent(
+    UUID correlationId,
+    Long paymentId,
+    Long orderId,
+    Long userId,
+    BigDecimal refundAmount,
+    String reason
+) {}
+```
+
+---
+
+### 8.3 RabbitMQ Queue/Exchange Setup
+
+The Payment Service (MassTransit) publishes to exchanges auto-created by MassTransit. The Booking Service needs to bind its own queues.
+
+```yaml
+# Add to booking-service application.yml
+
+spring:
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+
+# Queue bindings (Spring AMQP @Bean or annotation-based)
+payment-events:
+  exchange: "PaymentService.Application.Contracts:EventEnvelope``1[[PaymentService.Application.IntegrationEvents:PaymentCompleted]]"
+  # NOTE: MassTransit uses fully-qualified type names as exchange names.
+  # Alternative: configure MassTransit in Payment Service to use simpler
+  # exchange names like "payment.events" with custom topology.
+```
+
+> [!IMPORTANT]
+> MassTransit auto-generates exchange names from the .NET message type's full name (e.g. `PaymentService.Application.Contracts:EventEnvelope\`1[[PaymentService.Application.IntegrationEvents:PaymentCompleted]]`). This is **not friendly for cross-language consumers**. Two options:
+>
+> **Option A (Recommended):** Configure MassTransit in Payment Service to use a custom `EntityNameFormatter` that maps to simple exchange names like `payment.events` with routing keys `payment.completed`, `payment.failed`, `payment.refunded`.
+>
+> **Option B:** Have the Booking Service bind to the MassTransit-generated exchange names directly (ugly but works).
+
+### 8.4 Consumer Implementation (Spring AMQP)
+
+Once exchange naming is resolved, the Booking Service consumers should look like:
+
+```java
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class PaymentCompletedConsumer {
+
+    private final OrderRepository orderRepository;
+    private final SeatReservationService seatReservationService;
+    private final TicketGenerationService ticketGenerationService;
+    private final BookingOutboxEventWriter outboxEventWriter;
+
+    @RabbitListener(queues = "booking.payment.completed")
+    @Transactional
+    public void handle(EventEnvelope<PaymentCompletedEvent> envelope) {
+        PaymentCompletedEvent event = envelope.payload();
+        log.info("PaymentCompleted received: orderId={}, txnId={}", event.orderId(), event.transactionId());
+
+        Order order = orderRepository.findById(event.orderId()).orElse(null);
+        if (order == null || order.getStatus() != Order.OrderStatus.PENDING) {
+            log.warn("Order {} not found or not PENDING, skipping", event.orderId());
+            return; // Idempotent: already processed or doesn't exist
+        }
+
+        // 1. Confirm held seats → BOOKED
+        List<Long> seatIds = parseSeatIds(order.getSeatIdsSnapshot());
+        SeatBookingResult result = seatReservationService.confirmHeldSeats(
+            new SeatBookingRequest(order.getUserId(), order.getShowtimeId(), seatIds)
+        );
+
+        // 2. Generate tickets
+        Map<Long, SeatView> seatsById = result.seats().stream()
+            .collect(Collectors.toMap(SeatView::seatId, Function.identity()));
+        for (Long seatId : seatIds) {
+            SeatView seat = seatsById.get(seatId);
+            Ticket ticket = Ticket.builder()
+                .order(order)
+                .showtimeSeatId(seatId)
+                .price(seat != null ? seat.price() : BigDecimal.ZERO)
+                .status(Ticket.TicketStatus.VALID)
+                .build();
+            ticketGenerationService.generateTicket(ticket);
+        }
+
+        // 3. Update order
+        order.setPaymentMethod(event.paymentMethod());
+        order.setPaymentTransactionId(event.transactionId());
+        order.setStatus(Order.OrderStatus.PAID);
+        orderRepository.save(order);
+
+        // 4. Publish order.paid outbox event
+        ShowtimeScheduleView showtime = seatReservationService.getSchedule(order.getShowtimeId());
+        outboxEventWriter.orderPaid(order, showtime, seatIds.size());
+
+        log.info("Order {} completed via PaymentCompleted event", order.getId());
+    }
+}
+```
+
+```java
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class PaymentFailedConsumer {
+
+    private final OrderRepository orderRepository;
+    private final SeatReservationService seatReservationService;
+
+    @RabbitListener(queues = "booking.payment.failed")
+    @Transactional
+    public void handle(EventEnvelope<PaymentFailedEvent> envelope) {
+        PaymentFailedEvent event = envelope.payload();
+        log.warn("PaymentFailed received: orderId={}, reason={}", event.orderId(), event.reason());
+
+        Order order = orderRepository.findById(event.orderId()).orElse(null);
+        if (order == null || order.getStatus() != Order.OrderStatus.PENDING) {
+            return; // Idempotent
+        }
+
+        // 1. Release held seats → AVAILABLE
+        List<Long> seatIds = parseSeatIds(order.getSeatIdsSnapshot());
+        seatReservationService.releaseHeldSeats(
+            new SeatBookingRequest(order.getUserId(), order.getShowtimeId(), seatIds)
+        );
+
+        // 2. Cancel order
+        order.setStatus(Order.OrderStatus.CANCELLED);
+        orderRepository.save(order);
+
+        log.info("Order {} cancelled due to payment failure", order.getId());
+    }
+}
+```
+
+### 8.5 What to Remove After Migration
+
+Once the event-driven consumers above are working:
+
+1. **Remove or restrict** `POST /api/orders/{id}/pay` — this endpoint bypasses the Payment Service entirely. Either:
+   - Delete it, or
+   - Keep it as an admin-only fallback for edge cases
+2. **Remove** the direct seat-confirmation logic from `PaymentServiceImpl.processPayment()` — it's now handled by `PaymentCompletedConsumer`
+3. The `POST /api/orders/{id}/refund` endpoint can remain as-is if you want user-initiated refunds, but it should also publish `RefundRequested` to the Payment Service saga so the payment record stays in sync
+
+### 8.6 Shared EventEnvelope DTO (Java side)
+
+Create this in the booking-service `dto` or `messaging` package to deserialize the Payment Service's envelope:
+
+```java
+public record EventEnvelope<T>(
+    UUID eventId,
+    String eventType,
+    Instant occurredAt,
+    int schemaVersion,
+    String source,
+    T payload
+) {}
+```
+
+> [!TIP]
+> Use Jackson's `@JsonTypeInfo` or a custom `MessageConverter` to handle generic deserialization of `EventEnvelope<PaymentCompletedEvent>` vs `EventEnvelope<PaymentFailedEvent>` based on the `eventType` field.

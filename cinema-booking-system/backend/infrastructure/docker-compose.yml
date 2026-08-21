@@ -362,6 +362,31 @@ services:
     networks:
       - cinema-services
 
+  payment-service:
+    build:
+      context: ../services/payment-service
+      dockerfile: Dockerfile
+    container_name: cinema-payment-service
+    env_file:
+      - .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ASPNETCORE_URLS=${ASPNETCORE_URLS}
+      - ConnectionStrings__DefaultConnection=Host=${POSTGRES_HOST:-postgres};Port=${POSTGRES_PORT:-5432};Database=${PAYMENT_DB_NAME:-payment_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-123}
+      - RabbitMQ__HostName=${RABBITMQ_HOST:-rabbitmq}
+      - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER:-cinema}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD:-cinema-rabbitmq-dev}
+      - Jwt__Authority=${KC_AUTHORITY_URL}
+      - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
+      - Jwt__RequireHttpsMetadata=false
+    ports:
+      - "${PAYMENT_SERVICE_PORT:-5003}:80"
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - cinema-services
+
 volumes:
   rabbitmq_data:
   postgres_data:

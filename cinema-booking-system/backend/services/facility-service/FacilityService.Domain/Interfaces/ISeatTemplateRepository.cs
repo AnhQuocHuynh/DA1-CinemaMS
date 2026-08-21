@@ -7,6 +7,7 @@ namespace FacilityService.Domain.Interfaces
     public interface ISeatTemplateRepository
     {
         Task<IEnumerable<SeatTemplate>> GetByRoomIdAsync(long roomId);
+        Task<SeatTemplate?> GetByIdAsync(long id);
         Task AddRangeAsync(IEnumerable<SeatTemplate> seatTemplates);
         void RemoveRange(IEnumerable<SeatTemplate> seatTemplates);
     }

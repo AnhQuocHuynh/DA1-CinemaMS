@@ -54,7 +54,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
-            ValidateIssuer = false, // Allow tokens issued via localhost to be validated by the internal keycloak URI
+            ValidateIssuer = true, // Validate issuer per contract
             ValidateAudience = true,
             ValidateLifetime = true,
             NameClaimType = "preferred_username",

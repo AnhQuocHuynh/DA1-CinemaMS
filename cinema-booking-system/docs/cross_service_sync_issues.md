@@ -22,15 +22,15 @@
 
 | #  | Category                 | Severity     | Services Affected                                   |
 |----|--------------------------|--------------|------------------------------------------------------|
-| 1  | Missing Internal APIs    | 🔴 Critical  | facility-service (.NET) ← showtime / booking (Java)  |
-| 2  | Auth Scheme Mismatch     | 🔴 Critical  | facility-service (.NET) ← all Spring Boot callers    |
+| 1  | Missing Internal APIs    | ✅ Resolved   | facility-service (.NET) ← showtime / booking (Java)  |
+| 2  | Auth Scheme Mismatch     | ✅ Resolved   | facility-service (.NET) ← all Spring Boot callers    |
 | 3  | JWT Issuer Validation    | ✅ Resolved   | facility-service (.NET), identity-service (.NET)      |
 | 4  | API Gateway Route Gaps   | ✅ Resolved   | api-gateway → catalog / showtime / booking / etc.    |
-| 5  | Unresolved Merge Conflict| 🔴 Critical  | `shared/contracts/facility-service.openapi.yml`       |
-| 14 | ValidateIssuer=false     | 🔴 Critical  | api-gateway (violates auth contract §6)               |
+| 5  | Unresolved Merge Conflict| ✅ Resolved  | `shared/contracts/facility-service.openapi.yml`       |
+| 14 | ValidateIssuer=false     | ✅ Resolved   | api-gateway (violates auth contract §6)               |
 | 6  | RabbitMQ Config Keys     | ✅ Resolved   | payment-service (.NET) vs identity-service (.NET)     |
 | 7  | `.env.example` Drift     | ✅ Resolved   | docker-compose.yml vs `.env.example`                  |
-| 8  | Payment & Notification   | 🟠 Important | payment-service, notification-service                 |
+| 8  | Payment & Notification   |  Partially Resolved | payment-service, notification-service                 |
 | 9  | Facility Showtime Guard  | ✅ Resolved   | facility-service (.NET)                               |
 | 10 | User Events Consumer Gap | ✅ Resolved   | recommendation-service (Java)                         |
 | 11 | Response Envelope Shape  | ✅ Resolved   | facility-service (.NET) internal response             |
@@ -39,7 +39,9 @@
 
 ---
 
-## 1. 🔴 Missing Internal API Endpoints on .NET Facility Service
+## 1. ✅ Missing Internal API Endpoints on .NET Facility Service
+
+**Status:** Resolved. Added `InternalFacilityController` and internal queries to expose the missing endpoints wrapped in `ApiResponse<T>`.
 
 **Problem:** The Spring Boot services (`showtime-service`, `booking-service`) make HTTP calls to the facility service using these endpoints:
 
@@ -72,7 +74,9 @@ All three must be wrapped in the Java-side `ApiResponse<T>` envelope (`{ "succes
 
 ---
 
-## 2. 🔴 Internal Token Auth Not Implemented in .NET Services
+## 2. ✅ Internal Token Auth Not Implemented in .NET Services
+
+**Status:** Resolved. Added `InternalApiSecurityMiddleware` to `.NET` services (`facility-service`, `identity-service`, `payment-service`) that validates the `X-Internal-Token` header.
 
 > [!NOTE]
 > Per the [authentication contract §9.3](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/docs/authentication_integration_contract.md), `X-Internal-Token` is a **temporary compatibility mechanism**. The target is Keycloak client-credentials tokens. However, for the current merge to work, both sides must use the same transitional mechanism.
@@ -91,9 +95,9 @@ The Spring Boot services (catalog, showtime, booking, facility-java) all have an
 
 **The .NET identity-service** similarly has `[AllowAnonymous]` on `GET /internal/users/resolve` with no token validation.
 
-**Fix required:** Either:
-- **(A)** Add an `InternalTokenAuthenticationMiddleware` to both .NET services that validates the `X-Internal-Token` header against a shared secret (matching the Spring Boot `app.internal-token` value), **or**
-- **(B)** Accept the current trust-the-network approach but document it as an explicit design decision. In Docker, only containers on the `cinema-services` network can reach these ports, so the risk is limited to lateral movement within the compose stack.
+**Fix implemented:**
+- **(A)** Added an `InternalApiSecurityMiddleware` to .NET services that validates the `X-Internal-Token` header against a shared secret matching the Spring Boot `app.internal-token` value (via `InternalApi:Token` configuration).
+
 
 ---
 
@@ -124,7 +128,9 @@ The .NET facility-service and identity-service do **not** have a `Jwt:Authority`
 
 ---
 
-## 14. 🔴 API Gateway Violates Auth Contract: `ValidateIssuer = false`
+## 14. ✅ API Gateway Violates Auth Contract: `ValidateIssuer = false`
+
+**Status:** Resolved. Set `ValidateIssuer = true` and `Audience = "cinema-api"` in API Gateway configuration.
 
 **Problem:** The API gateway's JWT configuration explicitly disables issuer validation:
 
@@ -224,7 +230,9 @@ But **payment-service is not in docker-compose** at all, so when it is added, th
 
 ---
 
-## 8. 🟠 Payment & Notification Services Not in Docker Compose
+## 8. ✅ Payment Service Registered (Notification Service Pending)
+
+**Status:** Partially Resolved. Added `payment-service` entry to `docker-compose.yml`. `notification-service` is acknowledged as a future TODO.
 
 **Problem:**
 - **payment-service** (.NET) has a Dockerfile, controllers, MassTransit saga integration, but **no entry in `docker-compose.yml`**. It cannot be reached by other services or the gateway.
