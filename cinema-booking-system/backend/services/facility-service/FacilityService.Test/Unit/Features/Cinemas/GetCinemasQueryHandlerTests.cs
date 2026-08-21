@@ -19,7 +19,7 @@ namespace FacilityService.Test.Unit.Features.Cinemas
         public GetCinemasQueryHandlerTests()
         {
             _mockUnitOfWork = new Mock<IUnitOfWork>();
-            _handler = new GetCinemasQueryHandler(_mockUnitOfWork.Object);
+            _handler = new GetCinemasQueryHandler(_mockUnitOfWork.Object, new Mock<Microsoft.Extensions.Caching.Distributed.IDistributedCache>().Object);
         }
 
         [Fact]
@@ -46,3 +46,4 @@ namespace FacilityService.Test.Unit.Features.Cinemas
         }
     }
 }
+

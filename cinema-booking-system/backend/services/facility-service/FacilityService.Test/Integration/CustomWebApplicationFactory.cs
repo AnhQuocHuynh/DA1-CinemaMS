@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Testcontainers.PostgreSql;
+using Testcontainers.Redis;
 using Xunit;
 
 namespace FacilityService.Test.Integration;
@@ -22,20 +23,24 @@ namespace FacilityService.Test.Integration;
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
+        .WithImage("postgres:18-alpine")
         .WithDatabase("facility_db")
         .WithUsername("postgres")
         .WithPassword("postgres")
         .Build();
 
+    private readonly RedisContainer _redisContainer = new RedisBuilder()
+        .WithImage("redis:7-alpine")
+        .Build();
+
     public async Task InitializeAsync()
     {
-        await _dbContainer.StartAsync();
+        await Task.WhenAll(_dbContainer.StartAsync(), _redisContainer.StartAsync());
     }
 
     public new async Task DisposeAsync()
     {
-        await _dbContainer.DisposeAsync();
+        await Task.WhenAll(_dbContainer.DisposeAsync().AsTask(), _redisContainer.DisposeAsync().AsTask());
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -49,6 +54,12 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
             services.AddDbContext<FacilityDbContext>(options =>
             {
                 options.UseNpgsql(_dbContainer.GetConnectionString());
+            });
+
+            // Update Redis connection string
+            services.PostConfigure<Microsoft.Extensions.Caching.StackExchangeRedis.RedisCacheOptions>(options =>
+            {
+                options.Configuration = _redisContainer.GetConnectionString();
             });
             
             // Mock Showtime Service Client

@@ -22,7 +22,7 @@ namespace FacilityService.Test.Unit.Features.Cinemas
         {
             _mockUnitOfWork = new Mock<IUnitOfWork>();
             _mockShowtimeService = new Mock<IShowtimeServiceClient>();
-            _handler = new DeleteCinemaCommandHandler(_mockUnitOfWork.Object, _mockShowtimeService.Object);
+            _handler = new DeleteCinemaCommandHandler(_mockUnitOfWork.Object, _mockShowtimeService.Object, new Mock<Microsoft.Extensions.Caching.Distributed.IDistributedCache>().Object);
         }
 
         [Fact]
@@ -94,3 +94,4 @@ namespace FacilityService.Test.Unit.Features.Cinemas
         }
     }
 }
+

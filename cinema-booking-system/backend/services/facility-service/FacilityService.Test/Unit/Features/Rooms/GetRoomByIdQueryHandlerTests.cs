@@ -17,7 +17,7 @@ namespace FacilityService.Test.Unit.Features.Rooms
         public GetRoomByIdQueryHandlerTests()
         {
             _mockUnitOfWork = new Mock<IUnitOfWork>();
-            _handler = new GetRoomByIdQueryHandler(_mockUnitOfWork.Object);
+            _handler = new GetRoomByIdQueryHandler(_mockUnitOfWork.Object, new Mock<Microsoft.Extensions.Caching.Distributed.IDistributedCache>().Object);
         }
 
         [Fact]
@@ -56,3 +56,4 @@ namespace FacilityService.Test.Unit.Features.Rooms
         }
     }
 }
+

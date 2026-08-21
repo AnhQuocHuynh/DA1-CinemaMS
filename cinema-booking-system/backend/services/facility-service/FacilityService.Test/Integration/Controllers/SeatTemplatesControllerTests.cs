@@ -137,8 +137,8 @@ public class SeatTemplatesControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var result = await response.Content.ReadFromJsonAsync<IEnumerable<SeatTemplateDto>>();
+        var result = await response.Content.ReadFromJsonAsync<ApiResponse<IEnumerable<SeatTemplateDto>>>();
         result.Should().NotBeNull();
-        result.Should().NotBeEmpty();
+        result!.Data.Should().NotBeEmpty();
     }
 }

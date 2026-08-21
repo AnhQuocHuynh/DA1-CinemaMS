@@ -19,7 +19,7 @@ namespace FacilityService.Test.Unit.Features.Rooms
         public CreateRoomCommandHandlerTests()
         {
             _mockUnitOfWork = new Mock<IUnitOfWork>();
-            _handler = new CreateRoomCommandHandler(_mockUnitOfWork.Object);
+            _handler = new CreateRoomCommandHandler(_mockUnitOfWork.Object, new Mock<Microsoft.Extensions.Caching.Distributed.IDistributedCache>().Object);
         }
 
         [Fact]
@@ -75,3 +75,4 @@ namespace FacilityService.Test.Unit.Features.Rooms
         }
     }
 }
+

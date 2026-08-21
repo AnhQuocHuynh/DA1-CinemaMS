@@ -20,7 +20,7 @@ namespace FacilityService.Test.Unit.Features.Rooms
         public GetRoomSeatsInternalQueryHandlerTests()
         {
             _mockUnitOfWork = new Mock<IUnitOfWork>();
-            _handler = new GetRoomSeatsInternalQueryHandler(_mockUnitOfWork.Object);
+            _handler = new GetRoomSeatsInternalQueryHandler(_mockUnitOfWork.Object, new Mock<Microsoft.Extensions.Caching.Distributed.IDistributedCache>().Object);
         }
 
         [Fact]
@@ -67,3 +67,4 @@ namespace FacilityService.Test.Unit.Features.Rooms
         }
     }
 }
+

@@ -18,7 +18,7 @@ namespace FacilityService.Test.Unit.Features.Rooms
         public GetRoomsByCinemaQueryHandlerTests()
         {
             _mockUnitOfWork = new Mock<IUnitOfWork>();
-            _handler = new GetRoomsByCinemaQueryHandler(_mockUnitOfWork.Object);
+            _handler = new GetRoomsByCinemaQueryHandler(_mockUnitOfWork.Object, new Mock<Microsoft.Extensions.Caching.Distributed.IDistributedCache>().Object);
         }
 
         [Fact]
@@ -46,3 +46,4 @@ namespace FacilityService.Test.Unit.Features.Rooms
         }
     }
 }
+

@@ -18,7 +18,7 @@ namespace FacilityService.Test.Unit.Features.Cinemas
         public UpdateCinemaCommandHandlerTests()
         {
             _mockUnitOfWork = new Mock<IUnitOfWork>();
-            _handler = new UpdateCinemaCommandHandler(_mockUnitOfWork.Object);
+            _handler = new UpdateCinemaCommandHandler(_mockUnitOfWork.Object, new Mock<Microsoft.Extensions.Caching.Distributed.IDistributedCache>().Object);
         }
 
         [Fact]
@@ -70,3 +70,4 @@ namespace FacilityService.Test.Unit.Features.Cinemas
         }
     }
 }
+
