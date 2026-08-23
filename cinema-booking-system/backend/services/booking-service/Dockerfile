@@ -4,7 +4,7 @@ WORKDIR /workspace
 
 COPY pom.xml pom.xml
 COPY services/catalog-service/pom.xml services/catalog-service/pom.xml
-COPY services/facility-service/pom.xml services/facility-service/pom.xml
+
 COPY services/showtime-service/pom.xml services/showtime-service/pom.xml
 COPY services/booking-service/pom.xml services/booking-service/pom.xml
 COPY services/analytics-service/pom.xml services/analytics-service/pom.xml

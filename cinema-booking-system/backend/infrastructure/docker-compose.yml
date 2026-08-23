@@ -106,6 +106,7 @@ services:
       - ReverseProxy__Clusters__booking-cluster__Destinations__booking-1__Address=http://booking-service:8083
       - ReverseProxy__Clusters__analytics-cluster__Destinations__analytics-1__Address=http://analytics-service:8084
       - ReverseProxy__Clusters__recommendation-cluster__Destinations__recommendation-1__Address=http://recommendation-service:8085
+      - ReverseProxy__Clusters__payment-cluster__Destinations__payment-1__Address=http://payment-service:80
       - Jwt__Authority=${KC_AUTHORITY_URL}
       - UserProfileService__BaseUrl=http://identity-service:80
       - Redis__ConnectionString=${REDIS_CONNECTION_STRING}
