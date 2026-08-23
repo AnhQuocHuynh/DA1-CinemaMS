@@ -24,22 +24,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   error: null,
 
   setUser: (user) => set({ user, token: user?.token || null }),
-  setToken: (token) => {
-    set({ token });
-  },
+  setToken: (token) => set({ token }),
   setIsLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
-  logout: () => {
-    set({ user: null, token: null, error: null });
-  },
-  reset: () =>
-    set({
-      user: null,
-      token: null,
-      isLoading: false,
-      error: null,
-    }),
-  clearUser: () => {
-    set({ user: null, token: null });
-  },
+  logout: () => set({ user: null, token: null, error: null }),
+  reset: () => set({ user: null, token: null, isLoading: false, error: null }),
+  clearUser: () => set({ user: null, token: null }),
 }));

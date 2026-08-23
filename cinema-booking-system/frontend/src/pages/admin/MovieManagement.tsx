@@ -8,9 +8,10 @@ import { MovieModal } from '../../components/admin/modals/MovieModal';
 import { GenreManagementModal } from '../../components/admin/modals/GenreManagementModal';
 import { RatingBadge } from '../../components/Review/RatingBadge';
 import { movieService } from '../../services/movieService';
+import { AdminDataState, AdminTableSkeleton } from '../../components/admin/AdminDataState';
 
 export const MovieManagement: React.FC = () => {
-  const { movies, isLoading, addMovie, updateMovie, deleteMovie } = useAdminMovies();
+  const { movies, isLoading, isRetrying, retry, addMovie, updateMovie, deleteMovie } = useAdminMovies();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGenreModalOpen, setIsGenreModalOpen] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<any>(null);
@@ -87,9 +88,14 @@ export const MovieManagement: React.FC = () => {
             </div>
           </div>
 
-          {isLoading ? (
-            <div className="p-8 text-center text-on-surface-variant">Loading movies...</div>
-          ) : (
+          <AdminDataState
+            isLoading={isLoading}
+            isEmpty={!isLoading && movies.length === 0}
+            onRetry={retry}
+            isRetrying={isRetrying}
+            emptyMessage="No movies found."
+            skeleton={<AdminTableSkeleton rows={5} cols={5} />}
+          >
             <table className="w-full text-left border-collapse">
               <thead className="bg-surface-container-low/50">
                 <tr>
@@ -127,7 +133,7 @@ export const MovieManagement: React.FC = () => {
                 ))}
               </tbody>
             </table>
-          )}
+          </AdminDataState>
         </section>
       </main>
 

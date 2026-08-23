@@ -7,9 +7,22 @@ import App from './App.tsx'
 import keycloak from './lib/keycloak';
 import { useAuthStore } from './store/authStore';
 
+function extractKeycloakRoles(tokenParsed: any): string[] {
+  const roles: string[] = [];
+  if (tokenParsed?.realm_access?.roles) {
+    roles.push(...tokenParsed.realm_access.roles);
+  }
+  if (tokenParsed?.resource_access) {
+    Object.values(tokenParsed.resource_access).forEach((client: any) => {
+      if (client?.roles) roles.push(...client.roles);
+    });
+  }
+  return roles.map(r => String(r).toUpperCase());
+}
+
 function mapKeycloakRole(roles: string[]): 'ADMIN' | 'STAFF' | 'USER' {
-  if (roles.includes('ADMIN')) return 'ADMIN';
-  if (roles.includes('STAFF')) return 'STAFF';
+  if (roles.includes('ADMIN') || roles.includes('CINEMA-ADMIN')) return 'ADMIN';
+  if (roles.includes('STAFF') || roles.includes('CINEMA-STAFF')) return 'STAFF';
   return 'USER';
 }
 
@@ -26,7 +39,7 @@ keycloak.init({
       keycloakId: sub!,
       email: email!,
       username: preferred_username!,
-      role: mapKeycloakRole(realm_access?.roles ?? []),
+      role: mapKeycloakRole(extractKeycloakRoles(keycloak.tokenParsed)),
       token: keycloak.token!,
       refreshToken: keycloak.refreshToken!,
     });

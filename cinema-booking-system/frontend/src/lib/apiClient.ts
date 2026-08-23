@@ -44,7 +44,11 @@ apiClient.interceptors.response.use(
       }
     }
     if (error.response?.status === 403) {
-      window.location.href = '/';
+      console.warn('[apiClient] 403 Forbidden:', error.config?.url);
+      //redirect to home if user role is not admin (temp fix)
+      if (!keycloak.hasRealmRole('ADMIN')) {
+        window.location.href = '/';
+      }
     }
     return Promise.reject(error);
   }

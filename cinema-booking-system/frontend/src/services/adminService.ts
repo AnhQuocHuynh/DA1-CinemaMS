@@ -126,11 +126,16 @@ export const adminService = {
 
   // ── Theaters (CRUD) ────────────────────────────────────────────────────────
   getTheaters: async (): Promise<AdminTheater[]> => {
-    console.log('🏛️ [ADMIN] Fetching theaters...');
-    const response = await apiClient.get<{ success: boolean; data: any[] }>('/cinemas');
-    const theaters = await Promise.all(response.data.data.map(async (c) => {
-      const roomsRes = await apiClient.get<{ success: boolean; data: any[] }>(`/cinemas/${c.id}/rooms`);
-      const rooms = roomsRes.data.data.map((r: any) => ({
+    console.log('🏛️ [ADMIN] Fetching theaters....');
+    const response = await apiClient.get<{ success: boolean; data: any[] }>('/cinemas/with-rooms');
+    return response.data.data.map((c) => ({
+      id: String(c.id),
+      name: c.name,
+      region: c.city || 'Unknown',
+      address: c.address,
+      phone: c.phone,
+      isExpanded: false,
+      rooms: (c.rooms ?? []).map((r: any) => ({
         id: String(r.id),
         name: r.name,
         level: r.type || 'Standard',
@@ -139,18 +144,8 @@ export const adminService = {
         status: (r.underMaintenance ? 'maintenance' : 'operational') as 'maintenance' | 'operational',
         rows: r.rows || 10,
         columns: r.columns || 14,
-      }));
-      return {
-        id: String(c.id),
-        name: c.name,
-        region: c.city || 'Unknown',
-        address: c.address,
-        phone: c.phone,
-        isExpanded: false,
-        rooms: rooms
-      };
+      })),
     }));
-    return theaters;
   },
 
   createTheater: async (theaterData: any) => {

@@ -8,10 +8,11 @@ import { useAdminRooms } from '../../hooks/useAdminRooms';
 import { AdminTheater } from '../../types/admin';
 import { TheaterModal } from '../../components/admin/modals/TheaterModal';
 import { RoomModal } from '../../components/admin/modals/RoomModal';
+import { AdminDataState, AdminTableSkeleton } from '../../components/admin/AdminDataState';
 
 export const RoomManagement: React.FC = () => {
   const navigate = useNavigate();
-  const { theaters, isLoading, addTheater, updateTheater, deleteTheater, addRoom, updateRoom, deleteRoom } = useAdminRooms();
+  const { theaters, isLoading, isRetrying, retry, addTheater, updateTheater, deleteTheater, addRoom, updateRoom, deleteRoom } = useAdminRooms();
 
   const [expandedTheaters, setExpandedTheaters] = useState<Record<string, boolean>>({
     'theater-1': true,
@@ -103,9 +104,14 @@ export const RoomManagement: React.FC = () => {
           }
         />
 
-        {isLoading ? (
-          <div className="text-center py-16 text-on-surface-variant">Loading theaters...</div>
-        ) : (
+        <AdminDataState
+          isLoading={isLoading}
+          isEmpty={!isLoading && theaters.length === 0}
+          onRetry={retry}
+          isRetrying={isRetrying}
+          emptyMessage="No theaters found."
+          skeleton={<AdminTableSkeleton rows={4} cols={3} />}
+        >
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-12">
               <div className="md:col-span-2 bg-surface-container-lowest p-6 border-none flex flex-col justify-between h-40">
@@ -243,7 +249,7 @@ export const RoomManagement: React.FC = () => {
               })}
             </div>
           </>
-        )}
+        </AdminDataState>
       </main>
 
       <TheaterModal

@@ -5,6 +5,7 @@ import { AdminMovieListItem } from '../types/admin';
 export const useAdminMovies = () => {
   const [movies, setMovies] = useState<AdminMovieListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const loadMovies = async () => {
     setIsLoading(true);
@@ -15,7 +16,13 @@ export const useAdminMovies = () => {
       console.error('Failed to load movie management data:', error);
     } finally {
       setIsLoading(false);
+      setIsRetrying(false);
     }
+  };
+
+  const retry = () => {
+    setIsRetrying(true);
+    loadMovies();
   };
 
   useEffect(() => {
@@ -37,5 +44,5 @@ export const useAdminMovies = () => {
     await loadMovies();
   };
 
-  return { movies, isLoading, refetchMovies: loadMovies, addMovie, updateMovie, deleteMovie };
+  return { movies, isLoading, isRetrying, refetchMovies: loadMovies, retry, addMovie, updateMovie, deleteMovie };
 };
