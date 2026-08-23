@@ -8,6 +8,7 @@ namespace FacilityService.Domain.Interfaces
     {
         Task<Cinema?> GetByIdAsync(long id);
         Task<IEnumerable<Cinema>> GetAllAsync();
+        Task<IEnumerable<Cinema>> GetAllWithRoomsAsync();
         Task AddAsync(Cinema cinema);
         void Update(Cinema cinema);
         void Delete(Cinema cinema);

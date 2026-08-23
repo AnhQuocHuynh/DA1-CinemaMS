@@ -59,7 +59,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                         var identity = context.Principal?.Identity as ClaimsIdentity;
                         foreach (var role in roles.EnumerateArray())
                         {
-                            identity?.AddClaim(new Claim(ClaimTypes.Role, role.GetString()!));
+                            var roleStr = role.GetString()?.ToUpperInvariant();
+                            if (!string.IsNullOrEmpty(roleStr))
+                            {
+                                identity?.AddClaim(new Claim(ClaimTypes.Role, roleStr));
+                            }
                         }
                     }
                 }

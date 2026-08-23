@@ -30,6 +30,14 @@ namespace FacilityService.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<Cinema>> GetAllWithRoomsAsync()
+        {
+            return await _context.Cinemas
+                .AsNoTracking()
+                .Include(c => c.Rooms)
+                .ToListAsync();
+        }
+
         public async Task AddAsync(Cinema cinema)
         {
             await _context.Cinemas

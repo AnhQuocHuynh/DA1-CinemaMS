@@ -28,6 +28,13 @@ namespace FacilityService.Presentation.Controllers
             return Ok(ApiResponse<IEnumerable<CinemaDto>>.Ok(cinemas));
         }
 
+        [HttpGet("with-rooms")]
+        public async Task<IActionResult> GetCinemasWithRooms()
+        {
+            var cinemas = await _mediator.Send(new GetCinemasWithRoomsQuery());
+            return Ok(ApiResponse<IEnumerable<CinemaWithRoomsDto>>.Ok(cinemas));
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetCinemaById(long id)
         {
