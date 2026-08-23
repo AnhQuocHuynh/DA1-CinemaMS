@@ -76,7 +76,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                         var identity = context.Principal?.Identity as ClaimsIdentity;
                         foreach (var role in roles.EnumerateArray())
                         {
-                            identity?.AddClaim(new Claim(ClaimTypes.Role, role.GetString()!));
+                            var roleStr = role.GetString()?.ToUpperInvariant();
+                            if (!string.IsNullOrEmpty(roleStr))
+                                identity?.AddClaim(new Claim(ClaimTypes.Role, roleStr));
                         }
                     }
                 }
@@ -109,8 +111,8 @@ builder.Services.AddRateLimiter(options =>
             factory: partition => new FixedWindowRateLimiterOptions
             {
                 AutoReplenishment = true,
-                PermitLimit = 100,
-                QueueLimit = 2,
+                PermitLimit = 300,
+                QueueLimit = 20,
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 Window = TimeSpan.FromMinutes(1)
             });
@@ -133,7 +135,7 @@ builder.Services.AddRateLimiter(options =>
             factory: partition => new FixedWindowRateLimiterOptions
             {
                 AutoReplenishment = true,
-                PermitLimit = 10,
+                PermitLimit = 30,
                 QueueLimit = 0,
                 Window = TimeSpan.FromMinutes(1)
             });
