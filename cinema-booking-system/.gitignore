@@ -54,3 +54,4 @@ Thumbs.db
 # ── .NET ───────────────────────────────────────────────────────
 **/appsettings.Development.json
 **/appsettings.Production.json
+**/TestResults
