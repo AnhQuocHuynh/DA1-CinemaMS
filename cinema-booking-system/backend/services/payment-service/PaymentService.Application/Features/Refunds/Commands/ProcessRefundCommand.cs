@@ -2,6 +2,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MassTransit;
 using MediatR;
+using PaymentService.Application.Contracts;
 using PaymentService.Application.Exceptions;
 using PaymentService.Application.IntegrationEvents;
 using PaymentService.Domain.Interfaces;
@@ -16,17 +17,20 @@ public class ProcessRefundCommandHandler : IRequestHandler<ProcessRefundCommand,
     private readonly IPaymentRepository _paymentRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPublishEndpoint _publishEndpoint;
+    private readonly IPaymentGatewayFactory _paymentGatewayFactory;
 
     public ProcessRefundCommandHandler(
         IRefundRepository refundRepository,
         IPaymentRepository paymentRepository,
         IUnitOfWork unitOfWork,
-        IPublishEndpoint publishEndpoint)
+        IPublishEndpoint publishEndpoint,
+        IPaymentGatewayFactory paymentGatewayFactory)
     {
         _refundRepository = refundRepository;
         _paymentRepository = paymentRepository;
         _unitOfWork = unitOfWork;
         _publishEndpoint = publishEndpoint;
+        _paymentGatewayFactory = paymentGatewayFactory;
     }
 
     public async Task<bool> Handle(ProcessRefundCommand request, CancellationToken cancellationToken)
@@ -43,8 +47,15 @@ public class ProcessRefundCommandHandler : IRequestHandler<ProcessRefundCommand,
         {
             refund.Approve();
 
-            // In a real system, call the Payment Gateway to execute the refund (Stripe/PayPal API)
-            // For now, simulate success and mark as processed immediately.
+            var gateway = _paymentGatewayFactory.GetGateway(payment.PaymentMethod);
+            if (string.IsNullOrEmpty(payment.TransactionId))
+                throw new PaymentGatewayException("Payment has no transaction ID.");
+
+            var refundResult = await gateway.RefundAsync(payment.TransactionId, refund.Amount, payment.Currency);
+
+            if (!refundResult.IsSuccess)
+                throw new PaymentGatewayException($"Gateway refund failed: {refundResult.ErrorMessage}");
+
             refund.Process();
             payment.MarkAsRefunded();
 

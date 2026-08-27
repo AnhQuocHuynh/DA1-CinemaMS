@@ -30,4 +30,13 @@ public class CashGateway : IPaymentGateway
             false, null, null,
             "Cash payments are confirmed manually by admin, not via callback."));
     }
+
+    /// <summary>
+    /// Cash refunds are handled manually over the counter by the admin.
+    /// Just return success to update the DB status.
+    /// </summary>
+    public Task<RefundResult> RefundAsync(string transactionId, decimal amount, string currency)
+    {
+        return Task.FromResult(new RefundResult(true, null));
+    }
 }
