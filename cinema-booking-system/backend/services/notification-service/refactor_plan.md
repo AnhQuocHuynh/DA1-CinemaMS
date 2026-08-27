@@ -378,6 +378,7 @@ notification-service/
 db.notifications.createIndex({ userId: 1, createdAt: -1 });
 db.notifications.createIndex({ status: 1 });
 db.notifications.createIndex({ createdAt: 1 }, { expireAfterSeconds: 2592000 }); // 30-day TTL
+db.notifications.createIndex({ type: 1, "metadata.orderId": 1 }, { unique: true, partialFilterExpression: { "metadata.orderId": { $exists: true } } }); // Idempotency
 
 // notification_templates
 db.notification_templates.createIndex({ code: 1 }, { unique: true });
@@ -393,7 +394,8 @@ db.delivery_logs.createIndex({ notificationId: 1 });
 1. **MongoDB over PostgreSQL**: Notification data is schema-flexible (different metadata per notification type). TTL indexes auto-delete old notifications — reduces storage management overhead.
 2. **Consumer-only for RabbitMQ**: This service only listens to events — it never publishes. If email delivery fails, it retries internally (not via RabbitMQ DLQ).
 3. **BackgroundService for dispatch**: `NotificationDispatcherService` runs as a .NET `BackgroundService`, polling for PENDING notifications every 5 seconds and dispatching them. This decouples event consumption from actual delivery.
-4. **MailKit over System.Net.Mail**: MailKit is modern, cross-platform, and supports OAuth2 SMTP auth (important for Gmail/Outlook).
-5. **SignalR for real-time**: Admin dashboard connects via SignalR hub at `/hubs/notifications` for live booking/payment notifications.
-6. **Template rendering**: Simple `{{key}}` replacement — no heavy templating engine needed at this scale.
-7. **Authentication via Keycloak JWT**: This service uses `JwtBearer` to validate Keycloak JWTs directly for authorization. It still reads the `X-User-Id` header (forwarded by the API Gateway) to map the internal numeric user ID to the `ClaimsPrincipal` for business logic.
+4. **Idempotency via MongoDB Unique Indexes**: Exactly-once processing is guaranteed by unique constraints on the `notifications` collection (e.g., `type` + `orderId`). The consumer blindly attempts an insert; if a `DuplicateKey` exception occurs, it is swallowed and the message is safely ACKed.
+5. **MailKit over System.Net.Mail**: MailKit is modern, cross-platform, and supports OAuth2 SMTP auth (important for Gmail/Outlook).
+6. **SignalR for real-time**: Admin dashboard connects via SignalR hub at `/hubs/notifications` for live booking/payment notifications.
+7. **Template rendering**: Simple `{{key}}` replacement — no heavy templating engine needed at this scale.
+8. **Authentication via Keycloak JWT**: This service uses `JwtBearer` to validate Keycloak JWTs directly for authorization. It still reads the `X-User-Id` header (forwarded by the API Gateway) to map the internal numeric user ID to the `ClaimsPrincipal` for business logic.
