@@ -4,6 +4,7 @@ using IdentityService.Application.Features.Internal.Queries;
 using IdentityService.Application.Features.Users.Commands;
 using IdentityService.Application.Features.Users.Queries;
 using IdentityService.Presentation.Controllers;
+using IdentityService.Presentation.Models;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -49,8 +50,10 @@ public class UsersControllerTests
 
         var result = await CreateController().GetCurrentUser();
 
-        result.Result.Should().BeOfType<OkObjectResult>();
-        ((OkObjectResult)result.Result!).Value.Should().Be(dto);
+        result.Should().BeOfType<OkObjectResult>();
+        var wrapper = ((OkObjectResult)result).Value.Should().BeOfType<ApiResponse<UserDto>>().Subject;
+        wrapper.Success.Should().BeTrue();
+        wrapper.Data.Should().Be(dto);
     }
 
     [Fact]
@@ -58,7 +61,7 @@ public class UsersControllerTests
     {
         var result = await CreateController(keycloakId: null).GetCurrentUser();
 
-        result.Result.Should().BeOfType<UnauthorizedResult>();
+        result.Should().BeOfType<UnauthorizedResult>();
         _mediatorMock.Verify(m => m.Send(It.IsAny<GetCurrentUserQuery>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -73,8 +76,10 @@ public class UsersControllerTests
 
         var result = await CreateController().GetUserById(5);
 
-        result.Result.Should().BeOfType<OkObjectResult>();
-        ((OkObjectResult)result.Result!).Value.Should().Be(dto);
+        result.Should().BeOfType<OkObjectResult>();
+        var wrapper = ((OkObjectResult)result).Value.Should().BeOfType<ApiResponse<UserDto>>().Subject;
+        wrapper.Success.Should().BeTrue();
+        wrapper.Data.Should().Be(dto);
     }
 
     // ─── GET /api/users ───────────────────────────────────────────────────────
@@ -88,8 +93,10 @@ public class UsersControllerTests
 
         var result = await CreateController().GetUsers(1, 10);
 
-        result.Result.Should().BeOfType<OkObjectResult>();
-        ((OkObjectResult)result.Result!).Value.Should().Be(paged);
+        result.Should().BeOfType<OkObjectResult>();
+        var wrapper = ((OkObjectResult)result).Value.Should().BeOfType<ApiResponse<PagedResult<UserDto>>>().Subject;
+        wrapper.Success.Should().BeTrue();
+        wrapper.Data.Should().Be(paged);
     }
 
     // ─── PUT /api/users/{id}/role ─────────────────────────────────────────────

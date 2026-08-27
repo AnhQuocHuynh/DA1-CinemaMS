@@ -1,6 +1,7 @@
 using IdentityService.Application.DTOs;
 using IdentityService.Application.Features.Users.Commands;
 using IdentityService.Application.Features.Users.Queries;
+using IdentityService.Presentation.Models;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -25,7 +26,7 @@ public class UsersController : ControllerBase
 
     [HttpGet("me")]
     [Authorize]
-    public async Task<ActionResult<UserDto>> GetCurrentUser()
+    public async Task<IActionResult> GetCurrentUser()
     {
         var keycloakId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(keycloakId))
@@ -35,25 +36,25 @@ public class UsersController : ControllerBase
 
         var query = new GetCurrentUserQuery(keycloakId);
         var result = await _mediator.Send(query);
-        return Ok(result);
+        return Ok(ApiResponse<UserDto>.Ok(result));
     }
 
     [HttpGet("{id}")]
     [Authorize(Roles = "admin")]
-    public async Task<ActionResult<UserDto>> GetUserById(long id)
+    public async Task<IActionResult> GetUserById(long id)
     {
         var query = new GetUserByIdQuery(id);
         var result = await _mediator.Send(query);
-        return Ok(result);
+        return Ok(ApiResponse<UserDto>.Ok(result));
     }
 
     [HttpGet]
     [Authorize(Roles = "admin")]
-    public async Task<ActionResult<PagedResult<UserDto>>> GetUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var query = new GetUsersQuery(page, pageSize);
         var result = await _mediator.Send(query);
-        return Ok(result);
+        return Ok(ApiResponse<PagedResult<UserDto>>.Ok(result));
     }
 
     [HttpPut("{id}/role")]
