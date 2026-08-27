@@ -7,6 +7,9 @@ using Xunit;
 
 namespace IdentityService.Test.Integration.Controllers;
 
+/// <summary>Mirrors the Presentation-layer ApiResponse for test deserialization.</summary>
+file record ApiResponseWrapper<T>(bool Success, string Message, T? Data);
+
 [Collection("IntegrationTests")]
 public class UsersControllerTests : BaseIntegrationTest
 {
@@ -31,10 +34,12 @@ public class UsersControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var result = await response.Content.ReadFromJsonAsync<UserDto>();
-        result.Should().NotBeNull();
-        result!.FullName.Should().Be("test_auth_user");
-        result.Email.Should().Be(email);
+        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<UserDto>>();
+        wrapper.Should().NotBeNull();
+        wrapper!.Success.Should().BeTrue();
+        wrapper.Data.Should().NotBeNull();
+        wrapper.Data!.FullName.Should().Be("test_auth_user");
+        wrapper.Data.Email.Should().Be(email);
     }
 
     [Fact]
@@ -58,9 +63,11 @@ public class UsersControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var result = await response.Content.ReadFromJsonAsync<PagedResult<UserDto>>();
-        result.Should().NotBeNull();
-        result!.Items.Should().NotBeEmpty();
+        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<PagedResult<UserDto>>>();
+        wrapper.Should().NotBeNull();
+        wrapper!.Success.Should().BeTrue();
+        wrapper.Data.Should().NotBeNull();
+        wrapper.Data!.Items.Should().NotBeEmpty();
     }
     
     [Fact]
@@ -97,9 +104,11 @@ public class UsersControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var result = await response.Content.ReadFromJsonAsync<UserDto>();
-        result.Should().NotBeNull();
-        result!.Email.Should().Be(email);
+        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<UserDto>>();
+        wrapper.Should().NotBeNull();
+        wrapper!.Success.Should().BeTrue();
+        wrapper.Data.Should().NotBeNull();
+        wrapper.Data!.Email.Should().Be(email);
     }
 
     [Fact]

@@ -147,6 +147,41 @@ public class StripeGateway : IPaymentGateway
         }
     }
 
+    public async Task<RefundResult> RefundAsync(string transactionId, decimal amount, string currency)
+    {
+        try
+        {
+            var options = new RefundCreateOptions
+            {
+                PaymentIntent = transactionId,
+                Amount = ConvertToSmallestUnit(amount, currency),
+                Reason = RefundReasons.RequestedByCustomer
+            };
+
+            var service = new RefundService();
+            var refund = await service.CreateAsync(options);
+
+            if (refund.Status == "succeeded" || refund.Status == "pending")
+            {
+                _logger.LogInformation("Stripe refund created for transaction {TransactionId}", transactionId);
+                return new RefundResult(true, null);
+            }
+
+            _logger.LogWarning("Stripe refund failed for transaction {TransactionId}. Status: {Status}", transactionId, refund.Status);
+            return new RefundResult(false, $"Stripe refund status: {refund.Status}");
+        }
+        catch (StripeException ex)
+        {
+            _logger.LogError(ex, "Stripe API error while refunding transaction {TransactionId}", transactionId);
+            return new RefundResult(false, ex.StripeError?.Message ?? ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error refunding Stripe transaction {TransactionId}", transactionId);
+            return new RefundResult(false, ex.Message);
+        }
+    }
+
     /// <summary>
     /// Stripe requires amounts in the smallest currency unit.
     /// VND is a zero-decimal currency, USD uses cents.

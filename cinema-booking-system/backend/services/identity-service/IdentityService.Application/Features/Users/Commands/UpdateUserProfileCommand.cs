@@ -58,7 +58,7 @@ public class UpdateUserProfileCommandHandler : IRequestHandler<UpdateUserProfile
         _userRepository.Update(user);
 
         // Publish event via MassTransit Outbox pattern
-        var payload = new UserProfileUpdatedPayload(user.Id, user.Email, user.FullName);
+        var payload = new UserProfileUpdatedPayload(user.Id, user.Email, user.FullName, user.Phone);
         var envelope = new EventEnvelope<UserProfileUpdatedPayload>
         {
             EventType = "user.profile.updated",

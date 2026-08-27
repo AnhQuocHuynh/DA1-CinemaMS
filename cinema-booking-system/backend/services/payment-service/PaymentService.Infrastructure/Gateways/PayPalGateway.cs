@@ -206,6 +206,58 @@ public class PayPalGateway : IPaymentGateway
         }
     }
 
+    public async Task<RefundResult> RefundAsync(string transactionId, decimal amount, string currency)
+    {
+        try
+        {
+            var accessToken = await GetAccessTokenAsync();
+            var baseUrl = GetBaseUrl();
+
+            var refundRequest = new
+            {
+                amount = new
+                {
+                    value = FormatAmount(amount, currency),
+                    currency_code = NormalizeCurrency(currency)
+                },
+                note_to_payer = "Refund requested by customer"
+            };
+
+            var requestMessage = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/v2/payments/captures/{transactionId}/refund");
+            requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            requestMessage.Content = new StringContent(
+                JsonSerializer.Serialize(refundRequest),
+                Encoding.UTF8,
+                "application/json");
+
+            var response = await _httpClient.SendAsync(requestMessage);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("PayPal refund failed. Status: {Status}, Body: {Body}", response.StatusCode, responseBody);
+                return new RefundResult(false, $"PayPal refund failed: {response.StatusCode}");
+            }
+
+            var doc = JsonDocument.Parse(responseBody);
+            var status = doc.RootElement.GetProperty("status").GetString();
+
+            if (status == "COMPLETED" || status == "PENDING")
+            {
+                _logger.LogInformation("PayPal refund created for capture {CaptureId}", transactionId);
+                return new RefundResult(true, null);
+            }
+
+            _logger.LogWarning("PayPal refund failed for capture {CaptureId}. Status: {Status}", transactionId, status);
+            return new RefundResult(false, $"PayPal refund status: {status}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error refunding PayPal capture: {CaptureId}", transactionId);
+            return new RefundResult(false, ex.Message);
+        }
+    }
+
     private async Task<string> GetAccessTokenAsync()
     {
         var clientId = _configuration["PayPal:ClientId"]
