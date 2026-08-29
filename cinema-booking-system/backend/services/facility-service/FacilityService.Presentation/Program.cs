@@ -1,3 +1,7 @@
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Logs;
 using FacilityService.Application;
 using FacilityService.Infrastructure;
 using Microsoft.AspNetCore.Builder;
@@ -39,6 +43,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             ValidateIssuerSigningKey = true,
             ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Jwt:ValidIssuer"] ?? builder.Configuration["Jwt:Authority"],
             ValidateAudience = true,
             ValidateLifetime = true,
             NameClaimType = "preferred_username",
@@ -84,6 +89,38 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 builder.Services.AddAuthorization();
+
+// OpenTelemetry Observability
+var otlpEndpoint = builder.Configuration["Observability:OtlpEndpoint"] ?? "http://localhost:4317";
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService(builder.Environment.ApplicationName))
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation(opts => 
+        {
+            opts.Filter = context => 
+            {
+                var path = context.Request.Path.Value;
+                return !string.IsNullOrEmpty(path) && !path.Contains("health");
+            };
+        })
+        .AddHttpClientInstrumentation(opts => 
+        {
+            opts.FilterHttpRequestMessage = req => 
+            {
+                var path = req.RequestUri?.AbsolutePath;
+                return path == null || !path.Contains("health");
+            };
+        })
+        .AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint)))
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint)));
+
+builder.Logging.AddOpenTelemetry(logging => {
+    logging.IncludeScopes = true;
+    logging.AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint));
+});
 
 var app = builder.Build();
 
