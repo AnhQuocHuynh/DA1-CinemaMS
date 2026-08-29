@@ -10,7 +10,7 @@ public static class RabbitMqConfigurationExtensions
 {
     public static void ConfigureCustomTopology(this IRabbitMqBusFactoryConfigurator cfg, IBusRegistrationContext context)
     {
-        // Use Raw JSON to preserve compatibility with Spring Boot
+        // Use Raw JSON to preserve compatibility with Spring Boot and external publishers
         cfg.UseRawJsonSerializer();
 
         // Custom Topology for Publishers

@@ -20,7 +20,7 @@ public static class DatabaseMigration
         if (!await context.Users.AnyAsync(u => u.Email == "admin@cinema.com"))
         {
             var adminUser = new Domain.Entities.User(
-                "5b2b0395-72af-4e78-be55-1b022633cf5f",
+                "9d3daeff-b47a-417c-9897-3dbb35a7627b",
                 "admin@cinema.com",
                 "admin test",
                 null,
