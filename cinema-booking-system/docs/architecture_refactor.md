@@ -478,6 +478,7 @@ The following cross-module dependencies exist in the monolith and must be resolv
 │  ├── user.registered    → Queue: notification.user.welcome       │
 │  ├── user.registered    → Queue: analytics.user.registered       │
 │  ├── user.registered    → Queue: recommendation.user.registered  │
+│  ├── user.profile.updated→ Queue: notification.profile.updated   │
 │  ├── user.deleted       → Queue: identity.user.deleted           │
 │  ├── user.deleted       → Queue: analytics.user.deleted          │
 │  └── user.password.reset→ Queue: notification.password.reset     │
@@ -1471,7 +1472,7 @@ cinema-booking-system/
 | RabbitMQ | 5672 (AMQP) / 15672 (UI) | — |
 | ClickHouse | 8123 (HTTP) / 9000 (native) | — |
 | Neo4j | 7474 (Browser) / 7687 (Bolt) | — |
-| Zipkin | 9411 | — |
+| Grafana Tempo | 3200 | — |
 | Grafana | 3000 | — |
 | Prometheus | 9090 | — |
 
@@ -1500,3 +1501,9 @@ cinema-booking-system/
 | OpenTelemetry | 1.x | Distributed tracing SDK |
 | Prometheus | 2.x | Metrics collection |
 | Grafana | 10.x | Dashboards & visualization |
+
+## User Notification Preferences (Future Implementation)
+The `notification-service` Domain and Application layers currently support `UserPreference` for channel-based opt-ins (Email, SMS, Push). 
+Future updates must implement:
+1. **Infrastructure**: A MongoDB collection to persist `UserPreference` records.
+2. **Presentation (API)**: A REST endpoint `PUT /api/notifications/preferences` to allow front-end applications to retrieve and modify user channel opt-ins.
