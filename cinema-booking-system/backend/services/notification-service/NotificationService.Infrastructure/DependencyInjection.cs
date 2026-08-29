@@ -39,8 +39,12 @@ public static class DependencyInjection
         // Background Services
         services.AddHostedService<NotificationDispatcherService>();
         
-        // Note: RabbitMQ consumers would be registered here as HostedServices
-        // services.AddHostedService<UserRegisteredEventConsumer>();
+        // RabbitMQ Consumers
+        services.AddHostedService<NotificationService.Infrastructure.Messaging.Consumers.UserRegisteredEventConsumer>();
+        services.AddHostedService<NotificationService.Infrastructure.Messaging.Consumers.PasswordResetEventConsumer>();
+        services.AddHostedService<NotificationService.Infrastructure.Messaging.Consumers.OrderPaidEventConsumer>();
+        services.AddHostedService<NotificationService.Infrastructure.Messaging.Consumers.OrderRefundedEventConsumer>();
+        services.AddHostedService<NotificationService.Infrastructure.Messaging.Consumers.ShowtimeCreatedEventConsumer>();
 
         return services;
     }
