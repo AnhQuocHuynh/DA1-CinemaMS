@@ -11,6 +11,8 @@ import org.keycloak.models.UserModel;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+import java.time.Instant;
 
 public class RabbitMqEventListenerProvider implements EventListenerProvider {
 
@@ -22,25 +24,44 @@ public class RabbitMqEventListenerProvider implements EventListenerProvider {
         this.publisher = publisher;
     }
 
+    private void publishWithEnvelope(String eventType, String routingKey, Map<String, Object> payload) {
+        Map<String, Object> envelope = new HashMap<>();
+        envelope.put("EventId", UUID.randomUUID().toString());
+        envelope.put("EventType", eventType);
+        envelope.put("OccurredAt", Instant.now().toString());
+        envelope.put("SchemaVersion", 1);
+        envelope.put("Source", "Keycloak");
+        envelope.put("Payload", payload);
+        
+        publisher.publish("user.events", routingKey, envelope);
+    }
+
     @Override
     public void onEvent(Event event) {
         if (event.getType() == EventType.REGISTER) {
             Map<String, Object> payload = new HashMap<>();
             payload.put("KeycloakId", event.getUserId());
             payload.put("Email", event.getDetails().get("email"));
-            payload.put("FirstName", event.getDetails().get("first_name"));
-            payload.put("LastName", event.getDetails().get("last_name"));
+            
+            String firstName = event.getDetails().get("first_name") != null ? event.getDetails().get("first_name") : "";
+            String lastName = event.getDetails().get("last_name") != null ? event.getDetails().get("last_name") : "";
+            payload.put("FirstName", firstName);
+            payload.put("LastName", lastName);
+            payload.put("FullName", (firstName + " " + lastName).trim());
             
             // Custom attributes are prefixed with 'custom_attributes.' in the event details
-            payload.put("Phone", event.getDetails().get("custom_attributes.phone"));
+            String phone = event.getDetails().get("custom_attributes.phone");
+            payload.put("Phone", phone);
+            payload.put("PhoneNumber", phone);
+            
             payload.put("Gender", event.getDetails().get("custom_attributes.gender"));
             payload.put("DateOfBirth", event.getDetails().get("custom_attributes.date_of_birth"));
 
-            publisher.publish("user.events", "user.registered", payload);
+            publishWithEnvelope("KeycloakUserRegistered", "user.registered", payload);
         } else if (event.getType() == EventType.DELETE_ACCOUNT) {
             Map<String, Object> payload = new HashMap<>();
             payload.put("KeycloakId", event.getUserId());
-            publisher.publish("user.events", "user.deleted", payload);
+            publishWithEnvelope("KeycloakUserDeleted", "user.deleted", payload);
         }
     }
 
@@ -56,19 +77,26 @@ public class RabbitMqEventListenerProvider implements EventListenerProvider {
                     Map<String, Object> payload = new HashMap<>();
                     payload.put("KeycloakId", userId);
                     payload.put("Email", user.getEmail());
-                    payload.put("FirstName", user.getFirstName());
-                    payload.put("LastName", user.getLastName());
                     
-                    payload.put("Phone", user.getFirstAttribute("phone"));
+                    String firstName = user.getFirstName() != null ? user.getFirstName() : "";
+                    String lastName = user.getLastName() != null ? user.getLastName() : "";
+                    payload.put("FirstName", firstName);
+                    payload.put("LastName", lastName);
+                    payload.put("FullName", (firstName + " " + lastName).trim());
+                    
+                    String phone = user.getFirstAttribute("phone");
+                    payload.put("Phone", phone);
+                    payload.put("PhoneNumber", phone);
+                    
                     payload.put("Gender", user.getFirstAttribute("gender"));
                     payload.put("DateOfBirth", user.getFirstAttribute("date_of_birth"));
                     
-                    publisher.publish("user.events", "user.registered", payload);
+                    publishWithEnvelope("KeycloakUserRegistered", "user.registered", payload);
                 }
             } else if (adminEvent.getOperationType() == OperationType.DELETE && userId != null) {
                 Map<String, Object> payload = new HashMap<>();
                 payload.put("KeycloakId", userId);
-                publisher.publish("user.events", "user.deleted", payload);
+                publishWithEnvelope("KeycloakUserDeleted", "user.deleted", payload);
             }
         }
     }
