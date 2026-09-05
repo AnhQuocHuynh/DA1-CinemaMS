@@ -49,18 +49,18 @@ export const EventDetails: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <p className="text-slate-500 animate-pulse">Đang tải...</p>
+      <div className="min-h-screen bg-surface-container flex items-center justify-center">
+        <p className="text-on-surface-variant animate-pulse">Đang tải...</p>
       </div>
     );
   }
 
   if (error || !event) {
     return (
-      <div className="min-h-screen bg-slate-100 text-slate-900 flex items-center justify-center px-6">
+      <div className="min-h-screen bg-surface text-on-surface flex items-center justify-center px-6">
         <div className="text-center space-y-6">
           <h1 className="text-4xl font-bold">Không tìm thấy sự kiện</h1>
-          <p className="text-slate-600">{error ?? 'Sự kiện không tồn tại.'}</p>
+          <p className="text-on-surface-variant">{error ?? 'Sự kiện không tồn tại.'}</p>
           <button
             onClick={() => navigate('/')}
             className="px-6 py-3 rounded-lg bg-amber-600 text-white hover:bg-amber-500 transition-colors"
@@ -73,15 +73,15 @@ export const EventDetails: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
-      <header className="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-slate-200">
+    <div className="min-h-screen bg-surface text-on-surface">
+      <header className="fixed top-0 z-50 w-full bg-surface-container-lowest/80 backdrop-blur-md border-b border-outline-variant">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="font-black tracking-tight text-lg text-slate-900">
+          <Link to="/" className="font-black tracking-tight text-lg text-on-surface">
             CinemaArchitect
           </Link>
           <button
             onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+            className="inline-flex items-center gap-2 text-sm text-on-surface-variant hover:text-on-surface"
           >
             <ArrowLeft size={16} /> Quay lại
           </button>
@@ -109,7 +109,7 @@ export const EventDetails: React.FC = () => {
                 <span className="px-3 py-1 rounded-sm bg-amber-600 font-semibold">
                   Sự kiện
                 </span>
-                <span className="px-3 py-1 bg-white/20 rounded font-semibold text-white/90 flex items-center gap-2">
+                <span className="px-3 py-1 bg-surface-container-lowest/20 rounded font-semibold text-white/90 flex items-center gap-2">
                   <MapPin size={14} />
                   {event.venue}
                 </span>
@@ -138,8 +138,8 @@ export const EventDetails: React.FC = () => {
         <section className="max-w-7xl mx-auto px-6 py-14 grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-8 space-y-10">
             <div>
-              <h2 className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-4">Mô tả sự kiện</h2>
-              <p className="text-slate-700 leading-relaxed text-lg">{event.description}</p>
+              <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-4">Mô tả sự kiện</h2>
+              <p className="text-on-surface-variant leading-relaxed text-lg">{event.description}</p>
             </div>
 
             {/* Reviews */}
@@ -148,36 +148,36 @@ export const EventDetails: React.FC = () => {
 
           <aside className="lg:col-span-4 space-y-6">
             {/* Event meta */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4 shadow-sm">
+            <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 space-y-4 shadow-sm">
               <div className="flex items-center gap-2">
-                <Calendar size={14} className="text-slate-400" />
+                <Calendar size={14} className="text-on-surface-variant" />
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-slate-500">Thời gian bắt đầu</p>
+                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">Thời gian bắt đầu</p>
                   <p className="font-semibold">
                     {new Date(event.startTime).toLocaleString('vi-VN')}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Calendar size={14} className="text-slate-400" />
+                <Calendar size={14} className="text-on-surface-variant" />
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-slate-500">Thời gian kết thúc</p>
+                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">Thời gian kết thúc</p>
                   <p className="font-semibold">
                     {new Date(event.endTime).toLocaleString('vi-VN')}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <MapPin size={14} className="text-slate-400" />
+                <MapPin size={14} className="text-on-surface-variant" />
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-slate-500">Địa điểm</p>
+                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">Địa điểm</p>
                   <p className="font-semibold">{event.venue}</p>
                 </div>
               </div>
             </div>
 
             {/* Showtimes */}
-            <div className="bg-slate-900 text-white rounded-xl p-6 space-y-4">
+            <div className="bg-inverse-surface text-inverse-on-surface rounded-xl p-6 space-y-4">
               <h3 className="font-semibold">Suất chiếu / Tham gia</h3>
               {(() => {
                 const now = Date.now();
@@ -198,8 +198,8 @@ export const EventDetails: React.FC = () => {
                           disabled={isClose}
                           className={`text-left px-4 py-3 rounded-md transition-colors ${
                             isClose 
-                              ? 'bg-white/5 opacity-50 cursor-not-allowed' 
-                              : 'bg-white/10 hover:bg-white/20'
+                              ? 'bg-surface-container-lowest/5 opacity-50 cursor-not-allowed' 
+                              : 'bg-surface-container-lowest/10 hover:bg-surface-container-lowest/20'
                           }`}
                         >
                           <div className="flex justify-between items-center">

@@ -25,7 +25,7 @@ function timeAgo(dateString: string): string {
 
 export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
   return (
-    <div className="flex gap-4 py-5 border-b border-slate-100 last:border-0">
+    <div className="flex gap-4 py-5 border-b border-outline-variant/30 last:border-0">
       {/* Avatar */}
       <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
         <User size={18} className="text-blue-500" />
@@ -33,16 +33,16 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-3 mb-1">
-          <span className="text-sm font-semibold text-slate-800">
+          <span className="text-sm font-semibold text-on-surface">
             Người dùng #{review.userId}
           </span>
-          <span className="text-xs text-slate-400">{timeAgo(review.createdAt)}</span>
+          <span className="text-xs text-on-surface-variant">{timeAgo(review.createdAt)}</span>
         </div>
 
         <StarRating value={review.rating} size={14} />
 
         {review.comment && (
-          <p className="mt-2 text-sm text-slate-600 leading-relaxed">{review.comment}</p>
+          <p className="mt-2 text-sm text-on-surface-variant leading-relaxed">{review.comment}</p>
         )}
       </div>
     </div>

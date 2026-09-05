@@ -72,9 +72,9 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
   if (isLoading) {
     return (
       <div className="mt-10 space-y-4 animate-pulse">
-        <div className="h-6 bg-slate-200 rounded w-1/3" />
-        <div className="h-24 bg-slate-100 rounded-xl" />
-        <div className="h-16 bg-slate-100 rounded-xl" />
+        <div className="h-6 bg-surface-container-high rounded w-1/3" />
+        <div className="h-24 bg-surface-container rounded-xl" />
+        <div className="h-16 bg-surface-container rounded-xl" />
       </div>
     );
   }
@@ -92,21 +92,21 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
 
   return (
     <div className="mt-10">
-      <h2 className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center gap-2">
+      <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-6 flex items-center gap-2">
         <MessageSquare size={14} />
         Đánh giá & Nhận xét
       </h2>
 
       {/* Insight Summary */}
       {insight && insight.totalReviews > 0 && (
-        <div className="flex flex-col sm:flex-row gap-8 items-start mb-8 p-6 rounded-xl bg-slate-50 border border-slate-200">
+        <div className="flex flex-col sm:flex-row gap-8 items-start mb-8 p-6 rounded-xl bg-surface-container-low border border-outline-variant">
           {/* Average */}
           <div className="text-center sm:text-left flex-shrink-0">
-            <div className="text-5xl font-black text-slate-900 tracking-tighter">
+            <div className="text-5xl font-black text-on-surface tracking-tighter">
               {insight.averageRating.toFixed(1)}
             </div>
             <StarRating value={insight.averageRating} size={18} />
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-on-surface-variant mt-1">
               {insight.totalReviews} đánh giá
             </p>
           </div>
@@ -115,15 +115,15 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
           <div className="flex-1 w-full space-y-1.5">
             {[5, 4, 3, 2, 1].map((star, idx) => (
               <div key={star} className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500 w-3 text-right">{star}</span>
+                <span className="text-xs font-semibold text-on-surface-variant w-3 text-right">{star}</span>
                 <Star size={12} className="text-amber-400 fill-amber-400 flex-shrink-0" />
-                <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div className="flex-1 h-2 bg-surface-container-high rounded-full overflow-hidden">
                   <div
                     className="h-full bg-amber-400 rounded-full transition-all duration-500"
                     style={{ width: `${(starCounts[idx] / maxCount) * 100}%` }}
                   />
                 </div>
-                <span className="text-xs text-slate-400 w-6 text-right">{starCounts[idx]}</span>
+                <span className="text-xs text-on-surface-variant w-6 text-right">{starCounts[idx]}</span>
               </div>
             ))}
           </div>
@@ -131,8 +131,8 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
       )}
 
       {insight && insight.totalReviews === 0 && (
-        <div className="mb-8 p-6 rounded-xl bg-slate-50 border border-slate-200 text-center">
-          <p className="text-slate-500 text-sm">Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
+        <div className="mb-8 p-6 rounded-xl bg-surface-container-low border border-outline-variant text-center">
+          <p className="text-on-surface-variant text-sm">Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
         </div>
       )}
 
@@ -145,14 +145,14 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
 
       {/* Eligibility messages */}
       {user && eligibility && !eligibility.eligible && (
-        <div className="mb-8 p-4 rounded-lg bg-blue-50 border border-blue-100">
-          <p className="text-sm text-blue-700">{eligibility.message || 'Bạn không đủ điều kiện đánh giá.'}</p>
+        <div className="mb-8 p-4 rounded-lg bg-primary-container border border-blue-100">
+          <p className="text-sm text-primary">{eligibility.message || 'Bạn không đủ điều kiện đánh giá.'}</p>
         </div>
       )}
 
       {/* Review List */}
       {reviews.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
           {reviews.map((review) => (
             <ReviewCard key={review.id} review={review} />
           ))}

@@ -116,7 +116,7 @@ export const SignUp: React.FC = () => {
 
                 <button
                   onClick={() => authService.register()}
-                  className="w-full py-4 bg-blue-600 text-white rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-blue-600/20 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-primary text-on-primary rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-blue-600/20 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                 >
                   CONTINUE TO REGISTRATION
                   <ArrowRight className="w-4 h-4" />

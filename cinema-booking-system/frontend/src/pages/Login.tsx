@@ -37,7 +37,7 @@ export const Login: React.FC = () => {
               alt="Featured cinema theater"
             />
             <div className="absolute bottom-12 left-12">
-              <span className="bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 mb-4 inline-block">
+              <span className="bg-primary text-on-primary text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 mb-4 inline-block">
                 Featured Release
               </span>
               <h2 className="text-5xl font-extrabold tracking-tighter text-on-surface mb-2">
@@ -75,8 +75,8 @@ export const Login: React.FC = () => {
 
         {/* AUTH MODAL OVERLAY */}
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-white"></div>
-          <div className="relative w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col transform transition-all">
+          <div className="absolute inset-0 bg-surface-container-lowest"></div>
+          <div className="relative w-full max-w-md bg-surface-container-lowest rounded-xl shadow-2xl overflow-hidden flex flex-col transform transition-all">
             <div className="p-8 sm:p-10">
               <Link
                 to="/"
@@ -99,7 +99,7 @@ export const Login: React.FC = () => {
               <div className="space-y-4">
                 <button
                   onClick={() => authService.login()}
-                  className="w-full py-4 bg-blue-600 text-white rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-blue-600/20 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-primary text-on-primary rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-blue-600/20 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                 >
                   SIGN IN TO PORTAL
                   <ArrowRight className="w-4 h-4" />
@@ -127,20 +127,20 @@ export const Login: React.FC = () => {
       </main>
 
       {/* Bottom Navigation (Mobile Only) */}
-      <footer className="md:hidden fixed bottom-0 w-full glass-header flex justify-around items-center h-16 px-4 z-50 bg-white/80 backdrop-blur-md">
+      <footer className="md:hidden fixed bottom-0 w-full glass-header flex justify-around items-center h-16 px-4 z-50 bg-surface-container-lowest/80 backdrop-blur-md">
         <a href="#" className="flex flex-col items-center text-primary">
           <LogIn className="w-5 h-5" />
           <span className="text-[10px] font-bold uppercase tracking-tighter">Home</span>
         </a>
-        <a href="#" className="flex flex-col items-center text-slate-500">
+        <a href="#" className="flex flex-col items-center text-on-surface-variant">
           <Mail className="w-5 h-5" />
           <span className="text-[10px] font-bold uppercase tracking-tighter">Movies</span>
         </a>
-        <a href="#" className="flex flex-col items-center text-slate-500">
+        <a href="#" className="flex flex-col items-center text-on-surface-variant">
           <LogIn className="w-5 h-5" />
           <span className="text-[10px] font-bold uppercase tracking-tighter">Tickets</span>
         </a>
-        <a href="#" className="flex flex-col items-center text-slate-500">
+        <a href="#" className="flex flex-col items-center text-on-surface-variant">
           <Mail className="w-5 h-5" />
           <span className="text-[10px] font-bold uppercase tracking-tighter">Profile</span>
         </a>

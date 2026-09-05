@@ -25,6 +25,7 @@ import { PricingAndVouchers } from './pages/admin/PricingAndVouchers';
 import { RoomManagement } from './pages/admin/RoomManagement';
 import { SeatConfigurator } from './pages/admin/SeatConfigurator';
 import { ShowtimeManagement } from './pages/admin/ShowtimeManagement';
+import { AdminSettings } from './pages/admin/AdminSettings';
 import { StaffDashboard } from './pages/staff/StaffDashboard';
 import { CounterBooking } from './pages/staff/CounterBooking';
 import { TicketLookup } from './pages/staff/TicketLookup';
@@ -74,6 +75,7 @@ function App() {
           </ProtectedRoute>
         }
       />
+      <Route path="/admin/settings" element={<ProtectedRoute requiredRole="ADMIN"><AdminSettings /></ProtectedRoute>} />
       <Route path="/admin/movies" element={<ProtectedRoute requiredRole="ADMIN"><MovieManagement /></ProtectedRoute>} />
       <Route path="/admin/events" element={<ProtectedRoute requiredRole="ADMIN"><EventManagement /></ProtectedRoute>} />
       <Route path="/admin/permissions" element={<ProtectedRoute requiredRole="ADMIN"><PermissionManagement /></ProtectedRoute>} />

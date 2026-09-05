@@ -134,7 +134,7 @@ export const MovieShowtimes: React.FC = () => {
           <p className="text-on-surface-variant">{error ?? 'Không tìm thấy thông tin.'}</p>
           <button
             onClick={() => navigate(-1)}
-            className="px-6 py-3 rounded-lg bg-primary text-white font-semibold hover:bg-blue-700 transition-colors"
+            className="px-6 py-3 rounded-lg bg-primary text-on-primary font-semibold hover:opacity-90 transition-colors"
           >
             Quay lại
           </button>
@@ -150,7 +150,7 @@ export const MovieShowtimes: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-surface text-on-surface">
-      <header className="fixed top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-surface-container-low">
+      <header className="fixed top-0 z-50 w-full bg-surface-container-lowest/80 backdrop-blur-md border-b border-surface-container-low">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="font-black tracking-tight text-lg text-primary">
             CinemaArchitect
@@ -181,7 +181,7 @@ export const MovieShowtimes: React.FC = () => {
             <div className="space-y-2">
               <div className="flex items-center gap-3">
                 {movie && (
-                  <span className="px-2 py-1 bg-primary text-white rounded text-xs font-bold">
+                  <span className="px-2 py-1 bg-primary text-on-primary rounded text-xs font-bold">
                     {movie.ageRating}
                   </span>
                 )}
@@ -206,7 +206,7 @@ export const MovieShowtimes: React.FC = () => {
         </section>
 
         {/* Date Selector */}
-        <section className="border-b border-surface-container-low sticky top-16 z-40 bg-white/90 backdrop-blur-md">
+        <section className="border-b border-surface-container-low sticky top-16 z-40 bg-surface-container-lowest/90 backdrop-blur-md">
           <div className="max-w-5xl mx-auto px-6 py-4 overflow-x-auto no-scrollbar">
             <div className="flex gap-4 min-w-max">
               {availableDates.map((date) => {
@@ -222,7 +222,7 @@ export const MovieShowtimes: React.FC = () => {
                     onClick={() => setSelectedDateStr(dateStr)}
                     className={`flex flex-col items-center justify-center w-16 h-20 rounded-xl transition-all ${
                       isSelected
-                        ? 'bg-primary text-white shadow-md scale-105'
+                        ? 'bg-primary text-on-primary shadow-md scale-105'
                         : 'bg-surface-container-low text-on-surface hover:bg-surface-container-high'
                     }`}
                   >
@@ -290,7 +290,7 @@ export const MovieShowtimes: React.FC = () => {
                           </span>
                         )}
                         {isClosed && (
-                          <div className="absolute -top-2 -right-2 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm uppercase tracking-wider">
+                          <div className="absolute -top-2 -right-2 bg-error text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm uppercase tracking-wider">
                             Đã đóng
                           </div>
                         )}

@@ -35,12 +35,12 @@ export const HealthCheck: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-6">
-      <div className="w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-900/70 p-8 shadow-xl">
+    <div className="min-h-screen bg-inverse-surface text-inverse-on-surface flex items-center justify-center px-6">
+      <div className="w-full max-w-xl rounded-3xl border border-outline/30 bg-inverse-surface/70 p-8 shadow-xl">
         <div className="mb-6">
-          <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Backend Monitor</p>
+          <p className="text-sm uppercase tracking-[0.3em] text-on-surface-variant">Backend Monitor</p>
           <h1 className="mt-3 text-3xl font-semibold">Health Ping</h1>
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="mt-2 text-sm text-on-surface-variant">
             Ping the backend and report database + cache status.
           </p>
         </div>
@@ -62,9 +62,9 @@ export const HealthCheck: React.FC = () => {
           </button>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-sm">
+        <div className="mt-6 rounded-2xl border border-outline/30 bg-inverse-surface/60 p-4 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">Status</span>
+            <span className="text-on-surface-variant">Status</span>
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold ${
                 status === 'up'
@@ -73,7 +73,7 @@ export const HealthCheck: React.FC = () => {
                     ? 'bg-amber-500/20 text-amber-300'
                     : status === 'error'
                       ? 'bg-rose-500/20 text-rose-300'
-                      : 'bg-slate-800 text-slate-300'
+                      : 'bg-inverse-surface text-inverse-on-surface'
               }`}
             >
               {status === 'idle' ? 'IDLE' : status.toUpperCase()}
@@ -82,13 +82,13 @@ export const HealthCheck: React.FC = () => {
 
           {error && <p className="mt-3 text-rose-300">{error}</p>}
 
-          <div className="mt-4 max-h-56 overflow-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-200">
+          <div className="mt-4 max-h-56 overflow-auto rounded-lg bg-inverse-surface p-3 text-xs text-inverse-on-surface">
             <pre className="whitespace-pre-wrap break-words">
               {payload ? JSON.stringify(payload, null, 2) : 'No data yet.'}
             </pre>
           </div>
 
-          <p className="mt-3 text-xs text-slate-500">
+          <p className="mt-3 text-xs text-on-surface-variant">
             Target: {target}
           </p>
         </div>

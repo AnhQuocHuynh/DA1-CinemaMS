@@ -76,7 +76,7 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
   ];
 
   return (
-    <header className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md shadow-sm">
+    <header className="fixed top-0 w-full z-50 bg-surface-container-lowest/80 backdrop-blur-md shadow-sm">
       <div className="max-w-[1280px] mx-auto h-16 px-1 md:px-2 flex items-center justify-between gap-4">
         <div className="flex items-center gap-5">
           <span className="text-xl font-bold tracking-tight">CinemaArchitect</span>
@@ -87,8 +87,8 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
                 to={item.to}
                 className={
                   item.label === activeLabel
-                    ? 'text-blue-700 border-b-2 border-blue-700 pb-1'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'text-primary border-b-2 border-blue-700 pb-1'
+                    : 'text-on-surface-variant hover:text-on-surface'
                 }
               >
                 {item.label}
@@ -105,9 +105,9 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
                   e.preventDefault();
                   handleSubmit(currentSearch);
                 }}
-                className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2"
+                className="flex items-center gap-2 bg-surface-container border border-outline-variant rounded-lg px-3 py-2"
               >
-                <Search size={16} className="text-slate-500" />
+                <Search size={16} className="text-on-surface-variant" />
                 <input
                   value={currentSearch}
                   onFocus={() => setShowAutocomplete(true)}
@@ -116,13 +116,13 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
                   placeholder="Search movies..."
                   className="bg-transparent outline-none text-sm w-52"
                 />
-                <button type="submit" className="text-xs font-semibold text-blue-700">
+                <button type="submit" className="text-xs font-semibold text-primary">
                   Search
                 </button>
               </form>
 
               {visibleSuggestions.length > 0 && (
-                <div className="absolute top-full mt-2 w-full bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
+                <div className="absolute top-full mt-2 w-full bg-surface-container-lowest border border-outline-variant rounded-lg shadow-xl overflow-hidden">
                   {visibleSuggestions.map((suggestion) => (
                     <button
                       key={`${suggestion.type}-${suggestion.id}`}
@@ -130,9 +130,9 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
                         navigate(suggestion.url);
                         setShowAutocomplete(false);
                       }}
-                      className="w-full px-3 py-2 text-left hover:bg-slate-100 flex items-center gap-3"
+                      className="w-full px-3 py-2 text-left hover:bg-surface-container flex items-center gap-3"
                     >
-                      <div className="w-10 h-14 bg-slate-200 flex-shrink-0 rounded overflow-hidden">
+                      <div className="w-10 h-14 bg-surface-container-high flex-shrink-0 rounded overflow-hidden">
                         <img
                           src={suggestion.imageUrl || genericPoster}
                           alt={suggestion.title}
@@ -148,11 +148,11 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
                         <p className="text-sm font-medium truncate">{suggestion.title}</p>
                         <div className="flex items-center gap-1.5 mt-1">
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            suggestion.type === 'movie' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                            suggestion.type === 'movie' ? 'bg-primary-container text-primary' : 'bg-amber-100 text-amber-700'
                           }`}>
                             {suggestion.type === 'movie' ? 'Phim' : 'Sự kiện'}
                           </span>
-                          {suggestion.genre && <span className="text-xs text-slate-500 truncate">{suggestion.genre}</span>}
+                          {suggestion.genre && <span className="text-xs text-on-surface-variant truncate">{suggestion.genre}</span>}
                         </div>
                       </div>
                     </button>
@@ -167,18 +167,18 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
               <button
                 type="button"
                 onClick={() => setIsMenuOpen((open) => !open)}
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-all"
+                className="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all"
                 aria-haspopup="menu"
                 aria-expanded={isMenuOpen}
               >
                 <User className="w-5 h-5" />
               </button>
               {isMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-lg bg-white shadow-lg border border-slate-200 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-48 rounded-lg bg-surface-container-lowest shadow-lg border border-outline-variant overflow-hidden">
                   <Link
                     to="/user/settings"
                     onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-2 px-4 py-3 text-sm text-slate-700 hover:bg-slate-100"
+                    className="flex items-center gap-2 px-4 py-3 text-sm text-on-surface-variant hover:bg-surface-container"
                   >
                     <Settings className="w-4 h-4" />
                     Settings
@@ -186,7 +186,7 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-slate-700 hover:bg-slate-100"
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-on-surface-variant hover:bg-surface-container"
                   >
                     <LogOut className="w-4 h-4" />
                     Logout
@@ -198,13 +198,13 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
             <>
               <Link
                 to="/login"
-                className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md"
+                className="px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container rounded-md"
               >
                 Sign In
               </Link>
               <Link
                 to="/signup"
-                className="px-5 py-2 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-500"
+                className="px-5 py-2 rounded-md bg-primary text-on-primary text-sm font-semibold hover:opacity-90"
               >
                 Book Now
               </Link>

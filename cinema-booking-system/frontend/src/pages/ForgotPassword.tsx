@@ -17,7 +17,7 @@ export const ForgotPassword: React.FC = () => {
         </div>
 
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
+          <div className="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"></div>
 
           <div className="relative w-full max-w-md bg-surface-container-lowest rounded-xl shadow-2xl overflow-hidden">
             <div className="p-8 sm:p-10">
@@ -41,7 +41,7 @@ export const ForgotPassword: React.FC = () => {
 
               <button
                 onClick={() => authService.forgotPassword()}
-                className="w-full py-4 bg-primary text-on-primary rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-primary/20 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                className="w-full py-4 bg-primary text-on-primary rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
                 CONTINUE TO PASSWORD RESET
                 <ArrowRight className="w-4 h-4" />

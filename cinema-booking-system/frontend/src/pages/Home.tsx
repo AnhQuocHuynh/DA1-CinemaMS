@@ -179,7 +179,7 @@ export const Home: React.FC = () => {
   }, [heroMovies.length, currentHeroIndex]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-surface text-on-surface">
       <SiteTopNav
         activeLabel="Movies"
         showSearch
@@ -191,7 +191,7 @@ export const Home: React.FC = () => {
 
       <main className="pt-16">
         {/* ── Hero ────────────────────────────────────────────────────── */}
-        <section className="relative h-[620px] overflow-hidden bg-slate-900">
+        <section className="relative h-[620px] overflow-hidden bg-inverse-surface">
           {heroCard && (
             <img
               key={heroCard.id}
@@ -209,27 +209,27 @@ export const Home: React.FC = () => {
 
           <div className="relative max-w-[1280px] mx-auto h-full px-6 flex items-center justify-between gap-8 xl:gap-12">
             <div className="max-w-xl flex-shrink-0">
-              <span className="inline-block px-3 py-1 rounded-sm bg-blue-600 text-white text-[10px] tracking-[0.2em] uppercase font-bold mb-6">
+              <span className="inline-block px-3 py-1 rounded-sm bg-primary text-on-primary text-[10px] tracking-[0.2em] uppercase font-bold mb-6">
                 Now Premiering
               </span>
               <h1 className="text-5xl md:text-6xl font-black text-white tracking-tight leading-tight mb-6 line-clamp-2">
                 {heroCard?.title ?? 'CinemaArchitect'}
               </h1>
-              <p className="text-slate-200 text-lg leading-relaxed mb-8 line-clamp-3">
+              <p className="text-inverse-on-surface text-lg leading-relaxed mb-8 line-clamp-3">
                 Experience cinema with precision acoustics, immersive projection, and curated comfort in every seat.
               </p>
               <div className="flex flex-wrap items-center gap-4">
                 {heroCard && (
                   <Link
                     to={`/movies/${heroCard.id}`}
-                    className="px-7 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-colors"
+                    className="px-7 py-3 rounded-lg bg-primary text-on-primary font-semibold hover:opacity-90 transition-colors"
                   >
                     Explore Featured Movie
                   </Link>
                 )}
                 <button
                   onClick={() => submitSearch('')}
-                  className="px-7 py-3 rounded-lg bg-white/10 border border-white/20 text-white font-semibold hover:bg-white/20 transition-colors"
+                  className="px-7 py-3 rounded-lg bg-surface-container-lowest/10 border border-white/20 text-white font-semibold hover:bg-surface-container-lowest/20 transition-colors"
                 >
                   Browse All Movies
                 </button>
@@ -241,7 +241,7 @@ export const Home: React.FC = () => {
               <div className="hidden lg:flex items-center gap-2 xl:gap-4 relative z-10 mt-12">
                 <button
                   onClick={handlePrevHero}
-                  className="p-2 rounded-full bg-black/40 text-white hover:bg-blue-600 transition-colors backdrop-blur-sm border border-white/10 flex-shrink-0"
+                  className="p-2 rounded-full bg-black/40 text-white hover:bg-primary transition-colors backdrop-blur-sm border border-white/10 flex-shrink-0"
                 >
                   <ChevronLeft size={24} />
                 </button>
@@ -275,7 +275,7 @@ export const Home: React.FC = () => {
 
                 <button
                   onClick={handleNextHero}
-                  className="p-2 rounded-full bg-black/40 text-white hover:bg-blue-600 transition-colors backdrop-blur-sm border border-white/10"
+                  className="p-2 rounded-full bg-black/40 text-white hover:bg-primary transition-colors backdrop-blur-sm border border-white/10"
                 >
                   <ChevronRight size={24} />
                 </button>
@@ -289,9 +289,9 @@ export const Home: React.FC = () => {
           <div className="flex items-end justify-between mb-10">
             <div>
               <h2 className="text-3xl font-bold tracking-tight">Current Screenings</h2>
-              <p className="text-slate-600 mt-1">Movies in a grid view with showtime range, theater, and price.</p>
+              <p className="text-on-surface-variant mt-1">Movies in a grid view with showtime range, theater, and price.</p>
             </div>
-            <button onClick={() => submitSearch('')} className="text-sm font-semibold text-blue-700 hover:underline">
+            <button onClick={() => submitSearch('')} className="text-sm font-semibold text-primary hover:underline">
               View Full Schedule
             </button>
           </div>
@@ -300,12 +300,12 @@ export const Home: React.FC = () => {
           {isLoadingBackend && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7 mb-7">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="rounded-xl overflow-hidden bg-white border border-slate-200 animate-pulse">
-                  <div className="aspect-[2/3] bg-slate-200" />
+                <div key={i} className="rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant animate-pulse">
+                  <div className="aspect-[2/3] bg-surface-container-high" />
                   <div className="p-4 space-y-2">
-                    <div className="h-4 bg-slate-200 rounded w-3/4" />
-                    <div className="h-3 bg-slate-100 rounded w-1/2" />
-                    <div className="h-3 bg-slate-100 rounded w-2/3" />
+                    <div className="h-4 bg-surface-container-high rounded w-3/4" />
+                    <div className="h-3 bg-surface-container rounded w-1/2" />
+                    <div className="h-3 bg-surface-container rounded w-2/3" />
                   </div>
                 </div>
               ))}
@@ -316,14 +316,14 @@ export const Home: React.FC = () => {
           {backendMovies.length > 0 && (
             <>
               <div className="flex items-center gap-2 mb-4">
-                <Film size={16} className="text-blue-600" />
-                <span className="text-xs font-bold tracking-widest uppercase text-blue-600">From Cinema</span>
+                <Film size={16} className="text-primary" />
+                <span className="text-xs font-bold tracking-widest uppercase text-primary">From Cinema</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7 mb-12">
                 {backendMovies.map((movie) => {
                   const card = backendToCard(movie);
                   return (
-                    <article key={card.id} className="group rounded-xl overflow-hidden bg-white border border-slate-200 hover:shadow-xl transition-shadow">
+                    <article key={card.id} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow">
                       <Link to={`/movies/${card.id}`}>
                         <div className="relative aspect-[2/3] overflow-hidden">
                           <img
@@ -337,7 +337,7 @@ export const Home: React.FC = () => {
                             }}
                           />
                           {movie.active && (
-                            <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-green-600 text-white text-[10px] font-bold">
+                            <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-success text-white text-[10px] font-bold">
                               Đang chiếu
                             </span>
                           )}
@@ -346,18 +346,18 @@ export const Home: React.FC = () => {
 
                       <div className="p-4 space-y-2">
                         <div className="flex items-start justify-between gap-3">
-                          <Link to={`/movies/${card.id}`} className="font-bold leading-tight hover:text-blue-700 transition-colors">
+                          <Link to={`/movies/${card.id}`} className="font-bold leading-tight hover:opacity-90 transition-colors">
                             {card.title}
                           </Link>
                         </div>
 
-                        <p className="text-xs text-slate-500">{card.genre} – {formatDuration(card.durationMinutes)}</p>
-                        <p className="text-sm text-slate-700">{card.firstShowLabel}</p>
-                        <p className="text-sm text-slate-600">{card.theaterName}</p>
+                        <p className="text-xs text-on-surface-variant">{card.genre} – {formatDuration(card.durationMinutes)}</p>
+                        <p className="text-sm text-on-surface-variant">{card.firstShowLabel}</p>
+                        <p className="text-sm text-on-surface-variant">{card.theaterName}</p>
                         <div className="pt-2 flex items-center justify-between">
-                          <span className="text-xs font-semibold text-slate-500">{movie.ageRating}</span>
+                          <span className="text-xs font-semibold text-on-surface-variant">{movie.ageRating}</span>
                           <RatingBadge type="movie" id={movie.id} />
-                          <Link to={`/movies/${card.id}`} className="text-sm font-semibold text-blue-700 hover:underline">
+                          <Link to={`/movies/${card.id}`} className="text-sm font-semibold text-primary hover:underline">
                             Chi tiết & Đặt vé
                           </Link>
                         </div>
@@ -374,7 +374,7 @@ export const Home: React.FC = () => {
           <div className="flex items-center gap-2 mb-4">
             <Star size={16} className="text-amber-500" />
             <span className="text-xs font-bold tracking-widest uppercase text-amber-600">Featured Showcase</span>
-            <span className="text-[10px] text-slate-400 ml-2">(mock data – remove later)</span>
+            <span className="text-[10px] text-on-surface-variant ml-2">(mock data – remove later)</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7">
             {mockMovies.map((movie) => {
@@ -382,7 +382,7 @@ export const Home: React.FC = () => {
               const endTime = calculateEndTime(firstShow.startTime, movie.durationMinutes);
 
               return (
-                <article key={movie.id} className="group rounded-xl overflow-hidden bg-white border border-slate-200 hover:shadow-xl transition-shadow">
+                <article key={movie.id} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow">
                   <Link to={`/movies/${movie.id}`}>
                     <div className="relative aspect-[2/3] overflow-hidden">
                       <img
@@ -400,7 +400,7 @@ export const Home: React.FC = () => {
 
                   <div className="p-4 space-y-2">
                     <div className="flex items-start justify-between gap-3">
-                      <Link to={`/movies/${movie.id}`} className="font-bold leading-tight hover:text-blue-700 transition-colors">
+                      <Link to={`/movies/${movie.id}`} className="font-bold leading-tight hover:opacity-90 transition-colors">
                         {movie.title}
                       </Link>
                       <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600">
@@ -408,12 +408,12 @@ export const Home: React.FC = () => {
                       </span>
                     </div>
 
-                    <p className="text-xs text-slate-500">{movie.genre} - {formatDuration(movie.durationMinutes)}</p>
-                    <p className="text-sm text-slate-700">{firstShow.startTime} - {endTime}</p>
-                    <p className="text-sm text-slate-600">{firstShow.theaterName}</p>
+                    <p className="text-xs text-on-surface-variant">{movie.genre} - {formatDuration(movie.durationMinutes)}</p>
+                    <p className="text-sm text-on-surface-variant">{firstShow.startTime} - {endTime}</p>
+                    <p className="text-sm text-on-surface-variant">{firstShow.theaterName}</p>
                     <div className="pt-2 flex items-center justify-between">
                       <span className="text-lg font-black">${firstShow.price.toFixed(2)}</span>
-                      <Link to={`/movies/${movie.id}`} className="text-sm font-semibold text-blue-700 hover:underline">
+                      <Link to={`/movies/${movie.id}`} className="text-sm font-semibold text-primary hover:underline">
                         Details
                       </Link>
                     </div>
@@ -433,7 +433,7 @@ export const Home: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7">
                 {events.map((event) => (
-                  <article key={event.id} className="group rounded-xl overflow-hidden bg-white border border-slate-200 hover:shadow-xl transition-shadow">
+                  <article key={event.id} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow">
                     <Link to={`/events/${event.id}`}>
                       <div className="relative aspect-[2/3] overflow-hidden">
                         <img
@@ -455,10 +455,10 @@ export const Home: React.FC = () => {
                           {event.name}
                         </Link>
                       </div>
-                      <p className="text-xs text-slate-500">Sự kiện đặc biệt</p>
+                      <p className="text-xs text-on-surface-variant">Sự kiện đặc biệt</p>
                       <RatingBadge type="event" id={event.id} />
-                      <p className="text-sm text-slate-700">{new Date(event.startTime).toLocaleDateString('vi-VN')} - {new Date(event.endTime).toLocaleDateString('vi-VN')}</p>
-                      <p className="text-sm text-slate-600">{event.venue}</p>
+                      <p className="text-sm text-on-surface-variant">{new Date(event.startTime).toLocaleDateString('vi-VN')} - {new Date(event.endTime).toLocaleDateString('vi-VN')}</p>
+                      <p className="text-sm text-on-surface-variant">{event.venue}</p>
                       <div className="pt-2 flex items-center justify-between">
                         <Link to={`/events/${event.id}`} className="text-sm font-semibold text-amber-600 hover:underline">
                           Chi tiết & Đặt vé
