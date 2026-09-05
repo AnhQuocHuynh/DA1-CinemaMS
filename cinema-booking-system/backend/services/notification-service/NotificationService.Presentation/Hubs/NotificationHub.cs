@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.Authorization;
 
 namespace NotificationService.Presentation.Hubs;
 
+[Authorize]
 public class NotificationHub : Hub
 {
     // Clients will connect here to listen for real-time events.
