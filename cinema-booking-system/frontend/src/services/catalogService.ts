@@ -1,5 +1,4 @@
-// TODO: Migrate to src/lib/apiClient.ts
-import apiClient from './authService';
+import apiClient from '../lib/apiClient';
 import { MovieResponse } from './movieService';
 import { EventResponse } from './eventService';
 

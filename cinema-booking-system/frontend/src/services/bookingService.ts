@@ -1,5 +1,4 @@
-// TODO: Migrate to src/lib/apiClient.ts
-import apiClient from './authService';
+import apiClient from '../lib/apiClient';
 import {
   BackendOrder,
   BackendVoucher,
@@ -74,20 +73,6 @@ export const bookingService = {
     return response.data;
   },
 
-  /**
-   * POST /orders/{id}/pay — raw Order response
-   */
-  processPayment: async (
-    orderId: number,
-    paymentMethod: 'CREDIT_CARD' | 'DEBIT_CARD' | 'BANK_TRANSFER' | 'WALLET',
-    transactionId: string
-  ): Promise<BackendOrder> => {
-    const response = await apiClient.post<BackendOrder>(`/orders/${orderId}/pay`, {
-      paymentMethod,
-      transactionId,
-    });
-    return response.data;
-  },
 
   // ── Tickets ───────────────────────────────────────────────────────────────
 
