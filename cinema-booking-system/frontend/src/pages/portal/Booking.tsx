@@ -299,7 +299,7 @@ export const Booking: React.FC = () => {
 
             {/* Pre-selection countdown — appears only once a seat is selected */}
             {!holdExpiresAt && selectedSeats.length > 0 && (
-              <div className={`p-6 rounded-xl shadow-lg ${preIsUrgent ? 'bg-red-600' : 'bg-inverse-surface'} text-white`}>
+              <div className={`p-6 rounded-xl shadow-lg ${preIsUrgent ? 'bg-error' : 'bg-inverse-surface'} text-white`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Timer className="w-4 h-4 opacity-70" />
@@ -313,7 +313,7 @@ export const Booking: React.FC = () => {
                 <p className="text-xs opacity-60 mt-2">
                   Vui lòng chọn ghế và xác nhận trong thời gian này.
                 </p>
-                <div className="mt-4 h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                <div className="mt-4 h-1 w-full bg-surface-container-lowest/10 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-1000 ${preIsUrgent ? 'bg-yellow-300' : 'bg-primary-container'}`}
                     style={{ width: `${preProgress}%` }}
@@ -371,7 +371,7 @@ export const Booking: React.FC = () => {
               )}
 
               <button
-                className="w-full py-4 bg-primary text-white font-bold tracking-tight rounded-lg hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 bg-primary text-on-primary font-bold tracking-tight rounded-lg hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleProceed}
                 disabled={selectedSeats.length === 0 || isHolding}
               >
@@ -395,7 +395,7 @@ export const Booking: React.FC = () => {
 
             {/* Help */}
             <div className="flex items-center gap-4 p-4 bg-surface-container-low rounded-lg">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-lowest">
                 <Info className="w-4 h-4 text-primary" />
               </div>
               <div>
@@ -412,9 +412,9 @@ export const Booking: React.FC = () => {
       {/* ── Leave confirmation modal ────────────────────────────────────── */}
       {showLeaveConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4 animate-in">
-            <h3 className="text-lg font-bold text-slate-900">Hủy đặt vé?</h3>
-            <p className="text-sm text-slate-600 leading-relaxed">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4 animate-in">
+            <h3 className="text-lg font-bold text-on-surface">Hủy đặt vé?</h3>
+            <p className="text-sm text-on-surface-variant leading-relaxed">
               {holdExpiresAt
                 ? 'Ghế bạn đang giữ sẽ được giải phóng để người khác có thể chọn. Bạn có chắc chắn muốn rời đi?'
                 : 'Bạn sẽ mất lựa chọn ghế hiện tại. Bạn có chắc chắn muốn rời đi?'}
@@ -423,14 +423,14 @@ export const Booking: React.FC = () => {
               <button
                 onClick={handleLeaveCancel}
                 disabled={isReleasing}
-                className="flex-1 py-3 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                className="flex-1 py-3 rounded-lg border border-outline-variant text-sm font-semibold text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-50"
               >
                 Ở lại
               </button>
               <button
                 onClick={handleLeaveConfirm}
                 disabled={isReleasing}
-                className="flex-1 py-3 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-500 transition-colors disabled:opacity-50"
+                className="flex-1 py-3 rounded-lg bg-error text-white text-sm font-semibold hover:opacity-90 transition-colors disabled:opacity-50"
               >
                 {isReleasing ? 'Đang hủy...' : 'Rời đi'}
               </button>

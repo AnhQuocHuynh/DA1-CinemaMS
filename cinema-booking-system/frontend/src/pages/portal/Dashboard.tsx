@@ -70,26 +70,26 @@ export const UserDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-surface">
       {/* Header */}
-      <header className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md shadow-sm h-16 flex justify-between items-center px-8">
+      <header className="fixed top-0 w-full z-50 bg-surface-container-lowest/80 backdrop-blur-md shadow-sm h-16 flex justify-between items-center px-8">
         <div className="flex items-center gap-8">
-          <span className="text-xl font-bold tracking-tighter text-slate-900">CinemaArchitect</span>
+          <span className="text-xl font-bold tracking-tighter text-on-surface">CinemaArchitect</span>
           <div className="hidden md:flex space-x-6">
-            <a href="#movies" className="text-slate-600 hover:text-slate-900 transition-colors font-medium text-sm">
+            <a href="#movies" className="text-on-surface-variant hover:text-on-surface transition-colors font-medium text-sm">
               Movies
             </a>
-            <a href="#bookings" className="text-slate-600 hover:text-slate-900 transition-colors font-medium text-sm">
+            <a href="#bookings" className="text-on-surface-variant hover:text-on-surface transition-colors font-medium text-sm">
               My Bookings
             </a>
-            <a href="#profile" className="text-slate-600 hover:text-slate-900 transition-colors font-medium text-sm">
+            <a href="#profile" className="text-on-surface-variant hover:text-on-surface transition-colors font-medium text-sm">
               Profile
             </a>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-600">{user?.email}</span>
+          <span className="text-sm text-on-surface-variant">{user?.email}</span>
           <button
             onClick={handleLogout}
-            className="bg-error text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-red-700 transition-all flex items-center gap-2"
+            className="bg-error text-on-error px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-all flex items-center gap-2"
           >
             <LogOut className="w-4 h-4" />
             Logout
@@ -139,7 +139,7 @@ export const UserDashboard: React.FC = () => {
                         </div>
                         <button
                           onClick={() => handleBookMovie(movie.id)}
-                          className="w-full py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-blue-700 transition-all"
+                          className="w-full py-2 bg-primary text-on-primary rounded-lg font-semibold text-sm hover:opacity-90 transition-all"
                         >
                           Book Now
                         </button>
@@ -165,10 +165,10 @@ export const UserDashboard: React.FC = () => {
                           <p className="text-sm text-on-surface-variant">Seats: {booking.seats.join(', ')}</p>
                         </div>
                         <div className="text-right">
-                          <span className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                          <span className="inline-block px-3 py-1 bg-success-container text-on-success-container rounded-full text-sm font-semibold">
                             {booking.status}
                           </span>
-                          <button className="mt-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-blue-700 transition-all">
+                          <button className="mt-2 px-4 py-2 bg-primary text-on-primary rounded-lg text-sm hover:opacity-90 transition-all">
                             View Details
                           </button>
                         </div>
@@ -189,16 +189,16 @@ export const UserDashboard: React.FC = () => {
       </main>
 
       {/* Mobile Navigation */}
-      <footer className="md:hidden fixed bottom-0 w-full bg-white/80 backdrop-blur-md flex justify-around items-center h-16 z-50">
+      <footer className="md:hidden fixed bottom-0 w-full bg-surface-container-lowest/80 backdrop-blur-md flex justify-around items-center h-16 z-50">
         <a href="#movies" className="flex flex-col items-center text-primary text-center">
           <Film className="w-5 h-5" />
           <span className="text-[10px] font-bold uppercase tracking-tighter">Movies</span>
         </a>
-        <a href="#bookings" className="flex flex-col items-center text-slate-500 text-center hover:text-primary">
+        <a href="#bookings" className="flex flex-col items-center text-on-surface-variant text-center hover:text-primary">
           <Ticket className="w-5 h-5" />
           <span className="text-[10px] font-bold uppercase tracking-tighter">Bookings</span>
         </a>
-        <a href="#profile" className="flex flex-col items-center text-slate-500 text-center hover:text-primary">
+        <a href="#profile" className="flex flex-col items-center text-on-surface-variant text-center hover:text-primary">
           <User className="w-5 h-5" />
           <span className="text-[10px] font-bold uppercase tracking-tighter">Profile</span>
         </a>

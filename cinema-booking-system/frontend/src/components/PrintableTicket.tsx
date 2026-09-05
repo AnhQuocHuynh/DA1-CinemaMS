@@ -9,7 +9,7 @@ interface Props {
 
 export const PrintableTicket: React.FC<Props> = ({ ticket }) => {
   return (
-    <div className="w-[680px] bg-white rounded-xl shadow-lg flex font-sans text-left" style={{ color: '#1a1a1a' }}>
+    <div className="w-[680px] bg-surface-container-lowest rounded-xl shadow-lg flex font-sans text-left" style={{ color: '#1a1a1a' }}>
       {/* Left section */}
       <div className="flex-1 px-6 py-7">
         <div className="text-[13px] font-bold text-[#e50914] uppercase tracking-widest">
@@ -54,8 +54,8 @@ export const PrintableTicket: React.FC<Props> = ({ ticket }) => {
       {/* Tear line */}
       <div className="relative w-[2px] bg-[repeating-linear-gradient(to_bottom,#ddd_0,#ddd_8px,transparent_8px,transparent_16px)]">
         {/* Hole punches matching the white PDF background */}
-        <div className="absolute -left-[10px] -top-[10px] w-5 h-5 bg-white rounded-full"></div>
-        <div className="absolute -left-[10px] -bottom-[10px] w-5 h-5 bg-white rounded-full"></div>
+        <div className="absolute -left-[10px] -top-[10px] w-5 h-5 bg-surface-container-lowest rounded-full"></div>
+        <div className="absolute -left-[10px] -bottom-[10px] w-5 h-5 bg-surface-container-lowest rounded-full"></div>
       </div>
 
       {/* Right section */}
@@ -65,11 +65,11 @@ export const PrintableTicket: React.FC<Props> = ({ ticket }) => {
         </div>
         
         {ticket.qrCodeData ? (
-          <div className="w-[120px] h-[120px] bg-white rounded-lg flex items-center justify-center p-2">
+          <div className="w-[120px] h-[120px] bg-surface-container-lowest rounded-lg flex items-center justify-center p-2">
             <QRCodeSVG value={ticket.qrCodeData} size={104} level="H" />
           </div>
         ) : (
-          <div className="w-[120px] h-[120px] bg-white rounded-lg flex items-center justify-center text-[10px] text-[#999] text-center p-2">
+          <div className="w-[120px] h-[120px] bg-surface-container-lowest rounded-lg flex items-center justify-center text-[10px] text-[#999] text-center p-2">
             QR Code<br />{ticket.ticketCode}
           </div>
         )}

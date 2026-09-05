@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Download, Share2, Ticket } from 'lucide-react';
 import { useBookingStore } from '../../store/bookingStore';
 import { formatVND, formatShowtime } from '../../utils/formatters';
@@ -7,11 +7,15 @@ import { downloadElementAsPDF } from '../../utils/pdfGenerator';
 import { useState } from 'react';
 import { PrintableTicket } from '../../components/PrintableTicket';
 import { TicketDetails } from '../../types/booking';
+import { paymentService } from '../../services/paymentService';
 
 export const CheckoutSuccess: React.FC = () => {
   const navigate = useNavigate();
   const { completedOrder, showtimeData, movieTitle, selectedSeats, clearSelection } = useBookingStore();
   const [isDownloading, setIsDownloading] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
 
   const handleDownloadPDF = async () => {
     if (!completedOrder) return;
@@ -30,11 +34,11 @@ export const CheckoutSuccess: React.FC = () => {
     // @ts-ignore - BackendTicket type is strict, but runtime might have extra fields, we rely on showtimeSeatId
     const seatId = (t as any).showtimeSeatId;
     const seat = selectedSeats.find(s => s.numericId === seatId);
-    
+
     // Get time from showtimeData
     const startTime = showtimeData?.startTime || '';
     const dt = startTime ? new Date(startTime) : null;
-    
+
     return {
       ticketCode: t.ticketCode,
       orderId: completedOrder?.id || 0,
@@ -61,6 +65,25 @@ export const CheckoutSuccess: React.FC = () => {
     };
   }, []);
 
+  // Handle PayPal verification on redirect return
+  useEffect(() => {
+    const token = searchParams.get('token');
+
+    // If PayPal token is present, we must verify and capture the payment
+    if (token) {
+      setIsVerifying(true);
+      paymentService.verifyPaymentReturn(searchParams, 'paypal')
+        .then(() => {
+          setIsVerifying(false);
+        })
+        .catch(err => {
+          console.error('Payment verification failed:', err);
+          setVerificationError('Xác nhận thanh toán thất bại. Vui lòng liên hệ bộ phận hỗ trợ.');
+          setIsVerifying(false);
+        });
+    }
+  }, [searchParams]);
+
   if (!completedOrder) {
     // Shouldn't happen in normal flow; redirect home if accessed directly
     return (
@@ -78,9 +101,9 @@ export const CheckoutSuccess: React.FC = () => {
   const firstTicket = completedOrder.tickets?.[0];
   const firstTicketCode = firstTicket?.ticketCode ?? '';
 
-  // Parse seat labels from seatIdsSnapshot (comma-separated seat IDs — not labels)
+  // Parse seat labels from seatIds (array of numbers)
   // We display them as "Ghế X" or rely on the stored selected seats
-  const seatCount = completedOrder.seatIdsSnapshot?.split(',').filter(Boolean).length ?? 0;
+  const seatCount = completedOrder.seatIds?.length ?? 0;
 
   const showtimeLabel = showtimeData ? formatShowtime(showtimeData.startTime) : '—';
 
@@ -100,9 +123,21 @@ export const CheckoutSuccess: React.FC = () => {
         <h1 className="text-3xl font-bold tracking-tight mt-6 text-on-surface">
           Thanh toán thành công!
         </h1>
-        <p className="text-on-surface-variant mt-3">
-          Ghế của bạn đã được đặt. Vé điện tử đã được tạo và gửi đến email của bạn.
-        </p>
+        {isVerifying && (
+          <div className="mt-4 p-3 bg-primary-container text-on-primary-container rounded-lg animate-pulse">
+            Đang xác nhận thanh toán...
+          </div>
+        )}
+        {verificationError && (
+          <div className="mt-4 p-3 bg-error-container text-on-error-container border border-error-container rounded-lg">
+            {verificationError}
+          </div>
+        )}
+        {!isVerifying && !verificationError && (
+          <p className="text-on-surface-variant mt-3">
+            Ghế của bạn đã được đặt. Vé điện tử đã được tạo và gửi đến email của bạn.
+          </p>
+        )}
 
         {/* Booking info card */}
         <div className="mt-8 bg-surface-container-low p-6 rounded-xl text-left">
@@ -113,7 +148,7 @@ export const CheckoutSuccess: React.FC = () => {
               </p>
               <p className="text-lg font-bold text-on-surface">#{completedOrder.id}</p>
             </div>
-            <span className="px-3 py-1 bg-primary text-white text-[10px] uppercase tracking-widest rounded font-bold">
+            <span className="px-3 py-1 bg-primary text-on-primary text-[10px] uppercase tracking-widest rounded font-bold">
               Đã thanh toán
             </span>
           </div>
@@ -162,14 +197,14 @@ export const CheckoutSuccess: React.FC = () => {
           {firstTicketCode ? (
             <Link
               to={`/user/tickets/${firstTicketCode}`}
-              className="flex-1 flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 bg-primary text-on-primary py-3 rounded-lg font-semibold hover:opacity-90 transition-colors"
             >
               <Ticket className="w-4 h-4" />
               Xem vé
             </Link>
           ) : null}
           <button
-            className="flex-1 flex items-center justify-center gap-2 bg-white border border-outline-variant py-3 rounded-lg font-semibold hover:bg-surface-container-low transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-surface-container-lowest border border-outline-variant py-3 rounded-lg font-semibold hover:bg-surface-container-low transition-colors"
             onClick={handleDownloadPDF}
             disabled={isDownloading}
           >
@@ -177,7 +212,7 @@ export const CheckoutSuccess: React.FC = () => {
             {isDownloading ? 'Đang tải...' : 'In vé'}
           </button>
           <button
-            className="flex-1 flex items-center justify-center gap-2 bg-white border border-outline-variant py-3 rounded-lg font-semibold hover:bg-surface-container-low transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-surface-container-lowest border border-outline-variant py-3 rounded-lg font-semibold hover:bg-surface-container-low transition-colors"
             onClick={handleGoHome}
           >
             <Share2 className="w-4 h-4" />

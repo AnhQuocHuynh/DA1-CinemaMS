@@ -20,9 +20,9 @@ interface UserTicket {
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   VALID: { label: 'Hợp lệ', className: 'bg-primary/10 text-primary' },
-  CHECKED_IN: { label: 'Đã vào', className: 'bg-green-100 text-green-800' },
+  CHECKED_IN: { label: 'Đã vào', className: 'bg-success-container text-on-success-container' },
   CANCELLED: { label: 'Đã huỷ', className: 'bg-error/10 text-error' },
-  USED: { label: 'Đã dùng', className: 'bg-slate-100 text-slate-600' },
+  USED: { label: 'Đã dùng', className: 'bg-surface-container text-on-surface-variant' },
 };
 
 export const UserDashboard: React.FC = () => {
@@ -46,7 +46,7 @@ export const UserDashboard: React.FC = () => {
   }, [user]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-surface text-on-surface">
       <SiteTopNav activeLabel="My Tickets" showSearch={false} />
 
       <main className="pt-20 px-8 pb-8">
@@ -72,12 +72,12 @@ export const UserDashboard: React.FC = () => {
               {tickets.map((t) => {
                 const statusMeta = STATUS_LABELS[t.status] ?? {
                   label: t.status,
-                  className: 'bg-slate-100 text-slate-600',
+                  className: 'bg-surface-container text-on-surface-variant',
                 };
                 return (
                   <div
                     key={t.ticketCode}
-                    className="bg-white rounded-xl p-6 flex justify-between items-center border border-outline-variant/30 shadow-sm hover:shadow-md transition-shadow"
+                    className="bg-surface-container-lowest rounded-xl p-6 flex justify-between items-center border border-outline-variant/30 shadow-sm hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-start gap-4">
                       <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -109,7 +109,7 @@ export const UserDashboard: React.FC = () => {
                       </span>
                       <Link
                         to={`/user/tickets/${t.ticketCode}`}
-                        className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors"
+                        className="px-4 py-2 bg-primary text-on-primary rounded-lg text-xs font-semibold hover:opacity-90 transition-colors"
                       >
                         Xem vé
                       </Link>
@@ -127,7 +127,7 @@ export const UserDashboard: React.FC = () => {
               </p>
               <Link
                 to="/"
-                className="inline-block px-6 py-3 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-blue-700 transition-colors"
+                className="inline-block px-6 py-3 bg-primary text-on-primary rounded-lg font-semibold text-sm hover:opacity-90 transition-colors"
               >
                 Tìm phim
               </Link>

@@ -28,10 +28,10 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
   ];
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md shadow-sm h-16">
+    <nav className="fixed top-0 w-full z-50 bg-surface-container-lowest/80 backdrop-blur-md shadow-sm h-16">
       <div className="flex justify-between items-center h-16 max-w-[1280px] mx-auto px-1 md:px-2">
         <div className="flex items-center gap-8">
-          <span className="text-xl font-bold tracking-tighter text-slate-900">CinemaArchitect</span>
+          <span className="text-xl font-bold tracking-tighter text-on-surface">CinemaArchitect</span>
           <div className="hidden md:flex gap-6 items-center text-sm font-medium">
             {navItems.map((item) => (
               <NavLink
@@ -39,8 +39,8 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
                 to={item.to}
                 className={({ isActive }) =>
                   isActive || item.label === activeLabel
-                    ? 'text-blue-600 border-b-2 border-blue-600 pb-1'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'text-primary border-b-2 border-blue-600 pb-1'
+                    : 'text-on-surface-variant hover:text-on-surface'
                 }
               >
                 {item.label}
@@ -54,18 +54,18 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
               <button
                 type="button"
                 onClick={() => setIsMenuOpen((open) => !open)}
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-all"
+                className="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all"
                 aria-haspopup="menu"
                 aria-expanded={isMenuOpen}
               >
                 <User className="w-5 h-5" />
               </button>
               {isMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-lg bg-white shadow-lg border border-slate-200 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-48 rounded-lg bg-surface-container-lowest shadow-lg border border-outline-variant overflow-hidden">
                   <Link
                     to="/user/settings"
                     onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-2 px-4 py-3 text-sm text-slate-700 hover:bg-slate-100"
+                    className="flex items-center gap-2 px-4 py-3 text-sm text-on-surface-variant hover:bg-surface-container"
                   >
                     <Settings className="w-4 h-4" />
                     Settings
@@ -73,7 +73,7 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-slate-700 hover:bg-slate-100"
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-on-surface-variant hover:bg-surface-container"
                   >
                     <LogOut className="w-4 h-4" />
                     Logout
@@ -83,10 +83,10 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
             </div>
           ) : (
             <>
-              <Link to="/login" className="px-4 py-2 text-slate-600 text-sm font-medium hover:bg-slate-100 rounded-md">
+              <Link to="/login" className="px-4 py-2 text-on-surface-variant text-sm font-medium hover:bg-surface-container rounded-md">
                 Sign In
               </Link>
-              <Link to="/signup" className="px-5 py-2 bg-primary text-white rounded-md text-sm font-semibold">
+              <Link to="/signup" className="px-5 py-2 bg-primary text-on-primary rounded-md text-sm font-semibold">
                 Book Now
               </Link>
             </>

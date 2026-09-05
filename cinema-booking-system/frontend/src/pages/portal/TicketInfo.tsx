@@ -74,8 +74,8 @@ export const TicketInfo: React.FC = () => {
     ticket.status === 'VALID'
       ? 'bg-primary text-on-primary'
       : ticket.status === 'CHECKED_IN'
-      ? 'bg-green-600 text-white'
-      : 'bg-error text-white';
+      ? 'bg-success text-white'
+      : 'bg-error text-on-error';
 
   return (
     <div className="bg-surface text-on-surface min-h-screen">
@@ -218,7 +218,7 @@ export const TicketInfo: React.FC = () => {
               {/* QR section */}
               <div className="p-10 bg-surface-container-low flex flex-col items-center justify-center">
                 {ticket.qrCodeData ? (
-                  <div className="bg-white p-4 rounded-lg shadow-sm mb-6 flex justify-center">
+                  <div className="bg-surface-container-lowest p-4 rounded-lg shadow-sm mb-6 flex justify-center">
                     <QRCodeSVG 
                       value={ticket.qrCodeData}
                       size={160}

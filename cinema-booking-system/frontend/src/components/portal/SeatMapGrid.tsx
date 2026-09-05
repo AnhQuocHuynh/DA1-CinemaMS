@@ -49,7 +49,7 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
             } else if (seat.type === 'vip') {
               baseClass = 'bg-gradient-to-br from-amber-200 to-amber-500 hover:from-amber-300 hover:to-amber-600 text-amber-950 border border-amber-600 shadow-sm transition-all cursor-pointer';
             } else {
-              baseClass = 'bg-green-500 hover:bg-green-600 text-white transition-colors cursor-pointer';
+              baseClass = 'bg-success hover:bg-success text-white transition-colors cursor-pointer';
             }
 
             if (seat.isPathway) {

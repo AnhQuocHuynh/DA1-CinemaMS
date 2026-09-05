@@ -49,7 +49,7 @@ export const HoldTimer: React.FC<HoldTimerProps> = ({ expiresAt, onExpired }) =>
       <div className="text-3xl font-black tracking-tighter tabular-nums mb-3">
         {mm}:{ss}
       </div>
-      <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+      <div className="h-1 w-full bg-surface-container-lowest/10 rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-1000 ${isUrgent ? 'bg-yellow-300' : 'bg-primary-container'}`}
           style={{ width: `${progress}%` }}
