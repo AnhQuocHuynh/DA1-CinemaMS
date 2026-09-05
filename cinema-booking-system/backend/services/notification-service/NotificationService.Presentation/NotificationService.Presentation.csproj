@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\NotificationService.Application\NotificationService.Application.csproj" />
     <ProjectReference Include="..\NotificationService.Infrastructure\NotificationService.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\shared\Shared.Hosting\CinemaBooking.Shared.Hosting.csproj" />
   </ItemGroup>
 
 </Project>

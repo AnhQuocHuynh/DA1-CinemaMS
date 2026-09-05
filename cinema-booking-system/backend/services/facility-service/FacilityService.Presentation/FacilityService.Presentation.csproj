@@ -9,10 +9,11 @@
   <ItemGroup>
     <ProjectReference Include="..\FacilityService.Application\FacilityService.Application.csproj" />
     <ProjectReference Include="..\FacilityService.Infrastructure\FacilityService.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\shared\Shared.Hosting\CinemaBooking.Shared.Hosting.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
+
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.11" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.18.0" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0" />
