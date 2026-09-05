@@ -28,19 +28,19 @@ public class UsersController : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetCurrentUser()
     {
-        var keycloakId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(keycloakId))
+        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdStr) || !long.TryParse(userIdStr, out var userId))
         {
             return Unauthorized();
         }
 
-        var query = new GetCurrentUserQuery(keycloakId);
+        var query = new GetUserByIdQuery(userId);
         var result = await _mediator.Send(query);
         return Ok(ApiResponse<UserDto>.Ok(result));
     }
 
     [HttpGet("{id}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> GetUserById(long id)
     {
         var query = new GetUserByIdQuery(id);
@@ -49,7 +49,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> GetUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var query = new GetUsersQuery(page, pageSize);
@@ -58,7 +58,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id}/role")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> ChangeUserRole(long id, [FromBody] ChangeUserRoleRequest request)
     {
         var command = new ChangeUserRoleCommand(id, request.NewRole);
@@ -70,13 +70,11 @@ public class UsersController : ControllerBase
     [Authorize]
     public async Task<IActionResult> UpdateCurrentUser([FromBody] UpdateUserProfileCommand command)
     {
-        var keycloakId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(keycloakId))
+        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdStr) || !long.TryParse(userIdStr, out var userId))
         {
             return Unauthorized();
         }
-
-        var userId = await _mediator.Send(new ResolveKeycloakIdQuery(keycloakId));
 
         command = command with { UserId = userId };
 
