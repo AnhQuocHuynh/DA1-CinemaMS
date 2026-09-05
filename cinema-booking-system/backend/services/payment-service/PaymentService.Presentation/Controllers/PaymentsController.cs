@@ -40,8 +40,8 @@ public class PaymentsController : ControllerBase
             Amount: request.Amount,
             Currency: request.Currency ?? "VND",
             PaymentMethod: request.PaymentMethod,
-            CancelUrl: $"{baseUrl}/checkout-canceled?orderId={request.OrderId}",
-            SuccessUrl: $"{baseUrl}/checkout-success?orderId={request.OrderId}"
+            CancelUrl: request.CancelUrl ?? $"{baseUrl}/checkout-canceled?orderId={request.OrderId}",
+            SuccessUrl: request.SuccessUrl ?? $"{baseUrl}/checkout-success?orderId={request.OrderId}"
         );
 
         var result = await _mediator.Send(command);
@@ -89,36 +89,24 @@ public class PaymentsController : ControllerBase
     // GET /api/payments/callback/paypal/return?token=ORDER_ID&PayerID=...
     // Phase 4 — PayPal redirect return URL after user approves payment
     // ─────────────────────────────────────────────────────────────────────────
-    [HttpGet("callback/paypal/return")]
+    [HttpPost("callback/paypal/return")]
     [AllowAnonymous]
-    public async Task<IActionResult> PayPalReturn([FromQuery] string token, [FromQuery] string? PayerID)
+    public async Task<IActionResult> PayPalReturn([FromBody] PayPalReturnRequest request)
     {
         var parameters = new Dictionary<string, string>
         {
-            { "token", token }
+            { "token", request.Token }
         };
-        if (!string.IsNullOrEmpty(PayerID))
-            parameters["PayerID"] = PayerID;
+        if (!string.IsNullOrEmpty(request.PayerID))
+            parameters["PayerID"] = request.PayerID;
 
         var command = new HandlePaymentCallbackCommand(PaymentMethod.PAYPAL, parameters);
         var success = await _mediator.Send(command);
 
-        var baseUrl = _configuration["App:BaseUrl"] ?? "http://localhost:3000";
+        if (!success)
+            return BadRequest(ApiResponse<object>.Error("Failed to capture PayPal payment."));
 
-        // Redirect back to frontend success page
-        return Redirect($"{baseUrl}/checkout-success?source=paypal");
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // GET /api/payments/callback/paypal/cancel
-    // Phase 4 — PayPal redirect cancel URL
-    // ─────────────────────────────────────────────────────────────────────────
-    [HttpGet("callback/paypal/cancel")]
-    [AllowAnonymous]
-    public IActionResult PayPalCancel([FromQuery] string? token)
-    {
-        var baseUrl = _configuration["App:BaseUrl"] ?? "http://localhost:3000";
-        return Redirect($"{baseUrl}/checkout-canceled?source=paypal");
+        return Ok(ApiResponse<object>.Ok(null, "PayPal payment captured successfully."));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -213,7 +201,10 @@ public record InitiatePaymentRequest(
     long OrderId,
     decimal Amount,
     PaymentMethod PaymentMethod,
-    string? Currency = "VND"
+    string? Currency = "VND",
+    string? CancelUrl = null,
+    string? SuccessUrl = null
 );
 
 public record ConfirmCashRequest(long PaymentId);
+public record PayPalReturnRequest(string Token, string? PayerID);
