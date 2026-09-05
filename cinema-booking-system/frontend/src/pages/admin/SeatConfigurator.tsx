@@ -39,6 +39,7 @@ export const SeatConfigurator: React.FC = () => {
     clearGrid,
     loadGrid,
     saveGrid,
+    hasChanges,
   } = useSeatConfigurator(
     room?.theater.id?.toString(),
     roomId,
@@ -59,6 +60,7 @@ export const SeatConfigurator: React.FC = () => {
   );
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [showDiscardPopup, setShowDiscardPopup] = useState(false);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(String(event.active.id));
@@ -92,7 +94,13 @@ export const SeatConfigurator: React.FC = () => {
             <>
               <button
                 className="bg-surface-container-low px-4 py-3 rounded-lg text-sm font-semibold"
-                onClick={() => navigate('/admin/rooms')}
+                onClick={() => {
+                  if (hasChanges) {
+                    setShowDiscardPopup(true);
+                  } else {
+                    navigate('/admin/rooms');
+                  }
+                }}
               >
                 Back to Rooms
               </button>
@@ -104,7 +112,7 @@ export const SeatConfigurator: React.FC = () => {
               </button>
               <button 
                 onClick={saveGrid}
-                disabled={isSaving}
+                disabled={isSaving || !hasChanges}
                 className="bg-primary text-on-primary px-4 py-3 rounded-lg text-sm font-semibold disabled:opacity-50"
               >
                 {isSaving ? 'Saving...' : 'Save Configuration'}
@@ -174,11 +182,31 @@ export const SeatConfigurator: React.FC = () => {
             {activeId ? (
               <div className={`w-8 h-8 rounded-sm border-2 border-white shadow-lg ${
                 activeId === 'couple' ? 'bg-pink-500 aspect-[2/1] w-16' :
-                activeId === 'vip' ? 'bg-amber-400' : 'bg-green-500'
+                activeId === 'vip' ? 'bg-amber-400' : 'bg-success'
               }`} />
             ) : null}
           </DragOverlay>
         </DndContext>
+
+        {showDiscardPopup && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+              <div className="px-6 py-4 border-b border-surface-container flex items-center justify-between bg-surface-container-low/50">
+                <h2 className="text-xl font-bold text-on-surface">Unsaved Changes</h2>
+                <button onClick={() => setShowDiscardPopup(false)} className="text-on-surface-variant hover:text-error p-1 rounded-md">✕</button>
+              </div>
+              <div className="p-6">
+                <p className="text-sm text-on-surface-variant font-semibold">You have unsaved changes to the seat configuration. Are you sure you want to discard them and go back?</p>
+              </div>
+              <div className="px-6 py-4 border-t border-surface-container bg-surface-container-lowest flex justify-end gap-3">
+                <button onClick={() => setShowDiscardPopup(false)} className="px-4 py-2 rounded-lg font-bold text-sm text-on-surface-variant hover:bg-surface-container">Cancel</button>
+                <button onClick={() => navigate('/admin/rooms')} className="px-6 py-2 rounded-lg font-bold text-sm bg-error text-on-error hover:opacity-90">
+                  Discard Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </AdminLayout>
   );

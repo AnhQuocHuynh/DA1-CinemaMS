@@ -148,7 +148,7 @@ export const ShowtimeManagement: React.FC = () => {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowCreator(true)}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm"
+                className="flex items-center gap-2 bg-primary hover:opacity-90 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm"
               >
                 <Wand2 className="w-4 h-4" />
                 Add Showtimes
@@ -194,12 +194,12 @@ export const ShowtimeManagement: React.FC = () => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            {isLoading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+            {isLoading && <Loader2 className="w-4 h-4 animate-spin text-on-surface-variant" />}
           </div>
 
           {isLoading ? (
             <div className="p-12 text-center text-on-surface-variant flex flex-col items-center gap-3">
-              <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+              <Loader2 className="w-8 h-8 animate-spin text-on-surface-variant" />
               <span>Loading schedules…</span>
             </div>
           ) : filteredRooms.length === 0 ? (
@@ -278,7 +278,7 @@ export const ShowtimeManagement: React.FC = () => {
                                 <tr key={st.id} className="hover:bg-surface-container-lowest transition-colors">
                                   <td className="px-8 py-4">
                                     <div className="flex items-center gap-3">
-                                      <div className="w-8 h-10 bg-slate-200 rounded overflow-hidden flex-shrink-0">
+                                      <div className="w-8 h-10 bg-surface-container-high rounded overflow-hidden flex-shrink-0">
                                         <img
                                           src={genericPoster}
                                           alt=""
@@ -287,7 +287,7 @@ export const ShowtimeManagement: React.FC = () => {
                                       </div>
                                       <div>
                                         {st.movieId ? (
-                                          <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
+                                          <span className="text-xs font-bold bg-primary-container text-primary px-2 py-0.5 rounded border border-blue-200">
                                             {movieMap[st.movieId] || `Movie #${st.movieId}`}
                                           </span>
                                         ) : st.eventId ? (
@@ -295,7 +295,7 @@ export const ShowtimeManagement: React.FC = () => {
                                             {eventMap[st.eventId] || `Event #${st.eventId}`}
                                           </span>
                                         ) : (
-                                          <span className="text-xs text-slate-400">—</span>
+                                          <span className="text-xs text-on-surface-variant">—</span>
                                         )}
                                       </div>
                                     </div>
@@ -309,9 +309,9 @@ export const ShowtimeManagement: React.FC = () => {
                                     <span
                                       className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border
                                         ${st.status === 'SCHEDULED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                          st.status === 'ONGOING' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                            st.status === 'CANCELLED' ? 'bg-red-50 text-red-600 border-red-200' :
-                                              'bg-slate-100 text-slate-500 border-slate-200'}`}
+                                          st.status === 'ONGOING' ? 'bg-primary-container text-primary border-blue-200' :
+                                            st.status === 'CANCELLED' ? 'bg-error-container text-red-600 border-error-container' :
+                                              'bg-surface-container text-on-surface-variant border-outline-variant'}`}
                                     >
                                       {st.status}
                                     </span>
@@ -320,7 +320,7 @@ export const ShowtimeManagement: React.FC = () => {
                                     <button
                                       onClick={() => handleDelete(st.id)}
                                       disabled={deletingId === st.id}
-                                      className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                                      className="p-2 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-error-container transition-colors disabled:opacity-40"
                                       title="Delete Showtime"
                                     >
                                       {deletingId === st.id ? (

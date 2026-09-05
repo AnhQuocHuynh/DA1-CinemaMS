@@ -61,7 +61,7 @@ export const MovieManagement: React.FC = () => {
               <button onClick={() => setIsGenreModalOpen(true)} className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg font-semibold text-sm hover:bg-surface-container-highest flex items-center gap-2">
                 Manage Genres
               </button>
-              <button onClick={handleAddClick} className="px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-blue-700 flex items-center gap-2">
+              <button onClick={handleAddClick} className="px-4 py-2 bg-primary text-on-primary rounded-lg font-semibold text-sm hover:opacity-90 flex items-center gap-2">
                 <Plus className="w-4 h-4" />
                 Add Movie
               </button>
@@ -79,11 +79,11 @@ export const MovieManagement: React.FC = () => {
                 type="text"
               />
             </div>
-            <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
+            <div className="flex items-center gap-3 text-xs font-semibold text-on-surface-variant">
               <span>Active</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
               <span>Draft</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
               <span>Archived</span>
             </div>
           </div>
@@ -114,10 +114,10 @@ export const MovieManagement: React.FC = () => {
                       <span
                         className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-tight ${
                           movie.status === 'active'
-                            ? 'bg-green-50 text-green-700'
+                            ? 'bg-success-container text-on-success-container'
                             : movie.status === 'draft'
                               ? 'bg-amber-50 text-amber-700'
-                              : 'bg-slate-100 text-slate-500'
+                              : 'bg-surface-container text-on-surface-variant'
                         }`}
                       >
                         {movie.status}
@@ -126,8 +126,8 @@ export const MovieManagement: React.FC = () => {
                     <td className="px-6 py-4 text-sm text-on-surface">{movie.bookings}</td>
                     <td className="px-6 py-4 text-sm text-on-surface"><RatingBadge type="movie" id={movie.id} /></td>
                     <td className="px-6 py-4 text-right space-x-2">
-                      <button onClick={() => handleEditClick(movie.id)} className="px-3 py-1 bg-primary text-white rounded text-xs hover:bg-blue-700">Edit</button>
-                      <button onClick={() => handleDeleteClick(movie.id)} className="px-3 py-1 bg-error text-white rounded text-xs hover:bg-red-700">Delete</button>
+                      <button onClick={() => handleEditClick(movie.id)} className="px-3 py-1 bg-primary text-on-primary rounded text-xs hover:opacity-90">Edit</button>
+                      <button onClick={() => handleDeleteClick(movie.id)} className="px-3 py-1 bg-error text-on-error rounded text-xs hover:opacity-90">Delete</button>
                     </td>
                   </tr>
                 ))}

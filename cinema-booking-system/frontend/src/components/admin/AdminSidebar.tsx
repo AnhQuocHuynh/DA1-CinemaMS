@@ -36,15 +36,15 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   onSettings,
 }) => {
   return (
-    <aside className="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 bg-slate-50 font-inter text-sm font-medium border-r border-slate-200 z-40">
+    <aside className="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 bg-surface-container-low font-inter text-sm font-medium border-r border-outline-variant z-40">
       <div className="px-6 py-4 mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded bg-blue-600 flex items-center justify-center text-white">
+          <div className="w-10 h-10 rounded bg-primary flex items-center justify-center text-white">
             <Building2 className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-lg font-black text-slate-900">Admin Console</div>
-            <div className="text-xs text-slate-500">Enterprise Management</div>
+            <div className="text-lg font-black text-on-surface">Admin Console</div>
+            <div className="text-xs text-on-surface-variant">Enterprise Management</div>
           </div>
         </div>
       </div>
@@ -59,8 +59,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               to={item.to}
               className={({ isActive: navActive }) =>
                 `w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-all duration-200 ease-in-out ${navActive || isActive
-                  ? 'bg-blue-50 text-blue-700 border-r-4 border-blue-700'
-                  : 'text-slate-500 hover:bg-slate-200'
+                  ? 'bg-primary-container text-primary border-r-4 border-blue-700'
+                  : 'text-on-surface-variant hover:bg-surface-container-high'
                 }`
               }
             >
@@ -72,13 +72,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       </nav>
 
       <div className="px-6 pb-6">
-        <div className="border-t border-slate-200 pt-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mb-3">Settings</p>
+        <div className="border-t border-outline-variant pt-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-3">Settings</p>
           <div className="space-y-2">
             <button
               type="button"
               onClick={onSettings}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-slate-600 hover:bg-slate-200"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-on-surface-variant hover:bg-surface-container-high"
             >
               <Settings className="w-4 h-4" />
               Settings
@@ -86,7 +86,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             <button
               type="button"
               onClick={onLogout}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-slate-600 hover:bg-slate-200"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-on-surface-variant hover:bg-surface-container-high"
             >
               <LogOut className="w-4 h-4" />
               Logout

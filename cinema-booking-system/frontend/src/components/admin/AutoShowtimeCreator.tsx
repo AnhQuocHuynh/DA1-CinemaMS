@@ -92,7 +92,7 @@ const DraggableBlock: React.FC<DraggableBlockProps> = ({
   });
 
   const baseClass = block.isConflict
-    ? 'bg-red-500 border-2 border-red-700'
+    ? 'bg-error border-2 border-red-700'
     : block.isLocked
     ? 'bg-slate-400 border border-slate-500'
     : `${block.colorClass} border border-white/20`;
@@ -118,7 +118,7 @@ const DraggableBlock: React.FC<DraggableBlockProps> = ({
       </div>
 
       {block.isConflict && (
-        <div className="absolute inset-0 flex items-center justify-center bg-red-600/60 pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center bg-error/60 pointer-events-none">
           <AlertTriangle size={14} className="text-white" />
         </div>
       )}
@@ -170,26 +170,26 @@ const MovieSelectorRow: React.FC<MovieSelectorRowProps> = ({
   return (
     <div
       className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer
-        ${isSelected ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+        ${isSelected ? 'border-blue-400 bg-primary-container' : 'border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low'}`}
       onClick={() => onToggle(movie, colorClass)}
     >
       <div className={`w-3 h-3 rounded-full flex-shrink-0 ${colorClass}`} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-800 truncate">{movie.title}</p>
-        <p className="text-xs text-slate-500">{movie.durationMinutes} min</p>
+        <p className="text-sm font-semibold text-on-surface truncate">{movie.title}</p>
+        <p className="text-xs text-on-surface-variant">{movie.durationMinutes} min</p>
       </div>
       {isSelected && (
         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          <span className="text-xs text-slate-500 font-medium">×</span>
+          <span className="text-xs text-on-surface-variant font-medium">×</span>
           <button
-            className="w-6 h-6 flex items-center justify-center rounded bg-slate-100 hover:bg-slate-200"
+            className="w-6 h-6 flex items-center justify-center rounded bg-surface-container hover:bg-surface-container-high"
             onClick={() => onPriorityChange(movie.id, Math.max(1, selected.priority - 1))}
           >
             <ChevronDown size={12} />
           </button>
-          <span className="text-xs font-bold text-blue-600 w-4 text-center">{selected.priority}</span>
+          <span className="text-xs font-bold text-primary w-4 text-center">{selected.priority}</span>
           <button
-            className="w-6 h-6 flex items-center justify-center rounded bg-slate-100 hover:bg-slate-200"
+            className="w-6 h-6 flex items-center justify-center rounded bg-surface-container hover:bg-surface-container-high"
             onClick={() => onPriorityChange(movie.id, Math.min(8, selected.priority + 1))}
           >
             <ChevronUp size={12} />
@@ -197,9 +197,9 @@ const MovieSelectorRow: React.FC<MovieSelectorRowProps> = ({
         </div>
       )}
       {isSelected ? (
-        <Check size={14} className="text-blue-600 flex-shrink-0" />
+        <Check size={14} className="text-primary flex-shrink-0" />
       ) : (
-        <Plus size={14} className="text-slate-400 flex-shrink-0" />
+        <Plus size={14} className="text-on-surface-variant flex-shrink-0" />
       )}
     </div>
   );
@@ -346,21 +346,21 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/70 backdrop-blur-sm overflow-y-auto py-6 px-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl min-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-inverse-surface/70 backdrop-blur-sm overflow-y-auto py-6 px-4">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-7xl min-h-[90vh] flex flex-col">
 
         {/* Header */}
-        <header className="px-8 py-5 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+        <header className="px-8 py-5 border-b border-outline-variant flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
+            <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center">
               <Wand2 size={18} className="text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900 tracking-tight">Auto Showtime Creator</h2>
-              <p className="text-xs text-slate-500">Greedy schedule packing · drag &amp; drop to refine · powered by dnd-kit</p>
+              <h2 className="text-lg font-black text-on-surface tracking-tight">Auto Showtime Creator</h2>
+              <p className="text-xs text-on-surface-variant">Greedy schedule packing · drag &amp; drop to refine · powered by dnd-kit</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors">
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors">
             <X size={20} />
           </button>
         </header>
@@ -368,26 +368,26 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
         <div className="flex flex-1 min-h-0">
 
           {/* ── Sidebar ───────────────────────────────────────────────── */}
-          <aside className="w-80 flex-shrink-0 border-r border-slate-200 flex flex-col overflow-y-auto">
+          <aside className="w-80 flex-shrink-0 border-r border-outline-variant flex flex-col overflow-y-auto">
 
             {/* Context */}
-            <section className="p-6 border-b border-slate-100">
-              <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-400 mb-4">Context</h3>
+            <section className="p-6 border-b border-outline-variant/30">
+              <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant mb-4">Context</h3>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Date</label>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Date</label>
                   <input type="date" value={selectedDate} min={today()}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+                    className="w-full border border-outline-variant rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Room</label>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Room</label>
                   {isLoadingRooms ? (
-                    <div className="flex items-center gap-2 text-slate-400 text-sm"><Loader2 size={14} className="animate-spin" /> Loading...</div>
+                    <div className="flex items-center gap-2 text-on-surface-variant text-sm"><Loader2 size={14} className="animate-spin" /> Loading...</div>
                   ) : (
                     <select value={selectedRoomId ?? ''}
                       onChange={(e) => setSelectedRoomId(e.target.value ? Number(e.target.value) : null)}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+                      className="w-full border border-outline-variant rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
                       <option value="">— Select a room —</option>
                       {theaters.map((t) => t.rooms.map((r) => (
                         <option key={r.id} value={r.id}>{t.name} › {r.name}</option>
@@ -396,17 +396,17 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Base Ticket Price (VND)</label>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Base Ticket Price (VND)</label>
                   <input type="number" value={basePrice} min={0} step={5000}
                     onChange={(e) => setBasePrice(Number(e.target.value))}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+                    className="w-full border border-outline-variant rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
                 </div>
               </div>
             </section>
 
             {/* Operating window */}
-            <section className="p-6 border-b border-slate-100">
-              <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-400 mb-4">Operating Window</h3>
+            <section className="p-6 border-b border-outline-variant/30">
+              <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant mb-4">Operating Window</h3>
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { label: 'Open', key: 'openTime' as const, type: 'time' },
@@ -415,10 +415,10 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
                   { label: 'Cleaning (min)', key: 'cleaningTimeMinutes' as const, type: 'number' },
                 ].map(({ label, key, type }) => (
                   <div key={key}>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">{label}</label>
+                    <label className="block text-xs font-semibold text-on-surface-variant mb-1">{label}</label>
                     <input type={type} value={constraints[key]} min={type === 'number' ? 0 : undefined}
                       onChange={(e) => setConstraints((c) => ({ ...c, [key]: type === 'number' ? Number(e.target.value) : e.target.value }))}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+                      className="w-full border border-outline-variant rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
                   </div>
                 ))}
               </div>
@@ -427,15 +427,15 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
             {/* Movie pool */}
             <section className="p-6 flex-1 overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-400">Movie Pool</h3>
+                <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Movie Pool</h3>
                 {selectedMovies.length > 0 && (
-                  <span className="text-xs bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">{selectedMovies.length} selected</span>
+                  <span className="text-xs bg-primary-container text-primary font-bold px-2 py-0.5 rounded-full">{selectedMovies.length} selected</span>
                 )}
               </div>
               {isLoadingMovies ? (
-                <div className="flex items-center gap-2 text-slate-400 text-sm"><Loader2 size={14} className="animate-spin" /> Loading movies...</div>
+                <div className="flex items-center gap-2 text-on-surface-variant text-sm"><Loader2 size={14} className="animate-spin" /> Loading movies...</div>
               ) : availableMovies.length === 0 ? (
-                <div className="text-center py-8 text-slate-400">
+                <div className="text-center py-8 text-on-surface-variant">
                   <Film size={32} className="mx-auto mb-2 opacity-40" />
                   <p className="text-sm">No active movies found</p>
                 </div>
@@ -454,14 +454,14 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
             </section>
 
             {/* Actions */}
-            <footer className="p-6 border-t border-slate-200 space-y-3">
+            <footer className="p-6 border-t border-outline-variant space-y-3">
               <button onClick={() => autoFill(selectedMovies, constraints, existingBlocks)}
                 disabled={!selectedRoomId || selectedMovies.length === 0}
-                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl py-3 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                className="w-full flex items-center justify-center gap-2 bg-primary hover:opacity-90 text-white font-semibold rounded-xl py-3 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                 <Wand2 size={16} /> Auto-Fill Schedule
               </button>
               <button onClick={clearBlocks} disabled={blocks.length === 0}
-                className="w-full flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold rounded-xl py-2.5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm">
+                className="w-full flex items-center justify-center gap-2 border border-outline-variant hover:bg-surface-container-low text-on-surface-variant font-semibold rounded-xl py-2.5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm">
                 <ZapOff size={14} /> Clear Generated Blocks
               </button>
             </footer>
@@ -471,15 +471,15 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 p-6 overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                <h3 className="text-sm font-bold text-on-surface-variant flex items-center gap-2">
                   <Clock size={14} />
                   Timeline — {selectedDate}
-                  {isLoadingExisting && <Loader2 size={12} className="animate-spin text-slate-400" />}
+                  {isLoadingExisting && <Loader2 size={12} className="animate-spin text-on-surface-variant" />}
                 </h3>
-                <div className="flex items-center gap-3 text-xs text-slate-500">
+                <div className="flex items-center gap-3 text-xs text-on-surface-variant">
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-slate-400 inline-block" /> Existing</span>
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> Generated</span>
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> Conflict</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-primary inline-block" /> Generated</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-error inline-block" /> Conflict</span>
                 </div>
               </div>
 
@@ -494,12 +494,12 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
                 {/* Timeline row */}
                 <div
                   ref={timelineRef}
-                  className="relative rounded-xl border border-slate-200 bg-slate-50 overflow-hidden"
+                  className="relative rounded-xl border border-outline-variant bg-surface-container-low overflow-hidden"
                   style={{ height: '120px' }}
                 >
                   {/* Hour grid lines */}
                   {ticks.map((tick) => (
-                    <div key={tick.label} className="absolute top-0 bottom-0 border-l border-slate-200"
+                    <div key={tick.label} className="absolute top-0 bottom-0 border-l border-outline-variant"
                       style={{ left: `${tick.pct}%` }} />
                   ))}
 
@@ -515,7 +515,7 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
                   ))}
 
                   {allBlocks.length === 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center text-slate-400">
+                    <div className="absolute inset-0 flex items-center justify-center text-on-surface-variant">
                       <div className="text-center">
                         <Play size={28} className="mx-auto mb-1 opacity-30" />
                         <p className="text-xs">Select movies and click Auto-Fill to generate a schedule</p>
@@ -535,7 +535,7 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
               {/* Time axis */}
               <div className="relative h-6 mt-1">
                 {ticks.map((tick) => (
-                  <span key={tick.label} className="absolute text-[10px] text-slate-400 -translate-x-1/2"
+                  <span key={tick.label} className="absolute text-[10px] text-on-surface-variant -translate-x-1/2"
                     style={{ left: `${tick.pct}%` }}>
                     {tick.label}
                   </span>
@@ -545,28 +545,28 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
               {/* Generated blocks table */}
               {blocks.length > 0 && (
                 <div className="mt-6">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Generated Screenings</h3>
-                  <div className="rounded-xl overflow-hidden border border-slate-200">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Generated Screenings</h3>
+                  <div className="rounded-xl overflow-hidden border border-outline-variant">
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-50">
+                      <thead className="bg-surface-container-low">
                         <tr>
                           {['Movie', 'Start', 'End', 'Duration', 'Status', ''].map((h) => (
-                            <th key={h} className="px-4 py-3 text-left text-[10px] uppercase font-bold text-slate-400 tracking-widest">{h}</th>
+                            <th key={h} className="px-4 py-3 text-left text-[10px] uppercase font-bold text-on-surface-variant tracking-widest">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {blocks.map((block) => (
-                          <tr key={block.id} className={block.isConflict ? 'bg-red-50' : 'bg-white'}>
+                          <tr key={block.id} className={block.isConflict ? 'bg-error-container' : 'bg-surface-container-lowest'}>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
                                 <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${block.colorClass}`} />
-                                <span className="font-medium text-slate-800">{block.title}</span>
+                                <span className="font-medium text-on-surface">{block.title}</span>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-slate-600 font-mono">{block.startTime}</td>
-                            <td className="px-4 py-3 text-slate-600 font-mono">{block.endTime}</td>
-                            <td className="px-4 py-3 text-slate-500">{block.movieDurationMinutes} min</td>
+                            <td className="px-4 py-3 text-on-surface-variant font-mono">{block.startTime}</td>
+                            <td className="px-4 py-3 text-on-surface-variant font-mono">{block.endTime}</td>
+                            <td className="px-4 py-3 text-on-surface-variant">{block.movieDurationMinutes} min</td>
                             <td className="px-4 py-3">
                               {block.isConflict ? (
                                 <span className="flex items-center gap-1 text-red-600 text-xs font-bold"><AlertTriangle size={11} /> Conflict</span>
@@ -576,7 +576,7 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
                             </td>
                             <td className="px-4 py-3 text-right">
                               <button onClick={() => removeBlock(block.id)}
-                                className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
+                                className="p-1.5 rounded-lg hover:bg-error-container text-on-surface-variant hover:text-red-500 transition-colors">
                                 <Trash2 size={14} />
                               </button>
                             </td>
@@ -590,18 +590,18 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
             </div>
 
             {/* Summary + Publish bar */}
-            <div className="border-t border-slate-200 px-6 py-4 flex items-center justify-between gap-6 flex-shrink-0 bg-slate-50">
+            <div className="border-t border-outline-variant px-6 py-4 flex items-center justify-between gap-6 flex-shrink-0 bg-surface-container-low">
               <div className="flex items-center gap-8">
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Screenings</p>
-                  <p className="text-2xl font-black text-slate-800">{blocks.length}</p>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Screenings</p>
+                  <p className="text-2xl font-black text-on-surface">{blocks.length}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Utilization</p>
-                  <p className="text-2xl font-black text-slate-800">{utilizationPct}%</p>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Utilization</p>
+                  <p className="text-2xl font-black text-on-surface">{utilizationPct}%</p>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Validation</p>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Validation</p>
                   {hasConflicts ? (
                     <p className="text-sm font-bold text-red-500 flex items-center gap-1">
                       <AlertTriangle size={13} /> {blocks.filter((b) => b.isConflict).length} conflict(s)
@@ -609,7 +609,7 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
                   ) : blocks.length > 0 ? (
                     <p className="text-sm font-bold text-emerald-600 flex items-center gap-1"><Check size={13} /> Valid</p>
                   ) : (
-                    <p className="text-sm text-slate-400">—</p>
+                    <p className="text-sm text-on-surface-variant">—</p>
                   )}
                 </div>
               </div>

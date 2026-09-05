@@ -167,22 +167,22 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
           <form id="movie-form" onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Movie Title <span className="text-error">*</span></label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Movie Title <span className="text-error">*</span></label>
                 <input required type="text" name="title" value={formData.title} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none" placeholder="e.g. Inception" />
               </div>
               
               <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Duration (mins) <span className="text-error">*</span></label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Duration (mins) <span className="text-error">*</span></label>
                 <input required type="number" min="1" name="durationMinutes" value={formData.durationMinutes} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none" placeholder="e.g. 148" />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Release Date <span className="text-error">*</span></label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Release Date <span className="text-error">*</span></label>
                 <input required type="date" name="releaseDate" value={formData.releaseDate} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none" />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Age Rating</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Age Rating</label>
                 <select name="ageRating" value={formData.ageRating} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none">
                   <option value="G">G</option>
                   <option value="PG">PG</option>
@@ -193,15 +193,15 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Language</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Language</label>
                 <input type="text" name="language" value={formData.language} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none" placeholder="e.g. English" />
               </div>
 
               <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Poster URL <span className="text-error">*</span></label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Poster URL <span className="text-error">*</span></label>
                 <div className="flex gap-2 items-center">
                   <input required type="url" name="posterUrl" value={formData.posterUrl} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none" placeholder="https://..." />
-                  <label className="cursor-pointer bg-primary text-white px-4 py-3 rounded-lg font-bold text-sm flex items-center justify-center hover:bg-blue-700 transition-colors whitespace-nowrap h-full">
+                  <label className="cursor-pointer bg-primary text-on-primary px-4 py-3 rounded-lg font-bold text-sm flex items-center justify-center hover:opacity-90 transition-colors whitespace-nowrap h-full">
                     {isUploadingPoster ? 'Uploading...' : 'Upload Image'}
                     <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploadingPoster} />
                   </label>
@@ -209,10 +209,10 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
               </div>
 
               <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Trailer URL</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Trailer URL</label>
                 <div className="flex gap-2 items-center">
                   <input type="url" name="trailerUrl" value={formData.trailerUrl} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none" placeholder="https://youtube.com/..." />
-                  <label className="cursor-pointer bg-primary text-white px-4 py-3 rounded-lg font-bold text-sm flex items-center justify-center hover:bg-blue-700 transition-colors whitespace-nowrap h-full">
+                  <label className="cursor-pointer bg-primary text-on-primary px-4 py-3 rounded-lg font-bold text-sm flex items-center justify-center hover:opacity-90 transition-colors whitespace-nowrap h-full">
                     {isUploadingTrailer ? 'Uploading...' : 'Upload Video'}
                     <input type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} disabled={isUploadingTrailer} />
                   </label>
@@ -220,7 +220,7 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
               </div>
 
               <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Genres</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Genres</label>
                 <div className="flex flex-wrap gap-2">
                   {availableGenres.map(genre => (
                     <button
@@ -236,7 +236,7 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
                       }}
                       className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
                         formData.genreIds.includes(genre.id)
-                          ? 'bg-primary text-white'
+                          ? 'bg-primary text-on-primary'
                           : 'bg-surface-container border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
                       }`}
                     >
@@ -257,7 +257,7 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
                         type="button" 
                         onClick={handleAddInlineGenre}
                         disabled={isAddingGenre}
-                        className="bg-primary text-white p-1.5 rounded-full hover:bg-blue-700 disabled:opacity-50"
+                        className="bg-primary text-on-primary p-1.5 rounded-full hover:opacity-90 disabled:opacity-50"
                       >
                         <Plus className="w-3 h-3" />
                       </button>
@@ -267,23 +267,23 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
               </div>
 
               <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Description</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Description</label>
                 <textarea rows={3} name="description" value={formData.description} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none resize-none" placeholder="Movie synopsis..."></textarea>
               </div>
 
               <div className="space-y-1 md:col-span-2 flex items-center gap-3 mt-2">
-                <input type="checkbox" id="active" name="active" checked={formData.active} onChange={handleChange} className="w-4 h-4 text-primary rounded focus:ring-primary border-slate-300" />
-                <label htmlFor="active" className="text-sm font-semibold text-slate-700 cursor-pointer">Movie is active and visible</label>
+                <input type="checkbox" id="active" name="active" checked={formData.active} onChange={handleChange} className="w-4 h-4 text-primary rounded focus:ring-primary border-outline" />
+                <label htmlFor="active" className="text-sm font-semibold text-on-surface-variant cursor-pointer">Movie is active and visible</label>
               </div>
             </div>
           </form>
         </div>
         
         <div className="px-6 py-4 border-t border-surface-container bg-surface-container-lowest flex justify-end gap-3">
-          <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50">
+          <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 rounded-lg font-bold text-sm text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-50">
             Cancel
           </button>
-          <button type="submit" form="movie-form" disabled={isSubmitting} className="px-6 py-2 rounded-lg font-bold text-sm bg-primary text-white hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-primary/20">
+          <button type="submit" form="movie-form" disabled={isSubmitting} className="px-6 py-2 rounded-lg font-bold text-sm bg-primary text-on-primary hover:opacity-90 transition-colors disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-primary/20">
             {isSubmitting ? 'Saving...' : 'Save Movie'}
           </button>
         </div>

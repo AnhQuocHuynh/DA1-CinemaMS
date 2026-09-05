@@ -86,13 +86,13 @@ export const EventManagement: React.FC = () => {
                       {event.active ? (
                         <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider">Active</span>
                       ) : (
-                        <span className="bg-slate-100 text-slate-500 border border-slate-200 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider">Deleted</span>
+                        <span className="bg-surface-container text-on-surface-variant border border-outline-variant px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider">Deleted</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm text-on-surface"><RatingBadge type="event" id={event.id} /></td>
                     <td className="px-6 py-4 text-right space-x-2">
                       {event.active && (
-                        <button onClick={() => handleDeleteClick(event.id)} className="px-3 py-1 bg-error text-white rounded text-xs hover:bg-red-700">Delete</button>
+                        <button onClick={() => handleDeleteClick(event.id)} className="px-3 py-1 bg-error text-on-error rounded text-xs hover:opacity-90">Delete</button>
                       )}
                     </td>
                   </tr>
