@@ -40,7 +40,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           <div
             key={toast.id}
             className={`flex items-center justify-between p-4 rounded shadow-lg text-white text-sm font-semibold transform transition-all animate-slide-up ${
-              toast.type === 'success' ? 'bg-green-600' : toast.type === 'error' ? 'bg-red-600' : 'bg-blue-600'
+              toast.type === 'success' ? 'bg-success' : toast.type === 'error' ? 'bg-error' : 'bg-primary'
             }`}
           >
             <span>{toast.message}</span>
