@@ -47,7 +47,7 @@ export const StaffDashboard: React.FC = () => {
               </button>
               <button
                 onClick={() => navigate('/staff/qr-checker')}
-                className="bg-primary text-white px-4 py-2 rounded-lg font-semibold text-sm hover:bg-blue-700 transition-all flex items-center gap-2"
+                className="bg-primary text-on-primary px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-all flex items-center gap-2"
               >
                 <Camera className="w-4 h-4" />
                 Scan Tickets
@@ -73,29 +73,29 @@ export const StaffDashboard: React.FC = () => {
                       </div>
                       <Ticket className="w-8 h-8 text-primary opacity-50" />
                     </div>
-                    <p className="text-xs text-green-600 font-semibold mt-4">+5 from yesterday</p>
+                    <p className="text-xs text-success font-semibold mt-4">+5 from yesterday</p>
                   </div>
 
                   <div className="bg-surface-container rounded-xl p-6 border border-outline-variant/30">
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-on-surface-variant text-sm mb-2">Total Tickets Sold</p>
-                        <p className="text-4xl font-bold text-green-600">{dashboardData?.totalTicketsSold}</p>
+                        <p className="text-4xl font-bold text-success">{dashboardData?.totalTicketsSold}</p>
                       </div>
-                      <TrendingUp className="w-8 h-8 text-green-600 opacity-50" />
+                      <TrendingUp className="w-8 h-8 text-success opacity-50" />
                     </div>
-                    <p className="text-xs text-green-600 font-semibold mt-4">+12 from yesterday</p>
+                    <p className="text-xs text-success font-semibold mt-4">+12 from yesterday</p>
                   </div>
 
                   <div className="bg-surface-container rounded-xl p-6 border border-outline-variant/30">
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-on-surface-variant text-sm mb-2">Peak Hour</p>
-                        <p className="text-3xl font-bold text-blue-600">{dashboardData?.peakHour}</p>
+                        <p className="text-3xl font-bold text-primary">{dashboardData?.peakHour}</p>
                       </div>
-                      <Clock className="w-8 h-8 text-blue-600 opacity-50" />
+                      <Clock className="w-8 h-8 text-primary opacity-50" />
                     </div>
-                    <p className="text-xs text-blue-600 font-semibold mt-4">Most booking activity</p>
+                    <p className="text-xs text-primary font-semibold mt-4">Most booking activity</p>
                   </div>
                 </div>
               </section>
@@ -126,12 +126,12 @@ export const StaffDashboard: React.FC = () => {
                           <td className="px-6 py-4 text-on-surface">{booking.movieTitle}</td>
                           <td className="px-6 py-4 text-on-surface">{booking.time}</td>
                           <td className="px-6 py-4">
-                            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                            <span className="px-3 py-1 bg-primary-container text-on-primary-container rounded-full text-xs font-semibold">
                               {booking.seats} seats
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                            <span className="px-3 py-1 bg-success-container text-on-success-container rounded-full text-xs font-semibold">
                               Confirmed
                             </span>
                           </td>

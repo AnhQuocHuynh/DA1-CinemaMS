@@ -133,14 +133,14 @@ export const QRChecker: React.FC = () => {
         <header className="p-6 pt-12 flex justify-between items-start">
           <div>
             <h1 className="text-white text-2xl font-bold tracking-tight">Scan Tickets</h1>
-            <p className="text-slate-300 text-sm font-medium mt-1 uppercase tracking-widest">Cinema 04 • Evening Show</p>
+            <p className="text-inverse-on-surface text-sm font-medium mt-1 uppercase tracking-widest">Cinema 04 • Evening Show</p>
           </div>
           <button
             onClick={() => {
               stopScanner();
               navigate('/staff/dashboard');
             }}
-            className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-transform"
+            className="w-12 h-12 rounded-full bg-surface-container-lowest/10 backdrop-blur-md flex items-center justify-center text-white active:scale-90 transition-transform"
             aria-label="Close scanner"
           >
             <X className="w-5 h-5" />
@@ -173,7 +173,7 @@ export const QRChecker: React.FC = () => {
 
         <div className="px-6 pb-24 grid grid-cols-2 gap-4">
           <button
-            className="bg-white/10 backdrop-blur-lg rounded-xl py-4 flex flex-col items-center gap-2 text-white active:bg-white/20 transition-all"
+            className="bg-surface-container-lowest/10 backdrop-blur-lg rounded-xl py-4 flex flex-col items-center gap-2 text-white active:bg-surface-container-lowest/20 transition-all"
             onClick={() => restartScanner()}
             disabled={isScanning}
           >
@@ -181,7 +181,7 @@ export const QRChecker: React.FC = () => {
             <span className="text-[10px] font-bold uppercase tracking-widest">{isScanning ? 'Scanning' : 'Flash Off'}</span>
           </button>
           <button
-            className="bg-white/10 backdrop-blur-lg rounded-xl py-4 flex flex-col items-center gap-2 text-white active:bg-white/20 transition-all"
+            className="bg-surface-container-lowest/10 backdrop-blur-lg rounded-xl py-4 flex flex-col items-center gap-2 text-white active:bg-surface-container-lowest/20 transition-all"
             onClick={() => {
               const code = window.prompt('Nhập mã vé thủ công (VD: TK-12345678):');
               if (code) {

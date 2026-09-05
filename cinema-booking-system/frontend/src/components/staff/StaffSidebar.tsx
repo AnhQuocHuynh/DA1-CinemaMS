@@ -17,10 +17,10 @@ interface StaffSidebarProps {
 
 export const StaffSidebar: React.FC<StaffSidebarProps> = ({ activeItemId }) => {
   return (
-    <aside className="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 bg-slate-50 border-r border-slate-200 z-40">
+    <aside className="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 bg-surface-container-low border-r border-outline-variant z-40">
       <div className="p-6">
-        <h1 className="text-xl font-bold tracking-tight text-slate-900">Cinema Ops</h1>
-        <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider">Global Admin</p>
+        <h1 className="text-xl font-bold tracking-tight text-on-surface">Cinema Ops</h1>
+        <p className="text-xs text-on-surface-variant mt-1 uppercase tracking-wider">Global Admin</p>
       </div>
       <nav className="flex-1 px-2 space-y-1">
         {navItems.map((item) => {
@@ -33,8 +33,8 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({ activeItemId }) => {
               className={({ isActive: navActive }) =>
                 `flex items-center gap-3 px-4 py-3 text-sm transition-colors duration-200 ${
                   navActive || isActive
-                    ? 'text-blue-700 font-semibold bg-blue-50/50 border-r-4 border-blue-700'
-                    : 'text-slate-500 hover:text-slate-900'
+                    ? 'text-primary font-semibold bg-primary-container/50 border-r-4 border-blue-700'
+                    : 'text-on-surface-variant hover:text-on-surface'
                 }`
               }
             >
@@ -44,8 +44,8 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({ activeItemId }) => {
           );
         })}
       </nav>
-      <div className="p-4 mt-auto border-t border-slate-200/60">
-        <button className="w-full bg-primary text-white py-2.5 rounded hover:bg-blue-700 transition-all font-medium flex items-center justify-center gap-2">
+      <div className="p-4 mt-auto border-t border-outline-variant/60">
+        <button className="w-full bg-primary text-on-primary py-2.5 rounded hover:opacity-90 transition-all font-medium flex items-center justify-center gap-2">
           <TicketCheck className="w-4 h-4" />
           New Screening
         </button>
