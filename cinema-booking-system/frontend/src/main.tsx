@@ -3,8 +3,10 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { ToastProvider } from './contexts/ToastContext'
 import './index.css'
+import './i18n'
 import App from './App.tsx'
 import keycloak from './lib/keycloak';
+import { authService } from './services/authService';
 import { useAuthStore } from './store/authStore';
 
 function extractKeycloakRoles(tokenParsed: any): string[] {
@@ -33,9 +35,9 @@ keycloak.init({
   checkLoginIframe: false,
 }).then((authenticated) => {
   if (authenticated && keycloak.tokenParsed) {
-    const { sub, email, preferred_username } = keycloak.tokenParsed;
+    const { sub, email, preferred_username, user_id } = keycloak.tokenParsed;
     useAuthStore.getState().setUser({
-      id: sub!,
+      id: user_id ? String(user_id) : sub!,
       keycloakId: sub!,
       email: email!,
       username: preferred_username!,
@@ -43,6 +45,20 @@ keycloak.init({
       token: keycloak.token!,
       refreshToken: keycloak.refreshToken!,
     });
+
+    if (!user_id) {
+      authService.fetchInternalProfile().then(profile => {
+        if (profile?.id) {
+          const currentUser = useAuthStore.getState().user;
+          if (currentUser) {
+            useAuthStore.getState().setUser({
+              ...currentUser,
+              id: String(profile.id),
+            });
+          }
+        }
+      });
+    }
   }
 
   keycloak.onTokenExpired = () => {

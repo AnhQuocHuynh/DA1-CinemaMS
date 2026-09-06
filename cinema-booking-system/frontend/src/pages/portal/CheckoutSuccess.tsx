@@ -8,8 +8,10 @@ import { useState } from 'react';
 import { PrintableTicket } from '../../components/PrintableTicket';
 import { TicketDetails } from '../../types/booking';
 import { paymentService } from '../../services/paymentService';
+import { useTranslation } from 'react-i18next';
 
 export const CheckoutSuccess: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { completedOrder, showtimeData, movieTitle, selectedSeats, clearSelection } = useBookingStore();
   const [isDownloading, setIsDownloading] = useState(false);
@@ -78,7 +80,7 @@ export const CheckoutSuccess: React.FC = () => {
         })
         .catch(err => {
           console.error('Payment verification failed:', err);
-          setVerificationError('Xác nhận thanh toán thất bại. Vui lòng liên hệ bộ phận hỗ trợ.');
+          setVerificationError(t('checkoutSuccess.verificationFailed'));
           setIsVerifying(false);
         });
     }
@@ -89,9 +91,9 @@ export const CheckoutSuccess: React.FC = () => {
     return (
       <main className="min-h-screen bg-surface flex items-center justify-center px-6 py-20">
         <div className="text-center space-y-4">
-          <p className="text-on-surface-variant">Không tìm thấy thông tin đặt vé.</p>
+          <p className="text-on-surface-variant">{t('checkoutSuccess.notFound')}</p>
           <Link to="/" className="text-primary font-semibold hover:underline">
-            Về trang chủ
+            {t('checkoutSuccess.goHome')}
           </Link>
         </div>
       </main>
@@ -121,11 +123,11 @@ export const CheckoutSuccess: React.FC = () => {
         </div>
 
         <h1 className="text-3xl font-bold tracking-tight mt-6 text-on-surface">
-          Thanh toán thành công!
+          {t('checkoutSuccess.title')}
         </h1>
         {isVerifying && (
           <div className="mt-4 p-3 bg-primary-container text-on-primary-container rounded-lg animate-pulse">
-            Đang xác nhận thanh toán...
+            {t('checkoutSuccess.verifying')}
           </div>
         )}
         {verificationError && (
@@ -135,7 +137,7 @@ export const CheckoutSuccess: React.FC = () => {
         )}
         {!isVerifying && !verificationError && (
           <p className="text-on-surface-variant mt-3">
-            Ghế của bạn đã được đặt. Vé điện tử đã được tạo và gửi đến email của bạn.
+            {t('checkoutSuccess.seatsBooked')}
           </p>
         )}
 
@@ -144,29 +146,29 @@ export const CheckoutSuccess: React.FC = () => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-[10px] uppercase tracking-widest text-on-surface-variant">
-                Mã đơn hàng
+                {t('checkoutSuccess.orderId')}
               </p>
               <p className="text-lg font-bold text-on-surface">#{completedOrder.id}</p>
             </div>
             <span className="px-3 py-1 bg-primary text-on-primary text-[10px] uppercase tracking-widest rounded font-bold">
-              Đã thanh toán
+              {t('checkoutSuccess.paid')}
             </span>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs text-on-surface-variant mb-1">Phim</p>
+              <p className="text-xs text-on-surface-variant mb-1">{t('checkoutSuccess.movie')}</p>
               <p className="font-semibold text-on-surface">{movieTitle ?? '—'}</p>
             </div>
             <div>
-              <p className="text-xs text-on-surface-variant mb-1">Suất chiếu</p>
+              <p className="text-xs text-on-surface-variant mb-1">{t('checkoutSuccess.showtime')}</p>
               <p className="font-semibold text-on-surface">{showtimeLabel}</p>
             </div>
             <div>
-              <p className="text-xs text-on-surface-variant mb-1">Số ghế</p>
-              <p className="font-semibold text-on-surface">{seatCount} ghế</p>
+              <p className="text-xs text-on-surface-variant mb-1">{t('checkoutSuccess.seatCount')}</p>
+              <p className="font-semibold text-on-surface">{seatCount}</p>
             </div>
             <div>
-              <p className="text-xs text-on-surface-variant mb-1">Tổng tiền</p>
+              <p className="text-xs text-on-surface-variant mb-1">{t('checkoutSuccess.totalAmount')}</p>
               <p className="font-semibold text-primary">{formatVND(parseFloat(completedOrder.finalAmount))}</p>
             </div>
           </div>
@@ -175,7 +177,7 @@ export const CheckoutSuccess: React.FC = () => {
           {completedOrder.tickets && completedOrder.tickets.length > 0 && (
             <div className="mt-6 pt-4 border-t border-outline-variant/20">
               <p className="text-[10px] uppercase tracking-widest text-on-surface-variant mb-3">
-                Mã vé
+                {t('checkoutSuccess.ticketCode')}
               </p>
               <div className="flex flex-wrap gap-2">
                 {completedOrder.tickets.map((t) => (
@@ -200,7 +202,7 @@ export const CheckoutSuccess: React.FC = () => {
               className="flex-1 flex items-center justify-center gap-2 bg-primary text-on-primary py-3 rounded-lg font-semibold hover:opacity-90 transition-colors"
             >
               <Ticket className="w-4 h-4" />
-              Xem vé
+              {t('checkoutSuccess.viewTicket')}
             </Link>
           ) : null}
           <button
@@ -209,14 +211,14 @@ export const CheckoutSuccess: React.FC = () => {
             disabled={isDownloading}
           >
             <Download className="w-4 h-4" />
-            {isDownloading ? 'Đang tải...' : 'In vé'}
+            {isDownloading ? t('checkoutSuccess.downloading') : t('checkoutSuccess.printTicket')}
           </button>
           <button
             className="flex-1 flex items-center justify-center gap-2 bg-surface-container-lowest border border-outline-variant py-3 rounded-lg font-semibold hover:bg-surface-container-low transition-colors"
             onClick={handleGoHome}
           >
             <Share2 className="w-4 h-4" />
-            Về trang chủ
+            {t('checkoutSuccess.goHome')}
           </button>
         </div>
       </div>

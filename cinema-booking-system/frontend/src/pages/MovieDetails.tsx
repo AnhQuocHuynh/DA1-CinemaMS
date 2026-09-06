@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ReviewSection } from '../components/Review/ReviewSection';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Play, Calendar, Clock, Globe } from 'lucide-react';
 import { movieService, MovieResponse } from '../services/movieService';
@@ -11,6 +12,7 @@ import genericPoster from '../resources/generic_movie_poster.png';
 
 export const MovieDetails: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { movieId } = useParams<{ movieId: string }>();
 
   const [movie, setMovie] = useState<MovieResponse | null>(null);
@@ -31,9 +33,9 @@ export const MovieDetails: React.FC = () => {
         setMovie(m);
         setShowtimes(s.filter((st) => st.status === 'SCHEDULED'));
       })
-      .catch(() => setError('Không thể tải thông tin phim.'))
+      .catch(() => setError(t('movieDetails.error.loadFailed')))
       .finally(() => setIsLoading(false));
-  }, [movieId]);
+  }, [movieId, t]);
   const handleBookNow = () => {
     navigate(`/movies/${movieId}/showtimes`);
   };
@@ -49,7 +51,7 @@ export const MovieDetails: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-surface-container flex items-center justify-center">
-        <p className="text-on-surface-variant animate-pulse">Đang tải...</p>
+        <p className="text-on-surface-variant animate-pulse">{t('common.loading')}</p>
       </div>
     );
   }
@@ -58,13 +60,13 @@ export const MovieDetails: React.FC = () => {
     return (
       <div className="min-h-screen bg-surface text-on-surface flex items-center justify-center px-6">
         <div className="text-center space-y-6">
-          <h1 className="text-4xl font-bold">Không tìm thấy phim</h1>
-          <p className="text-on-surface-variant">{error ?? 'Phim không tồn tại.'}</p>
+          <h1 className="text-4xl font-bold">{t('movieDetails.error.notFound')}</h1>
+          <p className="text-on-surface-variant">{error ?? t('movieDetails.error.notExist')}</p>
           <button
             onClick={() => navigate('/')}
             className="px-6 py-3 rounded-lg bg-primary text-on-primary hover:opacity-90 transition-colors"
           >
-            Về trang chủ
+            {t('movieDetails.backToHome')}
           </button>
         </div>
       </div>
@@ -82,7 +84,7 @@ export const MovieDetails: React.FC = () => {
             onClick={() => navigate(-1)}
             className="inline-flex items-center gap-2 text-sm text-on-surface-variant hover:text-on-surface"
           >
-            <ArrowLeft size={16} /> Quay lại
+            <ArrowLeft size={16} /> {t('movieDetails.goBack')}
           </button>
         </div>
       </header>
@@ -107,8 +109,8 @@ export const MovieDetails: React.FC = () => {
               <div className="flex flex-wrap items-center gap-3 text-sm text-white">
                 <span className="px-3 py-1 rounded-sm bg-primary font-semibold">
                   {!movie.active 
-                    ? 'Ngừng chiếu' 
-                    : (new Date(movie.releaseDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0) ? 'Sắp chiếu' : 'Đang chiếu')}
+                    ? t('home.stopped')
+                    : (new Date(movie.releaseDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0) ? t('home.comingSoon') : t('home.nowShowing'))}
                 </span>
                 <span className="px-2 py-1 bg-surface-container-lowest/20 rounded text-xs font-bold">
                   {movie.ageRating}
@@ -133,7 +135,7 @@ export const MovieDetails: React.FC = () => {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-surface-container-lowest text-on-surface font-semibold hover:bg-surface-container transition-colors"
                   >
-                    <Play size={16} /> Xem trailer
+                    <Play size={16} /> {t('movieDetails.watchTrailer')}
                   </a>
                 )}
                 {showtimes.length > 0 && (
@@ -141,7 +143,7 @@ export const MovieDetails: React.FC = () => {
                     onClick={handleBookNow}
                     className="px-6 py-3 rounded-lg bg-primary text-on-primary font-semibold hover:opacity-90 transition-colors"
                   >
-                    Đặt vé ngay
+                    {t('common.bookNow')}
                   </button>
                 )}
               </div>
@@ -153,7 +155,7 @@ export const MovieDetails: React.FC = () => {
         <section className="max-w-7xl mx-auto px-6 py-14 grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-8 space-y-10">
             <div>
-              <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-4">Nội dung phim</h2>
+              <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-4">{t('movieDetails.plot')}</h2>
               <p className="text-on-surface-variant leading-relaxed text-lg">{movie.description}</p>
             </div>
 
@@ -176,20 +178,20 @@ export const MovieDetails: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Clock size={14} className="text-on-surface-variant" />
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">Thời lượng</p>
-                  <p className="font-semibold">{movie.durationMinutes} phút</p>
+                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">{t('movieDetails.duration')}</p>
+                  <p className="font-semibold">{movie.durationMinutes} {t('movieDetails.minutes')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Globe size={14} className="text-on-surface-variant" />
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">Ngôn ngữ</p>
+                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">{t('movieDetails.language')}</p>
                   <p className="font-semibold">{movie.language}</p>
                 </div>
               </div>
               {movie.genres.length > 0 && (
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-on-surface-variant mb-2">Thể loại</p>
+                  <p className="text-xs uppercase tracking-widest text-on-surface-variant mb-2">{t('movieDetails.genres')}</p>
                   <div className="flex flex-wrap gap-2">
                     {movie.genres.map((g) => (
                       <span
@@ -206,7 +208,7 @@ export const MovieDetails: React.FC = () => {
 
             {/* Showtimes */}
             <div className="bg-inverse-surface text-inverse-on-surface rounded-xl p-6 space-y-4">
-              <h3 className="font-semibold">Suất chiếu</h3>
+              <h3 className="font-semibold">{t('movieDetails.showtimes')}</h3>
               {(() => {
                 const now = Date.now();
                 const validShowtimes = showtimes
@@ -215,7 +217,7 @@ export const MovieDetails: React.FC = () => {
                   .slice(0, 5);
                 
                 if (validShowtimes.length === 0) {
-                  return <p className="text-sm text-white/60">Chưa có suất chiếu nào.</p>;
+                  return <p className="text-sm text-white/60">{t('movieDetails.noShowtimes')}</p>;
                 }
 
                 return (
@@ -239,12 +241,12 @@ export const MovieDetails: React.FC = () => {
                                 {formatShowtime(st.startTime)}
                               </span>
                               <span className="block text-xs text-white/60 mt-0.5">
-                                {formatVND(parseVND(st.basePrice))} / ghế
+                                {formatVND(parseVND(st.basePrice))} {t('movieDetails.perSeat')}
                               </span>
                             </div>
                             {isClose && (
                               <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 bg-red-400/10 px-2 py-1 rounded">
-                                Đã đóng
+                                {t('movieDetails.closed')}
                               </span>
                             )}
                           </div>

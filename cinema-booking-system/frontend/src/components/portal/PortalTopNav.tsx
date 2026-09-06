@@ -30,7 +30,7 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
   return (
     <nav className="fixed top-0 w-full z-50 bg-surface-container-lowest/80 backdrop-blur-md shadow-sm h-16">
       <div className="flex justify-between items-center h-16 max-w-[1280px] mx-auto px-1 md:px-2">
-        <div className="flex items-center gap-8">
+        <div className="flex-none items-center gap-12">
           <span className="text-xl font-bold tracking-tighter text-on-surface">CinemaArchitect</span>
           <div className="hidden md:flex gap-6 items-center text-sm font-medium">
             {navItems.map((item) => (

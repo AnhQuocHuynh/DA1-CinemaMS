@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Star, Film, ChevronLeft, ChevronRight } from 'lucide-react';
 import { RatingBadge } from '../components/Review/RatingBadge';
 import { calculateEndTime, formatDuration, movies as mockMovies } from '../utils/movieData';
@@ -30,7 +31,7 @@ interface HomeMovieCard {
   isBackend: boolean;
 }
 
-function backendToCard(m: MovieResponse): HomeMovieCard {
+function backendToCard(m: MovieResponse, t: (key: string) => string): HomeMovieCard {
   return {
     id: m.id,
     title: m.title,
@@ -40,9 +41,9 @@ function backendToCard(m: MovieResponse): HomeMovieCard {
     posterUrl: m.posterUrl || '',
     backdropUrl: m.posterUrl || '', // reuse poster as backdrop
     firstShowLabel: new Date(m.releaseDate).toLocaleDateString('vi-VN'),
-    theaterName: !m.active 
-      ? 'Ngừng chiếu' 
-      : (new Date(m.releaseDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0) ? 'Sắp chiếu' : 'Đang chiếu'),
+    theaterName: !m.active
+      ? t('home.stopped')
+      : (new Date(m.releaseDate).setHours(0, 0, 0, 0) > new Date().setHours(0, 0, 0, 0) ? t('home.comingSoon') : t('home.nowShowing')),
     priceLabel: '', // price comes from showtimes, not movie level
     isBackend: true,
   };
@@ -69,6 +70,7 @@ function mockToCard(m: Movie): HomeMovieCard {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const Home: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
@@ -85,10 +87,10 @@ export const Home: React.FC = () => {
   // Backend movies first, then mock movies below them.
   // TODO: Remove mockCards once backend data is complete.
   const allCards: HomeMovieCard[] = useMemo(() => {
-    const backendCards = backendMovies.map(backendToCard);
+    const backendCards = backendMovies.map(m => backendToCard(m, t));
     const mockCards = mockMovies.map(mockToCard);
     return [...backendCards, ...mockCards];
-  }, [backendMovies]);
+  }, [backendMovies, t]);
 
   // ── Search suggestions (uses catalog API) ──
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
@@ -126,7 +128,7 @@ export const Home: React.FC = () => {
     catalogService.search({ keyword: debouncedSearchTerm, size: 4 })
       .then((data) => {
         if (!isSubscribed) return;
-        
+
         const moviesResult = data.movies.map(m => ({
           id: m.id,
           title: m.title,
@@ -135,7 +137,7 @@ export const Home: React.FC = () => {
           imageUrl: m.posterUrl || '',
           url: `/movies/${m.id}`
         }));
-        
+
         const eventsResult = data.events.map(e => ({
           id: e.id,
           title: e.name,
@@ -144,7 +146,7 @@ export const Home: React.FC = () => {
           imageUrl: e.imageUrl || '',
           url: `/events/${e.id}`
         }));
-        
+
         setSuggestions([...moviesResult, ...eventsResult].slice(0, 5));
       })
       .catch(console.error);
@@ -210,13 +212,13 @@ export const Home: React.FC = () => {
           <div className="relative max-w-[1280px] mx-auto h-full px-6 flex items-center justify-between gap-8 xl:gap-12">
             <div className="max-w-xl flex-shrink-0">
               <span className="inline-block px-3 py-1 rounded-sm bg-primary text-on-primary text-[10px] tracking-[0.2em] uppercase font-bold mb-6">
-                Now Premiering
+                {t('home.nowPremiering')}
               </span>
               <h1 className="text-5xl md:text-6xl font-black text-white tracking-tight leading-tight mb-6 line-clamp-2">
-                {heroCard?.title ?? 'CinemaArchitect'}
+                {heroCard?.title ?? t('home.heroTitleDefault')}
               </h1>
               <p className="text-inverse-on-surface text-lg leading-relaxed mb-8 line-clamp-3">
-                Experience cinema with precision acoustics, immersive projection, and curated comfort in every seat.
+                {t('home.heroDesc')}
               </p>
               <div className="flex flex-wrap items-center gap-4">
                 {heroCard && (
@@ -224,14 +226,14 @@ export const Home: React.FC = () => {
                     to={`/movies/${heroCard.id}`}
                     className="px-7 py-3 rounded-lg bg-primary text-on-primary font-semibold hover:opacity-90 transition-colors"
                   >
-                    Explore Featured Movie
+                    {t('home.exploreMovie')}
                   </Link>
                 )}
                 <button
                   onClick={() => submitSearch('')}
                   className="px-7 py-3 rounded-lg bg-surface-container-lowest/10 border border-white/20 text-white font-semibold hover:bg-surface-container-lowest/20 transition-colors"
                 >
-                  Browse All Movies
+                  {t('home.browseAll')}
                 </button>
               </div>
             </div>
@@ -254,8 +256,8 @@ export const Home: React.FC = () => {
                         key={m.id}
                         onClick={() => setCurrentHeroIndex(idx)}
                         className={`relative rounded-xl overflow-hidden transition-all duration-300 flex-shrink-0 ${isActive
-                            ? 'w-28 xl:w-36 aspect-[2/3] border-2 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)] scale-105 z-10'
-                            : 'w-16 xl:w-24 aspect-[2/3] border border-white/20 opacity-50 hover:opacity-100'
+                          ? 'w-28 xl:w-36 aspect-[2/3] border-2 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)] scale-105 z-10'
+                          : 'w-16 xl:w-24 aspect-[2/3] border border-white/20 opacity-50 hover:opacity-100'
                           }`}
                       >
                         <img
@@ -286,13 +288,13 @@ export const Home: React.FC = () => {
 
         {/* ── Current Screenings ─────────────────────────────────────── */}
         <section id="movies" className="max-w-[1280px] mx-auto px-6 py-12">
-          <div className="flex items-end justify-between mb-10">
+          <div className="flex items-end justify-between gap-4 mb-8">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">Current Screenings</h2>
-              <p className="text-on-surface-variant mt-1">Movies in a grid view with showtime range, theater, and price.</p>
+              <h2 className="text-3xl font-bold tracking-tight">{t('home.currentScreenings')}</h2>
+              <p className="text-on-surface-variant mt-1">{t('home.currentScreeningsDesc')}</p>
             </div>
             <button onClick={() => submitSearch('')} className="text-sm font-semibold text-primary hover:underline">
-              View Full Schedule
+              {t('home.viewFullSchedule')}
             </button>
           </div>
 
@@ -317,11 +319,11 @@ export const Home: React.FC = () => {
             <>
               <div className="flex items-center gap-2 mb-4">
                 <Film size={16} className="text-primary" />
-                <span className="text-xs font-bold tracking-widest uppercase text-primary">From Cinema</span>
+                <span className="text-xs font-bold tracking-widest uppercase text-primary">{t('home.fromCinema')}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7 mb-12">
                 {backendMovies.map((movie) => {
-                  const card = backendToCard(movie);
+                  const card = backendToCard(movie, t);
                   return (
                     <article key={card.id} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow">
                       <Link to={`/movies/${card.id}`}>
@@ -338,7 +340,7 @@ export const Home: React.FC = () => {
                           />
                           {movie.active && (
                             <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-success text-white text-[10px] font-bold">
-                              Đang chiếu
+                              {t('home.nowShowing')}
                             </span>
                           )}
                         </div>
@@ -358,7 +360,7 @@ export const Home: React.FC = () => {
                           <span className="text-xs font-semibold text-on-surface-variant">{movie.ageRating}</span>
                           <RatingBadge type="movie" id={movie.id} />
                           <Link to={`/movies/${card.id}`} className="text-sm font-semibold text-primary hover:underline">
-                            Chi tiết & Đặt vé
+                            {t('home.detailsAndBook')}
                           </Link>
                         </div>
                       </div>
@@ -414,7 +416,7 @@ export const Home: React.FC = () => {
                     <div className="pt-2 flex items-center justify-between">
                       <span className="text-lg font-black">${firstShow.price.toFixed(2)}</span>
                       <Link to={`/movies/${movie.id}`} className="text-sm font-semibold text-primary hover:underline">
-                        Details
+                        {t('home.details')}
                       </Link>
                     </div>
                   </div>
@@ -427,9 +429,8 @@ export const Home: React.FC = () => {
           {/* ── Upcoming Events ───────────────────────────────────────── */}
           {events.length > 0 && (
             <div className="mt-16">
-              <div className="flex items-center gap-2 mb-4">
-                <Star size={16} className="text-amber-500" />
-                <span className="text-xs font-bold tracking-widest uppercase text-amber-600">Upcoming Events</span>
+              <div className="flex items-center gap-2 mb-4 mt-8">
+                <span className="text-xs font-bold tracking-widest uppercase text-on-surface-variant">{t('home.simulated')}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7">
                 {events.map((event) => (
@@ -455,13 +456,13 @@ export const Home: React.FC = () => {
                           {event.name}
                         </Link>
                       </div>
-                      <p className="text-xs text-on-surface-variant">Sự kiện đặc biệt</p>
+                      <p className="text-xs text-on-surface-variant">{t('home.specialEvent')}</p>
                       <RatingBadge type="event" id={event.id} />
                       <p className="text-sm text-on-surface-variant">{new Date(event.startTime).toLocaleDateString('vi-VN')} - {new Date(event.endTime).toLocaleDateString('vi-VN')}</p>
                       <p className="text-sm text-on-surface-variant">{event.venue}</p>
                       <div className="pt-2 flex items-center justify-between">
                         <Link to={`/events/${event.id}`} className="text-sm font-semibold text-amber-600 hover:underline">
-                          Chi tiết & Đặt vé
+                          {t('home.detailsAndBook')}
                         </Link>
                       </div>
                     </div>
