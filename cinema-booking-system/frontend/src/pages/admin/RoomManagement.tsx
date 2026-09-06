@@ -9,8 +9,10 @@ import { AdminTheater } from '../../types/admin';
 import { TheaterModal } from '../../components/admin/modals/TheaterModal';
 import { RoomModal } from '../../components/admin/modals/RoomModal';
 import { AdminDataState, AdminTableSkeleton } from '../../components/admin/AdminDataState';
+import { useTranslation } from 'react-i18next';
 
 export const RoomManagement: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { theaters, isLoading, isRetrying, retry, addTheater, updateTheater, deleteTheater, addRoom, updateRoom, deleteRoom } = useAdminRooms();
 
@@ -44,7 +46,7 @@ export const RoomManagement: React.FC = () => {
   };
 
   const handleDeleteTheaterClick = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this theater? All rooms will also be deleted.')) {
+    if (window.confirm(t('adminRooms.deleteTheaterConfirm', 'Are you sure you want to delete this theater? All rooms will also be deleted.'))) {
       await deleteTheater(id);
     }
   };
@@ -62,7 +64,7 @@ export const RoomManagement: React.FC = () => {
   };
 
   const handleDeleteRoomClick = async (cinemaId: string, roomId: string) => {
-    if (window.confirm('Are you sure you want to delete this room?')) {
+    if (window.confirm(t('adminRooms.deleteRoomConfirm', 'Are you sure you want to delete this room?'))) {
       await deleteRoom(cinemaId, roomId);
     }
   };
@@ -91,15 +93,15 @@ export const RoomManagement: React.FC = () => {
 
   return (
     <AdminLayout activeItemId="rooms">
-      <AdminTopBar title="The Digital Architect" searchPlaceholder="Search theaters or rooms..." />
+      <AdminTopBar title={t('adminRooms.console', 'Admin Console')} searchPlaceholder={t('adminRooms.search', 'Search theaters or rooms...')} />
       <main className="p-6 md:p-10 min-h-screen">
         <AdminPageHeader
-          title="Theaters & Rooms"
-          subtitle="Manage global venue infrastructure and technology specifications."
+          title={t('adminRooms.title', 'Theaters & Rooms')}
+          subtitle={t('adminRooms.subtitle', 'Manage global venue infrastructure and technology specifications.')}
           actions={
             <button onClick={handleAddTheaterClick} className="bg-primary text-on-primary px-6 py-2.5 rounded hover:brightness-110 transition-all flex items-center gap-2 font-semibold text-sm">
               <Plus className="w-4 h-4" />
-              Add New Theater
+              {t('adminRooms.addTheater', 'Add New Theater')}
             </button>
           }
         />
@@ -109,13 +111,13 @@ export const RoomManagement: React.FC = () => {
           isEmpty={!isLoading && theaters.length === 0}
           onRetry={retry}
           isRetrying={isRetrying}
-          emptyMessage="No theaters found."
+          emptyMessage={t('adminRooms.empty', 'No theaters found.')}
           skeleton={<AdminTableSkeleton rows={4} cols={3} />}
         >
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-12">
               <div className="md:col-span-2 bg-surface-container-lowest p-6 border-none flex flex-col justify-between h-40">
-                <div className="text-[0.75rem] font-medium uppercase tracking-widest text-on-surface-variant">Total Global Capacity</div>
+                <div className="text-[0.75rem] font-medium uppercase tracking-widest text-on-surface-variant">{t('adminRooms.totalCapacity', 'Total Global Capacity')}</div>
                 <div className="mt-2">
                   <span className="text-4xl font-extrabold tracking-tighter text-on-surface">{totalCapacity.toLocaleString()}</span>
                   <span className="text-sm text-primary font-medium ml-2">+1.2% YoY</span>
@@ -125,12 +127,12 @@ export const RoomManagement: React.FC = () => {
                 </div>
               </div>
               <div className="bg-surface-container-lowest p-6 h-40 flex flex-col justify-between">
-                <div className="text-[0.75rem] font-medium uppercase tracking-widest text-on-surface-variant">Active Theaters</div>
+                <div className="text-[0.75rem] font-medium uppercase tracking-widest text-on-surface-variant">{t('adminRooms.activeTheaters', 'Active Theaters')}</div>
                 <div className="text-3xl font-extrabold tracking-tighter text-on-surface">{theaters.length}</div>
-                <div className="flex items-center gap-1 text-xs text-on-surface-variant">Across {new Set(theaters.map(t => t.region)).size} Regions</div>
+                <div className="flex items-center gap-1 text-xs text-on-surface-variant">{t('adminRooms.acrossRegions', { count: new Set(theaters.map(t => t.region)).size, defaultValue: 'Across {{count}} Regions' })}</div>
               </div>
               <div className="bg-surface-container-lowest p-6 h-40 flex flex-col justify-between">
-                <div className="text-[0.75rem] font-medium uppercase tracking-widest text-on-surface-variant">Premium Screens</div>
+                <div className="text-[0.75rem] font-medium uppercase tracking-widest text-on-surface-variant">{t('adminRooms.premiumScreens', 'Premium Screens')}</div>
                 <div className="text-3xl font-extrabold tracking-tighter text-on-surface">
                   {theaters.flatMap(t => t.rooms).filter(r => ['IMAX', '4DX', 'VIP'].includes(r.level)).length}
                 </div>
@@ -152,13 +154,13 @@ export const RoomManagement: React.FC = () => {
                         </button>
                         <div>
                           <h3 className="font-bold text-on-surface">{theater.name}</h3>
-                          <p className="text-xs text-on-surface-variant">{theater.region} • {theater.rooms.length} Rooms</p>
+                          <p className="text-xs text-on-surface-variant">{theater.region} • {t('adminRooms.roomsCount', { count: theater.rooms.length, defaultValue: '{{count}} Rooms' })}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <button onClick={() => handleEditTheaterClick(theater)} className="text-primary text-xs font-bold uppercase tracking-wider hover:underline">Edit Venue</button>
+                        <button onClick={() => handleEditTheaterClick(theater)} className="text-primary text-xs font-bold uppercase tracking-wider hover:underline">{t('adminRooms.editVenue', 'Edit Venue')}</button>
                         <div className="w-px h-4 bg-surface-container-high"></div>
-                        <button onClick={() => handleDeleteTheaterClick(theater.id)} className="text-on-surface-variant hover:text-error transition-colors text-xs uppercase tracking-wider font-bold">Delete</button>
+                        <button onClick={() => handleDeleteTheaterClick(theater.id)} className="text-on-surface-variant hover:text-error transition-colors text-xs uppercase tracking-wider font-bold">{t('adminRooms.delete', 'Delete')}</button>
                       </div>
                     </div>
 
@@ -168,11 +170,11 @@ export const RoomManagement: React.FC = () => {
                           <table className="w-full text-left text-sm">
                             <thead>
                               <tr className="text-[0.7rem] uppercase tracking-widest text-on-surface-variant bg-surface-container-low/50">
-                                <th className="px-10 py-3 font-semibold">Room Name</th>
-                                <th className="px-6 py-3 font-semibold text-center">Capacity</th>
-                                <th className="px-6 py-3 font-semibold">Technology</th>
-                                <th className="px-6 py-3 font-semibold">Status</th>
-                                <th className="px-6 py-3 font-semibold text-right">Actions</th>
+                                <th className="px-10 py-3 font-semibold">{t('adminRooms.colRoomName', 'Room Name')}</th>
+                                <th className="px-6 py-3 font-semibold text-center">{t('adminRooms.colCapacity', 'Capacity')}</th>
+                                <th className="px-6 py-3 font-semibold">{t('adminRooms.colTechnology', 'Technology')}</th>
+                                <th className="px-6 py-3 font-semibold">{t('adminRooms.colStatus', 'Status')}</th>
+                                <th className="px-6 py-3 font-semibold text-right">{t('adminRooms.colActions', 'Actions')}</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-surface-container-low">
@@ -203,11 +205,11 @@ export const RoomManagement: React.FC = () => {
                                         }`}
                                     >
                                       <span
-                                        className={`h-1.5 w-1.5 rounded-full ${room.status === 'operational' ? 'bg-emerald-500' : 'bg-amber-500'
-                                          }`}
-                                      ></span>
-                                      {room.status === 'operational' ? 'Operational' : 'Maintenance'}
-                                    </span>
+                                          className={`h-1.5 w-1.5 rounded-full ${room.status === 'operational' ? 'bg-emerald-500' : 'bg-amber-500'
+                                            }`}
+                                        ></span>
+                                        {room.status === 'operational' ? t('adminRooms.statusOperational', 'Operational') : t('adminRooms.statusMaintenance', 'Maintenance')}
+                                      </span>
                                   </td>
                                   <td className="px-6 py-4 text-right">
                                     <div className="flex items-center justify-end gap-2">
@@ -215,16 +217,16 @@ export const RoomManagement: React.FC = () => {
                                         className="px-3 h-7 flex items-center justify-center text-[10px] font-bold uppercase tracking-wider bg-surface-container-low text-primary rounded whitespace-nowrap"
                                         onClick={() => navigate(`/admin/rooms/${room.id}/seats`)}
                                       >
-                                        Configure Seats
+                                        {t('adminRooms.configureSeats', 'Configure Seats')}
                                       </button>
                                       <button
                                         className="px-3 h-7 flex items-center justify-center text-[10px] font-bold uppercase tracking-wider bg-surface-container-low text-primary rounded whitespace-nowrap"
                                         onClick={() => handleEditRoomClick(theater, room)}
                                       >
-                                        Edit
+                                        {t('adminRooms.edit', 'Edit')}
                                       </button>
                                       <button onClick={() => handleDeleteRoomClick(theater.id, room.id)} className="p-2 h-7 flex items-center justify-center hover:bg-error-container rounded text-on-surface-variant hover:text-error transition-colors">
-                                        Delete
+                                        {t('adminRooms.delete', 'Delete')}
                                       </button>
                                     </div>
                                   </td>
@@ -234,12 +236,12 @@ export const RoomManagement: React.FC = () => {
                           </table>
                         ) : (
                           <div className="p-6 text-center text-sm text-on-surface-variant bg-surface-container-lowest">
-                            No rooms configured yet.
+                            {t('adminRooms.noRooms', 'No rooms configured yet.')}
                           </div>
                         )}
                         <div className="p-3 bg-surface-container-low/30 text-center">
                           <button onClick={() => handleAddRoomClick(theater)} className="text-[11px] font-bold text-primary hover:text-blue-900 uppercase tracking-widest flex items-center justify-center gap-2 w-full">
-                            Add Room to {theater.name}
+                            {t('adminRooms.addRoomTo', { theater: theater.name, defaultValue: 'Add Room to {{theater}}' })}
                           </button>
                         </div>
                       </div>

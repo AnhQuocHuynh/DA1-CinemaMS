@@ -30,6 +30,7 @@ import { StaffDashboard } from './pages/staff/StaffDashboard';
 import { CounterBooking } from './pages/staff/CounterBooking';
 import { TicketLookup } from './pages/staff/TicketLookup';
 import { QRChecker } from './pages/staff/QRChecker';
+import { StaffSettings } from './pages/staff/StaffSettings';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
@@ -96,6 +97,7 @@ function App() {
       <Route path="/staff/ticket-lookup" element={<ProtectedRoute requiredRole="STAFF"><TicketLookup /></ProtectedRoute>} />
       <Route path="/staff/bookings/new" element={<ProtectedRoute requiredRole="STAFF"><CounterBooking /></ProtectedRoute>} />
       <Route path="/staff/qr-checker" element={<ProtectedRoute requiredRole="STAFF"><QRChecker /></ProtectedRoute>} />
+      <Route path="/staff/settings" element={<ProtectedRoute requiredRole="STAFF"><StaffSettings /></ProtectedRoute>} />
 
       {/* Catch-all redirect */}
       <Route path="*" element={<Navigate to="/" replace />} />

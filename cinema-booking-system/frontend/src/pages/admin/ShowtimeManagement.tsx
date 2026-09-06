@@ -11,11 +11,13 @@ import { eventService } from '../../services/eventService';
 import { ShowtimeResponse } from '../../types/showtime';
 import { formatShowtime, formatVND, parseVND } from '../../utils/formatters';
 import genericPoster from '../../resources/generic_movie_poster.png';
+import { useTranslation, Trans } from 'react-i18next';
 
 // ── helper: flatten all rooms across all theaters ─────────────────────────────
 interface FlatRoom { roomId: number; roomName: string; theaterName: string }
 
 export const ShowtimeManagement: React.FC = () => {
+  const { t } = useTranslation();
   const [showtimes, setShowtimes] = useState<ShowtimeResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -81,14 +83,14 @@ export const ShowtimeManagement: React.FC = () => {
 
   // ── Delete handler ─────────────────────────────────────────────────────────
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Delete this showtime? This action cannot be undone.')) return;
+    if (!window.confirm(t('adminShowtime.deleteConfirm', 'Delete this showtime? This action cannot be undone.'))) return;
     setDeletingId(id);
     try {
       await showtimeService.deleteShowtime(id);
       setShowtimes((prev) => prev.filter((s) => s.id !== id));
     } catch (err) {
       console.error('Failed to delete showtime:', err);
-      alert('Failed to delete. The showtime may have associated tickets.');
+      alert(t('adminShowtime.deleteFail', 'Failed to delete. The showtime may have associated tickets.'));
     } finally {
       setDeletingId(null);
     }
@@ -106,8 +108,8 @@ export const ShowtimeManagement: React.FC = () => {
   const matchesQuery = (st: ShowtimeResponse) => {
     if (!query) return true;
     const q = query.toLowerCase();
-    const movieTitle = st.movieId ? movieMap[st.movieId] || `Movie #${st.movieId}` : '';
-    const eventName = st.eventId ? eventMap[st.eventId] || `Event #${st.eventId}` : '';
+    const movieTitle = st.movieId ? movieMap[st.movieId] || t('adminShowtime.movieFallback', { id: st.movieId, defaultValue: 'Movie #{{id}}' }) : '';
+    const eventName = st.eventId ? eventMap[st.eventId] || t('adminShowtime.eventFallback', { id: st.eventId, defaultValue: 'Event #{{id}}' }) : '';
 
     return (
       movieTitle.toLowerCase().includes(q) ||
@@ -139,11 +141,11 @@ export const ShowtimeManagement: React.FC = () => {
 
   return (
     <AdminLayout activeItemId="showtimes">
-      <AdminTopBar title="Admin Portal" searchPlaceholder="Search schedules..." />
+      <AdminTopBar title={t('adminShowtime.console', 'Admin Portal')} searchPlaceholder={t('adminShowtime.search', 'Search schedules...')} />
       <main className="p-6 md:p-12 bg-surface min-h-screen">
         <AdminPageHeader
-          title="Showtime Management"
-          subtitle="Configure schedules and screen allocations for current movie runs."
+          title={t('adminShowtime.title', 'Showtime Management')}
+          subtitle={t('adminShowtime.subtitle', 'Configure schedules and screen allocations for current movie runs.')}
           actions={
             <div className="flex items-center gap-3">
               <button
@@ -151,7 +153,7 @@ export const ShowtimeManagement: React.FC = () => {
                 className="flex items-center gap-2 bg-primary hover:opacity-90 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm"
               >
                 <Wand2 className="w-4 h-4" />
-                Add Showtimes
+                {t('adminShowtime.addShowtime', 'Add Showtimes')}
               </button>
             </div>
           }
@@ -161,7 +163,7 @@ export const ShowtimeManagement: React.FC = () => {
         <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-10 mb-12">
           <div className="md:col-span-2 bg-surface-container-lowest p-8 rounded-xl border border-transparent shadow-sm flex flex-col justify-between">
             <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">
-              Total Showtimes (loaded)
+              {t('adminShowtime.totalLoaded', 'Total Showtimes (loaded)')}
             </label>
             <div className="flex items-end justify-between">
               <span className="text-5xl font-bold tracking-tighter text-on-surface">
@@ -170,13 +172,13 @@ export const ShowtimeManagement: React.FC = () => {
             </div>
           </div>
           <div className="bg-surface-container-low p-8 rounded-xl flex flex-col justify-between">
-            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">Scheduled</label>
+            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">{t('adminShowtime.scheduled', 'Scheduled')}</label>
             <span className="text-4xl font-bold tracking-tighter text-on-surface">
               {isLoading ? '…' : showtimes.filter((s) => s.status === 'SCHEDULED').length}
             </span>
           </div>
           <div className="bg-surface-container-high p-8 rounded-xl flex flex-col justify-between">
-            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">Rooms</label>
+            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">{t('adminShowtime.rooms', 'Rooms')}</label>
             <span className="text-4xl font-bold tracking-tighter text-on-surface">
               {isLoading ? '…' : flatRooms.length}
             </span>
@@ -189,7 +191,7 @@ export const ShowtimeManagement: React.FC = () => {
             <Search className="w-4 h-4 text-outline" />
             <input
               className="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline"
-              placeholder="Search by room name..."
+              placeholder={t('adminShowtime.searchRooms', 'Search by room name...')}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -200,11 +202,11 @@ export const ShowtimeManagement: React.FC = () => {
           {isLoading ? (
             <div className="p-12 text-center text-on-surface-variant flex flex-col items-center gap-3">
               <Loader2 className="w-8 h-8 animate-spin text-on-surface-variant" />
-              <span>Loading schedules…</span>
+              <span>{t('adminShowtime.loadingSchedules', 'Loading schedules…')}</span>
             </div>
           ) : filteredRooms.length === 0 ? (
             <div className="p-12 text-center text-on-surface-variant bg-surface-container-lowest rounded-xl">
-              No rooms or showtimes match your search.
+              {t('adminShowtime.noMatch', 'No rooms or showtimes match your search.')}
             </div>
           ) : (
             <div className="space-y-4">
@@ -238,13 +240,13 @@ export const ShowtimeManagement: React.FC = () => {
                           {room.theaterName} <span className="text-secondary mx-1">›</span> {room.roomName}
                         </h3>
                         <span className="text-xs bg-surface-container-high px-2 py-1 rounded-md text-secondary font-medium">
-                          {showtimes.filter(st => st.roomId === room.roomId).length} total
+                          {t('adminShowtime.total', { count: showtimes.filter(st => st.roomId === room.roomId).length, defaultValue: '{{count}} total' })}
                         </span>
                       </div>
 
                       {/* Date picker */}
                       <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                        <label className="text-xs font-semibold text-secondary uppercase tracking-wider">Date</label>
+                        <label className="text-xs font-semibold text-secondary uppercase tracking-wider">{t('adminShowtime.date', 'Date')}</label>
                         <input
                           type="date"
                           value={selectedDate}
@@ -259,18 +261,20 @@ export const ShowtimeManagement: React.FC = () => {
                       <div className="border-t border-surface-container bg-surface">
                         {filteredRoomShowtimes.length === 0 ? (
                           <div className="p-8 text-center text-secondary text-sm">
-                            No showtimes found for <span className="font-semibold">{selectedDate}</span>.
+                            <Trans i18nKey="adminShowtime.noShowtimesFor" values={{ date: selectedDate }}>
+                              No showtimes found for <span className="font-semibold">{selectedDate}</span>.
+                            </Trans>
                           </div>
                         ) : (
                           <table className="w-full text-left border-collapse">
                             <thead className="bg-surface-container-low/30">
                               <tr>
-                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">Movie / Event</th>
-                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">Start</th>
-                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">End</th>
-                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">Base Price</th>
-                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">Status</th>
-                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary text-right">Actions</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">{t('adminShowtime.colMovieEvent', 'Movie / Event')}</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">{t('adminShowtime.colStart', 'Start')}</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">{t('adminShowtime.colEnd', 'End')}</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">{t('adminShowtime.colBasePrice', 'Base Price')}</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">{t('adminShowtime.colStatus', 'Status')}</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary text-right">{t('adminShowtime.colActions', 'Actions')}</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-surface-container/50">
@@ -288,11 +292,11 @@ export const ShowtimeManagement: React.FC = () => {
                                       <div>
                                         {st.movieId ? (
                                           <span className="text-xs font-bold bg-primary-container text-primary px-2 py-0.5 rounded border border-blue-200">
-                                            {movieMap[st.movieId] || `Movie #${st.movieId}`}
+                                            {movieMap[st.movieId] || t('adminShowtime.movieFallback', { id: st.movieId, defaultValue: 'Movie #{{id}}' })}
                                           </span>
                                         ) : st.eventId ? (
                                           <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
-                                            {eventMap[st.eventId] || `Event #${st.eventId}`}
+                                            {eventMap[st.eventId] || t('adminShowtime.eventFallback', { id: st.eventId, defaultValue: 'Event #{{id}}' })}
                                           </span>
                                         ) : (
                                           <span className="text-xs text-on-surface-variant">—</span>
@@ -321,7 +325,7 @@ export const ShowtimeManagement: React.FC = () => {
                                       onClick={() => handleDelete(st.id)}
                                       disabled={deletingId === st.id}
                                       className="p-2 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-error-container transition-colors disabled:opacity-40"
-                                      title="Delete Showtime"
+                                      title={t('adminShowtime.deleteAction', 'Delete Showtime')}
                                     >
                                       {deletingId === st.id ? (
                                         <Loader2 size={16} className="animate-spin" />

@@ -5,8 +5,10 @@ import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { useAdminPricing } from '../../hooks/useAdminPricing';
 import { VoucherModal } from '../../components/admin/modals/VoucherModal';
+import { useTranslation } from 'react-i18next';
 
 export const PricingAndVouchers: React.FC = () => {
+  const { t } = useTranslation();
   const { vouchers, isLoading, addVoucher, deleteVoucher } = useAdminPricing();
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
 
@@ -15,7 +17,7 @@ export const PricingAndVouchers: React.FC = () => {
   };
 
   const handleDeleteVoucherClick = async (id: string | number) => {
-    if (window.confirm('Are you sure you want to delete this voucher?')) {
+    if (window.confirm(t('adminPricing.deleteConfirm', 'Are you sure you want to delete this voucher?'))) {
       await deleteVoucher(id);
     }
   };
@@ -26,11 +28,11 @@ export const PricingAndVouchers: React.FC = () => {
 
   return (
     <AdminLayout activeItemId="pricing">
-      <AdminTopBar title="Admin Console" searchPlaceholder="Search pricing rules..." />
+      <AdminTopBar title={t('adminPricing.console', 'Admin Console')} searchPlaceholder={t('adminPricing.search', 'Search pricing rules...')} />
       <main className="p-6 md:p-10 min-h-screen">
         <AdminPageHeader
-          title="Pricing & Vouchers"
-          subtitle="Configure global ticket price and manage vouchers."
+          title={t('adminPricing.title', 'Pricing & Vouchers')}
+          subtitle={t('adminPricing.subtitle', 'Configure global ticket price and manage vouchers.')}
           actions={
             <>
               {/* <button className="bg-surface-container-highest text-primary font-bold px-6 py-3 rounded-md text-sm transition-all hover:bg-surface-container-high flex items-center gap-2">
@@ -38,14 +40,14 @@ export const PricingAndVouchers: React.FC = () => {
                 Download Report
               </button> */}
               <button onClick={handleAddVoucherClick} className="bg-primary text-on-primary font-bold px-6 py-3 rounded-md text-sm transition-all hover:opacity-90 shadow-lg shadow-primary/10">
-                + Create Voucher
+                {t('adminPricing.createVoucher', '+ Create Voucher')}
               </button>
             </>
           }
         />
 
         {isLoading ? (
-          <div className="text-center py-16 text-on-surface-variant">Loading pricing data...</div>
+          <div className="text-center py-16 text-on-surface-variant">{t('adminPricing.loading', 'Loading pricing data...')}</div>
         ) : (
           <>
             {/* Pricing Section (Temporarily Disabled) */}
@@ -114,15 +116,15 @@ export const PricingAndVouchers: React.FC = () => {
             <section className="bg-surface-container-low p-6 rounded-xl mt-12">
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h3 className="text-xl font-bold text-on-background">Voucher Inventory</h3>
-                  <p className="text-xs text-on-surface-variant font-medium">Active promotional codes and redemption metrics</p>
+                  <h3 className="text-xl font-bold text-on-background">{t('adminPricing.inventory', 'Voucher Inventory')}</h3>
+                  <p className="text-xs text-on-surface-variant font-medium">{t('adminPricing.inventoryDesc', 'Active promotional codes and redemption metrics')}</p>
                 </div>
                 <div className="flex gap-2">
                   <div className="bg-surface-container-lowest px-4 py-2 rounded flex items-center gap-2">
                     <Search className="w-4 h-4 text-on-surface-variant" />
                     <input
                       className="bg-transparent border-none text-sm p-0 focus:ring-0 w-32 md:w-48"
-                      placeholder="Search codes..."
+                      placeholder={t('adminPricing.searchCodes', 'Search codes...')}
                       type="text"
                     />
                   </div>
@@ -136,12 +138,12 @@ export const PricingAndVouchers: React.FC = () => {
                 <table className="w-full text-left">
                   <thead className="border-b border-outline-variant">
                     <tr>
-                      <th className="pb-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-4">Code</th>
-                      <th className="pb-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-4">Discount</th>
-                      <th className="pb-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-4">Expiry</th>
-                      <th className="pb-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-4">Usage</th>
-                      <th className="pb-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-4">Status</th>
-                      <th className="pb-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-4 text-right">Actions</th>
+                      <th className="pb-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-4">{t('adminPricing.colCode', 'Code')}</th>
+                      <th className="pb-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-4">{t('adminPricing.colDiscount', 'Discount')}</th>
+                      <th className="pb-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-4">{t('adminPricing.colExpiry', 'Expiry')}</th>
+                      <th className="pb-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-4">{t('adminPricing.colUsage', 'Usage')}</th>
+                      <th className="pb-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-4">{t('adminPricing.colStatus', 'Status')}</th>
+                      <th className="pb-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-4 text-right">{t('adminPricing.colActions', 'Actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -179,7 +181,7 @@ export const PricingAndVouchers: React.FC = () => {
                             </span>
                           </td>
                           <td className="py-4 px-4 text-right">
-                            <button onClick={() => handleDeleteVoucherClick(voucher.id)} className="text-inverse-on-surface hover:text-error transition-colors uppercase tracking-widest text-[10px] font-bold">Delete</button>
+                            <button onClick={() => handleDeleteVoucherClick(voucher.id)} className="text-inverse-on-surface hover:text-error transition-colors uppercase tracking-widest text-[10px] font-bold">{t('adminPricing.delete', 'Delete')}</button>
                           </td>
                         </tr>
                       );
