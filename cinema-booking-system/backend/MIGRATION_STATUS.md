@@ -27,7 +27,7 @@ Until those gates pass:
 |---|---|---|
 | Catalog | Spring | Migration-prepared |
 | Showtime | Spring | Migration-prepared |
-| Booking | Spring | Migration-prepared; Payment event integration pending |
+| Booking | Spring | Payment outcome consumers implemented in `booking-service`; live publish to `payment.events` still required |
 | Analytics | Spring | Migration-prepared |
 | Recommendation | Spring | Migration-prepared |
 | Facility | ASP.NET teammate | Spring folder is compatibility-only; do not expand it |
@@ -164,7 +164,7 @@ point in the team's protected evidence location.
 |---|---|---|
 | `catalog-service` | Ready for coordinated migration | Gateway/Keycloak activation and canonical data snapshot |
 | `showtime-service` | Ready for coordinated migration | Gateway/Keycloak activation, Redis hold cutover plan, and canonical snapshot |
-| `booking-service` | Ready for integration, not final cutover | Payment outcome consumers/Saga contract, Gateway/Keycloak, and canonical snapshot |
+| `booking-service` | Ready for integration, not final cutover | Payment must publish to `payment.events`; Gateway/Keycloak; canonical snapshot |
 | `analytics-service` | Ready for coordinated migration | Identity data/event integration and canonical backfill |
 | `recommendation-service` | Ready for coordinated migration | Canonical graph backfill and integrated user identity |
 | `facility-service` | Compatibility slice only | Replace/route to teammate-owned ASP.NET Facility after parity checks |
@@ -210,19 +210,14 @@ Payment, freeze JSON field names and semantics for `payment.completed`,
 `payment.failed`, and `payment.refunded`, including `orderId`, payment/reference
 ID, amount, currency, provider status/reason, and event timestamp.
 
-Booking does not yet consume those three Payment outcomes. The integrated Saga
-must be idempotent by `eventId`, reject stale state transitions, and define:
+Booking now consumes those three outcomes in `booking-service` when
+`BOOKING_PAYMENT_EVENTS_ENABLED=true` (idempotent on `eventId`, stale
+transitions ignored, checked-in refunds dead-lettered). Remaining Payment work
+is publish topology: camelCase envelopes on exchange `payment.events` with
+routing keys `payment.completed`, `payment.failed`, and `payment.refunded`.
+Teammate test notes: `../docs/booking_status.md`.
 
-- Completed: mark the correct order paid, confirm seats, and emit the existing
-  `order.paid` envelope exactly once.
-- Failed: cancel/fail the order and release only that order's held seats.
-- Refunded: mark the order refunded, release/adjust downstream state, and emit
-  `order.refunded` exactly once.
-- Duplicate or reordered Payment events: no duplicate ticket, seat, refund, or
-  downstream event effects.
-
-Do not implement guessed Booking consumers before the teammate's Payment payload
-and state machine are frozen. That is the final contract-dependent coding task.
+Do not copy this integration into `backend_legacy`. That tree is rollback only.
 
 ### Facility
 
@@ -243,8 +238,8 @@ guards. Avoid parallel feature development in the Spring compatibility slice.
    real-token security suite, including key rotation and Google login mapping.
 4. Integrate ASP.NET Facility and run contract plus Booking/Showtime dependency
    tests before removing the compatibility route.
-5. Freeze the Payment envelope/payload/state machine, implement Booking outcome
-   consumers, and pass duplicate/out-of-order Saga tests.
+5. Point Payment publish topology at `payment.events` and pass the Booking
+   consumer matrix (complete / fail / refund / duplicate / poison).
 6. Produce one conflict-resolved integrated Compose stack and rerun clean build,
    runtime smoke, event flow, auth flow, Payment Saga, and frontend booking flow.
 7. Confirm the canonical PostgreSQL version; take a protected read-only copy and
@@ -273,7 +268,8 @@ Must complete with the teammate or canonical environment:
 - [ ] Teammate branches rebased/merged without overwriting Spring service work.
 - [ ] Integrated Keycloak/Gateway security tests with real tokens.
 - [ ] ASP.NET Facility contract parity and route replacement.
-- [ ] Versioned Payment envelopes and idempotent Booking Saga consumers.
+- [x] Idempotent Booking Saga consumers in `booking-service` (unit-tested 2026-08-23).
+- [ ] Payment publishes versioned envelopes to `payment.events` (not MassTransit type exchanges).
 - [ ] Frontend production dependency advisories resolved and booking flow tested.
 - [ ] Canonical copied-snapshot migration with aligned PostgreSQL versions.
 - [ ] Recommendation graph backfill against the canonical copied snapshot.

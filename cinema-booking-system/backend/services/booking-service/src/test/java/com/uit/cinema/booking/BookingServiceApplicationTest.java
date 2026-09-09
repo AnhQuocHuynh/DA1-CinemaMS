@@ -13,7 +13,8 @@ import static org.assertj.core.api.Assertions.assertThat;
     "spring.datasource.username=sa",
     "spring.datasource.password=",
     "spring.jpa.hibernate.ddl-auto=create-drop",
-    "outbox.dispatcher.enabled=false"
+    "outbox.dispatcher.enabled=false",
+    "booking.messaging.payment-events.enabled=false"
 })
 class BookingServiceApplicationTest {
 

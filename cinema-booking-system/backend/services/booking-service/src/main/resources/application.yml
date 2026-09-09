@@ -9,6 +9,14 @@ spring:
     publisher-returns: true
     template:
       mandatory: true
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          initial-interval: 1s
+          max-attempts: 3
+          multiplier: 2.0
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/cinema_booking_db}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
@@ -47,6 +55,14 @@ outbox:
     fixed-delay-ms: ${OUTBOX_DISPATCHER_FIXED_DELAY_MS:5000}
     batch-size: ${OUTBOX_DISPATCHER_BATCH_SIZE:50}
     confirm-timeout: ${OUTBOX_DISPATCHER_CONFIRM_TIMEOUT:5s}
+
+booking:
+  messaging:
+    payment-events:
+      enabled: ${BOOKING_PAYMENT_EVENTS_ENABLED:false}
+      completed-queue: ${BOOKING_PAYMENT_COMPLETED_QUEUE:booking.payment.completed.v1}
+      failed-queue: ${BOOKING_PAYMENT_FAILED_QUEUE:booking.payment.failed.v1}
+      refunded-queue: ${BOOKING_PAYMENT_REFUNDED_QUEUE:booking.payment.refunded.v1}
 
 management:
   endpoints:

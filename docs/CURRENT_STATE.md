@@ -7,7 +7,7 @@ gates are maintained in
 
 ## Snapshot
 
-- Date of handoff: 2026-08-18.
+- Date of handoff: 2026-08-23.
 - Branch: `refactor-compose-single-postgres`.
 - Runnable full backend remains `cinema-booking-system/backend_legacy/`.
 - `cinema-booking-system/backend/` now contains extracted, independently buildable, and full-stack-smoke-tested `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, `analytics-service`, and `recommendation-service` Spring Boot services.
@@ -162,6 +162,7 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 - Extracted Compose now targets PostgreSQL 18, matching the 2026-08-07 local-data audit major. Confirm the canonical snapshot is also PostgreSQL 18 before rehearsal; do not bypass the restore version guard.
 - Runtime smoke verifies six service health endpoints, Analytics/Recommendation response envelopes, eight RabbitMQ consumer/DLQ queues, and internal-token guards; it passed with automatic Compose teardown.
 - Event-flow smoke verifies duplicate delivery, stale-event ordering, Analytics and Neo4j projections, Recommendation API output, and evidence cleanup; it passed with automatic Compose teardown.
+- Booking payment-event consumers are implemented behind `BOOKING_PAYMENT_EVENTS_ENABLED` (Compose booking-service sets this `true`). Unit tests for apply/complete/fail/refund/duplicate/poison passed on 2026-08-23 (`booking-service` 70 tests). Live Payment→Booking routing still depends on Payment publishing to `payment.events`.
 - API gateway routing and end-user JWT propagation are not wired because those are owned by the separate ASP.NET workstream.
 - Catalog, Showtime, Booking, Analytics, and Recommendation now have opt-in
   Keycloak Resource Server enforcement with issuer/audience/JWKS validation and
@@ -175,6 +176,6 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 
 1. Rebase or recreate teammate Auth/Gateway, Facility, and Payment branches from the latest `refactor-compose-single-postgres` before resolving Compose ownership. Do not restore the old per-service Postgres port map.
 2. Integrate Keycloak/Gateway and pass the authentication contract's real-token and forged-header tests before enabling Spring JWT.
-3. Integrate ASP.NET Facility, then freeze Payment envelopes and implement idempotent Booking Saga outcome consumers.
+3. Integrate ASP.NET Facility. Payment must publish to `payment.events`; Booking consumers are already in `booking-service`.
 4. Run one conflict-resolved full-stack backend, event, auth, Payment, and frontend booking suite.
 5. Confirm PostgreSQL versions, execute the guarded procedure twice against a canonical copied snapshot, archive evidence, and rehearse rollback before cutover.
