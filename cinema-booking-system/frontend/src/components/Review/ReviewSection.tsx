@@ -10,6 +10,7 @@ import type {
   ReviewInsightResponse,
   ReviewEligibilityResponse,
 } from '../../types/review';
+import { useTranslation } from 'react-i18next';
 
 interface ReviewSectionProps {
   type: 'movie' | 'event';
@@ -17,6 +18,7 @@ interface ReviewSectionProps {
 }
 
 export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
 
   const [insight, setInsight] = useState<ReviewInsightResponse | null>(null);
@@ -94,7 +96,7 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
     <div className="mt-10">
       <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-6 flex items-center gap-2">
         <MessageSquare size={14} />
-        Đánh giá & Nhận xét
+        {t('reviewSection.title', 'Đánh giá & Nhận xét')}
       </h2>
 
       {/* Insight Summary */}
@@ -107,7 +109,7 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
             </div>
             <StarRating value={insight.averageRating} size={18} />
             <p className="text-xs text-on-surface-variant mt-1">
-              {insight.totalReviews} đánh giá
+              {insight.totalReviews} {t('reviewSection.reviewsCount', 'đánh giá')}
             </p>
           </div>
 
@@ -132,7 +134,7 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
 
       {insight && insight.totalReviews === 0 && (
         <div className="mb-8 p-6 rounded-xl bg-surface-container-low border border-outline-variant text-center">
-          <p className="text-on-surface-variant text-sm">Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
+          <p className="text-on-surface-variant text-sm">{t('reviewSection.noReviews', 'Chưa có đánh giá nào. Hãy là người đầu tiên!')}</p>
         </div>
       )}
 
@@ -146,7 +148,7 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
       {/* Eligibility messages */}
       {user && eligibility && !eligibility.eligible && (
         <div className="mb-8 p-4 rounded-lg bg-primary-container border border-blue-100">
-          <p className="text-sm text-primary">{eligibility.message || 'Bạn không đủ điều kiện đánh giá.'}</p>
+          <p className="text-sm text-primary">{eligibility.message || t('reviewSection.notEligible', 'Bạn không đủ điều kiện đánh giá.')}</p>
         </div>
       )}
 

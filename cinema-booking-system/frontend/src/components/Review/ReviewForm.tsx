@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Send } from 'lucide-react';
 import { StarRating } from './StarRating';
+import { useTranslation } from 'react-i18next';
 
 interface ReviewFormProps {
   onSubmit: (rating: number, comment: string) => Promise<void>;
 }
 
 export const ReviewForm: React.FC<ReviewFormProps> = ({ onSubmit }) => {
+  const { t } = useTranslation();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -16,7 +18,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ onSubmit }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (rating === 0) {
-      setError('Vui lòng chọn số sao đánh giá.');
+      setError(t('reviewForm.ratingRequired', 'Vui lòng chọn số sao đánh giá.'));
       return;
     }
     setError(null);
@@ -27,7 +29,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ onSubmit }) => {
       setRating(0);
       setComment('');
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Đã xảy ra lỗi khi gửi đánh giá.');
+      setError(err?.response?.data?.message || err?.message || t('reviewForm.submitError', 'Đã xảy ra lỗi khi gửi đánh giá.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -36,25 +38,25 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ onSubmit }) => {
   if (success) {
     return (
       <div className="rounded-xl bg-success-container border border-success-container p-6 text-center">
-        <p className="text-on-success-container font-semibold">🎉 Cảm ơn bạn đã đánh giá!</p>
-        <p className="text-sm text-success mt-1">Đánh giá của bạn đã được ghi nhận.</p>
+        <p className="text-on-success-container font-semibold">{t('reviewForm.successTitle', '🎉 Cảm ơn bạn đã đánh giá!')}</p>
+        <p className="text-sm text-success mt-1">{t('reviewForm.successDesc', 'Đánh giá của bạn đã được ghi nhận.')}</p>
       </div>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="rounded-xl bg-surface-container-lowest border border-outline-variant p-6 shadow-sm space-y-4">
-      <h4 className="font-semibold text-on-surface">Viết đánh giá</h4>
+      <h4 className="font-semibold text-on-surface">{t('reviewForm.writeTitle', 'Viết đánh giá')}</h4>
 
       <div>
-        <p className="text-sm text-on-surface-variant mb-2">Đánh giá của bạn</p>
+        <p className="text-sm text-on-surface-variant mb-2">{t('reviewForm.yourRating', 'Đánh giá của bạn')}</p>
         <StarRating value={rating} onChange={setRating} size={28} interactive />
       </div>
 
       <textarea
         value={comment}
         onChange={(e) => setComment(e.target.value)}
-        placeholder="Chia sẻ cảm nhận của bạn (tuỳ chọn)..."
+        placeholder={t('reviewForm.placeholder', 'Chia sẻ cảm nhận của bạn (tuỳ chọn)...')}
         rows={3}
         className="w-full rounded-lg border border-outline-variant px-4 py-3 text-sm text-on-surface-variant placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-shadow"
       />
@@ -69,7 +71,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ onSubmit }) => {
         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-on-primary text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         <Send size={14} />
-        {isSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}
+        {isSubmitting ? t('reviewForm.submitting', 'Đang gửi...') : t('reviewForm.submitBtn', 'Gửi đánh giá')}
       </button>
     </form>
   );
