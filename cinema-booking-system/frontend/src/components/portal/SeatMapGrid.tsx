@@ -1,5 +1,6 @@
 import React from 'react';
 import { SeatMap, Seat } from '../../types/booking';
+import { useTranslation } from 'react-i18next';
 
 interface SeatMapGridProps {
   seatMap: SeatMap;
@@ -8,6 +9,7 @@ interface SeatMapGridProps {
 }
 
 export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, onSeatToggle }) => {
+  const { t } = useTranslation();
   // Infer column count from the widest seat number
   const colCount = seatMap.rows.reduce(
     (max, row) => Math.max(
@@ -78,7 +80,7 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
               >
                 <span className={`${selected || seat.status === 'available' ? 'opacity-100' : 'opacity-40'} transition-opacity truncate w-full text-center leading-tight`}>
                   {seat.label}
-                  {isCouple && <span className="block text-[6px] opacity-80">(Couple)</span>}
+                  {isCouple && <span className="block text-[6px] opacity-80">({t('seatMap.couple', 'Couple')})</span>}
                 </span>
               </button>
             );

@@ -3,12 +3,14 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { LogOut, Settings, User } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { authService } from '../../services/authService';
+import { useTranslation } from 'react-i18next';
 
 interface PortalTopNavProps {
   activeLabel?: string;
 }
 
 export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -21,10 +23,10 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
   };
 
   const navItems = [
-    { label: 'Movies', to: '/' },
-    { label: 'Theaters', to: '/theaters' },
-    { label: 'Membership', to: '/membership' },
-    ...(user ? [{ label: 'My Tickets', to: '/my-tickets' }] : []),
+    { label: t('portalTopNav.movies', 'Movies'), to: '/', rawLabel: 'Movies' },
+    { label: t('portalTopNav.theaters', 'Theaters'), to: '/theaters', rawLabel: 'Theaters' },
+    { label: t('portalTopNav.membership', 'Membership'), to: '/membership', rawLabel: 'Membership' },
+    ...(user ? [{ label: t('portalTopNav.myTickets', 'My Tickets'), to: '/my-tickets', rawLabel: 'My Tickets' }] : []),
   ];
 
   return (
@@ -38,7 +40,7 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
                 key={item.label}
                 to={item.to}
                 className={({ isActive }) =>
-                  isActive || item.label === activeLabel
+                  isActive || item.rawLabel === activeLabel
                     ? 'text-primary border-b-2 border-blue-600 pb-1'
                     : 'text-on-surface-variant hover:text-on-surface'
                 }
@@ -68,7 +70,7 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
                     className="flex items-center gap-2 px-4 py-3 text-sm text-on-surface-variant hover:bg-surface-container"
                   >
                     <Settings className="w-4 h-4" />
-                    Settings
+                    {t('portalTopNav.settings', 'Settings')}
                   </Link>
                   <button
                     type="button"
@@ -76,7 +78,7 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
                     className="w-full flex items-center gap-2 px-4 py-3 text-sm text-on-surface-variant hover:bg-surface-container"
                   >
                     <LogOut className="w-4 h-4" />
-                    Logout
+                    {t('portalTopNav.logout', 'Logout')}
                   </button>
                 </div>
               )}
@@ -84,10 +86,10 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
           ) : (
             <>
               <Link to="/login" className="px-4 py-2 text-on-surface-variant text-sm font-medium hover:bg-surface-container rounded-md">
-                Sign In
+                {t('portalTopNav.signIn', 'Sign In')}
               </Link>
               <Link to="/signup" className="px-5 py-2 bg-primary text-on-primary rounded-md text-sm font-semibold">
-                Book Now
+                {t('portalTopNav.bookNow', 'Book Now')}
               </Link>
             </>
           )}
