@@ -28,7 +28,18 @@ public static class ObservabilityExtensions
                 .AddSource("MassTransit")
                 .AddSource("MongoDB.Driver.Core.Extensions.DiagnosticSources")
                 .AddSource("Npgsql")
-                .AddEntityFrameworkCoreInstrumentation()
+                .AddEntityFrameworkCoreInstrumentation(opts =>
+                {
+                    opts.Filter = (providerName, command) =>
+                    {
+                        // Filter out MassTransit outbox/inbox EF queries
+                        var commandText = command.CommandText;
+                        if (string.IsNullOrEmpty(commandText)) return true;
+                        return !commandText.Contains("InboxState", StringComparison.OrdinalIgnoreCase)
+                            && !commandText.Contains("OutboxState", StringComparison.OrdinalIgnoreCase)
+                            && !commandText.Contains("OutboxMessage", StringComparison.OrdinalIgnoreCase);
+                    };
+                })
                 .AddRedisInstrumentation()
                 .AddAspNetCoreInstrumentation(opts =>
                 {
