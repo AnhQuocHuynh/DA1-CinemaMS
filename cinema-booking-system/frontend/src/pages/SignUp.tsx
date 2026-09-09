@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Lock } from 'lucide-react';
 import { authService } from '@/services/authService';
 import genericMovieBg from '../resources/generic_movie_bg.png';
+import { useTranslation } from 'react-i18next';
 
 export const SignUp: React.FC = () => {
+  const { t } = useTranslation();
   return (
     <div className="bg-surface text-on-surface min-h-screen flex flex-col">
 
@@ -22,11 +24,10 @@ export const SignUp: React.FC = () => {
           <section className="space-y-8">
             <div>
               <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">
-                Member Registration
+                {t('signUp.memberRegistration', 'Member Registration')}
               </span>
               <p className="text-on-surface-variant text-sm md:text-base mt-4 max-w-xl">
-                Build a dedicated booking profile with faster checkout, protected seat holds, and a
-                consolidated ticket vault.
+                {t('signUp.memberDesc', 'Build a dedicated booking profile with faster checkout, protected seat holds, and a consolidated ticket vault.')}
               </p>
             </div>
 
@@ -40,18 +41,18 @@ export const SignUp: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-r from-surface-container-highest/80 via-surface-container-low/40 to-transparent" />
                 <div className="absolute bottom-6 left-6">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
-                    Priority onboarding
+                    {t('signUp.priorityOnboarding', 'Priority onboarding')}
                   </span>
                   <p className="text-sm text-on-surface mt-2 max-w-sm">
-                    Lock seats in real time with instant checkout and order tracking.
+                    {t('signUp.priorityDesc', 'Lock seats in real time with instant checkout and order tracking.')}
                   </p>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6">
                 {[
-                  { label: 'Seat Holds', value: 'Synced' },
-                  { label: 'Ticket Vault', value: 'Encrypted' },
-                  { label: 'Refunds', value: 'Tracked' },
+                  { label: t('signUp.seatHolds', 'Seat Holds'), value: t('signUp.synced', 'Synced') },
+                  { label: t('signUp.ticketVault', 'Ticket Vault'), value: t('signUp.encrypted', 'Encrypted') },
+                  { label: t('signUp.refunds', 'Refunds'), value: t('signUp.tracked', 'Tracked') },
                 ].map((item) => (
                   <div
                     key={item.label}
@@ -68,11 +69,10 @@ export const SignUp: React.FC = () => {
 
             <div className="rounded-2xl bg-surface-container-lowest border border-outline-variant/40 p-6">
               <div className="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-                Booking promise
+                {t('signUp.bookingPromise', 'Booking promise')}
               </div>
               <p className="text-sm text-on-surface mt-3">
-                Your seats stay locked while you check out. The hold timer syncs to live inventory
-                and releases automatically when sessions expire.
+                {t('signUp.bookingPromiseDesc', 'Your seats stay locked while you check out. The hold timer syncs to live inventory and releases automatically when sessions expire.')}
               </p>
             </div>
           </section>
@@ -84,19 +84,19 @@ export const SignUp: React.FC = () => {
                 className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Back to Home
+                {t('signUp.backToHome', 'Back to Home')}
               </Link>
 
               <div className="flex items-center justify-between mb-8 mt-6">
                 <div>
                   <span className="text-xl font-black tracking-tighter text-on-surface block">
-                    CinemaArchitect
+                    {t('signUp.brandName', 'CinemaArchitect')}
                   </span>
                   <h2 className="text-2xl font-semibold tracking-tight text-on-surface mt-1">
-                    Create Account
+                    {t('signUp.createAccount', 'Create Account')}
                   </h2>
                   <p className="text-on-surface-variant text-sm mt-2">
-                    Open a booking profile with verified access via Keycloak.
+                    {t('signUp.createAccountDesc', 'Open a booking profile with verified access via Keycloak.')}
                   </p>
                 </div>                
               </div>
@@ -105,12 +105,12 @@ export const SignUp: React.FC = () => {
                 <div className="flex items-center justify-between rounded-lg border border-outline-variant/40 bg-surface-container-low p-4">
                   <div>
                     <div className="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-                      Access Tier
+                      {t('signUp.accessTier', 'Access Tier')}
                     </div>
-                    <div className="text-sm font-semibold text-on-surface mt-1">Standard Member</div>
+                    <div className="text-sm font-semibold text-on-surface mt-1">{t('signUp.standardMember', 'Standard Member')}</div>
                   </div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
-                    Ready
+                    {t('signUp.ready', 'Ready')}
                   </span>
                 </div>
 
@@ -118,7 +118,7 @@ export const SignUp: React.FC = () => {
                   onClick={() => authService.register()}
                   className="w-full py-4 bg-primary text-on-primary rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-blue-600/20 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                 >
-                  CONTINUE TO REGISTRATION
+                  {t('signUp.continueBtn', 'CONTINUE TO REGISTRATION')}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -126,12 +126,12 @@ export const SignUp: React.FC = () => {
 
             <div className="border-t border-outline-variant/30 px-8 py-6 text-center">
               <p className="text-[11px] text-on-surface-variant">
-                By creating an account, you agree to our booking terms and privacy policy.
+                {t('signUp.termsAgreement', 'By creating an account, you agree to our booking terms and privacy policy.')}
               </p>
               <p className="text-sm text-on-surface-variant mt-4">
-                Already have an account?{' '}
+                {t('signUp.alreadyHaveAccount', 'Already have an account?')} {' '}
                 <button onClick={() => authService.login()} className="text-primary font-bold hover:underline">
-                  Sign In
+                  {t('signUp.signIn', 'Sign In')}
                 </button>
               </p>
             </div>
@@ -139,7 +139,7 @@ export const SignUp: React.FC = () => {
             <div className="bg-surface-container-low p-4 text-center">
               <p className="text-[10px] font-medium text-on-surface-variant uppercase tracking-widest flex items-center justify-center gap-2">
                 <Lock className="w-3.5 h-3.5" />
-                Secure Architect Environment
+                {t('signUp.secureEnv', 'Secure Architect Environment')}
               </p>
             </div>
           </section>

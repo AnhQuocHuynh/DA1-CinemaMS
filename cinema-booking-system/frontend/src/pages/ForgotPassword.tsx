@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { Mail, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Header } from '../components/Header';
 import { authService } from '../services/authService';
+import { useTranslation } from 'react-i18next';
 
 export const ForgotPassword: React.FC = () => {
+  const { t } = useTranslation();
   return (
     <div className="bg-surface text-on-surface min-h-screen flex flex-col">
       <Header />
@@ -26,16 +28,16 @@ export const ForgotPassword: React.FC = () => {
                 className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface mb-6"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Back to Login
+                {t('forgotPassword.backToLogin', 'Back to Login')}
               </Link>
 
               <div className="mb-10 text-center">
                 <span className="text-xl font-black tracking-tighter text-on-surface block mb-2">
-                  CinemaArchitect
+                  {t('forgotPassword.brandName', 'CinemaArchitect')}
                 </span>
-                <h1 className="text-2xl font-semibold tracking-tight text-on-surface">Reset Password</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-on-surface">{t('forgotPassword.resetPassword', 'Reset Password')}</h1>
                 <p className="text-on-surface-variant text-sm mt-1">
-                  Click below to securely reset your password via Keycloak.
+                  {t('forgotPassword.resetDesc', 'Click below to securely reset your password via Keycloak.')}
                 </p>
               </div>
 
@@ -43,15 +45,15 @@ export const ForgotPassword: React.FC = () => {
                 onClick={() => authService.forgotPassword()}
                 className="w-full py-4 bg-primary text-on-primary rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
-                CONTINUE TO PASSWORD RESET
+                {t('forgotPassword.continueBtn', 'CONTINUE TO PASSWORD RESET')}
                 <ArrowRight className="w-4 h-4" />
               </button>
 
               <div className="mt-8 pt-8 border-t border-outline-variant/30 text-center">
                 <p className="text-sm text-on-surface-variant">
-                  Remember your password?{' '}
+                  {t('forgotPassword.rememberPassword', 'Remember your password?')} {' '}
                   <button onClick={() => authService.login()} className="text-primary font-bold hover:underline">
-                    Sign In
+                    {t('forgotPassword.signIn', 'Sign In')}
                   </button>
                 </p>
               </div>
@@ -60,7 +62,7 @@ export const ForgotPassword: React.FC = () => {
             <div className="bg-surface-container-low p-4 text-center">
               <p className="text-[10px] font-medium text-on-surface-variant uppercase tracking-widest flex items-center justify-center gap-2">
                 <Mail className="w-3.5 h-3.5" />
-                Secure Architect Environment
+                {t('forgotPassword.secureEnv', 'Secure Architect Environment')}
               </p>
             </div>
           </div>

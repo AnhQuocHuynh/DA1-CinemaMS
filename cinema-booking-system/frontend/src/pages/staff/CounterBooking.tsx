@@ -9,8 +9,10 @@ import { ShowtimeResponse } from '../../types/showtime';
 import { Seat, SeatMap } from '../../types/booking';
 import { StaffCounterBookingResult } from '../../types/staff';
 import { formatVND } from '../../utils/formatters';
+import { useTranslation } from 'react-i18next';
 
 export const CounterBooking: React.FC = () => {
+  const { t } = useTranslation();
   const [movies, setMovies] = useState<MovieResponse[]>([]);
   const [showtimes, setShowtimes] = useState<ShowtimeResponse[]>([]);
   const [selectedMovieId, setSelectedMovieId] = useState<string>('');
@@ -74,7 +76,7 @@ export const CounterBooking: React.FC = () => {
   const loadSeats = async () => {
     const numericShowtimeId = Number(showtimeId);
     if (!numericShowtimeId) {
-      setError('Vui lòng chọn suất chiếu hợp lệ.');
+      setError(t('staffCounterBooking.errorInvalidShowtime', 'Vui lòng chọn suất chiếu hợp lệ.'));
       return;
     }
 
@@ -86,7 +88,7 @@ export const CounterBooking: React.FC = () => {
       const map = await bookingService.getSeatMap(numericShowtimeId);
       setSeatMap(map);
     } catch {
-      setError('Không thể tải sơ đồ ghế cho suất chiếu này.');
+      setError(t('staffCounterBooking.errorLoadSeats', 'Không thể tải sơ đồ ghế cho suất chiếu này.'));
     } finally {
       setIsLoadingSeats(false);
     }
@@ -106,7 +108,7 @@ export const CounterBooking: React.FC = () => {
   const submitBooking = async () => {
     const numericShowtimeId = Number(showtimeId);
     if (!numericShowtimeId || selectedSeats.length === 0) {
-      setError('Vui lòng chọn suất chiếu và ít nhất một ghế.');
+      setError(t('staffCounterBooking.errorNoSeats', 'Vui lòng chọn suất chiếu và ít nhất một ghế.'));
       return;
     }
 
@@ -126,22 +128,22 @@ export const CounterBooking: React.FC = () => {
       setSelectedSeats([]);
     } catch (err) {
       const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message || 'Không thể tạo booking tại quầy.');
+      setError(e.response?.data?.message || t('staffCounterBooking.errorCreateBooking', 'Không thể tạo booking tại quầy.'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <StaffLayout activeItemId="counter-booking" searchPlaceholder="Nhập mã vé hoặc ID...">
+    <StaffLayout activeItemId="counter-booking" searchPlaceholder={t('staffCounterBooking.searchPlaceholder', 'Nhập mã vé hoặc ID...')}>
       <section className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <span className="text-[0.65rem] uppercase tracking-[0.15em] font-bold text-on-surface-variant mb-1 block">
-            Counter Sales
+            {t('staffCounterBooking.counterSales', 'Counter Sales')}
           </span>
-          <h2 className="text-3xl font-bold tracking-tight text-on-surface">Đặt vé tại quầy</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-on-surface">{t('staffCounterBooking.title', 'Đặt vé tại quầy')}</h2>
           <p className="text-on-surface-variant mt-2 text-sm max-w-xl">
-            Chọn suất chiếu, ghế trống và xác nhận thanh toán trực tiếp để in/xuất mã vé ngay.
+            {t('staffCounterBooking.subtitle', 'Chọn suất chiếu, ghế trống và xác nhận thanh toán trực tiếp để in/xuất mã vé ngay.')}
           </p>
         </div>
       </section>
@@ -159,20 +161,20 @@ export const CounterBooking: React.FC = () => {
               <UserRound className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-on-surface">Thông tin booking</h3>
-              <p className="text-xs text-on-surface-variant">Khách vãng lai không cần tài khoản</p>
+              <h3 className="font-bold text-on-surface">{t('staffCounterBooking.bookingInfo', 'Thông tin booking')}</h3>
+              <p className="text-xs text-on-surface-variant">{t('staffCounterBooking.walkInCustomer', 'Khách vãng lai không cần tài khoản')}</p>
             </div>
           </div>
 
           <div className="space-y-4">
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Chọn Phim</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{t('staffCounterBooking.selectMovie', 'Chọn Phim')}</span>
               <select
                 value={selectedMovieId}
                 onChange={handleMovieChange}
                 className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="">-- Chọn phim --</option>
+                <option value="">{t('staffCounterBooking.selectMoviePlaceholder', '-- Chọn phim --')}</option>
                 {movies.map(m => (
                   <option key={m.id} value={m.id}>{m.title}</option>
                 ))}
@@ -180,7 +182,7 @@ export const CounterBooking: React.FC = () => {
             </label>
 
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Chọn Suất Chiếu</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{t('staffCounterBooking.selectShowtime', 'Chọn Suất Chiếu')}</span>
               <div className="mt-1 flex gap-2">
                 <select
                   value={showtimeId}
@@ -192,7 +194,7 @@ export const CounterBooking: React.FC = () => {
                   disabled={!selectedMovieId || showtimes.length === 0}
                   className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:bg-surface-container-low"
                 >
-                  <option value="">-- Chọn suất chiếu --</option>
+                  <option value="">{t('staffCounterBooking.selectShowtimePlaceholder', '-- Chọn suất chiếu --')}</option>
                   {showtimes.map(st => {
                     const date = new Date(st.startTime);
                     const formattedDate = date.toLocaleDateString('vi-VN', { month: '2-digit', day: '2-digit' });
@@ -209,23 +211,23 @@ export const CounterBooking: React.FC = () => {
                   disabled={isLoadingSeats || !showtimeId}
                   className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-60 shrink-0"
                 >
-                  {isLoadingSeats ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Load'}
+                  {isLoadingSeats ? <Loader2 className="w-4 h-4 animate-spin" /> : t('staffCounterBooking.load', 'Load')}
                 </button>
               </div>
             </label>
 
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Tên khách</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{t('staffCounterBooking.customerName', 'Tên khách')}</span>
               <input
                 value={customerName}
                 onChange={(event) => setCustomerName(event.target.value)}
                 className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Walk-in Customer"
+                placeholder={t('staffCounterBooking.customerNamePlaceholder', 'Walk-in Customer')}
               />
             </label>
 
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Số điện thoại</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{t('staffCounterBooking.customerPhone', 'Số điện thoại')}</span>
               <input
                 value={customerPhone}
                 onChange={(event) => setCustomerPhone(event.target.value)}
@@ -235,20 +237,20 @@ export const CounterBooking: React.FC = () => {
             </label>
 
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Thanh toán</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{t('staffCounterBooking.paymentMethod', 'Thanh toán')}</span>
               <select
                 value={paymentMethod}
                 onChange={(event) => setPaymentMethod(event.target.value as typeof paymentMethod)}
                 className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="CASH">Tiền mặt</option>
-                <option value="CARD">Thẻ</option>
-                <option value="BANK_TRANSFER">Chuyển khoản</option>
+                <option value="CASH">{t('staffCounterBooking.cash', 'Tiền mặt')}</option>
+                <option value="CARD">{t('staffCounterBooking.card', 'Thẻ')}</option>
+                <option value="BANK_TRANSFER">{t('staffCounterBooking.bankTransfer', 'Chuyển khoản')}</option>
               </select>
             </label>
 
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Voucher</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{t('staffCounterBooking.voucher', 'Voucher')}</span>
               <input
                 value={voucherCode}
                 onChange={(event) => setVoucherCode(event.target.value)}
@@ -259,9 +261,9 @@ export const CounterBooking: React.FC = () => {
           </div>
 
           <div className="mt-6 rounded-xl bg-surface-container-low p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Đã chọn</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{t('staffCounterBooking.selected', 'Đã chọn')}</p>
             <p className="mt-1 text-lg font-extrabold text-on-surface">
-              {selectedSeats.map((seat) => seat.label).join(', ') || 'Chưa chọn ghế'}
+              {selectedSeats.map((seat) => seat.label).join(', ') || t('staffCounterBooking.noSeatSelected', 'Chưa chọn ghế')}
             </p>
             <p className="mt-2 text-sm font-semibold text-primary">{formatVND(subtotal)}</p>
           </div>
@@ -272,26 +274,26 @@ export const CounterBooking: React.FC = () => {
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-inverse-surface px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
           >
             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ticket className="w-4 h-4" />}
-            Xác nhận đặt vé
+            {t('staffCounterBooking.confirmBooking', 'Xác nhận đặt vé')}
           </button>
         </aside>
 
         <section className="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-6 shadow-sm">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h3 className="font-bold text-on-surface">Sơ đồ ghế</h3>
-              <p className="text-xs text-on-surface-variant">Chỉ ghế trống mới được đặt tại quầy.</p>
+              <h3 className="font-bold text-on-surface">{t('staffCounterBooking.seatMap', 'Sơ đồ ghế')}</h3>
+              <p className="text-xs text-on-surface-variant">{t('staffCounterBooking.seatMapDesc', 'Chỉ ghế trống mới được đặt tại quầy.')}</p>
             </div>
             <div className="flex gap-3 text-xs text-on-surface-variant">
-              <span>Available</span>
-              <span>Sold/Hold</span>
-              <span>Selected</span>
+              <span>{t('staffCounterBooking.available', 'Available')}</span>
+              <span>{t('staffCounterBooking.soldHold', 'Sold/Hold')}</span>
+              <span>{t('staffCounterBooking.seatSelected', 'Selected')}</span>
             </div>
           </div>
 
           {!seatMap ? (
             <div className="flex min-h-[320px] items-center justify-center rounded-xl bg-surface-container-low text-sm text-on-surface-variant">
-              Chọn phim và suất chiếu để bắt đầu.
+              {t('staffCounterBooking.selectToStart', 'Chọn phim và suất chiếu để bắt đầu.')}
             </div>
           ) : (
             <div className="space-y-3 overflow-x-auto pb-2">
@@ -334,14 +336,14 @@ export const CounterBooking: React.FC = () => {
             <div className="mt-6 rounded-xl border border-success-container bg-success-container p-5 text-on-success-container">
               <div className="flex items-center gap-2 font-bold">
                 <CheckCircle className="w-5 h-5" />
-                Booking #{result.id} đã thanh toán
+                {t('staffCounterBooking.paidBooking', { id: result.id, defaultValue: 'Booking #{{id}} đã thanh toán' })}
               </div>
               <p className="mt-2 text-sm">
                 {result.displayTitle || result.movieTitle || result.eventTitle || 'Showtime'} -{' '}
                 {result.seatLabels?.join(', ') || 'N/A'} - {formatVND(Number(result.finalAmount || 0))}
               </p>
               <p className="mt-1 text-xs">
-                Ticket: {result.tickets?.map((ticket) => ticket.ticketCode).join(', ') || 'Đang cập nhật'}
+                {t('staffCounterBooking.ticket', 'Ticket:')} {result.tickets?.map((ticket) => ticket.ticketCode).join(', ') || t('staffCounterBooking.updating', 'Đang cập nhật')}
               </p>
             </div>
           )}

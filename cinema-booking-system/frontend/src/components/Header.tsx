@@ -3,8 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { LogOut, Settings, User } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
+import { useTranslation } from 'react-i18next';
 
 export const Header: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -22,20 +24,20 @@ export const Header: React.FC = () => {
         <span className="text-xl font-bold tracking-tighter text-on-surface">CinemaArchitect</span>
         <div className="hidden md:flex space-x-6">
           <Link to="/" className="text-on-surface-variant hover:text-on-surface transition-colors font-medium text-sm">
-            Movies
+            {t('header.movies', 'Movies')}
           </Link>
           <Link to="/theaters" className="text-on-surface-variant hover:text-on-surface transition-colors font-medium text-sm">
-            Theaters
+            {t('header.theaters', 'Theaters')}
           </Link>
           <Link to="/membership" className="text-on-surface-variant hover:text-on-surface transition-colors font-medium text-sm">
-            Membership
+            {t('header.membership', 'Membership')}
           </Link>
           {user && (
             <Link
               to="/my-tickets"
               className="text-on-surface-variant hover:text-on-surface transition-colors font-medium text-sm"
             >
-              My Tickets
+              {t('header.myTickets', 'My Tickets')}
             </Link>
           )}
         </div>
@@ -60,7 +62,7 @@ export const Header: React.FC = () => {
                   className="flex items-center gap-2 px-4 py-3 text-sm text-on-surface-variant hover:bg-surface-container"
                 >
                   <Settings className="w-4 h-4" />
-                  Settings
+                  {t('header.settings', 'Settings')}
                 </Link>
                 <button
                   type="button"
@@ -68,7 +70,7 @@ export const Header: React.FC = () => {
                   className="w-full flex items-center gap-2 px-4 py-3 text-sm text-on-surface-variant hover:bg-surface-container"
                 >
                   <LogOut className="w-4 h-4" />
-                  Logout
+                  {t('header.logout', 'Logout')}
                 </button>
               </div>
             )}
@@ -79,13 +81,13 @@ export const Header: React.FC = () => {
               to="/login"
               className="text-on-surface-variant font-medium text-sm hover:bg-surface-container/50 px-3 py-2 rounded-md transition-all active:scale-95"
             >
-              Sign In
+              {t('header.signIn', 'Sign In')}
             </Link>
             <Link
               to="/signup"
               className="bg-primary text-on-primary px-5 py-2 rounded-lg font-semibold text-sm transition-all active:scale-95 hover:opacity-90"
             >
-              Book Now
+              {t('header.bookNow', 'Book Now')}
             </Link>
           </>
         )}

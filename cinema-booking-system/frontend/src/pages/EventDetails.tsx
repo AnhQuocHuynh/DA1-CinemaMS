@@ -8,8 +8,10 @@ import { ShowtimeResponse } from '../types/showtime';
 import { useBookingStore } from '../store/bookingStore';
 import { formatVND, parseVND, formatShowtime } from '../utils/formatters';
 import genericPoster from '../resources/generic_movie_poster.png';
+import { useTranslation } from 'react-i18next';
 
 export const EventDetails: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { eventId } = useParams<{ eventId: string }>();
 
@@ -31,9 +33,9 @@ export const EventDetails: React.FC = () => {
         setEvent(e);
         setShowtimes(s.filter((st) => st.status === 'SCHEDULED'));
       })
-      .catch(() => setError('Không thể tải thông tin sự kiện.'))
+      .catch(() => setError(t('eventDetails.errorLoad', 'Không thể tải thông tin sự kiện.')))
       .finally(() => setIsLoading(false));
-  }, [eventId]);
+  }, [eventId, t]);
 
   const handleBookNow = () => {
     navigate(`/events/${eventId}/showtimes`);
@@ -50,7 +52,7 @@ export const EventDetails: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-surface-container flex items-center justify-center">
-        <p className="text-on-surface-variant animate-pulse">Đang tải...</p>
+        <p className="text-on-surface-variant animate-pulse">{t('eventDetails.loading', 'Đang tải...')}</p>
       </div>
     );
   }
@@ -59,13 +61,13 @@ export const EventDetails: React.FC = () => {
     return (
       <div className="min-h-screen bg-surface text-on-surface flex items-center justify-center px-6">
         <div className="text-center space-y-6">
-          <h1 className="text-4xl font-bold">Không tìm thấy sự kiện</h1>
-          <p className="text-on-surface-variant">{error ?? 'Sự kiện không tồn tại.'}</p>
+          <h1 className="text-4xl font-bold">{t('eventDetails.notFoundTitle', 'Không tìm thấy sự kiện')}</h1>
+          <p className="text-on-surface-variant">{error ?? t('eventDetails.notFoundDesc', 'Sự kiện không tồn tại.')}</p>
           <button
             onClick={() => navigate('/')}
             className="px-6 py-3 rounded-lg bg-amber-600 text-white hover:bg-amber-500 transition-colors"
           >
-            Về trang chủ
+            {t('eventDetails.backToHome', 'Về trang chủ')}
           </button>
         </div>
       </div>
@@ -83,7 +85,7 @@ export const EventDetails: React.FC = () => {
             onClick={() => navigate(-1)}
             className="inline-flex items-center gap-2 text-sm text-on-surface-variant hover:text-on-surface"
           >
-            <ArrowLeft size={16} /> Quay lại
+            <ArrowLeft size={16} /> {t('eventDetails.back', 'Quay lại')}
           </button>
         </div>
       </header>
@@ -107,7 +109,7 @@ export const EventDetails: React.FC = () => {
             <div className="max-w-3xl space-y-6">
               <div className="flex flex-wrap items-center gap-3 text-sm text-white">
                 <span className="px-3 py-1 rounded-sm bg-amber-600 font-semibold">
-                  Sự kiện
+                  {t('eventDetails.eventLabel', 'Sự kiện')}
                 </span>
                 <span className="px-3 py-1 bg-surface-container-lowest/20 rounded font-semibold text-white/90 flex items-center gap-2">
                   <MapPin size={14} />
@@ -126,7 +128,7 @@ export const EventDetails: React.FC = () => {
                     onClick={handleBookNow}
                     className="px-6 py-3 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-500 transition-colors"
                   >
-                    Đặt vé ngay
+                    {t('eventDetails.bookNow', 'Đặt vé ngay')}
                   </button>
                 )}
               </div>
@@ -138,7 +140,7 @@ export const EventDetails: React.FC = () => {
         <section className="max-w-7xl mx-auto px-6 py-14 grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-8 space-y-10">
             <div>
-              <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-4">Mô tả sự kiện</h2>
+              <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-4">{t('eventDetails.descriptionLabel', 'Mô tả sự kiện')}</h2>
               <p className="text-on-surface-variant leading-relaxed text-lg">{event.description}</p>
             </div>
 
@@ -152,7 +154,7 @@ export const EventDetails: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Calendar size={14} className="text-on-surface-variant" />
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">Thời gian bắt đầu</p>
+                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">{t('eventDetails.startTime', 'Thời gian bắt đầu')}</p>
                   <p className="font-semibold">
                     {new Date(event.startTime).toLocaleString('vi-VN')}
                   </p>
@@ -161,7 +163,7 @@ export const EventDetails: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Calendar size={14} className="text-on-surface-variant" />
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">Thời gian kết thúc</p>
+                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">{t('eventDetails.endTime', 'Thời gian kết thúc')}</p>
                   <p className="font-semibold">
                     {new Date(event.endTime).toLocaleString('vi-VN')}
                   </p>
@@ -170,7 +172,7 @@ export const EventDetails: React.FC = () => {
               <div className="flex items-center gap-2">
                 <MapPin size={14} className="text-on-surface-variant" />
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">Địa điểm</p>
+                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">{t('eventDetails.venue', 'Địa điểm')}</p>
                   <p className="font-semibold">{event.venue}</p>
                 </div>
               </div>
@@ -178,13 +180,13 @@ export const EventDetails: React.FC = () => {
 
             {/* Showtimes */}
             <div className="bg-inverse-surface text-inverse-on-surface rounded-xl p-6 space-y-4">
-              <h3 className="font-semibold">Suất chiếu / Tham gia</h3>
+              <h3 className="font-semibold">{t('eventDetails.showtimesTitle', 'Suất chiếu / Tham gia')}</h3>
               {(() => {
                 const now = Date.now();
                 const validShowtimes = showtimes.filter(st => new Date(st.startTime).getTime() >= now);
                 
                 if (validShowtimes.length === 0) {
-                  return <p className="text-sm text-white/60">Chưa có suất nào.</p>;
+                  return <p className="text-sm text-white/60">{t('eventDetails.noShowtimes', 'Chưa có suất nào.')}</p>;
                 }
 
                 return (
@@ -208,12 +210,12 @@ export const EventDetails: React.FC = () => {
                                 {formatShowtime(st.startTime)}
                               </span>
                               <span className="block text-xs text-white/60 mt-0.5">
-                                {formatVND(parseVND(st.basePrice))} / vé
+                                {formatVND(parseVND(st.basePrice))} {t('eventDetails.perTicket', '/ vé')}
                               </span>
                             </div>
                             {isClose && (
                               <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 bg-red-400/10 px-2 py-1 rounded">
-                                Đã đóng
+                                {t('eventDetails.closed', 'Đã đóng')}
                               </span>
                             )}
                           </div>

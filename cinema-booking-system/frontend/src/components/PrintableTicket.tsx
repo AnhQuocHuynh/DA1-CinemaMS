@@ -2,12 +2,14 @@ import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { TicketDetails } from '../types/booking';
 import { formatVND } from '../utils/formatters';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   ticket: TicketDetails;
 }
 
 export const PrintableTicket: React.FC<Props> = ({ ticket }) => {
+  const { t } = useTranslation();
   return (
     <div className="w-[680px] bg-surface-container-lowest rounded-xl shadow-lg flex font-sans text-left" style={{ color: '#1a1a1a' }}>
       {/* Left section */}
@@ -16,38 +18,38 @@ export const PrintableTicket: React.FC<Props> = ({ ticket }) => {
           Cinema Booking System
         </div>
         <div className="text-[22px] font-bold text-[#1a1a1a] mt-2 mb-4 leading-snug">
-          {ticket.movieTitle || 'Vé Xem Phim'}
+          {ticket.movieTitle || t('printableTicket.movieTicket', 'Vé Xem Phim')}
         </div>
 
         <div className="grid grid-cols-2 gap-y-3 gap-x-5 mb-5">
           <div>
-            <label className="text-[10px] text-[#999] uppercase tracking-wider block mb-[2px]">Ngày chiếu</label>
+            <label className="text-[10px] text-[#999] uppercase tracking-wider block mb-[2px]">{t('printableTicket.showDate', 'Ngày chiếu')}</label>
             <span className="text-[14px] font-semibold text-[#333]">{ticket.date || '—'}</span>
           </div>
           <div>
-            <label className="text-[10px] text-[#999] uppercase tracking-wider block mb-[2px]">Giờ chiếu</label>
+            <label className="text-[10px] text-[#999] uppercase tracking-wider block mb-[2px]">{t('printableTicket.showTime', 'Giờ chiếu')}</label>
             <span className="text-[14px] font-semibold text-[#333]">{ticket.time || '—'}</span>
           </div>
           <div>
-            <label className="text-[10px] text-[#999] uppercase tracking-wider block mb-[2px]">Rạp</label>
+            <label className="text-[10px] text-[#999] uppercase tracking-wider block mb-[2px]">{t('printableTicket.cinema', 'Rạp')}</label>
             <span className="text-[14px] font-semibold text-[#333]">{ticket.cinemaName || '—'}</span>
           </div>
           <div>
-            <label className="text-[10px] text-[#999] uppercase tracking-wider block mb-[2px]">Phòng</label>
+            <label className="text-[10px] text-[#999] uppercase tracking-wider block mb-[2px]">{t('printableTicket.hall', 'Phòng')}</label>
             <span className="text-[14px] font-semibold text-[#333]">{ticket.hallName || '—'}</span>
           </div>
           <div>
-            <label className="text-[10px] text-[#999] uppercase tracking-wider block mb-[2px]">Loại ghế</label>
+            <label className="text-[10px] text-[#999] uppercase tracking-wider block mb-[2px]">{t('printableTicket.seatType', 'Loại ghế')}</label>
             <span className="text-[14px] font-semibold text-[#333]">{ticket.seatTypeName || '—'}</span>
           </div>
         </div>
 
         <div className="inline-block bg-[#e50914] text-white text-[18px] font-bold py-2 px-5 rounded-lg mb-4">
-          Ghế {ticket.seatLabel || ticket.seats.join(', ')}
+          {t('printableTicket.seat', 'Ghế')} {ticket.seatLabel || ticket.seats.join(', ')}
         </div>
 
         <div className="text-[11px] text-[#aaa] tracking-wider">
-          Mã vé: <span className="text-[#555] font-bold">{ticket.ticketCode}</span>
+          {t('printableTicket.ticketCode', 'Mã vé:')} <span className="text-[#555] font-bold">{ticket.ticketCode}</span>
         </div>
       </div>
 
@@ -61,7 +63,7 @@ export const PrintableTicket: React.FC<Props> = ({ ticket }) => {
       {/* Right section */}
       <div className="w-[180px] bg-[#1a1a1a] flex flex-col items-center justify-center py-6 px-4 gap-4">
         <div className="text-[10px] text-[#888] uppercase tracking-wider text-center">
-          Quét mã để vào cổng
+          {t('printableTicket.scanToEnter', 'Quét mã để vào cổng')}
         </div>
         
         {ticket.qrCodeData ? (
@@ -75,7 +77,7 @@ export const PrintableTicket: React.FC<Props> = ({ ticket }) => {
         )}
 
         <div className="text-[10px] text-[#888] uppercase tracking-wider text-center mt-2">
-          Giá vé
+          {t('printableTicket.ticketPrice', 'Giá vé')}
         </div>
         <div className="text-[18px] font-bold text-white">
           {formatVND(ticket.price)}

@@ -7,8 +7,10 @@ import { showtimeService } from '../services/showtimeService';
 import { ShowtimeResponse } from '../types/showtime';
 import { useBookingStore } from '../store/bookingStore';
 import genericPoster from '../resources/generic_movie_poster.png';
+import { useTranslation } from 'react-i18next';
 
 export const MovieShowtimes: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { movieId, eventId } = useParams<{ movieId?: string, eventId?: string }>();
 
@@ -58,7 +60,7 @@ export const MovieShowtimes: React.FC = () => {
           setSelectedDateStr(new Date().toISOString().split('T')[0]);
         }
       } catch (err) {
-        setError('Không thể tải thông tin lịch chiếu.');
+        setError(t('movieShowtimes.errorLoad', 'Không thể tải thông tin lịch chiếu.'));
       } finally {
         setIsLoading(false);
       }
@@ -101,7 +103,7 @@ export const MovieShowtimes: React.FC = () => {
     const groups: Record<string, { cinemaName: string; showtimes: ShowtimeResponse[] }> = {};
     for (const st of filtered) {
       const cId = st.cinemaId ? String(st.cinemaId) : 'unknown';
-      const cName = st.cinemaName || 'Rạp không xác định';
+      const cName = st.cinemaName || t('movieShowtimes.unknownCinema', 'Rạp không xác định');
       if (!groups[cId]) {
         groups[cId] = { cinemaName: cName, showtimes: [] };
       }
@@ -121,7 +123,7 @@ export const MovieShowtimes: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-surface text-on-surface flex items-center justify-center">
-        <p className="text-on-surface-variant animate-pulse font-medium">Đang tải...</p>
+        <p className="text-on-surface-variant animate-pulse font-medium">{t('movieShowtimes.loading', 'Đang tải...')}</p>
       </div>
     );
   }
@@ -130,13 +132,13 @@ export const MovieShowtimes: React.FC = () => {
     return (
       <div className="min-h-screen bg-surface text-on-surface flex items-center justify-center px-6">
         <div className="text-center space-y-6">
-          <h1 className="text-4xl font-bold">Lỗi</h1>
-          <p className="text-on-surface-variant">{error ?? 'Không tìm thấy thông tin.'}</p>
+          <h1 className="text-4xl font-bold">{t('movieShowtimes.errorTitle', 'Lỗi')}</h1>
+          <p className="text-on-surface-variant">{error ?? t('movieShowtimes.notFound', 'Không tìm thấy thông tin.')}</p>
           <button
             onClick={() => navigate(-1)}
             className="px-6 py-3 rounded-lg bg-primary text-on-primary font-semibold hover:opacity-90 transition-colors"
           >
-            Quay lại
+            {t('movieShowtimes.back', 'Quay lại')}
           </button>
         </div>
       </div>
@@ -159,7 +161,7 @@ export const MovieShowtimes: React.FC = () => {
             onClick={() => navigate(-1)}
             className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface transition-colors"
           >
-            <ArrowLeft size={16} /> Quay lại
+            <ArrowLeft size={16} /> {t('movieShowtimes.back', 'Quay lại')}
           </button>
         </div>
       </header>
@@ -187,12 +189,12 @@ export const MovieShowtimes: React.FC = () => {
                 )}
                 {event && (
                   <span className="px-2 py-1 bg-amber-600 text-white rounded text-xs font-bold">
-                    Sự kiện
+                    {t('movieShowtimes.eventLabel', 'Sự kiện')}
                   </span>
                 )}
                 {movie && (
                   <span className="text-sm font-medium text-on-surface-variant">
-                    {movie.durationMinutes} phút
+                    {movie.durationMinutes} {t('movieShowtimes.minutes', 'phút')}
                   </span>
                 )}
               </div>
@@ -212,7 +214,8 @@ export const MovieShowtimes: React.FC = () => {
               {availableDates.map((date) => {
                 const dateStr = date.toISOString().split('T')[0];
                 const isSelected = dateStr === selectedDateStr;
-                const dayName = new Intl.DateTimeFormat('vi-VN', { weekday: 'short' }).format(date);
+                const locale = i18n.language === 'vi' ? 'vi-VN' : 'en-US';
+                const dayName = new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(date);
                 const dayOfMonth = date.getDate();
                 const month = date.getMonth() + 1;
 
@@ -233,7 +236,7 @@ export const MovieShowtimes: React.FC = () => {
                       {dayOfMonth}
                     </span>
                     <span className="text-[10px] font-medium opacity-80 mt-1">
-                      Th {month}
+                      {t('movieShowtimes.monthPrefix', 'Th')} {month}
                     </span>
                   </button>
                 );
@@ -247,10 +250,10 @@ export const MovieShowtimes: React.FC = () => {
           {Object.keys(groupedShowtimes).length === 0 ? (
             <div className="text-center py-20">
               <p className="text-lg font-semibold text-on-surface-variant mb-2">
-                Không có suất chiếu nào
+                {t('movieShowtimes.noShowtimes', 'Không có suất chiếu nào')}
               </p>
               <p className="text-sm text-outline">
-                Vui lòng chọn ngày khác hoặc thử lại sau.
+                {t('movieShowtimes.tryAnotherDay', 'Vui lòng chọn ngày khác hoặc thử lại sau.')}
               </p>
             </div>
           ) : (
@@ -291,7 +294,7 @@ export const MovieShowtimes: React.FC = () => {
                         )}
                         {isClosed && (
                           <div className="absolute -top-2 -right-2 bg-error text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm uppercase tracking-wider">
-                            Đã đóng
+                            {t('movieShowtimes.closed', 'Đã đóng')}
                           </div>
                         )}
                       </button>

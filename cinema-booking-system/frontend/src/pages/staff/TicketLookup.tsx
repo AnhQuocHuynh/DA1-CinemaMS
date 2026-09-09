@@ -7,8 +7,10 @@ import { staffService } from '../../services/staffService';
 import { PrintableTicket } from '../../components/PrintableTicket';
 import { downloadElementAsPDF } from '../../utils/pdfGenerator';
 import { TicketDetails } from '../../types/booking';
+import { useTranslation } from 'react-i18next';
 
 export const TicketLookup: React.FC = () => {
+  const { t } = useTranslation();
   const { stats, bookings, isLoading, reload } = useStaffValidation();
   const [ticketsToPrint, setTicketsToPrint] = useState<{ tickets: TicketDetails[], bookingId: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState<Record<string, boolean>>({});
@@ -36,7 +38,7 @@ export const TicketLookup: React.FC = () => {
       await reload();
     } catch (e) {
       console.error(e);
-      alert('Không thể Check-in booking này.');
+      alert(t('staffTicketLookup.errorCheckIn', 'Không thể Check-in booking này.'));
     } finally {
       setIsProcessing(prev => ({ ...prev, [bookingId]: false }));
     }
@@ -72,33 +74,33 @@ export const TicketLookup: React.FC = () => {
       setTicketsToPrint({ tickets: mappedTickets, bookingId });
     } catch (e) {
       console.error(e);
-      alert('Không thể tải vé để in.');
+      alert(t('staffTicketLookup.errorLoadTicket', 'Không thể tải vé để in.'));
     } finally {
       setIsProcessing(prev => ({ ...prev, [bookingId]: false }));
     }
   };
 
   return (
-    <StaffLayout activeItemId="validation" searchPlaceholder="Search Booking ID or Customer...">
+    <StaffLayout activeItemId="validation" searchPlaceholder={t('staffTicketLookup.searchPlaceholder', 'Search Booking ID or Customer...')}>
       <section className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <span className="text-[0.65rem] uppercase tracking-[0.15em] font-bold text-on-surface-variant mb-1 block">
-            Operational Dashboard
+            {t('staffTicketLookup.operationalDashboard', 'Operational Dashboard')}
           </span>
-          <h2 className="text-3xl font-bold tracking-tight text-on-surface">Ticket Validation</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-on-surface">{t('staffTicketLookup.title', 'Ticket Validation')}</h2>
           <p className="text-on-surface-variant mt-2 text-sm max-w-xl">
-            Search, filter and manually validate attendee bookings for the current showtime window.
+            {t('staffTicketLookup.subtitle', 'Search, filter and manually validate attendee bookings for the current showtime window.')}
           </p>
         </div>
       </section>
 
       {isLoading ? (
-        <div className="text-center py-12 text-on-surface-variant">Loading validation data...</div>
+        <div className="text-center py-12 text-on-surface-variant">{t('staffTicketLookup.loading', 'Loading validation data...')}</div>
       ) : (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/30 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-4">Total Validated</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-4">{t('staffTicketLookup.totalValidated', 'Total Validated')}</p>
               <div className="flex items-end gap-3">
                 <span className="text-4xl font-extrabold text-on-surface tracking-tighter">
                   {stats?.totalValidated}
@@ -107,24 +109,24 @@ export const TicketLookup: React.FC = () => {
               </div>
             </div>
             <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/30 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-4">Pending Check-in</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-4">{t('staffTicketLookup.pendingCheckIn', 'Pending Check-in')}</p>
               <div className="flex items-end gap-3">
                 <span className="text-4xl font-extrabold text-on-surface tracking-tighter">
                   {stats?.pendingCheckIns}
                 </span>
-                <span className="text-on-surface-variant text-xs font-medium mb-1">of {stats?.totalBookings} total</span>
+                <span className="text-on-surface-variant text-xs font-medium mb-1">{t('staffTicketLookup.ofTotal', { count: stats?.totalBookings || 0, defaultValue: 'of {{count}} total' })}</span>
               </div>
             </div>
             <div className="bg-surface-container-low p-6 rounded-xl border-none">
-              <p className="text-xs font-bold uppercase tracking-widest text-primary mb-4">System Status</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-primary mb-4">{t('staffTicketLookup.systemStatus', 'System Status')}</p>
               <div className="flex items-center gap-3">
                 <span className="flex h-3 w-3 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-success"></span>
                 </span>
-                <span className="text-lg font-bold text-primary">Validators Online</span>
+                <span className="text-lg font-bold text-primary">{t('staffTicketLookup.validatorsOnline', 'Validators Online')}</span>
               </div>
-              <p className="text-xs text-on-surface-variant mt-2">All {stats?.validatorsOnline} gateway scanners operational</p>
+              <p className="text-xs text-on-surface-variant mt-2">{t('staffTicketLookup.scannersOperational', { count: stats?.validatorsOnline || 0, defaultValue: 'All {{count}} gateway scanners operational' })}</p>
             </div>
           </div>
 
@@ -133,12 +135,12 @@ export const TicketLookup: React.FC = () => {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-surface-container/50 border-b border-outline-variant/30">
-                    <th className="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-on-surface-variant">Booking ID</th>
-                    <th className="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-on-surface-variant">Customer Name</th>
-                    <th className="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-on-surface-variant">Movie</th>
-                    <th className="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-on-surface-variant">Showtime</th>
-                    <th className="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-on-surface-variant">Status</th>
-                    <th className="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-on-surface-variant text-right">Actions</th>
+                    <th className="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-on-surface-variant">{t('staffTicketLookup.colId', 'Booking ID')}</th>
+                    <th className="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-on-surface-variant">{t('staffTicketLookup.colCustomer', 'Customer Name')}</th>
+                    <th className="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-on-surface-variant">{t('staffTicketLookup.colMovie', 'Movie')}</th>
+                    <th className="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-on-surface-variant">{t('staffTicketLookup.colShowtime', 'Showtime')}</th>
+                    <th className="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-on-surface-variant">{t('staffTicketLookup.colStatus', 'Status')}</th>
+                    <th className="px-6 py-4 text-[0.7rem] font-bold uppercase tracking-wider text-on-surface-variant text-right">{t('staffTicketLookup.colActions', 'Actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">

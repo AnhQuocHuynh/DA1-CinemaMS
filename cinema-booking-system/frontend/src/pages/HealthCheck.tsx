@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
 export const HealthCheck: React.FC = () => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'up' | 'down' | 'error'>('idle');
   const [payload, setPayload] = useState<Record<string, unknown> | null>(null);
@@ -23,10 +25,10 @@ export const HealthCheck: React.FC = () => {
       setPayload(data);
       setStatus(response.ok ? 'up' : 'down');
       if (!response.ok) {
-        setError(`Health check failed (${response.status})`);
+        setError(`${t('healthCheck.failed', 'Health check failed')} (${response.status})`);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message = err instanceof Error ? err.message : t('healthCheck.unknownError', 'Unknown error');
       setStatus('error');
       setError(message);
     } finally {
@@ -38,10 +40,10 @@ export const HealthCheck: React.FC = () => {
     <div className="min-h-screen bg-inverse-surface text-inverse-on-surface flex items-center justify-center px-6">
       <div className="w-full max-w-xl rounded-3xl border border-outline/30 bg-inverse-surface/70 p-8 shadow-xl">
         <div className="mb-6">
-          <p className="text-sm uppercase tracking-[0.3em] text-on-surface-variant">Backend Monitor</p>
-          <h1 className="mt-3 text-3xl font-semibold">Health Ping</h1>
+          <p className="text-sm uppercase tracking-[0.3em] text-on-surface-variant">{t('healthCheck.monitor', 'Backend Monitor')}</p>
+          <h1 className="mt-3 text-3xl font-semibold">{t('healthCheck.title', 'Health Ping')}</h1>
           <p className="mt-2 text-sm text-on-surface-variant">
-            Ping the backend and report database + cache status.
+            {t('healthCheck.description', 'Ping the backend and report database + cache status.')}
           </p>
         </div>
 
@@ -51,20 +53,20 @@ export const HealthCheck: React.FC = () => {
             disabled={loading}
             className="w-full rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {loading ? 'Checking...' : 'Ping /health'}
+            {loading ? t('healthCheck.checking', 'Checking...') : t('healthCheck.pingHealth', 'Ping /health')}
           </button>
           <button
             onClick={() => pingHealth('/health/requests')}
             disabled={loading}
             className="w-full rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-6 py-3 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {loading ? 'Checking...' : 'Ping /health/requests'}
+            {loading ? t('healthCheck.checking', 'Checking...') : t('healthCheck.pingRequests', 'Ping /health/requests')}
           </button>
         </div>
 
         <div className="mt-6 rounded-2xl border border-outline/30 bg-inverse-surface/60 p-4 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-on-surface-variant">Status</span>
+            <span className="text-on-surface-variant">{t('healthCheck.status', 'Status')}</span>
             <span
               className={`rounded-full px-3 py-1 text-xs font-semibold ${
                 status === 'up'
@@ -84,12 +86,12 @@ export const HealthCheck: React.FC = () => {
 
           <div className="mt-4 max-h-56 overflow-auto rounded-lg bg-inverse-surface p-3 text-xs text-inverse-on-surface">
             <pre className="whitespace-pre-wrap break-words">
-              {payload ? JSON.stringify(payload, null, 2) : 'No data yet.'}
+              {payload ? JSON.stringify(payload, null, 2) : t('healthCheck.noData', 'No data yet.')}
             </pre>
           </div>
 
           <p className="mt-3 text-xs text-on-surface-variant">
-            Target: {target}
+            {t('healthCheck.target', 'Target: ')} {target}
           </p>
         </div>
       </div>

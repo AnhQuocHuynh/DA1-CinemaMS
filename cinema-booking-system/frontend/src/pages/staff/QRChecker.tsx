@@ -4,8 +4,10 @@ import { BrowserQRCodeReader, IScannerControls } from '@zxing/browser';
 import { Flashlight, Keyboard, X } from 'lucide-react';
 import { StaffScanResult } from '../../types/staff';
 import { bookingService } from '../../services/bookingService';
+import { useTranslation } from 'react-i18next';
 
 export const QRChecker: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const readerRef = useRef<BrowserQRCodeReader | null>(null);
@@ -70,7 +72,7 @@ export const QRChecker: React.FC = () => {
               console.error('Failed to check in:', error);
               setScanResult({ status: 'invalid', seatLabel: seatLabel, ticketType: 'QR' });
               const e = error as { response?: { data?: { message?: string } } };
-              setErrorMessage(e.response?.data?.message || 'Lỗi khi check-in');
+              setErrorMessage(e.response?.data?.message || t('staffQRChecker.errorCheckIn', 'Lỗi khi check-in'));
             })
             .finally(() => {
               setIsScanning(false);
@@ -80,7 +82,7 @@ export const QRChecker: React.FC = () => {
       );
     } catch (error) {
       console.error('Failed to start QR scanner:', error);
-      setErrorMessage('Unable to access the camera. Please check permissions and try again.');
+      setErrorMessage(t('staffQRChecker.errorCamera', 'Unable to access the camera. Please check permissions and try again.'));
       setIsScanning(false);
     }
   };
@@ -132,8 +134,8 @@ export const QRChecker: React.FC = () => {
       <div className="relative z-10 flex flex-col min-h-screen">
         <header className="p-6 pt-12 flex justify-between items-start">
           <div>
-            <h1 className="text-white text-2xl font-bold tracking-tight">Scan Tickets</h1>
-            <p className="text-inverse-on-surface text-sm font-medium mt-1 uppercase tracking-widest">Cinema 04 • Evening Show</p>
+            <h1 className="text-white text-2xl font-bold tracking-tight">{t('staffQRChecker.title', 'Scan Tickets')}</h1>
+            <p className="text-inverse-on-surface text-sm font-medium mt-1 uppercase tracking-widest">{t('staffQRChecker.subtitle', 'Cinema 04 • Evening Show')}</p>
           </div>
           <button
             onClick={() => {
@@ -163,7 +165,7 @@ export const QRChecker: React.FC = () => {
             </div>
             <div className="absolute top-1/2 w-full h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent shadow-[0_0_15px_rgba(37,99,235,0.8)]"></div>
             <div className="absolute -bottom-12 left-0 right-0 text-center">
-              <p className="text-white/80 text-sm font-medium tracking-wide">Align QR code within the frame</p>
+              <p className="text-white/80 text-sm font-medium tracking-wide">{t('staffQRChecker.alignQR', 'Align QR code within the frame')}</p>
             </div>
           </div>
           {errorMessage && (
@@ -178,12 +180,12 @@ export const QRChecker: React.FC = () => {
             disabled={isScanning}
           >
             <Flashlight className="w-6 h-6" />
-            <span className="text-[10px] font-bold uppercase tracking-widest">{isScanning ? 'Scanning' : 'Flash Off'}</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest">{isScanning ? t('staffQRChecker.scanning', 'Scanning') : t('staffQRChecker.flashOff', 'Flash Off')}</span>
           </button>
           <button
             className="bg-surface-container-lowest/10 backdrop-blur-lg rounded-xl py-4 flex flex-col items-center gap-2 text-white active:bg-surface-container-lowest/20 transition-all"
             onClick={() => {
-              const code = window.prompt('Nhập mã vé thủ công (VD: TK-12345678):');
+              const code = window.prompt(t('staffQRChecker.promptManualEntry', 'Nhập mã vé thủ công (VD: TK-12345678):'));
               if (code) {
                 setIsScanning(true);
                 stopScanner();
@@ -194,7 +196,7 @@ export const QRChecker: React.FC = () => {
                   .catch((error) => {
                     setScanResult({ status: 'invalid', seatLabel: code, ticketType: 'MANUAL' });
                     const e = error as { response?: { data?: { message?: string } } };
-                    setErrorMessage(e.response?.data?.message || 'Lỗi khi check-in');
+                    setErrorMessage(e.response?.data?.message || t('staffQRChecker.errorCheckIn', 'Lỗi khi check-in'));
                   })
                   .finally(() => {
                     setIsScanning(false);
@@ -203,7 +205,7 @@ export const QRChecker: React.FC = () => {
             }}
           >
             <Keyboard className="w-6 h-6" />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Manual Entry</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest">{t('staffQRChecker.manualEntry', 'Manual Entry')}</span>
           </button>
         </div>
 
@@ -223,14 +225,14 @@ export const QRChecker: React.FC = () => {
               </div>
               <div className="flex-grow">
                 <h3 className="text-on-surface font-bold text-lg leading-tight">
-                  {scanResult.status === 'valid' ? 'Ticket Valid' : 'Ticket Invalid'}
+                  {scanResult.status === 'valid' ? t('staffQRChecker.ticketValid', 'Ticket Valid') : t('staffQRChecker.ticketInvalid', 'Ticket Invalid')}
                 </h3>
                 <p className="text-on-surface-variant text-sm">
                   {scanResult.seatLabel} • {scanResult.ticketType}
                 </p>
               </div>
               <button className="text-primary font-bold text-xs uppercase tracking-tighter" onClick={clearResult}>
-                Undo
+                {t('staffQRChecker.undo', 'Undo')}
               </button>
             </div>
           </div>
