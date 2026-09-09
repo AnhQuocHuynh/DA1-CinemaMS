@@ -33,6 +33,7 @@ import { useAutoShowtime } from '../../hooks/useAutoShowtime';
 import { COLOUR_CLASSES, toHHMM, toMinutes } from '../../utils/scheduleUtils';
 import { ScheduleConstraints, ScheduledMovie, ShowtimeBlock } from '../../types/schedule';
 import { ShowtimeResponse } from '../../types/showtime';
+import { useTranslation } from 'react-i18next';
 
 // ── Default constraints ───────────────────────────────────────────────────────
 const DEFAULT_CONSTRAINTS: ScheduleConstraints = {
@@ -212,6 +213,7 @@ interface AutoShowtimeCreatorProps {
 }
 
 export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClose }) => {
+  const { t } = useTranslation();
   // ── State ─────────────────────────────────────────────────────────────────
   const [selectedDate, setSelectedDate]     = useState(today());
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
@@ -356,8 +358,8 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
               <Wand2 size={18} className="text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-on-surface tracking-tight">Auto Showtime Creator</h2>
-              <p className="text-xs text-on-surface-variant">Greedy schedule packing · drag &amp; drop to refine · powered by dnd-kit</p>
+              <h2 className="text-lg font-black text-on-surface tracking-tight">{t('autoShowtime.title', 'Auto Showtime Creator')}</h2>
+              <p className="text-xs text-on-surface-variant">{t('autoShowtime.subtitle', 'Greedy schedule packing · drag & drop to refine · powered by dnd-kit')}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors">
@@ -372,31 +374,31 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
 
             {/* Context */}
             <section className="p-6 border-b border-outline-variant/30">
-              <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant mb-4">Context</h3>
+              <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant mb-4">{t('autoShowtime.context', 'Context')}</h3>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Date</label>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">{t('autoShowtime.date', 'Date')}</label>
                   <input type="date" value={selectedDate} min={today()}
                     onChange={(e) => setSelectedDate(e.target.value)}
                     className="w-full border border-outline-variant rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Room</label>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">{t('autoShowtime.room', 'Room')}</label>
                   {isLoadingRooms ? (
-                    <div className="flex items-center gap-2 text-on-surface-variant text-sm"><Loader2 size={14} className="animate-spin" /> Loading...</div>
+                    <div className="flex items-center gap-2 text-on-surface-variant text-sm"><Loader2 size={14} className="animate-spin" /> {t('autoShowtime.loading', 'Loading...')}</div>
                   ) : (
                     <select value={selectedRoomId ?? ''}
                       onChange={(e) => setSelectedRoomId(e.target.value ? Number(e.target.value) : null)}
                       className="w-full border border-outline-variant rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
-                      <option value="">— Select a room —</option>
-                      {theaters.map((t) => t.rooms.map((r) => (
-                        <option key={r.id} value={r.id}>{t.name} › {r.name}</option>
+                      <option value="">{t('autoShowtime.selectRoom', '— Select a room —')}</option>
+                      {theaters.map((th) => th.rooms.map((r) => (
+                        <option key={r.id} value={r.id}>{th.name} › {r.name}</option>
                       )))}
                     </select>
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">Base Ticket Price (VND)</label>
+                  <label className="block text-xs font-semibold text-on-surface-variant mb-1">{t('autoShowtime.basePrice', 'Base Ticket Price (VND)')}</label>
                   <input type="number" value={basePrice} min={0} step={5000}
                     onChange={(e) => setBasePrice(Number(e.target.value))}
                     className="w-full border border-outline-variant rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
@@ -406,13 +408,13 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
 
             {/* Operating window */}
             <section className="p-6 border-b border-outline-variant/30">
-              <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant mb-4">Operating Window</h3>
+              <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant mb-4">{t('autoShowtime.operatingWindow', 'Operating Window')}</h3>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Open', key: 'openTime' as const, type: 'time' },
-                  { label: 'Close', key: 'closeTime' as const, type: 'time' },
-                  { label: 'Ads (min)', key: 'adsTimeMinutes' as const, type: 'number' },
-                  { label: 'Cleaning (min)', key: 'cleaningTimeMinutes' as const, type: 'number' },
+                  { label: t('autoShowtime.open', 'Open'), key: 'openTime' as const, type: 'time' },
+                  { label: t('autoShowtime.close', 'Close'), key: 'closeTime' as const, type: 'time' },
+                  { label: t('autoShowtime.adsMin', 'Ads (min)'), key: 'adsTimeMinutes' as const, type: 'number' },
+                  { label: t('autoShowtime.cleaningMin', 'Cleaning (min)'), key: 'cleaningTimeMinutes' as const, type: 'number' },
                 ].map(({ label, key, type }) => (
                   <div key={key}>
                     <label className="block text-xs font-semibold text-on-surface-variant mb-1">{label}</label>
@@ -427,17 +429,17 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
             {/* Movie pool */}
             <section className="p-6 flex-1 overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Movie Pool</h3>
+                <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">{t('autoShowtime.moviePool', 'Movie Pool')}</h3>
                 {selectedMovies.length > 0 && (
-                  <span className="text-xs bg-primary-container text-primary font-bold px-2 py-0.5 rounded-full">{selectedMovies.length} selected</span>
+                  <span className="text-xs bg-primary-container text-primary font-bold px-2 py-0.5 rounded-full">{t('autoShowtime.selected', '{{count}} selected', { count: selectedMovies.length })}</span>
                 )}
               </div>
               {isLoadingMovies ? (
-                <div className="flex items-center gap-2 text-on-surface-variant text-sm"><Loader2 size={14} className="animate-spin" /> Loading movies...</div>
+                <div className="flex items-center gap-2 text-on-surface-variant text-sm"><Loader2 size={14} className="animate-spin" /> {t('autoShowtime.loadingMovies', 'Loading movies...')}</div>
               ) : availableMovies.length === 0 ? (
                 <div className="text-center py-8 text-on-surface-variant">
                   <Film size={32} className="mx-auto mb-2 opacity-40" />
-                  <p className="text-sm">No active movies found</p>
+                  <p className="text-sm">{t('autoShowtime.noActiveMovies', 'No active movies found')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -458,11 +460,11 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
               <button onClick={() => autoFill(selectedMovies, constraints, existingBlocks)}
                 disabled={!selectedRoomId || selectedMovies.length === 0}
                 className="w-full flex items-center justify-center gap-2 bg-primary hover:opacity-90 text-white font-semibold rounded-xl py-3 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                <Wand2 size={16} /> Auto-Fill Schedule
+                <Wand2 size={16} /> {t('autoShowtime.autoFill', 'Auto-Fill Schedule')}
               </button>
               <button onClick={clearBlocks} disabled={blocks.length === 0}
                 className="w-full flex items-center justify-center gap-2 border border-outline-variant hover:bg-surface-container-low text-on-surface-variant font-semibold rounded-xl py-2.5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm">
-                <ZapOff size={14} /> Clear Generated Blocks
+                <ZapOff size={14} /> {t('autoShowtime.clearBlocks', 'Clear Generated Blocks')}
               </button>
             </footer>
           </aside>
@@ -473,13 +475,13 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-on-surface-variant flex items-center gap-2">
                   <Clock size={14} />
-                  Timeline — {selectedDate}
+                  {t('autoShowtime.timeline', 'Timeline')} — {selectedDate}
                   {isLoadingExisting && <Loader2 size={12} className="animate-spin text-on-surface-variant" />}
                 </h3>
                 <div className="flex items-center gap-3 text-xs text-on-surface-variant">
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-slate-400 inline-block" /> Existing</span>
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-primary inline-block" /> Generated</span>
-                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-error inline-block" /> Conflict</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-slate-400 inline-block" /> {t('autoShowtime.existing', 'Existing')}</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-primary inline-block" /> {t('autoShowtime.generated', 'Generated')}</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-error inline-block" /> {t('autoShowtime.conflict', 'Conflict')}</span>
                 </div>
               </div>
 
@@ -518,7 +520,7 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
                     <div className="absolute inset-0 flex items-center justify-center text-on-surface-variant">
                       <div className="text-center">
                         <Play size={28} className="mx-auto mb-1 opacity-30" />
-                        <p className="text-xs">Select movies and click Auto-Fill to generate a schedule</p>
+                        <p className="text-xs">{t('autoShowtime.emptyTimeline', 'Select movies and click Auto-Fill to generate a schedule')}</p>
                       </div>
                     </div>
                   )}
@@ -545,13 +547,20 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
               {/* Generated blocks table */}
               {blocks.length > 0 && (
                 <div className="mt-6">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">Generated Screenings</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">{t('autoShowtime.generatedScreenings', 'Generated Screenings')}</h3>
                   <div className="rounded-xl overflow-hidden border border-outline-variant">
                     <table className="w-full text-sm">
                       <thead className="bg-surface-container-low">
                         <tr>
-                          {['Movie', 'Start', 'End', 'Duration', 'Status', ''].map((h) => (
-                            <th key={h} className="px-4 py-3 text-left text-[10px] uppercase font-bold text-on-surface-variant tracking-widest">{h}</th>
+                          {[
+                            t('autoShowtime.colMovie', 'Movie'), 
+                            t('autoShowtime.colStart', 'Start'), 
+                            t('autoShowtime.colEnd', 'End'), 
+                            t('autoShowtime.colDuration', 'Duration'), 
+                            t('autoShowtime.colStatus', 'Status'), 
+                            ''
+                          ].map((h, i) => (
+                            <th key={i} className="px-4 py-3 text-left text-[10px] uppercase font-bold text-on-surface-variant tracking-widest">{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -569,9 +578,9 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
                             <td className="px-4 py-3 text-on-surface-variant">{block.movieDurationMinutes} min</td>
                             <td className="px-4 py-3">
                               {block.isConflict ? (
-                                <span className="flex items-center gap-1 text-red-600 text-xs font-bold"><AlertTriangle size={11} /> Conflict</span>
+                                <span className="flex items-center gap-1 text-red-600 text-xs font-bold"><AlertTriangle size={11} /> {t('autoShowtime.statusConflict', 'Conflict')}</span>
                               ) : (
-                                <span className="flex items-center gap-1 text-emerald-600 text-xs font-bold"><Check size={11} /> OK</span>
+                                <span className="flex items-center gap-1 text-emerald-600 text-xs font-bold"><Check size={11} /> {t('autoShowtime.statusOk', 'OK')}</span>
                               )}
                             </td>
                             <td className="px-4 py-3 text-right">
@@ -593,21 +602,21 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
             <div className="border-t border-outline-variant px-6 py-4 flex items-center justify-between gap-6 flex-shrink-0 bg-surface-container-low">
               <div className="flex items-center gap-8">
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Screenings</p>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">{t('autoShowtime.screenings', 'Screenings')}</p>
                   <p className="text-2xl font-black text-on-surface">{blocks.length}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Utilization</p>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">{t('autoShowtime.utilization', 'Utilization')}</p>
                   <p className="text-2xl font-black text-on-surface">{utilizationPct}%</p>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Validation</p>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">{t('autoShowtime.validation', 'Validation')}</p>
                   {hasConflicts ? (
                     <p className="text-sm font-bold text-red-500 flex items-center gap-1">
-                      <AlertTriangle size={13} /> {blocks.filter((b) => b.isConflict).length} conflict(s)
+                      <AlertTriangle size={13} /> {t('autoShowtime.conflictsCount', '{{count}} conflict(s)', { count: blocks.filter((b) => b.isConflict).length })}
                     </p>
                   ) : blocks.length > 0 ? (
-                    <p className="text-sm font-bold text-emerald-600 flex items-center gap-1"><Check size={13} /> Valid</p>
+                    <p className="text-sm font-bold text-emerald-600 flex items-center gap-1"><Check size={13} /> {t('autoShowtime.valid', 'Valid')}</p>
                   ) : (
                     <p className="text-sm text-on-surface-variant">—</p>
                   )}
@@ -621,7 +630,7 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
                 )}
                 {publishSuccess && (
                   <span className="text-sm text-emerald-600 font-semibold flex items-center gap-1">
-                    <Check size={14} /> Published successfully!
+                    <Check size={14} /> {t('autoShowtime.publishedSuccess', 'Published successfully!')}
                   </span>
                 )}
                 <button
@@ -629,9 +638,9 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
                   disabled={blocks.length === 0 || !selectedRoomId || hasConflicts || isPublishing}
                   className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-md">
                   {isPublishing ? (
-                    <><Loader2 size={16} className="animate-spin" /> Publishing…</>
+                    <><Loader2 size={16} className="animate-spin" /> {t('autoShowtime.publishing', 'Publishing…')}</>
                   ) : (
-                    <><Check size={16} /> Save &amp; Publish</>
+                    <><Check size={16} /> {t('autoShowtime.saveAndPublish', 'Save & Publish')}</>
                   )}
                 </button>
               </div>

@@ -1,5 +1,5 @@
-import React from 'react';
 import { RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // ── Skeleton pulse row ────────────────────────────────────────────────────────
 const SkeletonRow = ({ cols = 4 }: { cols?: number }) => (
@@ -57,16 +57,18 @@ interface AdminEmptyStateProps {
 
 export const AdminEmptyState: React.FC<AdminEmptyStateProps> = ({
   onRetry,
-  message = 'No data available.',
+  message,
   isRetrying = false,
-}) => (
+}) => {
+  const { t } = useTranslation();
+  return (
   <div className="flex flex-col items-center justify-center py-24 gap-5 text-center">
     <div className="w-16 h-16 rounded-full bg-surface-container-low flex items-center justify-center">
       <RefreshCw className={`w-7 h-7 text-on-surface-variant ${isRetrying ? 'animate-spin' : ''}`} />
     </div>
     <div>
-      <p className="text-sm font-semibold text-on-surface">{message}</p>
-      <p className="text-xs text-on-surface-variant mt-1">The service may be temporarily unavailable.</p>
+      <p className="text-sm font-semibold text-on-surface">{message || t('adminDataState.defaultEmptyMessage', 'No data available.')}</p>
+      <p className="text-xs text-on-surface-variant mt-1">{t('adminDataState.temporarilyUnavailable', 'The service may be temporarily unavailable.')}</p>
     </div>
     <button
       id="admin-retry-btn"
@@ -76,10 +78,11 @@ export const AdminEmptyState: React.FC<AdminEmptyStateProps> = ({
                  hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-primary/20"
     >
       <RefreshCw className={`w-4 h-4 ${isRetrying ? 'animate-spin' : ''}`} />
-      {isRetrying ? 'Retrying…' : 'Retry'}
+      {isRetrying ? t('adminDataState.retrying', 'Retrying…') : t('adminDataState.retryBtn', 'Retry')}
     </button>
   </div>
 );
+}
 
 // ── Convenience wrapper: handles all three states (loading / empty / content)
 interface AdminDataStateProps {
