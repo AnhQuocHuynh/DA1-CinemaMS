@@ -41,6 +41,7 @@ public record PaymentCompleted
     public decimal Amount { get; init; }
     public string TransactionId { get; init; } = string.Empty;
     public string PaymentMethod { get; init; } = string.Empty;
+    public string Currency { get; init; } = "VND";
     public DateTime PaidAt { get; init; }
 }
 
@@ -52,6 +53,7 @@ public record PaymentFailed
     public long OrderId { get; init; }
     public long UserId { get; init; }
     public string Reason { get; init; } = string.Empty;
+    public string Currency { get; init; } = "VND";
 }
 
 /// <summary>Published by the saga when a refund completes. Consumed by Booking Service.</summary>
@@ -63,6 +65,7 @@ public record PaymentRefunded
     public long UserId { get; init; }
     public decimal RefundAmount { get; init; }
     public string Reason { get; init; } = string.Empty;
+    public string Currency { get; init; } = "VND";
 }
 
 /// <summary>Published when a refund is requested, triggering the saga refund sub-flow.</summary>
