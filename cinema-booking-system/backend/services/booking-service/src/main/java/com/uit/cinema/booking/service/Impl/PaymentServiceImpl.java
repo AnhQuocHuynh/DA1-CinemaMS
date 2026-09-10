@@ -2,6 +2,7 @@ package com.uit.cinema.booking.service.Impl;
 
 import com.uit.cinema.booking.entity.Order;
 import com.uit.cinema.booking.entity.Ticket;
+import com.uit.cinema.booking.messaging.PaymentEventOutcome;
 import com.uit.cinema.booking.outbox.BookingOutboxEventWriter;
 import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.TicketRepository;
@@ -123,6 +124,130 @@ public class PaymentServiceImpl implements PaymentService {
         Order refundedOrder = orderRepository.save(order);
         bookingOutboxEventWriter.orderRefunded(refundedOrder, tickets.size());
         return refundedOrder;
+    }
+
+    @Override
+    @Transactional
+    public PaymentEventOutcome applyCompletedPayment(
+        Long orderId,
+        Long userId,
+        String paymentMethod,
+        String transactionId,
+        BigDecimal amount
+    ) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            return PaymentEventOutcome.ORDER_MISSING;
+        }
+        assertUserMatches(order, userId);
+        warnIfAmountDiffers(order, amount, "payment.completed");
+        if (order.getStatus() == Order.OrderStatus.PAID) {
+            return PaymentEventOutcome.ALREADY_APPLIED;
+        }
+        if (order.getStatus() != Order.OrderStatus.PENDING) {
+            log.warn("Ignoring payment.completed for order {} in status {}", orderId, order.getStatus());
+            return PaymentEventOutcome.IGNORED_STALE;
+        }
+        processPayment(orderId, paymentMethod, transactionId);
+        return PaymentEventOutcome.APPLIED;
+    }
+
+    @Override
+    @Transactional
+    public PaymentEventOutcome applyFailedPayment(Long orderId, Long userId, String reason) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            return PaymentEventOutcome.ORDER_MISSING;
+        }
+        assertUserMatches(order, userId);
+        if (order.getStatus() == Order.OrderStatus.CANCELLED) {
+            return PaymentEventOutcome.ALREADY_APPLIED;
+        }
+        if (order.getStatus() != Order.OrderStatus.PENDING) {
+            log.warn("Ignoring payment.failed for order {} in status {}", orderId, order.getStatus());
+            return PaymentEventOutcome.IGNORED_STALE;
+        }
+
+        List<Long> seatIds = parseSeatIds(order.getSeatIdsSnapshot());
+        seatReservationService.releaseHeldSeats(
+            new SeatBookingRequest(order.getUserId(), order.getShowtimeId(), seatIds)
+        );
+        order.setStatus(Order.OrderStatus.CANCELLED);
+        orderRepository.save(order);
+        log.info("Order {} cancelled after payment.failed. Reason: {}", orderId, reason);
+        return PaymentEventOutcome.APPLIED;
+    }
+
+    @Override
+    @Transactional
+    public PaymentEventOutcome applyRefundedPayment(
+        Long orderId,
+        Long userId,
+        String reason,
+        BigDecimal refundAmount
+    ) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            return PaymentEventOutcome.ORDER_MISSING;
+        }
+        assertUserMatches(order, userId);
+        warnIfAmountDiffers(order, refundAmount, "payment.refunded");
+        if (order.getStatus() == Order.OrderStatus.REFUNDED) {
+            return PaymentEventOutcome.ALREADY_APPLIED;
+        }
+        if (order.getStatus() != Order.OrderStatus.PAID) {
+            log.warn("Ignoring payment.refunded for order {} in status {}", orderId, order.getStatus());
+            return PaymentEventOutcome.IGNORED_STALE;
+        }
+
+        List<Ticket> tickets = ticketRepository.findByOrderIdOrderByCreatedAtDesc(order.getId());
+        for (Ticket ticket : tickets) {
+            if (ticket.getStatus() == Ticket.TicketStatus.CHECKED_IN) {
+                throw new CustomException(
+                    "Checked-in ticket cannot be refunded",
+                    HttpStatus.BAD_REQUEST,
+                    "TICKET_ALREADY_CHECKED_IN"
+                );
+            }
+        }
+        for (Ticket ticket : tickets) {
+            ticket.setStatus(Ticket.TicketStatus.REFUNDED);
+            ticketRepository.save(ticket);
+        }
+        List<Long> refundedSeatIds = tickets.stream().map(Ticket::getShowtimeSeatId).toList();
+        if (!refundedSeatIds.isEmpty()) {
+            seatReservationService.releaseBookedSeats(new SeatReleaseRequest(order.getShowtimeId(), refundedSeatIds));
+        }
+        order.setStatus(Order.OrderStatus.REFUNDED);
+        Order refundedOrder = orderRepository.save(order);
+        bookingOutboxEventWriter.orderRefunded(refundedOrder, tickets.size());
+        log.info("Order {} refunded from payment.refunded. Reason: {}", orderId, reason);
+        return PaymentEventOutcome.APPLIED;
+    }
+
+    private void assertUserMatches(Order order, Long userId) {
+        if (userId != null && !userId.equals(order.getUserId())) {
+            throw new CustomException(
+                "Payment userId does not match order owner",
+                HttpStatus.CONFLICT,
+                "PAYMENT_USER_MISMATCH"
+            );
+        }
+    }
+
+    private void warnIfAmountDiffers(Order order, BigDecimal eventAmount, String eventType) {
+        if (eventAmount == null || order.getFinalAmount() == null) {
+            return;
+        }
+        if (eventAmount.compareTo(order.getFinalAmount()) != 0) {
+            log.warn(
+                "{} amount {} does not match order {} finalAmount {}",
+                eventType,
+                eventAmount,
+                order.getId(),
+                order.getFinalAmount()
+            );
+        }
     }
 
     private List<Long> parseSeatIds(String snapshot) {

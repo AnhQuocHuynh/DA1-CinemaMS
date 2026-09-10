@@ -8,6 +8,7 @@ using PaymentService.Domain.Interfaces;
 using PaymentService.Infrastructure.Data;
 using PaymentService.Infrastructure.Gateways;
 using PaymentService.Infrastructure.Messaging.Consumers;
+using PaymentService.Infrastructure.Messaging;
 using PaymentService.Infrastructure.Repositories;
 using PaymentService.Infrastructure.Sagas;
 
@@ -96,70 +97,7 @@ public static class DependencyInjection
                     h.Password(pass);
                 });
 
-                // Use Raw JSON Serializer to match custom Envelope schema exactly
-                cfg.UseRawJsonSerializer();
-
-                // Retry policy: 3 attempts with exponential back-off before dead-letter
-                cfg.UseMessageRetry(r => r.Exponential(3,
-                    TimeSpan.FromSeconds(1),
-                    TimeSpan.FromSeconds(15),
-                    TimeSpan.FromSeconds(2)));
-
-                // PaymentCompleted
-                cfg.Publish<EventEnvelope<PaymentCompleted>>(p =>
-                {
-                    p.ExchangeType = "topic";
-                    p.BindQueue("payment.events", "booking.payment.completed", x =>
-                    {
-                        x.ExchangeType = "topic";
-                        x.RoutingKey = "payment.completed";
-                    });
-                });
-
-                // PaymentFailed
-                cfg.Publish<EventEnvelope<PaymentFailed>>(p =>
-                {
-                    p.ExchangeType = "topic";
-                    p.BindQueue("payment.events", "booking.payment.failed", x =>
-                    {
-                        x.ExchangeType = "topic";
-                        x.RoutingKey = "payment.failed";
-                    });
-                });
-
-                // PaymentRefunded
-                cfg.Publish<EventEnvelope<PaymentRefunded>>(p =>
-                {
-                    p.ExchangeType = "topic";
-                    p.BindQueue("payment.events", "booking.refund.completed", x =>
-                    {
-                        x.ExchangeType = "topic";
-                        x.RoutingKey = "payment.refunded";
-                    });
-                });
-
-                // ── Receive endpoints ──────────────────────────────────────────
-                // Saga queue: receives PaymentInitiated, GatewayCallbackReceived, etc.
-                cfg.ReceiveEndpoint("payment.saga", e =>
-                {
-                    e.ConfigureSaga<PaymentSagaState>(ctx);
-                    // Inbox: EF Core deduplication for this endpoint
-                    e.UseEntityFrameworkOutbox<PaymentDbContext>(ctx);
-                });
-
-                // OrderPaid consumer: receives from booking.events exchange
-                cfg.ReceiveEndpoint("payment.order.paid", e =>
-                {
-                    e.ConfigureConsumer<OrderPaidConsumer>(ctx);
-                    e.Bind("booking.events", b =>
-                    {
-                        b.ExchangeType = "topic";
-                        b.RoutingKey = "order.paid";
-                    });
-                    e.UseEntityFrameworkOutbox<PaymentDbContext>(ctx);
-                });
-
-                cfg.ConfigureEndpoints(ctx);
+                cfg.ConfigureCustomTopology(ctx);
             });
         });
 

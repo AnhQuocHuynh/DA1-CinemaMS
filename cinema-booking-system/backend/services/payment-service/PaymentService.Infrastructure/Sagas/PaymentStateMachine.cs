@@ -74,6 +74,7 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
                         OrderId = ctx.Saga.OrderId,
                         UserId = ctx.Saga.UserId,
                         Amount = ctx.Saga.Amount,
+                        Currency = ctx.Saga.Currency,
                         TransactionId = ctx.Saga.TransactionId ?? string.Empty,
                         PaymentMethod = ctx.Saga.PaymentMethod,
                         PaidAt = ctx.Saga.CompletedAt ?? DateTime.UtcNow
@@ -93,7 +94,8 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
                         PaymentId = ctx.Saga.PaymentId,
                         OrderId = ctx.Saga.OrderId,
                         UserId = ctx.Saga.UserId,
-                        Reason = ctx.Saga.FailureReason ?? "Unknown failure"
+                        Reason = ctx.Saga.FailureReason ?? "Unknown failure",
+                        Currency = ctx.Saga.Currency
                     }
                 }))
                 .TransitionTo(Failed),
@@ -111,6 +113,7 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
                         OrderId = ctx.Saga.OrderId,
                         UserId = ctx.Saga.UserId,
                         Amount = ctx.Saga.Amount,
+                        Currency = ctx.Saga.Currency,
                         TransactionId = ctx.Saga.TransactionId ?? string.Empty,
                         PaymentMethod = ctx.Saga.PaymentMethod,
                         PaidAt = ctx.Saga.CompletedAt ?? DateTime.UtcNow
@@ -133,7 +136,8 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
                         OrderId = ctx.Saga.OrderId,
                         UserId = ctx.Saga.UserId,
                         RefundAmount = ctx.Message.Amount,
-                        Reason = ctx.Message.Reason
+                        Reason = ctx.Message.Reason,
+                        Currency = ctx.Saga.Currency
                     }
                 }))
                 .TransitionTo(Refunded));

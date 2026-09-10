@@ -1,6 +1,6 @@
 # Agent Session Bootstrap
 
-Updated: 2026-08-18
+Updated: 2026-08-23
 
 Purpose: give a new agent enough current context to continue safely without
 scanning the repository or rereading the full architecture document.
@@ -72,13 +72,13 @@ contract unless the team explicitly changes it.
 |---|---|---|
 | Catalog | Spring | Migration-prepared |
 | Showtime | Spring | Migration-prepared |
-| Booking | Spring | Prepared; Payment outcome integration pending |
+| Booking | Spring | Payment outcome consumers implemented; live Payment publish topology pending |
 | Analytics | Spring | Migration-prepared |
 | Recommendation | Spring | Migration-prepared |
 | Facility | ASP.NET | Spring compatibility slice exists; keep it minimal |
 | Identity/Keycloak | ASP.NET | Shared contract approved; merge pending |
 | API Gateway | ASP.NET | Shared contract approved; merge pending |
-| Payment | ASP.NET | Teammate Saga branch exists; envelope/Booking merge pending |
+| Payment | ASP.NET | Saga exists; must publish camelCase envelopes to `payment.events` |
 | Notification | ASP.NET | Outside the Spring workstream |
 | Frontend auth/routing | Shared with teammate | Integrated Gateway flow pending |
 
@@ -148,10 +148,13 @@ cross-framework contract.
 Current Spring event definitions are under
 `cinema-booking-system/backend/shared/events/`.
 
-Payment must still freeze versioned payloads for `payment.completed`,
-`payment.failed`, and `payment.refunded`. Booking consumers for those outcomes
-must not be guessed before the teammate-owned payload and state machine are
-agreed.
+Booking consumes version 1 `payment.completed`, `payment.failed`, and
+`payment.refunded` envelopes when `BOOKING_PAYMENT_EVENTS_ENABLED=true`.
+Contract: `cinema-booking-system/backend/shared/events/payment-events.md`.
+Teammate test notes:
+`cinema-booking-system/docs/booking_status.md`.
+Payment must publish to exchange `payment.events` with those routing keys;
+MassTransit type-name exchanges are not consumed.
 
 ### Data Migration
 
@@ -207,8 +210,8 @@ For detailed evidence and all cutover gates, read
   tests.
 - Integrate ASP.NET Facility while preserving the current OpenAPI projections
   and Showtime delete guards.
-- Freeze Payment event payloads and implement idempotent, ordering-safe Booking
-  Saga consumers and compensations.
+- Confirm Payment publishes camelCase envelopes to `payment.events` (not
+  MassTransit type exchanges) and run the Booking consumer test matrix.
 - Resolve frontend production dependency advisories and run the complete booking
   flow through Gateway.
 - Confirm canonical PostgreSQL versions and run the guarded migration twice
@@ -222,7 +225,8 @@ For detailed evidence and all cutover gates, read
 2. Integrate Keycloak and Gateway contracts.
 3. Run real-token security tests and only then enable Spring JWT.
 4. Integrate ASP.NET Facility and contract-test Showtime/Booking dependencies.
-5. Freeze Payment envelopes and add Booking Saga consumers/tests.
+5. Point Payment publish topology at `payment.events` and run the Booking
+   consumer matrix (complete / fail / refund / duplicate / poison).
 6. Build one conflict-resolved Compose stack and run all backend, event, auth,
    Payment, and frontend flows.
 7. Rehearse the canonical snapshot, archive evidence, then rehearse rollback.

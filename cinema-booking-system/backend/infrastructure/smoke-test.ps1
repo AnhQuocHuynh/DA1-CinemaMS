@@ -160,7 +160,13 @@ function Assert-RabbitTopology {
         "recommendation.catalog.v1",
         "recommendation.catalog.v1.dlq",
         "recommendation.booking.v1",
-        "recommendation.booking.v1.dlq"
+        "recommendation.booking.v1.dlq",
+        "booking.payment.completed.v1",
+        "booking.payment.completed.v1.dlq",
+        "booking.payment.failed.v1",
+        "booking.payment.failed.v1.dlq",
+        "booking.payment.refunded.v1",
+        "booking.payment.refunded.v1.dlq"
     )
     $missingQueues = @($expectedQueues | Where-Object { $_ -notin $queueNames })
     if ($missingQueues.Count -gt 0) {
