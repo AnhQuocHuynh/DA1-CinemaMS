@@ -1,3 +1,4 @@
+using CinemaBooking.Shared.Hosting.Extensions;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
@@ -18,6 +19,11 @@ using Polly;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http;
+using StackExchange.Redis;
+using System.Linq;
+using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Serilog
@@ -72,7 +78,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             OnTokenValidated = context =>
             {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("JwtDebug");
+                var allClaims = context.Principal?.Claims.Select(c => $"{c.Type}={c.Value[..Math.Min(c.Value.Length, 80)]}").ToList();
+                logger.LogWarning("[JWT DEBUG] All claims: {Claims}", string.Join(" | ", allClaims ?? new List<string>()));
+                
                 var realmAccess = context.Principal?.FindFirst("realm_access");
+                logger.LogWarning("[JWT DEBUG] realm_access claim found: {Found}, value: {Value}", 
+                    realmAccess != null, realmAccess?.Value?[..Math.Min(realmAccess?.Value?.Length ?? 0, 200)]);
+                
                 if (realmAccess != null)
                 {
                     var parsed = JsonDocument.Parse(realmAccess.Value);
@@ -82,10 +95,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                         foreach (var role in roles.EnumerateArray())
                         {
                             var roleStr = role.GetString()?.ToUpperInvariant();
+                            logger.LogWarning("[JWT DEBUG] Adding role claim: {Role}", roleStr);
                             if (!string.IsNullOrEmpty(roleStr))
                                 identity?.AddClaim(new Claim(ClaimTypes.Role, roleStr));
                         }
                     }
+                }
+                else
+                {
+                    logger.LogWarning("[JWT DEBUG] No realm_access claim found! Checking for individual role claims...");
+                    var roleClaims = context.Principal?.Claims.Where(c => c.Type.Contains("role", StringComparison.OrdinalIgnoreCase)).ToList();
+                    logger.LogWarning("[JWT DEBUG] Role-related claims: {RoleClaims}", string.Join(" | ", roleClaims?.Select(c => $"{c.Type}={c.Value}") ?? Array.Empty<string>()));
                 }
                 return Task.CompletedTask;
             }
@@ -102,8 +122,17 @@ builder.Services.AddAuthorization(options =>
 });
 
 // Redis
-builder.Services.AddStackExchangeRedisCache(options =>
-    options.Configuration = builder.Configuration["Redis:ConnectionString"]);
+var redisConnectionString = builder.Configuration["Redis:ConnectionString"];
+if (!string.IsNullOrEmpty(redisConnectionString))
+{
+    var multiplexer = ConnectionMultiplexer.Connect(redisConnectionString);
+    builder.Services.AddSingleton<IConnectionMultiplexer>(multiplexer);
+    
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.ConnectionMultiplexerFactory = () => Task.FromResult<IConnectionMultiplexer>(multiplexer);
+    });
+}
 
 // Rate Limiting
 builder.Services.AddRateLimiter(options =>
@@ -156,36 +185,7 @@ builder.Services.AddHealthChecks()
 builder.Services.AddCors();
 
 // OpenTelemetry Observability
-var otlpEndpoint = builder.Configuration["Observability:OtlpEndpoint"] ?? "http://localhost:4317";
-builder.Services.AddOpenTelemetry()
-    .ConfigureResource(r => r.AddService(builder.Environment.ApplicationName))
-    .WithTracing(t => t
-        .AddAspNetCoreInstrumentation(opts => 
-        {
-            opts.Filter = context => 
-            {
-                var path = context.Request.Path.Value;
-                return !string.IsNullOrEmpty(path) && !path.Contains("health");
-            };
-        })
-        .AddHttpClientInstrumentation(opts => 
-        {
-            opts.FilterHttpRequestMessage = req => 
-            {
-                var path = req.RequestUri?.AbsolutePath;
-                return path == null || !path.Contains("health");
-            };
-        })
-        .AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint)))
-    .WithMetrics(m => m
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint)));
-
-builder.Logging.AddOpenTelemetry(logging => {
-    logging.IncludeScopes = true;
-    logging.AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint));
-});
+builder.AddCinemaObservability();
 
 var app = builder.Build();
 

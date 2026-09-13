@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogOut, Search, Settings, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { LogOut, Search, User } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import genericPoster from '../resources/generic_movie_poster.png';
 
 interface SearchSuggestion {
@@ -31,6 +33,7 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
   onSearchSubmit,
   suggestions = [],
 }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -69,30 +72,31 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
   };
 
   const navItems = [
-    { label: 'Movies', to: '/' },
-    { label: 'Theaters', to: '/theaters' },
-    { label: 'Membership', to: '/membership' },
-    ...(user ? [{ label: 'My Tickets', to: '/my-tickets' }] : []),
+    { id: 'Movies', label: t('common.movies'), to: '/' },
+    { id: 'Theaters', label: t('common.theaters'), to: '/theaters' },
+    { id: 'Membership', label: t('common.membership'), to: '/membership' },
+    ...(user ? [{ id: 'My Tickets', label: t('common.myTickets'), to: '/my-tickets' }] : []),
   ];
 
   return (
-    <header className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md shadow-sm">
+    <header className="fixed top-0 w-full z-50 bg-surface-container-lowest/80 backdrop-blur-md shadow-sm">
       <div className="max-w-[1280px] mx-auto h-16 px-1 md:px-2 flex items-center justify-between gap-4">
         <div className="flex items-center gap-5">
           <span className="text-xl font-bold tracking-tight">CinemaArchitect</span>
-          <nav className="hidden md:flex items-center gap-4 text-sm font-medium">
+          <nav className="hidden md:flex items-center text-sm font-medium">
             {navItems.map((item) => (
-              <Link
-                key={item.label}
-                to={item.to}
-                className={
-                  item.label === activeLabel
-                    ? 'text-blue-700 border-b-2 border-blue-700 pb-1'
-                    : 'text-slate-600 hover:text-slate-900'
-                }
-              >
-                {item.label}
-              </Link>
+              <div key={item.id} className="w-[110px] flex justify-center">
+                <Link
+                  to={item.to}
+                  className={
+                    item.id === activeLabel
+                      ? 'text-primary border-b-2 border-blue-700 pb-1'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }
+                >
+                  {item.label}
+                </Link>
+              </div>
             ))}
           </nav>
         </div>
@@ -105,24 +109,24 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
                   e.preventDefault();
                   handleSubmit(currentSearch);
                 }}
-                className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2"
+                className="flex items-center gap-2 bg-surface-container border border-outline-variant rounded-lg px-3 py-2"
               >
-                <Search size={16} className="text-slate-500" />
+                <Search size={16} className="text-on-surface-variant" />
                 <input
                   value={currentSearch}
                   onFocus={() => setShowAutocomplete(true)}
                   onBlur={() => setTimeout(() => setShowAutocomplete(false), 150)}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder="Search movies..."
+                  placeholder={t('common.searchPlaceholder')}
                   className="bg-transparent outline-none text-sm w-52"
                 />
-                <button type="submit" className="text-xs font-semibold text-blue-700">
-                  Search
+                <button type="submit" className="text-xs font-semibold text-primary">
+                  {t('common.search')}
                 </button>
               </form>
 
               {visibleSuggestions.length > 0 && (
-                <div className="absolute top-full mt-2 w-full bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden">
+                <div className="absolute top-full mt-2 w-full bg-surface-container-lowest border border-outline-variant rounded-lg shadow-xl overflow-hidden">
                   {visibleSuggestions.map((suggestion) => (
                     <button
                       key={`${suggestion.type}-${suggestion.id}`}
@@ -130,9 +134,9 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
                         navigate(suggestion.url);
                         setShowAutocomplete(false);
                       }}
-                      className="w-full px-3 py-2 text-left hover:bg-slate-100 flex items-center gap-3"
+                      className="w-full px-3 py-2 text-left hover:bg-surface-container flex items-center gap-3"
                     >
-                      <div className="w-10 h-14 bg-slate-200 flex-shrink-0 rounded overflow-hidden">
+                      <div className="w-10 h-14 bg-surface-container-high flex-shrink-0 rounded overflow-hidden">
                         <img
                           src={suggestion.imageUrl || genericPoster}
                           alt={suggestion.title}
@@ -147,12 +151,11 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{suggestion.title}</p>
                         <div className="flex items-center gap-1.5 mt-1">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            suggestion.type === 'movie' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
-                          }`}>
-                            {suggestion.type === 'movie' ? 'Phim' : 'Sự kiện'}
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${suggestion.type === 'movie' ? 'bg-highlight text-highlight-foreground' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                            {suggestion.type === 'movie' ? t('common.movies') : t('common.events')}
                           </span>
-                          {suggestion.genre && <span className="text-xs text-slate-500 truncate">{suggestion.genre}</span>}
+                          {suggestion.genre && <span className="text-xs text-on-surface-variant truncate">{suggestion.genre}</span>}
                         </div>
                       </div>
                     </button>
@@ -162,34 +165,35 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
             </div>
           )}
 
+          <LanguageSwitcher />
+
           {user ? (
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsMenuOpen((open) => !open)}
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-all"
+                className="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all"
                 aria-haspopup="menu"
                 aria-expanded={isMenuOpen}
               >
                 <User className="w-5 h-5" />
               </button>
               {isMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-lg bg-white shadow-lg border border-slate-200 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-48 rounded-lg bg-surface-container-lowest shadow-lg border border-outline-variant overflow-hidden">
                   <Link
                     to="/user/settings"
                     onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-2 px-4 py-3 text-sm text-slate-700 hover:bg-slate-100"
+                    className="block px-4 py-2 text-sm text-on-surface hover:bg-surface-container-high transition-colors"
                   >
-                    <Settings className="w-4 h-4" />
-                    Settings
+                    {t('common.accountSettings')}
                   </Link>
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-slate-700 hover:bg-slate-100"
+                    className="w-full text-left px-4 py-2 text-sm text-error hover:bg-error-container hover:text-on-error-container transition-colors flex items-center gap-2"
                   >
                     <LogOut className="w-4 h-4" />
-                    Logout
+                    {t('common.signOut')}
                   </button>
                 </div>
               )}
@@ -198,15 +202,15 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
             <>
               <Link
                 to="/login"
-                className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md"
+                className="px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container rounded-md min-w-[100px] text-center inline-block"
               >
-                Sign In
+                {t('common.signIn')}
               </Link>
               <Link
                 to="/signup"
-                className="px-5 py-2 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-500"
+                className="flex-none px-5 py-2 rounded-md bg-primary text-on-primary text-sm font-semibold hover:opacity-90 min-w-[110px] text-center inline-block"
               >
-                Book Now
+                {t('common.bookNow')}
               </Link>
             </>
           )}

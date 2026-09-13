@@ -7,8 +7,10 @@ import { useAdminDashboard } from '../../hooks/useAdminDashboard';
 import { useAdminRooms } from '../../hooks/useAdminRooms';
 import genericPoster from '../../resources/generic_movie_poster.png';
 import { Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export const AdminDashboard: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { overview, revenueSeries, liveSales, popularMovies, isLoading } = useAdminDashboard();
   const { theaters } = useAdminRooms();
@@ -23,19 +25,19 @@ export const AdminDashboard: React.FC = () => {
   return (
     <AdminLayout activeItemId="dashboard">
       <AdminTopBar
-        title="Admin Console"
-        searchPlaceholder="Search operations, venues, or reports..."
+        title={t('adminDashboard.console', 'Admin Console')}
+        searchPlaceholder={t('adminDashboard.search', 'Search operations, venues, or reports...')}
         navLinks={[
-          { label: 'Analytics', to: '/admin/dashboard' },
-          { label: 'Reports', to: '/admin/permissions' },
-          { label: 'Logs', to: '/admin/showtimes' },
+          { label: t('adminDashboard.nav.analytics', 'Analytics'), to: '/admin/dashboard' },
+          { label: t('adminDashboard.nav.reports', 'Reports'), to: '/admin/permissions' },
+          { label: t('adminDashboard.nav.logs', 'Logs'), to: '/admin/showtimes' },
         ]}
       />
 
       <main className="p-6 md:p-10 bg-surface min-h-screen">
         <AdminPageHeader
-          eyebrow="Theater Overview"
-          title="Good Morning, Chief."
+          eyebrow={t('adminDashboard.eyebrow', 'Theater Overview')}
+          title={t('adminDashboard.title', 'Good Morning, Chief.')}
           subtitle="Monday, October 23, 2023"
         // actions={
         //   <>
@@ -53,7 +55,7 @@ export const AdminDashboard: React.FC = () => {
 
         {isLoading ? (
           <div className="text-center py-16">
-            <p className="text-on-surface-variant">Loading dashboard...</p>
+            <p className="text-on-surface-variant">{t('adminDashboard.loading', 'Loading dashboard...')}</p>
           </div>
         ) : (
           <>
@@ -61,7 +63,7 @@ export const AdminDashboard: React.FC = () => {
               <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl p-8 shadow-sm flex flex-col justify-between h-[340px]">
                 <div className="flex justify-between items-start">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Revenue</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{t('adminDashboard.totalRevenue', 'Total Revenue')}</span>
                     <h3 className="text-5xl font-black text-primary tracking-tighter mt-2">
                       {formatCurrency(overview?.totalRevenue)}
                     </h3>
@@ -76,7 +78,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
                 <div className="mt-8 flex items-end justify-between h-32 space-x-2">
                   {revenueSeries.length === 0 ? (
-                    <div className="w-full text-center text-xs text-slate-400 pb-10">No revenue data yet</div>
+                    <div className="w-full text-center text-xs text-on-surface-variant pb-10">{t('adminDashboard.noRevenueData', 'No revenue data yet')}</div>
                   ) : (
                     revenueSeries.map((point, index) => {
                       const height = Math.max(8, Math.round((point.revenue / maxRevenue) * 100));
@@ -87,7 +89,7 @@ export const AdminDashboard: React.FC = () => {
                             title={`${point.label}: ${formatCurrency(point.revenue)} (${point.orders} orders)`}
                             style={{ height: `${height}%` }}
                           />
-                          <span className="text-[9px] text-slate-400 hidden md:block">{point.label}</span>
+                          <span className="text-[9px] text-on-surface-variant hidden md:block">{point.label}</span>
                         </div>
                       );
                     })
@@ -96,8 +98,8 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               <div className="col-span-12 lg:col-span-4 bg-surface-container-lowest rounded-xl p-8 shadow-sm flex flex-col items-center justify-center text-center">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-6 w-full text-left">
-                  Occupancy Rate
+                <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-6 w-full text-left">
+                  {t('adminDashboard.occupancyRate', 'Occupancy Rate')}
                 </span>
                 <div className="relative w-40 h-40 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90">
@@ -124,30 +126,30 @@ export const AdminDashboard: React.FC = () => {
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-4xl font-black text-slate-900 tracking-tighter">
+                    <span className="text-4xl font-black text-on-surface tracking-tighter">
                       {overview?.occupancyRate}%
                     </span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                      Global Average
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                      {t('adminDashboard.globalAverage', 'Global Average')}
                     </span>
                   </div>
                 </div>
                 <div className="mt-8 grid grid-cols-2 gap-4 w-full">
                   <div className="bg-surface-container-low p-3 rounded-lg">
-                    <span className="block text-xs font-bold text-slate-900">{overview?.seatsSold}</span>
-                    <span className="text-[10px] uppercase text-slate-500 tracking-wider">Seats Sold</span>
+                    <span className="block text-xs font-bold text-on-surface">{overview?.seatsSold}</span>
+                    <span className="text-[10px] uppercase text-on-surface-variant tracking-wider">{t('adminDashboard.seatsSold', 'Seats Sold')}</span>
                   </div>
                   <div className="bg-surface-container-low p-3 rounded-lg">
-                    <span className="block text-xs font-bold text-slate-900">{overview?.seatsAvailable}</span>
-                    <span className="text-[10px] uppercase text-slate-500 tracking-wider">Available</span>
+                    <span className="block text-xs font-bold text-on-surface">{overview?.seatsAvailable}</span>
+                    <span className="text-[10px] uppercase text-on-surface-variant tracking-wider">{t('adminDashboard.available', 'Available')}</span>
                   </div>
                 </div>
               </div>
 
               <div className="col-span-12 lg:col-span-4 bg-inverse-surface rounded-xl p-8 shadow-sm text-white">
                 <div className="flex justify-between items-center mb-8">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Live Feed</span>
-                  <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{t('adminDashboard.liveFeed', 'Live Feed')}</span>
+                  <span className="flex h-2 w-2 rounded-full bg-error animate-pulse"></span>
                 </div>
                 <div className="space-y-6">
                   {liveSales.map((sale) => (
@@ -157,35 +159,35 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                       <div className="flex-1">
                         <h4 className="text-sm font-bold truncate">{sale.movieTitle}</h4>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">
-                          {sale.tickets} Tickets • {sale.screen}
+                        <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">
+                          {sale.tickets} {t('adminDashboard.tickets', 'Tickets')} • {sale.screen}
                         </p>
                       </div>
                       <span className="text-xs font-bold text-primary-fixed-dim">{formatCurrency(sale.amount)}</span>
                     </div>
                   ))}
                 </div>
-                <button className="w-full mt-10 py-3 border border-slate-700 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-colors">
-                  View Live Dashboard
+                <button className="w-full mt-10 py-3 border border-slate-700 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-inverse-surface transition-colors">
+                  {t('adminDashboard.viewLiveDashboard', 'View Live Dashboard')}
                 </button>
               </div>
 
               <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl p-8 shadow-sm">
                 <div className="flex justify-between items-center mb-8">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Popularity Index</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{t('adminDashboard.popularityIndex', 'Popularity Index')}</span>
                   {/* <div className="flex space-x-4">
                     <span className="text-[10px] font-bold uppercase text-primary border-b-2 border-primary pb-1">
                       This Week
                     </span>
-                    <span className="text-[10px] font-bold uppercase text-slate-400">All Time</span>
+                    <span className="text-[10px] font-bold uppercase text-on-surface-variant">All Time</span>
                   </div> */}
                 </div>
                 <div className="space-y-6">
                   {popularMovies.map((movie) => (
                     <div key={movie.id} className="group">
                       <div className="flex justify-between items-end mb-2">
-                        <h4 className="text-sm font-bold text-slate-900">{movie.title}</h4>
-                        <span className="text-xs font-bold text-slate-500">{movie.score}%</span>
+                        <h4 className="text-sm font-bold text-on-surface">{movie.title}</h4>
+                        <span className="text-xs font-bold text-on-surface-variant">{movie.score}%</span>
                       </div>
                       <div className="h-2 w-full bg-surface-container-low rounded-full overflow-hidden">
                         <div className="h-full bg-primary rounded-full" style={{ width: `${movie.score}%` }}></div>
@@ -199,18 +201,18 @@ export const AdminDashboard: React.FC = () => {
             <section className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="bg-surface-container-lowest rounded-xl p-6 shadow-sm lg:col-span-2">
                 <div className="flex items-center justify-between mb-6">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    Hall Seat Configurations
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    {t('adminDashboard.hallSeatConfigs', 'Hall Seat Configurations')}
                   </span>
                   <button
                     className="text-[10px] font-bold uppercase tracking-widest text-primary"
                     onClick={() => navigate('/admin/rooms')}
                   >
-                    Manage Rooms
+                    {t('adminDashboard.manageRooms', 'Manage Rooms')}
                   </button>
                 </div>
                 {highlightedRooms.length === 0 ? (
-                  <p className="text-sm text-on-surface-variant">No rooms available yet.</p>
+                  <p className="text-sm text-on-surface-variant">{t('adminDashboard.noRooms', 'No rooms available yet.')}</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {highlightedRooms.map(({ theater, room }) => (
@@ -220,59 +222,59 @@ export const AdminDashboard: React.FC = () => {
                         onClick={() => navigate(`/admin/rooms/${room.id}/seats`)}
                         className="text-left p-4 rounded-xl bg-surface-container-low border border-surface-container-low/80 hover:border-primary/40 transition-colors"
                       >
-                        <div className="text-sm font-semibold text-slate-900">{room.name}</div>
-                        <div className="text-[10px] uppercase tracking-widest text-slate-500 mt-2">
+                        <div className="text-sm font-semibold text-on-surface">{room.name}</div>
+                        <div className="text-[10px] uppercase tracking-widest text-on-surface-variant mt-2">
                           {theater.name}
                         </div>
-                        <div className="text-xs text-slate-500 mt-3">Capacity {room.capacity} seats</div>
+                        <div className="text-xs text-on-surface-variant mt-3">{t('adminDashboard.capacity', 'Capacity')} {room.capacity} {t('adminDashboard.seats', 'seats')}</div>
                       </button>
                     ))}
                   </div>
                 )}
               </div>
               <div className="bg-inverse-surface rounded-xl p-6 text-white shadow-sm">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Quick Actions
+                <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                  {t('adminDashboard.quickActions', 'Quick Actions')}
                 </div>
                 <div className="mt-6 space-y-4">
                   <button
-                    className="w-full py-3 rounded-lg bg-slate-800/60 text-left px-4 text-sm font-semibold"
+                    className="w-full py-3 rounded-lg bg-inverse-surface/60 text-left px-4 text-sm font-semibold"
                     onClick={() => navigate('/admin/rooms')}
                   >
-                    Review Room Inventory
+                    {t('adminDashboard.reviewRoomInventory', 'Review Room Inventory')}
                   </button>
                   <button
-                    className="w-full py-3 rounded-lg bg-slate-800/60 text-left px-4 text-sm font-semibold"
+                    className="w-full py-3 rounded-lg bg-inverse-surface/60 text-left px-4 text-sm font-semibold"
                     onClick={() => navigate('/admin/showtimes')}
                   >
-                    Open Scheduling Board
+                    {t('adminDashboard.openSchedulingBoard', 'Open Scheduling Board')}
                   </button>
                 </div>
               </div>
             </section>
 
-            <footer className="mt-12 flex flex-col md:flex-row justify-between items-start md:items-center border-t border-slate-100 pt-8 gap-4">
+            <footer className="mt-12 flex flex-col md:flex-row justify-between items-start md:items-center border-t border-outline-variant/30 pt-8 gap-4">
               <div className="flex items-center space-x-6">
                 <div className="flex items-center space-x-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                    Projection Systems Online
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    {t('adminDashboard.projectionSystemsOnline', 'Projection Systems Online')}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                    Payment Gateway Active
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    {t('adminDashboard.paymentGatewayActive', 'Payment Gateway Active')}
                   </span>
                 </div>
               </div>
               <div className="flex items-center space-x-4">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">v2.4.0 Stable</span>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">© 2023 The Digital Architect</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">v2.4.0 Stable</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">© 2023 The Digital Architect</span>
               </div>
             </footer>
 
-            <button className="fixed bottom-10 right-10 w-14 h-14 bg-primary text-white rounded-full shadow-xl flex items-center justify-center active:scale-95 transition-all z-40">
+            <button className="fixed bottom-10 right-10 w-14 h-14 bg-primary text-on-primary rounded-full shadow-xl flex items-center justify-center active:scale-95 transition-all z-40">
               <Plus className="w-6 h-6" />
             </button>
           </>

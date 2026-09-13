@@ -55,7 +55,7 @@
 
 @layer components {
   .glass-header {
-    @apply bg-white/80 backdrop-blur-md;
+    @apply bg-surface-container-lowest/80 backdrop-blur-md;
   }
 
   .tonal-zone {
@@ -67,6 +67,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }

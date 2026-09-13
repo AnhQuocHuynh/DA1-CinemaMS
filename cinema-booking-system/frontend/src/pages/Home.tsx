@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Star, Film, ChevronLeft, ChevronRight } from 'lucide-react';
 import { RatingBadge } from '../components/Review/RatingBadge';
 import { calculateEndTime, formatDuration, movies as mockMovies } from '../utils/movieData';
@@ -30,7 +31,7 @@ interface HomeMovieCard {
   isBackend: boolean;
 }
 
-function backendToCard(m: MovieResponse): HomeMovieCard {
+function backendToCard(m: MovieResponse, t: (key: string) => string): HomeMovieCard {
   return {
     id: m.id,
     title: m.title,
@@ -40,9 +41,9 @@ function backendToCard(m: MovieResponse): HomeMovieCard {
     posterUrl: m.posterUrl || '',
     backdropUrl: m.posterUrl || '', // reuse poster as backdrop
     firstShowLabel: new Date(m.releaseDate).toLocaleDateString('vi-VN'),
-    theaterName: !m.active 
-      ? 'Ngừng chiếu' 
-      : (new Date(m.releaseDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0) ? 'Sắp chiếu' : 'Đang chiếu'),
+    theaterName: !m.active
+      ? t('home.stopped')
+      : (new Date(m.releaseDate).setHours(0, 0, 0, 0) > new Date().setHours(0, 0, 0, 0) ? t('home.comingSoon') : t('home.nowShowing')),
     priceLabel: '', // price comes from showtimes, not movie level
     isBackend: true,
   };
@@ -69,6 +70,7 @@ function mockToCard(m: Movie): HomeMovieCard {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const Home: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
@@ -85,10 +87,10 @@ export const Home: React.FC = () => {
   // Backend movies first, then mock movies below them.
   // TODO: Remove mockCards once backend data is complete.
   const allCards: HomeMovieCard[] = useMemo(() => {
-    const backendCards = backendMovies.map(backendToCard);
+    const backendCards = backendMovies.map(m => backendToCard(m, t));
     const mockCards = mockMovies.map(mockToCard);
     return [...backendCards, ...mockCards];
-  }, [backendMovies]);
+  }, [backendMovies, t]);
 
   // ── Search suggestions (uses catalog API) ──
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
@@ -126,7 +128,7 @@ export const Home: React.FC = () => {
     catalogService.search({ keyword: debouncedSearchTerm, size: 4 })
       .then((data) => {
         if (!isSubscribed) return;
-        
+
         const moviesResult = data.movies.map(m => ({
           id: m.id,
           title: m.title,
@@ -135,7 +137,7 @@ export const Home: React.FC = () => {
           imageUrl: m.posterUrl || '',
           url: `/movies/${m.id}`
         }));
-        
+
         const eventsResult = data.events.map(e => ({
           id: e.id,
           title: e.name,
@@ -144,7 +146,7 @@ export const Home: React.FC = () => {
           imageUrl: e.imageUrl || '',
           url: `/events/${e.id}`
         }));
-        
+
         setSuggestions([...moviesResult, ...eventsResult].slice(0, 5));
       })
       .catch(console.error);
@@ -179,7 +181,7 @@ export const Home: React.FC = () => {
   }, [heroMovies.length, currentHeroIndex]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-surface text-on-surface">
       <SiteTopNav
         activeLabel="Movies"
         showSearch
@@ -191,7 +193,7 @@ export const Home: React.FC = () => {
 
       <main className="pt-16">
         {/* ── Hero ────────────────────────────────────────────────────── */}
-        <section className="relative h-[620px] overflow-hidden bg-slate-900">
+        <section className="relative h-[620px] overflow-hidden bg-inverse-surface">
           {heroCard && (
             <img
               key={heroCard.id}
@@ -209,29 +211,29 @@ export const Home: React.FC = () => {
 
           <div className="relative max-w-[1280px] mx-auto h-full px-6 flex items-center justify-between gap-8 xl:gap-12">
             <div className="max-w-xl flex-shrink-0">
-              <span className="inline-block px-3 py-1 rounded-sm bg-blue-600 text-white text-[10px] tracking-[0.2em] uppercase font-bold mb-6">
-                Now Premiering
+              <span className="inline-block px-3 py-1 rounded-sm bg-primary text-on-primary text-[10px] tracking-[0.2em] uppercase font-bold mb-6">
+                {t('home.nowPremiering')}
               </span>
               <h1 className="text-5xl md:text-6xl font-black text-white tracking-tight leading-tight mb-6 line-clamp-2">
-                {heroCard?.title ?? 'CinemaArchitect'}
+                {heroCard?.title ?? t('home.heroTitleDefault')}
               </h1>
-              <p className="text-slate-200 text-lg leading-relaxed mb-8 line-clamp-3">
-                Experience cinema with precision acoustics, immersive projection, and curated comfort in every seat.
+              <p className="text-inverse-on-surface text-lg leading-relaxed mb-8 line-clamp-3">
+                {t('home.heroDesc')}
               </p>
               <div className="flex flex-wrap items-center gap-4">
                 {heroCard && (
                   <Link
                     to={`/movies/${heroCard.id}`}
-                    className="px-7 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-colors"
+                    className="px-7 py-3 rounded-lg bg-primary text-on-primary font-semibold hover:opacity-90 transition-colors"
                   >
-                    Explore Featured Movie
+                    {t('home.exploreMovie')}
                   </Link>
                 )}
                 <button
                   onClick={() => submitSearch('')}
-                  className="px-7 py-3 rounded-lg bg-white/10 border border-white/20 text-white font-semibold hover:bg-white/20 transition-colors"
+                  className="px-7 py-3 rounded-lg bg-surface-container-lowest/10 border border-white/20 text-white font-semibold hover:bg-surface-container-lowest/20 transition-colors"
                 >
-                  Browse All Movies
+                  {t('home.browseAll')}
                 </button>
               </div>
             </div>
@@ -241,7 +243,7 @@ export const Home: React.FC = () => {
               <div className="hidden lg:flex items-center gap-2 xl:gap-4 relative z-10 mt-12">
                 <button
                   onClick={handlePrevHero}
-                  className="p-2 rounded-full bg-black/40 text-white hover:bg-blue-600 transition-colors backdrop-blur-sm border border-white/10 flex-shrink-0"
+                  className="p-2 rounded-full bg-black/40 text-white hover:bg-primary transition-colors backdrop-blur-sm border border-white/10 flex-shrink-0"
                 >
                   <ChevronLeft size={24} />
                 </button>
@@ -254,8 +256,8 @@ export const Home: React.FC = () => {
                         key={m.id}
                         onClick={() => setCurrentHeroIndex(idx)}
                         className={`relative rounded-xl overflow-hidden transition-all duration-300 flex-shrink-0 ${isActive
-                            ? 'w-28 xl:w-36 aspect-[2/3] border-2 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)] scale-105 z-10'
-                            : 'w-16 xl:w-24 aspect-[2/3] border border-white/20 opacity-50 hover:opacity-100'
+                          ? 'w-28 xl:w-36 aspect-[2/3] border-2 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)] scale-105 z-10'
+                          : 'w-16 xl:w-24 aspect-[2/3] border border-white/20 opacity-50 hover:opacity-100'
                           }`}
                       >
                         <img
@@ -275,7 +277,7 @@ export const Home: React.FC = () => {
 
                 <button
                   onClick={handleNextHero}
-                  className="p-2 rounded-full bg-black/40 text-white hover:bg-blue-600 transition-colors backdrop-blur-sm border border-white/10"
+                  className="p-2 rounded-full bg-black/40 text-white hover:bg-primary transition-colors backdrop-blur-sm border border-white/10"
                 >
                   <ChevronRight size={24} />
                 </button>
@@ -286,13 +288,13 @@ export const Home: React.FC = () => {
 
         {/* ── Current Screenings ─────────────────────────────────────── */}
         <section id="movies" className="max-w-[1280px] mx-auto px-6 py-12">
-          <div className="flex items-end justify-between mb-10">
+          <div className="flex items-end justify-between gap-4 mb-8">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">Current Screenings</h2>
-              <p className="text-slate-600 mt-1">Movies in a grid view with showtime range, theater, and price.</p>
+              <h2 className="text-3xl font-bold tracking-tight">{t('home.currentScreenings')}</h2>
+              <p className="text-on-surface-variant mt-1">{t('home.currentScreeningsDesc')}</p>
             </div>
-            <button onClick={() => submitSearch('')} className="text-sm font-semibold text-blue-700 hover:underline">
-              View Full Schedule
+            <button onClick={() => submitSearch('')} className="text-sm font-semibold text-primary hover:underline">
+              {t('home.viewFullSchedule')}
             </button>
           </div>
 
@@ -300,12 +302,12 @@ export const Home: React.FC = () => {
           {isLoadingBackend && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7 mb-7">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="rounded-xl overflow-hidden bg-white border border-slate-200 animate-pulse">
-                  <div className="aspect-[2/3] bg-slate-200" />
+                <div key={i} className="rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant animate-pulse">
+                  <div className="aspect-[2/3] bg-surface-container-high" />
                   <div className="p-4 space-y-2">
-                    <div className="h-4 bg-slate-200 rounded w-3/4" />
-                    <div className="h-3 bg-slate-100 rounded w-1/2" />
-                    <div className="h-3 bg-slate-100 rounded w-2/3" />
+                    <div className="h-4 bg-surface-container-high rounded w-3/4" />
+                    <div className="h-3 bg-surface-container rounded w-1/2" />
+                    <div className="h-3 bg-surface-container rounded w-2/3" />
                   </div>
                 </div>
               ))}
@@ -316,14 +318,14 @@ export const Home: React.FC = () => {
           {backendMovies.length > 0 && (
             <>
               <div className="flex items-center gap-2 mb-4">
-                <Film size={16} className="text-blue-600" />
-                <span className="text-xs font-bold tracking-widest uppercase text-blue-600">From Cinema</span>
+                <Film size={16} className="text-primary" />
+                <span className="text-xs font-bold tracking-widest uppercase text-primary">{t('home.fromCinema')}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7 mb-12">
                 {backendMovies.map((movie) => {
-                  const card = backendToCard(movie);
+                  const card = backendToCard(movie, t);
                   return (
-                    <article key={card.id} className="group rounded-xl overflow-hidden bg-white border border-slate-200 hover:shadow-xl transition-shadow">
+                    <article key={card.id} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow">
                       <Link to={`/movies/${card.id}`}>
                         <div className="relative aspect-[2/3] overflow-hidden">
                           <img
@@ -337,8 +339,8 @@ export const Home: React.FC = () => {
                             }}
                           />
                           {movie.active && (
-                            <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-green-600 text-white text-[10px] font-bold">
-                              Đang chiếu
+                            <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-success text-white text-[10px] font-bold">
+                              {t('home.nowShowing')}
                             </span>
                           )}
                         </div>
@@ -346,19 +348,19 @@ export const Home: React.FC = () => {
 
                       <div className="p-4 space-y-2">
                         <div className="flex items-start justify-between gap-3">
-                          <Link to={`/movies/${card.id}`} className="font-bold leading-tight hover:text-blue-700 transition-colors">
+                          <Link to={`/movies/${card.id}`} className="font-bold leading-tight hover:opacity-90 transition-colors">
                             {card.title}
                           </Link>
                         </div>
 
-                        <p className="text-xs text-slate-500">{card.genre} – {formatDuration(card.durationMinutes)}</p>
-                        <p className="text-sm text-slate-700">{card.firstShowLabel}</p>
-                        <p className="text-sm text-slate-600">{card.theaterName}</p>
+                        <p className="text-xs text-on-surface-variant">{card.genre} – {formatDuration(card.durationMinutes)}</p>
+                        <p className="text-sm text-on-surface-variant">{card.firstShowLabel}</p>
+                        <p className="text-sm text-on-surface-variant">{card.theaterName}</p>
                         <div className="pt-2 flex items-center justify-between">
-                          <span className="text-xs font-semibold text-slate-500">{movie.ageRating}</span>
+                          <span className="text-xs font-semibold text-on-surface-variant">{movie.ageRating}</span>
                           <RatingBadge type="movie" id={movie.id} />
-                          <Link to={`/movies/${card.id}`} className="text-sm font-semibold text-blue-700 hover:underline">
-                            Chi tiết & Đặt vé
+                          <Link to={`/movies/${card.id}`} className="text-sm font-semibold text-primary hover:underline">
+                            {t('home.detailsAndBook')}
                           </Link>
                         </div>
                       </div>
@@ -374,7 +376,7 @@ export const Home: React.FC = () => {
           <div className="flex items-center gap-2 mb-4">
             <Star size={16} className="text-amber-500" />
             <span className="text-xs font-bold tracking-widest uppercase text-amber-600">Featured Showcase</span>
-            <span className="text-[10px] text-slate-400 ml-2">(mock data – remove later)</span>
+            <span className="text-[10px] text-on-surface-variant ml-2">(mock data – remove later)</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7">
             {mockMovies.map((movie) => {
@@ -382,7 +384,7 @@ export const Home: React.FC = () => {
               const endTime = calculateEndTime(firstShow.startTime, movie.durationMinutes);
 
               return (
-                <article key={movie.id} className="group rounded-xl overflow-hidden bg-white border border-slate-200 hover:shadow-xl transition-shadow">
+                <article key={movie.id} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow">
                   <Link to={`/movies/${movie.id}`}>
                     <div className="relative aspect-[2/3] overflow-hidden">
                       <img
@@ -400,7 +402,7 @@ export const Home: React.FC = () => {
 
                   <div className="p-4 space-y-2">
                     <div className="flex items-start justify-between gap-3">
-                      <Link to={`/movies/${movie.id}`} className="font-bold leading-tight hover:text-blue-700 transition-colors">
+                      <Link to={`/movies/${movie.id}`} className="font-bold leading-tight hover:opacity-90 transition-colors">
                         {movie.title}
                       </Link>
                       <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600">
@@ -408,13 +410,13 @@ export const Home: React.FC = () => {
                       </span>
                     </div>
 
-                    <p className="text-xs text-slate-500">{movie.genre} - {formatDuration(movie.durationMinutes)}</p>
-                    <p className="text-sm text-slate-700">{firstShow.startTime} - {endTime}</p>
-                    <p className="text-sm text-slate-600">{firstShow.theaterName}</p>
+                    <p className="text-xs text-on-surface-variant">{movie.genre} - {formatDuration(movie.durationMinutes)}</p>
+                    <p className="text-sm text-on-surface-variant">{firstShow.startTime} - {endTime}</p>
+                    <p className="text-sm text-on-surface-variant">{firstShow.theaterName}</p>
                     <div className="pt-2 flex items-center justify-between">
                       <span className="text-lg font-black">${firstShow.price.toFixed(2)}</span>
-                      <Link to={`/movies/${movie.id}`} className="text-sm font-semibold text-blue-700 hover:underline">
-                        Details
+                      <Link to={`/movies/${movie.id}`} className="text-sm font-semibold text-primary hover:underline">
+                        {t('home.details')}
                       </Link>
                     </div>
                   </div>
@@ -427,13 +429,12 @@ export const Home: React.FC = () => {
           {/* ── Upcoming Events ───────────────────────────────────────── */}
           {events.length > 0 && (
             <div className="mt-16">
-              <div className="flex items-center gap-2 mb-4">
-                <Star size={16} className="text-amber-500" />
-                <span className="text-xs font-bold tracking-widest uppercase text-amber-600">Upcoming Events</span>
+              <div className="flex items-center gap-2 mb-4 mt-8">
+                <span className="text-xs font-bold tracking-widest uppercase text-on-surface-variant">{t('home.simulated')}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7">
                 {events.map((event) => (
-                  <article key={event.id} className="group rounded-xl overflow-hidden bg-white border border-slate-200 hover:shadow-xl transition-shadow">
+                  <article key={event.id} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow">
                     <Link to={`/events/${event.id}`}>
                       <div className="relative aspect-[2/3] overflow-hidden">
                         <img
@@ -455,13 +456,13 @@ export const Home: React.FC = () => {
                           {event.name}
                         </Link>
                       </div>
-                      <p className="text-xs text-slate-500">Sự kiện đặc biệt</p>
+                      <p className="text-xs text-on-surface-variant">{t('home.specialEvent')}</p>
                       <RatingBadge type="event" id={event.id} />
-                      <p className="text-sm text-slate-700">{new Date(event.startTime).toLocaleDateString('vi-VN')} - {new Date(event.endTime).toLocaleDateString('vi-VN')}</p>
-                      <p className="text-sm text-slate-600">{event.venue}</p>
+                      <p className="text-sm text-on-surface-variant">{new Date(event.startTime).toLocaleDateString('vi-VN')} - {new Date(event.endTime).toLocaleDateString('vi-VN')}</p>
+                      <p className="text-sm text-on-surface-variant">{event.venue}</p>
                       <div className="pt-2 flex items-center justify-between">
                         <Link to={`/events/${event.id}`} className="text-sm font-semibold text-amber-600 hover:underline">
-                          Chi tiết & Đặt vé
+                          {t('home.detailsAndBook')}
                         </Link>
                       </div>
                     </div>

@@ -1,9 +1,8 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
-using System.Threading.Tasks;
 
-namespace PaymentService.Presentation.Middleware;
+namespace CinemaBooking.Shared.Hosting.Middleware;
 
 public class InternalApiSecurityMiddleware
 {
@@ -20,7 +19,7 @@ public class InternalApiSecurityMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        if (!context.Request.Path.StartsWithSegments(InternalPrefix, System.StringComparison.OrdinalIgnoreCase))
+        if (!context.Request.Path.StartsWithSegments(InternalPrefix, StringComparison.OrdinalIgnoreCase))
         {
             await _next(context);
             return;

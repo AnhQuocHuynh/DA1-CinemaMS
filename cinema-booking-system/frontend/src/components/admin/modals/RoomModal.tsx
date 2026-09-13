@@ -86,12 +86,12 @@ export const RoomModal: React.FC<RoomModalProps> = ({ isOpen, onClose, onSubmit,
         <div className="p-6">
           <form id="room-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Room Name <span className="text-error">*</span></label>
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Room Name <span className="text-error">*</span></label>
               <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" placeholder="Screen 1" />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Technology Type</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Technology Type</label>
               <select name="type" value={formData.type} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary">
                 <option value="Standard">Standard</option>
                 <option value="3D">3D</option>
@@ -103,29 +103,29 @@ export const RoomModal: React.FC<RoomModalProps> = ({ isOpen, onClose, onSubmit,
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Rows</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Rows</label>
                 <input required type="number" name="rows" value={formData.rows} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm" />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Columns</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Columns</label>
                 <input required type="number" name="columns" value={formData.columns} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm" />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Total Seats</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Total Seats</label>
                 <input required type="number" name="totalSeats" value={formData.totalSeats} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm" />
               </div>
             </div>
 
             <div className="space-y-2 mt-4">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Room Status</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Room Status</label>
               <div className="flex items-center gap-6">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" name="underMaintenance" checked={!formData.underMaintenance} onChange={() => setFormData(prev => ({...prev, underMaintenance: false, active: true}))} className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-semibold text-slate-700">Operational</span>
+                  <span className="text-sm font-semibold text-on-surface-variant">Operational</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" name="underMaintenance" checked={formData.underMaintenance} onChange={() => setFormData(prev => ({...prev, underMaintenance: true, active: true}))} className="w-4 h-4 text-amber-500" />
-                  <span className="text-sm font-semibold text-slate-700">Under Maintenance</span>
+                  <span className="text-sm font-semibold text-on-surface-variant">Under Maintenance</span>
                 </label>
               </div>
             </div>
@@ -133,8 +133,8 @@ export const RoomModal: React.FC<RoomModalProps> = ({ isOpen, onClose, onSubmit,
         </div>
         
         <div className="px-6 py-4 border-t border-surface-container bg-surface-container-lowest flex justify-end gap-3">
-          <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-100">Cancel</button>
-          <button type="submit" form="room-form" disabled={isSubmitting} className="px-6 py-2 rounded-lg font-bold text-sm bg-primary text-white hover:bg-blue-700">
+          <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 rounded-lg font-bold text-sm text-on-surface-variant hover:bg-surface-container">Cancel</button>
+          <button type="submit" form="room-form" disabled={isSubmitting} className="px-6 py-2 rounded-lg font-bold text-sm bg-primary text-on-primary hover:opacity-90">
             {isSubmitting ? 'Saving...' : 'Save Room'}
           </button>
         </div>

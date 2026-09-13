@@ -7,19 +7,20 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 # Copy solution and project files
-COPY ["IdentityService.slnx", "."]
-COPY ["IdentityService.Domain/IdentityService.Domain.csproj", "IdentityService.Domain/"]
-COPY ["IdentityService.Application/IdentityService.Application.csproj", "IdentityService.Application/"]
-COPY ["IdentityService.Infrastructure/IdentityService.Infrastructure.csproj", "IdentityService.Infrastructure/"]
-COPY ["IdentityService.Presentation/IdentityService.Presentation.csproj", "IdentityService.Presentation/"]
+COPY ["services/identity-service/IdentityService.slnx", "services/identity-service/."]
+COPY ["services/identity-service/IdentityService.Domain/IdentityService.Domain.csproj", "services/identity-service/IdentityService.Domain/"]
+COPY ["services/identity-service/IdentityService.Application/IdentityService.Application.csproj", "services/identity-service/IdentityService.Application/"]
+COPY ["services/identity-service/IdentityService.Infrastructure/IdentityService.Infrastructure.csproj", "services/identity-service/IdentityService.Infrastructure/"]
+COPY ["services/identity-service/IdentityService.Presentation/IdentityService.Presentation.csproj", "services/identity-service/IdentityService.Presentation/"]
 
 # Restore dependencies
-RUN dotnet restore "IdentityService.Presentation/IdentityService.Presentation.csproj"
+COPY ["shared/Shared.Hosting/CinemaBooking.Shared.Hosting.csproj", "shared/Shared.Hosting/"]
+RUN dotnet restore "services/identity-service/IdentityService.Presentation/IdentityService.Presentation.csproj"
 
 # Copy the rest of the code
 COPY . .
 
-WORKDIR "/src/IdentityService.Presentation"
+WORKDIR "/src/services/identity-service/IdentityService.Presentation"
 RUN dotnet build "IdentityService.Presentation.csproj" -c Release -o /app/build
 
 FROM build AS publish

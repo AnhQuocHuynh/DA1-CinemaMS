@@ -42,6 +42,16 @@ export const authService = {
              firstName: given_name, lastName: family_name,
              roles: realm_access?.roles ?? [] };
   },
+
+  fetchInternalProfile: async (): Promise<any> => {
+    try {
+      const { data } = await apiClient.get('/users/me');
+      return data?.data;
+    } catch (e) {
+      console.error('Failed to fetch internal profile', e);
+      return null;
+    }
+  },
 };
 
 export default apiClient;

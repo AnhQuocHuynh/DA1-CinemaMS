@@ -41,3 +41,6 @@ datasources:
         mapTagNamesEnabled: false
         customQuery: true
         query: '{$${__tags}} | json | traceId=`$${__trace.traceId}`'
+      tracesToMetrics:
+        datasourceUid: prometheus
+        tags: [{ key: 'service.name', value: 'service_name' }]

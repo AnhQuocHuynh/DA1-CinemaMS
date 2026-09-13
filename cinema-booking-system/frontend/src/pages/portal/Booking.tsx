@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Info, AlertCircle, Timer } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { SiteTopNav } from '../../components/SiteTopNav';
 import { SeatLegend } from '../../components/portal/SeatLegend';
@@ -16,6 +17,7 @@ const PRE_HOLD_DURATION = 10 * 60; // 10 minutes
 
 
 export const Booking: React.FC = () => {
+  const { t } = useTranslation();
   const { showtimeId = '' } = useParams<{ showtimeId: string }>();
   const navigate = useNavigate();
 
@@ -241,7 +243,7 @@ export const Booking: React.FC = () => {
 
   const showtimeLabel = showtimeData
     ? formatShowtime(showtimeData.startTime)
-    : 'Đang tải...';
+    : t('common.loading');
 
   return (
     <div className="bg-surface text-on-surface min-h-screen">
@@ -251,7 +253,7 @@ export const Booking: React.FC = () => {
         <div className="flex-grow">
           <div className="mb-12">
             <h1 className="text-2xl font-medium tracking-tight text-on-surface mb-1">
-              Chọn Ghế
+              {t('booking.chooseSeatTitle')}
             </h1>
             <p className="text-on-surface-variant text-sm">
               {movieTitle ?? '...'} • {showtimeLabel}
@@ -299,28 +301,28 @@ export const Booking: React.FC = () => {
 
             {/* Pre-selection countdown — appears only once a seat is selected */}
             {!holdExpiresAt && selectedSeats.length > 0 && (
-              <div className={`p-6 rounded-xl shadow-lg ${preIsUrgent ? 'bg-red-600' : 'bg-inverse-surface'} text-white`}>
+              <div className={`p-6 rounded-xl shadow-lg ${preIsUrgent ? 'bg-error' : 'bg-inverse-surface'} text-white`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Timer className="w-4 h-4 opacity-70" />
                     <span className="text-[10px] font-bold tracking-widest uppercase opacity-70">
-                      Thời gian chọn ghế
+                      {t('booking.selectionTime')}
                     </span>
                   </div>
                   <span className="text-sm font-mono">{preMM}:{preSS}</span>
                 </div>
                 <div className="text-3xl font-black tracking-tighter tabular-nums">{preMM}:{preSS}</div>
                 <p className="text-xs opacity-60 mt-2">
-                  Vui lòng chọn ghế và xác nhận trong thời gian này.
+                  {t('booking.selectionDesc')}
                 </p>
-                <div className="mt-4 h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                <div className="mt-4 h-1 w-full bg-surface-container-lowest/10 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-1000 ${preIsUrgent ? 'bg-yellow-300' : 'bg-primary-container'}`}
                     style={{ width: `${preProgress}%` }}
                   />
                 </div>
                 {preSeconds === 0 && (
-                  <p className="text-xs mt-3 text-white/80">Hết thời gian. Đang tải lại...</p>
+                  <p className="text-xs mt-3 text-white/80">{t('booking.timeoutReloading')}</p>
                 )}
               </div>
             )}
@@ -329,11 +331,11 @@ export const Booking: React.FC = () => {
             <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 space-y-6">
               <div>
                 <h3 className="text-[10px] font-bold tracking-widest uppercase text-outline mb-4">
-                  Ghế đã chọn
+                  {t('booking.selectedSeats')}
                 </h3>
                 <div className="space-y-3">
                   {selectedSeats.length === 0 ? (
-                    <p className="text-sm text-on-surface-variant">Chưa có ghế nào được chọn.</p>
+                    <p className="text-sm text-on-surface-variant">{t('booking.noSeatsSelected')}</p>
                   ) : (
                     selectedSeats.map((seat) => (
                       <div key={seat.id} className="flex justify-between items-center">
@@ -342,7 +344,7 @@ export const Booking: React.FC = () => {
                             <span className="text-xs font-bold text-primary">{seat.label}</span>
                           </div>
                           <span className="text-sm font-medium capitalize">
-                            {seat.type === 'vip' ? 'VIP' : seat.type === 'couple' ? 'Couple' : 'Thường'}
+                            {seat.type === 'vip' ? t('booking.vip') : seat.type === 'couple' ? t('booking.couple') : t('booking.regular')}
                           </span>
                         </div>
                         <span className="text-sm font-semibold text-on-surface">
@@ -356,7 +358,7 @@ export const Booking: React.FC = () => {
 
               <div className="pt-6 border-t border-outline-variant/20">
                 <div className="flex justify-between items-end">
-                  <span className="text-sm font-bold uppercase tracking-tight">Tổng cộng</span>
+                  <span className="text-sm font-bold uppercase tracking-tight">{t('booking.total')}</span>
                   <span className="text-2xl font-black tracking-tighter text-primary">
                     {formatVND(summary.total)}
                   </span>
@@ -371,11 +373,11 @@ export const Booking: React.FC = () => {
               )}
 
               <button
-                className="w-full py-4 bg-primary text-white font-bold tracking-tight rounded-lg hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 bg-primary text-on-primary font-bold tracking-tight rounded-lg hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleProceed}
                 disabled={selectedSeats.length === 0 || isHolding}
               >
-                {isHolding ? 'Đang giữ ghế...' : 'Tiến hành thanh toán'}
+                {isHolding ? t('booking.holdingSeats') : t('booking.proceedToCheckout')}
                 {!isHolding && <ArrowRight className="w-4 h-4" />}
               </button>
 
@@ -385,24 +387,24 @@ export const Booking: React.FC = () => {
                 type="button"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Quay lại
+                {t('movieDetails.goBack')}
               </button>
 
               <p className="text-[10px] text-center text-outline leading-relaxed px-4">
-                Bằng cách tiếp tục, bạn đồng ý với điều khoản và chính sách đặt vé của chúng tôi.
+                {t('booking.termsAgreement')}
               </p>
             </div>
 
             {/* Help */}
             <div className="flex items-center gap-4 p-4 bg-surface-container-low rounded-lg">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-lowest">
                 <Info className="w-4 h-4 text-primary" />
               </div>
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-on-surface">
-                  Cần hỗ trợ?
+                  {t('booking.needHelp')}
                 </p>
-                <p className="text-xs text-on-surface-variant">Gọi (555) 012-3456</p>
+                <p className="text-xs text-on-surface-variant">{t('booking.callUs')}</p>
               </div>
             </div>
           </div>
@@ -412,27 +414,27 @@ export const Booking: React.FC = () => {
       {/* ── Leave confirmation modal ────────────────────────────────────── */}
       {showLeaveConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4 animate-in">
-            <h3 className="text-lg font-bold text-slate-900">Hủy đặt vé?</h3>
-            <p className="text-sm text-slate-600 leading-relaxed">
+          <div className="bg-surface-container-lowest rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4 animate-in">
+            <h3 className="text-lg font-bold text-on-surface">{t('booking.cancelBookingTitle')}</h3>
+            <p className="text-sm text-on-surface-variant leading-relaxed">
               {holdExpiresAt
-                ? 'Ghế bạn đang giữ sẽ được giải phóng để người khác có thể chọn. Bạn có chắc chắn muốn rời đi?'
-                : 'Bạn sẽ mất lựa chọn ghế hiện tại. Bạn có chắc chắn muốn rời đi?'}
+                ? t('booking.leaveConfirmHold')
+                : t('booking.leaveConfirmSelect')}
             </p>
             <div className="flex gap-3 pt-2">
               <button
                 onClick={handleLeaveCancel}
                 disabled={isReleasing}
-                className="flex-1 py-3 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                className="flex-1 py-3 rounded-lg border border-outline-variant text-sm font-semibold text-on-surface-variant hover:bg-surface-container transition-colors disabled:opacity-50"
               >
-                Ở lại
+                {t('booking.stay')}
               </button>
               <button
                 onClick={handleLeaveConfirm}
                 disabled={isReleasing}
-                className="flex-1 py-3 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-500 transition-colors disabled:opacity-50"
+                className="flex-1 py-3 rounded-lg bg-error text-white text-sm font-semibold hover:opacity-90 transition-colors disabled:opacity-50"
               >
-                {isReleasing ? 'Đang hủy...' : 'Rời đi'}
+                {isReleasing ? t('booking.canceling') : t('booking.leave')}
               </button>
             </div>
           </div>

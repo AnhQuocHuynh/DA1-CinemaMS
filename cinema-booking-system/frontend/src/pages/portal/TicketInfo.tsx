@@ -9,8 +9,10 @@ import genericPoster from '../../resources/generic_movie_poster.png';
 import { QRCodeSVG } from 'qrcode.react';
 import { downloadElementAsPDF } from '../../utils/pdfGenerator';
 import { PrintableTicket } from '../../components/PrintableTicket';
+import { useTranslation } from 'react-i18next';
 
 export const TicketInfo: React.FC = () => {
+  const { t } = useTranslation();
   const { ticketId: ticketCode = '' } = useParams<{ ticketId: string }>();
   const navigate = useNavigate();
   const { ticket, isLoading, error } = useTicketDetails(ticketCode);
@@ -31,7 +33,7 @@ export const TicketInfo: React.FC = () => {
 
   const handleCancel = useCallback(async () => {
     if (!ticket?.orderId) return;
-    if (!window.confirm('Bạn có chắc muốn huỷ vé và yêu cầu hoàn tiền?')) return;
+    if (!window.confirm(t('ticketInfo.cancelConfirm'))) return;
     setCancelLoading(true);
     setCancelError(null);
     try {
@@ -39,7 +41,7 @@ export const TicketInfo: React.FC = () => {
       navigate('/my-tickets');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
-      setCancelError(e?.response?.data?.message || 'Không thể huỷ vé lúc này.');
+      setCancelError(e?.response?.data?.message || t('ticketInfo.cancelError'));
     } finally {
       setCancelLoading(false);
     }
@@ -48,7 +50,7 @@ export const TicketInfo: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">
-        <p className="text-on-surface-variant animate-pulse">Đang tải vé...</p>
+        <p className="text-on-surface-variant animate-pulse">{t('ticketInfo.loading')}</p>
       </div>
     );
   }
@@ -58,12 +60,12 @@ export const TicketInfo: React.FC = () => {
       <div className="min-h-screen bg-surface flex items-center justify-center px-6">
         <div className="text-center space-y-4">
           <AlertCircle className="w-12 h-12 text-error mx-auto" />
-          <p className="text-on-surface-variant">{error ?? 'Không tìm thấy vé.'}</p>
+          <p className="text-on-surface-variant">{error ?? t('ticketInfo.notFound')}</p>
           <button
             onClick={() => navigate(-1)}
             className="text-primary font-semibold hover:underline text-sm"
           >
-            Quay lại
+            {t('ticketInfo.goBack')}
           </button>
         </div>
       </div>
@@ -74,8 +76,8 @@ export const TicketInfo: React.FC = () => {
     ticket.status === 'VALID'
       ? 'bg-primary text-on-primary'
       : ticket.status === 'CHECKED_IN'
-      ? 'bg-green-600 text-white'
-      : 'bg-error text-white';
+      ? 'bg-success text-white'
+      : 'bg-error text-on-error';
 
   return (
     <div className="bg-surface text-on-surface min-h-screen">
@@ -86,7 +88,7 @@ export const TicketInfo: React.FC = () => {
             className="flex items-center gap-2 text-sm font-medium text-on-surface-variant hover:text-primary transition-colors"
             onClick={() => navigate(-1)}
           >
-            ← Quay lại
+            ← {t('ticketInfo.goBack')}
           </button>
         </div>
 
@@ -107,7 +109,7 @@ export const TicketInfo: React.FC = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-inverse-surface/80 to-transparent" />
               <div className="absolute bottom-6 left-6">
                 <span className={`inline-block px-3 py-1 text-[10px] font-bold tracking-widest uppercase mb-2 rounded ${statusColor}`}>
-                  {ticket.status}
+                  {t(`userDashboard.status.${ticket.status}`, ticket.status)}
                 </span>
                 {ticket.movieTitle && (
                   <h2 className="text-2xl font-bold text-white tracking-tight">
@@ -118,7 +120,7 @@ export const TicketInfo: React.FC = () => {
             </div>
             <div className="bg-surface-container-low p-6 rounded-xl">
               <p className="text-xs text-on-secondary-container leading-relaxed">
-                Vui lòng đến trước 20 phút. Vé điện tử phải được xuất trình tại cửa vào phòng chiếu.
+                {t('ticketInfo.arriveEarly')}
               </p>
             </div>
           </div>
@@ -130,7 +132,7 @@ export const TicketInfo: React.FC = () => {
                 <div className="flex justify-between items-start mb-8">
                   <div>
                     <h1 className="text-3xl font-black text-on-surface tracking-tighter mb-1">
-                      {(ticket.movieTitle || 'VÉ XEM PHIM').toUpperCase()}
+                      {(ticket.movieTitle || t('ticketInfo.movieTicket')).toUpperCase()}
                     </h1>
                     {ticket.cinemaName && (
                       <p className="text-sm font-medium text-primary tracking-wide">
@@ -140,7 +142,7 @@ export const TicketInfo: React.FC = () => {
                   </div>
                   <div className="text-right shrink-0 ml-4">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant block mb-1">
-                      Mã vé
+                      {t('ticketInfo.ticketCode')}
                     </span>
                     <span className="text-base font-mono font-semibold text-on-surface">
                       {ticket.ticketCode}
@@ -151,20 +153,20 @@ export const TicketInfo: React.FC = () => {
                 <div className="grid grid-cols-2 gap-y-8 gap-x-4">
                   <div>
                     <label className="text-[10px] font-bold tracking-widest uppercase text-outline mb-2 block">
-                      Ngày
+                      {t('ticketInfo.date')}
                     </label>
                     <p className="text-lg font-semibold text-on-surface">{ticket.date || '—'}</p>
                   </div>
                   <div>
                     <label className="text-[10px] font-bold tracking-widest uppercase text-outline mb-2 block">
-                      Giờ
+                      {t('ticketInfo.time')}
                     </label>
                     <p className="text-lg font-semibold text-on-surface">{ticket.time || '—'}</p>
                   </div>
                   {ticket.hallName && (
                     <div>
                       <label className="text-[10px] font-bold tracking-widest uppercase text-outline mb-2 block">
-                        Phòng chiếu
+                        {t('ticketInfo.room')}
                       </label>
                       <p className="text-lg font-semibold text-on-surface">{ticket.hallName}</p>
                     </div>
@@ -172,7 +174,7 @@ export const TicketInfo: React.FC = () => {
                   {(ticket.seatLabel || ticket.seats.length > 0) && (
                     <div>
                       <label className="text-[10px] font-bold tracking-widest uppercase text-outline mb-2 block">
-                        Ghế
+                        {t('ticketInfo.seat')}
                       </label>
                       <div className="flex flex-col gap-1">
                         <div className="flex gap-2 flex-wrap">
@@ -193,7 +195,7 @@ export const TicketInfo: React.FC = () => {
                         </div>
                         {ticket.seatTypeName && (
                           <span className="text-xs font-medium text-on-surface-variant mt-1">
-                            Loại ghế: <span className="text-primary">{ticket.seatTypeName}</span>
+                            {t('ticketInfo.seatType')}: <span className="text-primary">{ticket.seatTypeName}</span>
                           </span>
                         )}
                       </div>
@@ -201,7 +203,7 @@ export const TicketInfo: React.FC = () => {
                   )}
                   <div className="col-span-2">
                     <label className="text-[10px] font-bold tracking-widest uppercase text-outline mb-2 block">
-                      Giá vé
+                      {t('ticketInfo.price')}
                     </label>
                     <p className="text-xl font-bold text-primary">{formatVND(ticket.price)}</p>
                   </div>
@@ -218,7 +220,7 @@ export const TicketInfo: React.FC = () => {
               {/* QR section */}
               <div className="p-10 bg-surface-container-low flex flex-col items-center justify-center">
                 {ticket.qrCodeData ? (
-                  <div className="bg-white p-4 rounded-lg shadow-sm mb-6 flex justify-center">
+                  <div className="bg-surface-container-lowest p-4 rounded-lg shadow-sm mb-6 flex justify-center">
                     <QRCodeSVG 
                       value={ticket.qrCodeData}
                       size={160}
@@ -228,11 +230,11 @@ export const TicketInfo: React.FC = () => {
                   </div>
                 ) : (
                   <div className="w-40 h-40 bg-surface-container-high rounded-lg mb-6 flex items-center justify-center">
-                    <p className="text-xs text-on-surface-variant text-center px-4">QR không khả dụng</p>
+                    <p className="text-xs text-on-surface-variant text-center px-4">{t('ticketInfo.qrUnavailable')}</p>
                   </div>
                 )}
                 <p className="text-[10px] font-bold tracking-widest uppercase text-outline mb-4">
-                  Quét tại cửa vào
+                  {t('ticketInfo.scanAtEntrance')}
                 </p>
                 <div className="flex gap-4 w-full">
                   <button
@@ -241,7 +243,7 @@ export const TicketInfo: React.FC = () => {
                     disabled={isDownloading}
                   >
                     <Printer className="w-4 h-4" />
-                    {isDownloading ? 'Đang tải...' : 'In vé'}
+                    {isDownloading ? t('ticketInfo.downloading') : t('ticketInfo.printTicket')}
                   </button>
 
                 </div>
@@ -261,13 +263,13 @@ export const TicketInfo: React.FC = () => {
                 onClick={handleCancel}
                 disabled={cancelLoading || ticket.status !== 'VALID'}
               >
-                {cancelLoading ? 'Đang huỷ...' : 'Huỷ vé & hoàn tiền'}
+                {cancelLoading ? t('ticketInfo.canceling') : t('ticketInfo.cancelRefund')}
               </button>
               <button
                 className="text-sm font-medium text-primary hover:underline"
-                onClick={() => navigator.share?.({ title: ticket.ticketCode, text: `Vé xem phim: ${ticket.ticketCode}` })}
+                onClick={() => navigator.share?.({ title: ticket.ticketCode, text: `${t('ticketInfo.movieTicket')}: ${ticket.ticketCode}` })}
               >
-                Chia sẻ
+                {t('ticketInfo.share')}
               </button>
             </div>
           </div>

@@ -3,12 +3,14 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { LogOut, Settings, User } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { authService } from '../../services/authService';
+import { useTranslation } from 'react-i18next';
 
 interface PortalTopNavProps {
   activeLabel?: string;
 }
 
 export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -21,26 +23,26 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
   };
 
   const navItems = [
-    { label: 'Movies', to: '/' },
-    { label: 'Theaters', to: '/theaters' },
-    { label: 'Membership', to: '/membership' },
-    ...(user ? [{ label: 'My Tickets', to: '/my-tickets' }] : []),
+    { label: t('portalTopNav.movies', 'Movies'), to: '/', rawLabel: 'Movies' },
+    { label: t('portalTopNav.theaters', 'Theaters'), to: '/theaters', rawLabel: 'Theaters' },
+    { label: t('portalTopNav.membership', 'Membership'), to: '/membership', rawLabel: 'Membership' },
+    ...(user ? [{ label: t('portalTopNav.myTickets', 'My Tickets'), to: '/my-tickets', rawLabel: 'My Tickets' }] : []),
   ];
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md shadow-sm h-16">
+    <nav className="fixed top-0 w-full z-50 bg-surface-container-lowest/80 backdrop-blur-md shadow-sm h-16">
       <div className="flex justify-between items-center h-16 max-w-[1280px] mx-auto px-1 md:px-2">
-        <div className="flex items-center gap-8">
-          <span className="text-xl font-bold tracking-tighter text-slate-900">CinemaArchitect</span>
+        <div className="flex-none items-center gap-12">
+          <span className="text-xl font-bold tracking-tighter text-on-surface">CinemaArchitect</span>
           <div className="hidden md:flex gap-6 items-center text-sm font-medium">
             {navItems.map((item) => (
               <NavLink
                 key={item.label}
                 to={item.to}
                 className={({ isActive }) =>
-                  isActive || item.label === activeLabel
-                    ? 'text-blue-600 border-b-2 border-blue-600 pb-1'
-                    : 'text-slate-600 hover:text-slate-900'
+                  isActive || item.rawLabel === activeLabel
+                    ? 'text-primary border-b-2 border-blue-600 pb-1'
+                    : 'text-on-surface-variant hover:text-on-surface'
                 }
               >
                 {item.label}
@@ -54,40 +56,40 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
               <button
                 type="button"
                 onClick={() => setIsMenuOpen((open) => !open)}
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-all"
+                className="flex items-center justify-center w-10 h-10 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all"
                 aria-haspopup="menu"
                 aria-expanded={isMenuOpen}
               >
                 <User className="w-5 h-5" />
               </button>
               {isMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-lg bg-white shadow-lg border border-slate-200 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-48 rounded-lg bg-surface-container-lowest shadow-lg border border-outline-variant overflow-hidden">
                   <Link
                     to="/user/settings"
                     onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-2 px-4 py-3 text-sm text-slate-700 hover:bg-slate-100"
+                    className="flex items-center gap-2 px-4 py-3 text-sm text-on-surface-variant hover:bg-surface-container"
                   >
                     <Settings className="w-4 h-4" />
-                    Settings
+                    {t('portalTopNav.settings', 'Settings')}
                   </Link>
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-slate-700 hover:bg-slate-100"
+                    className="w-full flex items-center gap-2 px-4 py-3 text-sm text-on-surface-variant hover:bg-surface-container"
                   >
                     <LogOut className="w-4 h-4" />
-                    Logout
+                    {t('portalTopNav.logout', 'Logout')}
                   </button>
                 </div>
               )}
             </div>
           ) : (
             <>
-              <Link to="/login" className="px-4 py-2 text-slate-600 text-sm font-medium hover:bg-slate-100 rounded-md">
-                Sign In
+              <Link to="/login" className="px-4 py-2 text-on-surface-variant text-sm font-medium hover:bg-surface-container rounded-md">
+                {t('portalTopNav.signIn', 'Sign In')}
               </Link>
-              <Link to="/signup" className="px-5 py-2 bg-primary text-white rounded-md text-sm font-semibold">
-                Book Now
+              <Link to="/signup" className="px-5 py-2 bg-primary text-on-primary rounded-md text-sm font-semibold">
+                {t('portalTopNav.bookNow', 'Book Now')}
               </Link>
             </>
           )}
