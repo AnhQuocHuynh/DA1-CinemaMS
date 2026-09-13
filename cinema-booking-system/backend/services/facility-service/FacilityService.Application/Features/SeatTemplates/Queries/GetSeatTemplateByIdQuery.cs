@@ -44,7 +44,9 @@ namespace FacilityService.Application.Features.SeatTemplates.Queries
                 ColumnNumber = seat.ColumnNumber,
                 SeatTypeCode = seat.SeatType?.Code.ToString(),
                 ColumnSpan = seat.ColumnSpan,
-                Active = seat.Active
+                Active = seat.Active,
+                Pathway = seat.Pathway,
+                PriceMultiplier = seat.SeatType?.PriceMultiplier ?? 1.0m
             };
 
             await _cache.SetStringAsync(
