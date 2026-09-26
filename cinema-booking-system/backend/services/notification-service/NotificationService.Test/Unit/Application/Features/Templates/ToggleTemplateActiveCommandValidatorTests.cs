@@ -40,6 +40,6 @@ public class ToggleTemplateActiveCommandValidatorTests
 
         // Assert
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.PropertyName == "Code");
+        result.Errors.Should().Contain(e => e.PropertyName == "Id");
     }
 }

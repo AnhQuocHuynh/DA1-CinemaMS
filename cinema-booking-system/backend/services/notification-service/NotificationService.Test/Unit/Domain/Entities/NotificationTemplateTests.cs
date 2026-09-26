@@ -22,7 +22,7 @@ public class NotificationTemplateTests
         template.Active.Should().BeTrue();
         template.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
         template.UpdatedAt.Should().BeNull();
-        template.Id.Should().BeEmpty();
+        template.Id.Should().NotBeNullOrWhiteSpace();
     }
 
     [Theory]

@@ -31,6 +31,13 @@ public class TemplateRepository : ITemplateRepository
             cancellationToken);
     }
 
+    public async Task<NotificationTemplate?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+    {
+        return await _context.Templates
+            .Find(t => t.Id == id)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<NotificationTemplate?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
     {
         return await _context.Templates
