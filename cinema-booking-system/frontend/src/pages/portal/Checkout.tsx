@@ -74,12 +74,28 @@ export const Checkout: React.FC = () => {
       });
       setPendingOrder(order);
 
+      // Save context in sessionStorage before external redirect
+      try {
+        sessionStorage.setItem('pending_booking', JSON.stringify({
+          orderId: order.id,
+          showtimeData,
+          movieTitle: showtimeData?.displayTitle || showtimeData?.eventName || '',
+          selectedSeats,
+        }));
+      } catch (e) {
+        console.warn('Failed to save pending booking in sessionStorage', e);
+      }
+
+      const successUrl = paymentMethod === 'STRIPE'
+        ? `${window.location.origin}/user/checkout-success?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`
+        : `${window.location.origin}/user/checkout-success?orderId=${order.id}`;
+
       const paymentData = {
         orderId: order.id,
         paymentMethod: paymentMethod,
         amount: summary.total,
-        successUrl: window.location.origin + '/user/checkout-success',
-        cancelUrl: window.location.origin + '/user/checkout-canceled' //TODO: implement page
+        successUrl,
+        cancelUrl: `${window.location.origin}/user/booking/${showtimeData.id}`
       };
       const paymentResponse = await paymentService.initiatePayment(paymentData as any);
 
@@ -89,7 +105,7 @@ export const Checkout: React.FC = () => {
       }
 
       setCompletedOrder(order as any);
-      navigate('/user/checkout-success');
+      navigate(`/user/checkout-success?orderId=${order.id}`);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setPayError(

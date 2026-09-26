@@ -20,7 +20,13 @@ export interface PaymentResponse {
 
 export const paymentService = {
   initiatePayment: (data: PaymentRequest) =>
-    apiClient.post<PaymentResponse>('/payments', data).then(r => r.data),
+    apiClient.post<any>('/payments/initiate', data).then(r => {
+      const payload = r.data?.data ?? r.data;
+      return {
+        ...payload,
+        paymentUrl: payload?.paymentUrl || payload?.checkoutUrl,
+      } as PaymentResponse;
+    }),
 
   getPaymentStatus: (transactionId: string) =>
     apiClient.get<PaymentResponse>(`/payments/${transactionId}`).then(r => r.data),
@@ -31,4 +37,8 @@ export const paymentService = {
       `/payments/callback/${provider}/return`,
       Object.fromEntries(queryParams)
     ).then(r => r.data),
+
+  // Called on /checkout-success after Stripe redirect
+  verifyStripeReturn: (sessionId: string) =>
+    apiClient.post<any>('/payments/callback/stripe/return', { sessionId }).then(r => r.data),
 };

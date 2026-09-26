@@ -301,28 +301,28 @@ export const Booking: React.FC = () => {
 
             {/* Pre-selection countdown — appears only once a seat is selected */}
             {!holdExpiresAt && selectedSeats.length > 0 && (
-              <div className={`p-6 rounded-xl shadow-lg ${preIsUrgent ? 'bg-error' : 'bg-inverse-surface'} text-white`}>
+              <div className={`p-6 rounded-xl shadow-sm border ${preIsUrgent ? 'bg-error/10 border-error/40 text-error' : 'bg-surface-container-low border-outline-variant/20 text-on-surface'}`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Timer className="w-4 h-4 opacity-70" />
-                    <span className="text-[10px] font-bold tracking-widest uppercase opacity-70">
+                    <Timer className={`w-4 h-4 ${preIsUrgent ? 'text-error' : 'text-primary'}`} />
+                    <span className={`text-[10px] font-bold tracking-widest uppercase ${preIsUrgent ? 'text-error' : 'text-on-surface-variant'}`}>
                       {t('booking.selectionTime')}
                     </span>
                   </div>
-                  <span className="text-sm font-mono">{preMM}:{preSS}</span>
+                  <span className={`text-sm font-mono font-semibold ${preIsUrgent ? 'text-error' : 'text-on-surface-variant'}`}>{preMM}:{preSS}</span>
                 </div>
-                <div className="text-3xl font-black tracking-tighter tabular-nums">{preMM}:{preSS}</div>
-                <p className="text-xs opacity-60 mt-2">
+                <div className={`text-3xl font-black tracking-tighter tabular-nums ${preIsUrgent ? 'text-error' : 'text-on-surface'}`}>{preMM}:{preSS}</div>
+                <p className={`text-xs mt-2 ${preIsUrgent ? 'text-error/80' : 'text-on-surface-variant'}`}>
                   {t('booking.selectionDesc')}
                 </p>
-                <div className="mt-4 h-1 w-full bg-surface-container-lowest/10 rounded-full overflow-hidden">
+                <div className="mt-4 h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-1000 ${preIsUrgent ? 'bg-yellow-300' : 'bg-primary-container'}`}
+                    className={`h-full rounded-full transition-all duration-1000 ${preIsUrgent ? 'bg-error' : 'bg-primary'}`}
                     style={{ width: `${preProgress}%` }}
                   />
                 </div>
                 {preSeconds === 0 && (
-                  <p className="text-xs mt-3 text-white/80">{t('booking.timeoutReloading')}</p>
+                  <p className="text-xs mt-3 text-error font-medium">{t('booking.timeoutReloading')}</p>
                 )}
               </div>
             )}

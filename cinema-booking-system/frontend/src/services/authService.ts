@@ -3,16 +3,38 @@ import { useAuthStore } from '../store/authStore';
 import apiClient from '../lib/apiClient';
 
 export const authService = {
-  login: (): void => {
-    keycloak.login({ redirectUri: `${window.location.origin}/auth/callback` });
+  login: async (options?: { redirectUri?: string; locale?: string; theme?: string }): Promise<void> => {
+    const currentLang = options?.locale || localStorage.getItem('cinema_lang') || localStorage.getItem('i18nextLng') || localStorage.getItem('lang') || 'vi';
+    const currentTheme = options?.theme || localStorage.getItem('cinema_theme') || 'system';
+
+    const loginUrl = await keycloak.createLoginUrl({
+      redirectUri: options?.redirectUri || `${window.location.origin}/auth/callback`,
+      locale: currentLang,
+    });
+    window.location.assign(`${loginUrl}&theme=${encodeURIComponent(currentTheme)}`);
   },
 
-  register: (): void => {
-    keycloak.register({ redirectUri: `${window.location.origin}/auth/callback` });
+  register: async (options?: { redirectUri?: string; locale?: string; theme?: string }): Promise<void> => {
+    const currentLang = options?.locale || localStorage.getItem('cinema_lang') || localStorage.getItem('i18nextLng') || localStorage.getItem('lang') || 'vi';
+    const currentTheme = options?.theme || localStorage.getItem('cinema_theme') || 'system';
+
+    const registerUrl = await keycloak.createRegisterUrl({
+      redirectUri: options?.redirectUri || `${window.location.origin}/auth/callback`,
+      locale: currentLang,
+    });
+    window.location.assign(`${registerUrl}&theme=${encodeURIComponent(currentTheme)}`);
   },
 
-  forgotPassword: (): void => {
-    keycloak.login({ action: 'UPDATE_PASSWORD', redirectUri: `${window.location.origin}/` });
+  forgotPassword: async (options?: { redirectUri?: string; locale?: string; theme?: string }): Promise<void> => {
+    const currentLang = options?.locale || localStorage.getItem('cinema_lang') || localStorage.getItem('i18nextLng') || localStorage.getItem('lang') || 'vi';
+    const currentTheme = options?.theme || localStorage.getItem('cinema_theme') || 'system';
+
+    const loginUrl = await keycloak.createLoginUrl({
+      action: 'UPDATE_PASSWORD',
+      redirectUri: options?.redirectUri || `${window.location.origin}/`,
+      locale: currentLang,
+    });
+    window.location.assign(`${loginUrl}&theme=${encodeURIComponent(currentTheme)}`);
   },
 
   refreshToken: async (): Promise<string | null> => {

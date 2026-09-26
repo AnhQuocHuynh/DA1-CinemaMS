@@ -8,15 +8,26 @@ import { useState } from 'react';
 import { PrintableTicket } from '../../components/PrintableTicket';
 import { TicketDetails } from '../../types/booking';
 import { paymentService } from '../../services/paymentService';
+import { bookingService } from '../../services/bookingService';
 import { useTranslation } from 'react-i18next';
 
 export const CheckoutSuccess: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { completedOrder, showtimeData, movieTitle, selectedSeats, clearSelection } = useBookingStore();
+  const {
+    completedOrder,
+    showtimeData,
+    movieTitle,
+    selectedSeats,
+    setCompletedOrder,
+    setShowtimeData,
+    setMovieTitle,
+    clearSelection,
+  } = useBookingStore();
   const [isDownloading, setIsDownloading] = useState(false);
   const [searchParams] = useSearchParams();
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isLoadingOrder, setIsLoadingOrder] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
 
   const handleDownloadPDF = async () => {
@@ -37,16 +48,16 @@ export const CheckoutSuccess: React.FC = () => {
     const seatId = (t as any).showtimeSeatId;
     const seat = selectedSeats.find(s => s.numericId === seatId);
 
-    // Get time from showtimeData
-    const startTime = showtimeData?.startTime || '';
+    // Get time from showtimeData or completedOrder
+    const startTime = showtimeData?.startTime || completedOrder?.startTime || '';
     const dt = startTime ? new Date(startTime) : null;
 
     return {
       ticketCode: t.ticketCode,
       orderId: completedOrder?.id || 0,
-      movieTitle: showtimeData?.displayTitle || showtimeData?.eventName || movieTitle || 'Vé xem phim',
-      cinemaName: showtimeData?.cinemaName || '',
-      hallName: showtimeData?.roomName || '',
+      movieTitle: showtimeData?.displayTitle || showtimeData?.eventName || movieTitle || completedOrder?.displayTitle || completedOrder?.movieTitle || 'Vé xem phim',
+      cinemaName: showtimeData?.cinemaName || completedOrder?.cinemaName || '',
+      hallName: showtimeData?.roomName || completedOrder?.roomName || '',
       showtime: startTime,
       date: dt ? dt.toLocaleDateString('vi-VN') : '',
       time: dt ? dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
@@ -60,31 +71,85 @@ export const CheckoutSuccess: React.FC = () => {
     };
   });
 
-  // Clear selection on unmount so the store is ready for the next booking
+  // Handle provider verification (PayPal or Stripe) & order restoration on redirect return
   useEffect(() => {
-    return () => {
-      // Delay clear so TicketInfo can still read completedOrder on immediate nav
-    };
-  }, []);
-
-  // Handle PayPal verification on redirect return
-  useEffect(() => {
+    const sessionId = searchParams.get('session_id') || searchParams.get('sessionId');
     const token = searchParams.get('token');
+    const orderIdParam = searchParams.get('orderId');
 
-    // If PayPal token is present, we must verify and capture the payment
-    if (token) {
-      setIsVerifying(true);
-      paymentService.verifyPaymentReturn(searchParams, 'paypal')
-        .then(() => {
-          setIsVerifying(false);
-        })
-        .catch(err => {
-          console.error('Payment verification failed:', err);
-          setVerificationError(t('checkoutSuccess.verificationFailed'));
-          setIsVerifying(false);
-        });
+    // Restore booking context from sessionStorage if store is empty
+    try {
+      const stored = sessionStorage.getItem('pending_booking');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.showtimeData && !showtimeData) setShowtimeData(parsed.showtimeData);
+        if (parsed.movieTitle && !movieTitle) setMovieTitle(parsed.movieTitle);
+      }
+    } catch (e) {
+      console.warn('Failed to restore from sessionStorage', e);
+    }
+
+    const orderId = orderIdParam ? parseInt(orderIdParam, 10) : completedOrder?.id;
+
+    if (sessionId || token || (!completedOrder && orderId)) {
+      const verifyAndFetch = async () => {
+        setIsVerifying(true);
+        setVerificationError(null);
+
+        try {
+          if (sessionId) {
+            await paymentService.verifyStripeReturn(sessionId);
+          } else if (token) {
+            await paymentService.verifyPaymentReturn(searchParams, 'paypal');
+          }
+        } catch (err) {
+          console.warn('Payment return verification error (may be handled by webhook):', err);
+        }
+
+        if (orderId) {
+          setIsLoadingOrder(true);
+          let attempts = 0;
+          const maxAttempts = 5;
+          while (attempts < maxAttempts) {
+            try {
+              const ord = await bookingService.getOrderById(orderId);
+              if (ord) {
+                setCompletedOrder(ord as any);
+                if (ord.status === 'PAID') {
+                  break;
+                }
+              }
+            } catch (err) {
+              console.error('Failed to fetch order by ID:', err);
+            }
+            attempts++;
+            if (attempts < maxAttempts) {
+              await new Promise((res) => setTimeout(res, 1200));
+            }
+          }
+          setIsLoadingOrder(false);
+        }
+
+        setIsVerifying(false);
+      };
+
+      verifyAndFetch();
     }
   }, [searchParams]);
+
+  if (isVerifying || isLoadingOrder) {
+    return (
+      <main className="min-h-screen bg-surface flex items-center justify-center px-6 py-20">
+        <div className="text-center space-y-4">
+          <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mx-auto animate-pulse">
+            <CheckCircle className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-on-surface">{t('checkoutSuccess.verifying')}</h2>
+          <p className="text-sm text-on-surface-variant">Vui lòng chờ trong giây lát...</p>
+        </div>
+      </main>
+    );
+  }
 
   if (!completedOrder) {
     // Shouldn't happen in normal flow; redirect home if accessed directly
@@ -103,11 +168,13 @@ export const CheckoutSuccess: React.FC = () => {
   const firstTicket = completedOrder.tickets?.[0];
   const firstTicketCode = firstTicket?.ticketCode ?? '';
 
-  // Parse seat labels from seatIds (array of numbers)
-  // We display them as "Ghế X" or rely on the stored selected seats
-  const seatCount = completedOrder.seatIds?.length ?? 0;
-
-  const showtimeLabel = showtimeData ? formatShowtime(showtimeData.startTime) : '—';
+  const seatCount = completedOrder.seatIds?.length ?? completedOrder.seatLabels?.length ?? completedOrder.tickets?.length ?? 0;
+  const showtimeLabel = showtimeData
+    ? formatShowtime(showtimeData.startTime)
+    : completedOrder.startTime
+    ? formatShowtime(completedOrder.startTime)
+    : '—';
+  const displayMovie = movieTitle || showtimeData?.displayTitle || completedOrder.displayTitle || completedOrder.movieTitle || '—';
 
   const handleGoHome = () => {
     clearSelection();
@@ -157,7 +224,7 @@ export const CheckoutSuccess: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-on-surface-variant mb-1">{t('checkoutSuccess.movie')}</p>
-              <p className="font-semibold text-on-surface">{movieTitle ?? '—'}</p>
+              <p className="font-semibold text-on-surface">{displayMovie}</p>
             </div>
             <div>
               <p className="text-xs text-on-surface-variant mb-1">{t('checkoutSuccess.showtime')}</p>
