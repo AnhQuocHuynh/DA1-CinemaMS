@@ -5,6 +5,7 @@ import { LogOut, Search, User } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { ThemeToggle } from './ThemeToggle';
 import genericPoster from '../resources/generic_movie_poster.png';
 
 interface SearchSuggestion {
@@ -166,6 +167,7 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
           )}
 
           <LanguageSwitcher />
+          <ThemeToggle />
 
           {user ? (
             <div className="relative">

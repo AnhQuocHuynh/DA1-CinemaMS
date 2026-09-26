@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { ToastProvider } from './contexts/ToastContext'
 import './index.css'
 import './i18n'
+import './store/themeStore'
 import App from './App.tsx'
 import keycloak from './lib/keycloak';
 import { authService } from './services/authService';

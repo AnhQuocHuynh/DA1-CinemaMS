@@ -4,52 +4,94 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 240 100% 99%;
+    --foreground: 216 45% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 216 45% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
+    --popover-foreground: 216 45% 12%;
+    --primary: 217 79% 57%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
+    --accent: 217 100% 39%;
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 228 20% 80%;
+    --input: 228 20% 80%;
+    --ring: 217 79% 57%;
     --radius: 0.5rem;
+
+    /* Cinema Material Surface Tokens (Light Mode) */
+    --surface: 240 100% 99%;
+    --surface-dim: 220 54% 88%;
+    --surface-bright: 240 100% 99%;
+    --surface-container-lowest: 0 0% 100%;
+    --surface-container-low: 227 100% 97%;
+    --surface-container: 222 100% 96%;
+    --surface-container-high: 222 100% 93%;
+    --surface-container-highest: 221 82% 92%;
+    --on-surface: 216 45% 12%;
+    --on-surface-variant: 231 12% 30%;
+    --outline: 230 8% 49%;
+    --outline-variant: 228 20% 80%;
+    --inverse-surface: 217 27% 21%;
+    --inverse-on-surface: 225 100% 96%;
+    --inverse-primary: 226 100% 85%;
+    --secondary-container: 221 73% 90%;
+    --on-secondary-container: 219 15% 41%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 222 47% 7%;
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 222 47% 10%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 222 47% 10%;
     --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
+    --primary: 217 79% 57%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217 33% 20%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --muted: 217 33% 20%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 100% 39%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 217 79% 57%;
+
+    /* Cinema Material Surface Tokens (Dark Mode) */
+    --surface: 222 47% 7%;
+    --surface-dim: 222 47% 5%;
+    --surface-bright: 222 40% 12%;
+    --surface-container-lowest: 222 47% 10%;
+    --surface-container-low: 222 45% 13%;
+    --surface-container: 222 42% 16%;
+    --surface-container-high: 222 40% 19%;
+    --surface-container-highest: 222 38% 23%;
+    --on-surface: 210 40% 98%;
+    --on-surface-variant: 215 20% 75%;
+    --outline: 215 16% 47%;
+    --outline-variant: 217 33% 20%;
+    --inverse-surface: 210 40% 98%;
+    --inverse-on-surface: 216 45% 12%;
+    --inverse-primary: 222 47% 11%;
+    --secondary-container: 217 33% 20%;
+    --on-secondary-container: 210 40% 98%;
+  }
+
+  * {
+    @apply border-border;
   }
 
   body {
-    @apply bg-surface text-on-surface;
+    @apply bg-surface text-on-surface transition-colors duration-200;
   }
 }
 
@@ -60,15 +102,5 @@
 
   .tonal-zone {
     @apply bg-surface-container-low;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground;
   }
 }

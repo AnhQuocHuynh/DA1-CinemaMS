@@ -4,6 +4,8 @@ import { LogOut, Settings, User } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
 import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from './LanguageSwitcher';
+import { ThemeToggle } from './ThemeToggle';
 
 export const Header: React.FC = () => {
   const { t } = useTranslation();
@@ -42,7 +44,9 @@ export const Header: React.FC = () => {
           )}
         </div>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        <LanguageSwitcher />
+        <ThemeToggle />
         {user ? (
           <div className="relative">
             <button
