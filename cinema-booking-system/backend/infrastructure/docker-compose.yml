@@ -454,7 +454,14 @@ services:
       - KeycloakAdmin__Realm=cinema-booking
       - KeycloakAdmin__ClientId=cinema-admin
       - KeycloakAdmin__ClientSecret=${KC_ADMIN_CLIENT_SECRET}
+      - IdentityService__BaseUrl=http://identity-service:80
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+      - Smtp__Host=${SMTP_HOST:-smtp.gmail.com}
+      - Smtp__Port=${SMTP_PORT:-587}
+      - Smtp__Username=${SMTP_USER}
+      - Smtp__Password=${SMTP_PASS}
+      - Smtp__FromName=Cinema Booking System
+      - Smtp__FromAddress=${SMTP_USER:-noreply@cinema.com}
     ports:
       - "${NOTIFICATION_SERVICE_PORT:-5004}:80"
     depends_on:
