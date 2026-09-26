@@ -5,6 +5,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Logs;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using NotificationService.Application;
 using NotificationService.Application.Contracts;
 using NotificationService.Infrastructure;
@@ -14,6 +15,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
+using NotificationService.Presentation.Middleware;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,8 +26,29 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IDashboardBroadcaster, DashboardBroadcaster>();
+builder.Services.AddTransient<IPushNotificationSender, SignalRPushSender>();
 builder.Services.AddControllers();
 builder.Services.AddHealthChecks();
+
+// Swagger / OpenAPI
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Notification Service API",
+        Version = "v1",
+        Description = "Cinema Booking System — Notification Service (Email, SMS, Push)"
+    });
+    options.AddSecurityDefinition("GatewayAuth", new OpenApiSecurityScheme
+    {
+        Description = "Provide X-User-Id header (injected by API Gateway)",
+        Name = "X-User-Id",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "GatewayAuth"
+    });
+});
 
 // OpenTelemetry Observability
 builder.AddCinemaObservability();
@@ -88,6 +112,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Notification Service v1"));
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
