@@ -5,6 +5,7 @@ using PaymentService.Application.DTOs;
 using PaymentService.Application.Features.Payments.Commands;
 using PaymentService.Application.Features.Payments.Queries;
 using PaymentService.Domain.Enums;
+using PaymentService.Application.Exceptions;
 using PaymentService.Presentation.Models;
 using System.Security.Claims;
 
@@ -16,17 +17,20 @@ public class PaymentsController : ControllerBase
 {
     private readonly IMediator _mediator;
     private readonly IConfiguration _configuration;
+    private readonly ILogger<PaymentsController> _logger;
 
-    public PaymentsController(IMediator mediator, IConfiguration configuration)
+    public PaymentsController(IMediator mediator, IConfiguration configuration, ILogger<PaymentsController> logger)
     {
         _mediator = mediator;
         _configuration = configuration;
+        _logger = logger;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // POST /api/payments/initiate
+    // POST /api/payments or POST /api/payments/initiate
     // Phase 3 of the Booking Saga — create payment & redirect to gateway
     // ─────────────────────────────────────────────────────────────────────────
+    [HttpPost]
     [HttpPost("initiate")]
     [Authorize]
     public async Task<IActionResult> InitiatePayment([FromBody] InitiatePaymentRequest request)
@@ -53,7 +57,7 @@ public class PaymentsController : ControllerBase
             return Ok(ApiResponse<object>.Ok(new { status = "AWAITING_CASH", orderId = request.OrderId },
                 "Cash payment pending counter confirmation"));
 
-        return Ok(ApiResponse<object>.Ok(new { checkoutUrl = result.RedirectUrl }));
+        return Ok(ApiResponse<object>.Ok(new { checkoutUrl = result.RedirectUrl, paymentUrl = result.RedirectUrl }));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -64,22 +68,29 @@ public class PaymentsController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> StripeCallback()
     {
-        // Read raw body for signature verification (must not use buffered body)
-        Request.EnableBuffering();
-        using var reader = new StreamReader(Request.Body, leaveOpen: true);
-        var rawBody = await reader.ReadToEndAsync();
-        Request.Body.Position = 0;
-
-        var stripeSignature = Request.Headers["Stripe-Signature"].ToString();
-
-        var parameters = new Dictionary<string, string>
+        try
         {
-            { "rawBody", rawBody },
-            { "stripeSignature", stripeSignature }
-        };
+            // Read raw body for signature verification (must not use buffered body)
+            Request.EnableBuffering();
+            using var reader = new StreamReader(Request.Body, leaveOpen: true);
+            var rawBody = await reader.ReadToEndAsync();
+            Request.Body.Position = 0;
 
-        var command = new HandlePaymentCallbackCommand(PaymentMethod.STRIPE, parameters);
-        await _mediator.Send(command);
+            var stripeSignature = Request.Headers["Stripe-Signature"].ToString();
+
+            var parameters = new Dictionary<string, string>
+            {
+                { "rawBody", rawBody },
+                { "stripeSignature", stripeSignature }
+            };
+
+            var command = new HandlePaymentCallbackCommand(PaymentMethod.STRIPE, parameters);
+            await _mediator.Send(command);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error processing Stripe webhook callback; returning 200 OK to prevent retries.");
+        }
 
         // Always return 200 to Stripe (they retry on non-2xx)
         return Ok();
@@ -107,6 +118,35 @@ public class PaymentsController : ControllerBase
             return BadRequest(ApiResponse<object>.Error("Failed to capture PayPal payment."));
 
         return Ok(ApiResponse<object>.Ok(null, "PayPal payment captured successfully."));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // POST /api/payments/callback/stripe/return
+    // Direct Stripe session verification on return redirect
+    // ─────────────────────────────────────────────────────────────────────────
+    [HttpPost("callback/stripe/return")]
+    [AllowAnonymous]
+    public async Task<IActionResult> StripeReturn([FromBody] StripeReturnRequest request)
+    {
+        try
+        {
+            var parameters = new Dictionary<string, string>
+            {
+                { "sessionId", request.SessionId }
+            };
+
+            var command = new HandlePaymentCallbackCommand(PaymentMethod.STRIPE, parameters);
+            var success = await _mediator.Send(command);
+
+            if (!success)
+                return BadRequest(ApiResponse<object>.Error("Failed to verify Stripe payment session."));
+
+            return Ok(ApiResponse<object>.Ok(null, "Stripe payment verified successfully."));
+        }
+        catch (PaymentGatewayException ex)
+        {
+            return BadRequest(ApiResponse<object>.Error(ex.Message));
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -187,9 +227,13 @@ public class PaymentsController : ControllerBase
     // ─────────────────────────────────────────────────────────────────────────
     private long GetCurrentUserId()
     {
+        if (Request.Headers.TryGetValue("X-User-Id", out var headerVal) && long.TryParse(headerVal, out var headerUserId))
+            return headerUserId;
+
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (long.TryParse(userIdClaim, out var userId))
             return userId;
+
         throw new UnauthorizedAccessException("X-User-Id header is missing or invalid.");
     }
 }
@@ -208,3 +252,4 @@ public record InitiatePaymentRequest(
 
 public record ConfirmCashRequest(long PaymentId);
 public record PayPalReturnRequest(string Token, string? PayerID);
+public record StripeReturnRequest(string SessionId);
