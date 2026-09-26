@@ -137,6 +137,9 @@ if (!string.IsNullOrEmpty(redisConnectionString))
 // Rate Limiting
 builder.Services.AddRateLimiter(options =>
 {
+    var globalPermitLimit = builder.Configuration.GetValue<int>("RateLimiting:GlobalPermitLimit", 300);
+    var globalQueueLimit = builder.Configuration.GetValue<int>("RateLimiting:GlobalQueueLimit", 20);
+
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
         var remoteIpAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -145,8 +148,8 @@ builder.Services.AddRateLimiter(options =>
             factory: partition => new FixedWindowRateLimiterOptions
             {
                 AutoReplenishment = true,
-                PermitLimit = 300,
-                QueueLimit = 20,
+                PermitLimit = globalPermitLimit,
+                QueueLimit = globalQueueLimit,
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 Window = TimeSpan.FromMinutes(1)
             });

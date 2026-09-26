@@ -8,7 +8,7 @@ public class InternalApiSecurityMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly IConfiguration _configuration;
-    private const string InternalPrefix = "/internal/";
+    private const string InternalPrefix = "/internal";
     private const string TokenHeader = "X-Internal-Token";
 
     public InternalApiSecurityMiddleware(RequestDelegate next, IConfiguration configuration)
@@ -25,7 +25,7 @@ public class InternalApiSecurityMiddleware
             return;
         }
 
-        var configuredToken = _configuration["InternalApi:Token"];
+        var configuredToken = _configuration["InternalApi:Token"] ?? _configuration["INTERNAL_API_TOKEN"];
         if (string.IsNullOrWhiteSpace(configuredToken))
         {
             await WriteUnauthorizedResponse(context, "Internal API token is not configured.");
@@ -33,7 +33,7 @@ public class InternalApiSecurityMiddleware
         }
 
         if (!context.Request.Headers.TryGetValue(TokenHeader, out var providedToken) || 
-            providedToken != configuredToken)
+            !string.Equals(providedToken.ToString(), configuredToken, StringComparison.Ordinal))
         {
             await WriteUnauthorizedResponse(context, "Invalid internal token");
             return;
