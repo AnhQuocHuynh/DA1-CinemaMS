@@ -5,4 +5,5 @@ import java.util.List;
 
 public interface OrderService {
     Order createOrder(Long userId, Long showtimeId, List<Long> seatIds, String voucherCode);
+    Order getOrderById(Long orderId);
 }
