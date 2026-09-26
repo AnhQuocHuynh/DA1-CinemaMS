@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Star, Film, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, Film, ChevronLeft, ChevronRight, Sparkles, TrendingUp } from 'lucide-react';
 import { RatingBadge } from '../components/Review/RatingBadge';
 import { calculateEndTime, formatDuration, movies as mockMovies } from '../utils/movieData';
 import { SiteTopNav } from '../components/SiteTopNav';
 import { useMovies } from '../hooks/useMovies';
+import { useRecommendations } from '../hooks/useRecommendations';
+import { useAuthStore } from '../store/authStore';
 import { eventService, EventResponse } from '../services/eventService';
 import { MovieResponse } from '../services/movieService';
 import { catalogService } from '../services/catalogService';
@@ -78,6 +80,8 @@ export const Home: React.FC = () => {
 
   // Fetch real movies from backend
   const { backendMovies, isLoading: isLoadingBackend } = useMovies();
+  const { recommendations, isLoading: isLoadingRecs } = useRecommendations(4);
+  const user = useAuthStore(state => state.user);
 
   useEffect(() => {
     eventService.getEvents().then(setEvents).catch(console.error);
@@ -286,12 +290,133 @@ export const Home: React.FC = () => {
           </div>
         </section>
 
+        {/* ── Recommended For You ─────────────────────────────────────── */}
+        {(recommendations.length > 0 || isLoadingRecs) && (
+          <section id="recommended" className="max-w-[1280px] mx-auto px-6 pt-12">
+            <div className="flex items-end justify-between gap-4 mb-8">
+              <div>
+                <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                  {user ? (
+                    <>
+                      <Sparkles className="text-amber-500" size={28} />
+                      {t('home.recommendedForYou', 'Recommended for You')}
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="text-primary" size={28} />
+                      {t('home.popularMovies', 'Popular Movies')}
+                    </>
+                  )}
+                </h2>
+                <p className="text-on-surface-variant mt-1">
+                  {user ? t('home.recommendedDesc', 'Handpicked selections based on your watch history.') : t('home.popularDesc', 'Trending movies everyone is watching.')}
+                </p>
+              </div>
+            </div>
+
+            {isLoadingRecs && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7 mb-7">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant animate-pulse">
+                    <div className="aspect-[2/3] bg-surface-container-high" />
+                    <div className="p-4 space-y-2">
+                      <div className="h-4 bg-surface-container-high rounded w-3/4" />
+                      <div className="h-3 bg-surface-container rounded w-1/2" />
+                      <div className="h-3 bg-surface-container rounded w-2/3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!isLoadingRecs && recommendations.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7 mb-12">
+                {recommendations.map((rec) => {
+                  // Find full movie details from backendMovies, if missing just use fallback metadata
+                  const fullMovie = backendMovies.find(m => m.id === rec.movieId);
+                  // We map to HomeMovieCard
+                  let card: HomeMovieCard;
+
+                  if (fullMovie) {
+                    card = backendToCard(fullMovie, t);
+                  } else {
+                    // Fallback card if the movie isn't in the main catalog list (e.g. inactive)
+                    card = {
+                      id: rec.movieId,
+                      title: rec.title,
+                      genre: rec.matchedGenres?.join(', ') || 'Movie',
+                      durationMinutes: 0,
+                      rating: 0,
+                      posterUrl: rec.posterUrl || '',
+                      backdropUrl: rec.posterUrl || '',
+                      firstShowLabel: '',
+                      theaterName: t('home.recommended', 'Recommended'),
+                      priceLabel: '',
+                      isBackend: true,
+                    };
+                  }
+
+                  return (
+                    <article key={card.id} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow relative">
+                      <Link to={`/movies/${card.id}`}>
+                        <div className="relative aspect-[2/3] overflow-hidden">
+                          <img
+                            src={card.posterUrl || genericPoster}
+                            alt={card.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.onerror = null;
+                              target.src = genericPoster;
+                            }}
+                          />
+                          {fullMovie?.active && (
+                            <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-success text-white text-[10px] font-bold">
+                              {t('home.nowShowing')}
+                            </span>
+                          )}
+                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-amber-400 text-xs font-bold flex items-center gap-1 border border-white/10 shadow-lg">
+                            <Star size={12} className="fill-amber-400" />
+                            {rec.avgRating > 0 ? rec.avgRating.toFixed(1) : 'New'}
+                          </div>
+                        </div>
+                      </Link>
+
+                      <div className="p-4 space-y-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <Link to={`/movies/${card.id}`} className="font-bold leading-tight hover:opacity-90 transition-colors line-clamp-1">
+                            {card.title}
+                          </Link>
+                        </div>
+                        {card.durationMinutes > 0 && (
+                          <p className="text-xs text-on-surface-variant line-clamp-1">{card.genre} – {formatDuration(card.durationMinutes)}</p>
+                        )}
+                        {!card.durationMinutes && (
+                          <p className="text-xs text-on-surface-variant line-clamp-1">{card.genre}</p>
+                        )}
+                        <p className="text-sm text-on-surface-variant">{card.firstShowLabel}</p>
+                        <p className="text-sm text-on-surface-variant">{card.theaterName}</p>
+                        <div className="pt-2 flex items-center justify-between">
+                          <span className="text-xs font-semibold text-on-surface-variant">{fullMovie?.ageRating || ''}</span>
+                          {fullMovie && <RatingBadge type="movie" id={fullMovie.id} />}
+                          <Link to={`/movies/${card.id}`} className="text-sm font-semibold text-primary hover:underline">
+                            {t('home.detailsAndBook')}
+                          </Link>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* ── Current Screenings ─────────────────────────────────────── */}
         <section id="movies" className="max-w-[1280px] mx-auto px-6 py-12">
           <div className="flex items-end justify-between gap-4 mb-8">
             <div>
               <h2 className="text-3xl font-bold tracking-tight">{t('home.currentScreenings')}</h2>
-              <p className="text-on-surface-variant mt-1">{t('home.currentScreeningsDesc')}</p>
             </div>
             <button onClick={() => submitSearch('')} className="text-sm font-semibold text-primary hover:underline">
               {t('home.viewFullSchedule')}
