@@ -3,6 +3,7 @@ import { AdminLayout } from '../../components/admin/AdminLayout';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { ProfileSettingsContent } from '../../components/profile/ProfileSettingsContent';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
+import { ThemeToggle } from '../../components/ThemeToggle';
 import { useTranslation } from 'react-i18next';
 
 export const AdminSettings: React.FC = () => {
@@ -28,12 +29,21 @@ export const AdminSettings: React.FC = () => {
         <div className="max-w-4xl space-y-8">
           <div className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/50">
             <h2 className="text-xl font-bold text-on-surface mb-6">{t('adminSettings.systemPreferences', 'System Preferences')}</h2>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-on-surface">{t('adminSettings.language', 'Language')}</p>
-                <p className="text-sm text-on-surface-variant">{t('adminSettings.languageDesc', 'Choose your preferred language for the admin interface.')}</p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-4 border-b border-outline-variant/30">
+                <div>
+                  <p className="font-medium text-on-surface">{t('adminSettings.language', 'Language')}</p>
+                  <p className="text-sm text-on-surface-variant">{t('adminSettings.languageDesc', 'Choose your preferred language for the admin interface.')}</p>
+                </div>
+                <LanguageSwitcher />
               </div>
-              <LanguageSwitcher />
+              <div className="flex items-center justify-between pt-1">
+                <div>
+                  <p className="font-medium text-on-surface">{t('adminSettings.theme', 'Theme')}</p>
+                  <p className="text-sm text-on-surface-variant">{t('adminSettings.themeDesc', 'Choose between light, dark, or system mode.')}</p>
+                </div>
+                <ThemeToggle />
+              </div>
             </div>
           </div>
           <ProfileSettingsContent />

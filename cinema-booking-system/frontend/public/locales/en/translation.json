@@ -99,7 +99,11 @@
     "theaters": "Theaters",
     "membership": "Membership",
     "myTickets": "My Tickets",
-    "bookNow": "Book Now"
+    "bookNow": "Book Now",
+    "themeToggle": "Toggle Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System"
   },
   "adminSidebar": {
     "title": "Admin Console",
@@ -178,7 +182,12 @@
   },
   "settings": {
     "title": "Settings",
-    "subtitle": "Manage your account preferences and profile."
+    "subtitle": "Manage your account preferences and profile.",
+    "systemPreferences": "System Preferences",
+    "language": "Language",
+    "languageDesc": "Choose your preferred language.",
+    "theme": "Theme",
+    "themeDesc": "Choose between light, dark, or system mode."
   },
   "ticketInfo": {
     "loading": "Loading ticket...",
@@ -323,7 +332,23 @@
     "subtitle": "Manage your account preferences and profile.",
     "systemPreferences": "System Preferences",
     "language": "Language",
-    "languageDesc": "Choose your preferred language for the staff interface."
+    "languageDesc": "Choose your preferred language for the staff interface.",
+    "theme": "Theme",
+    "themeDesc": "Choose between light, dark, or system mode."
+  },
+  "adminSettings": {
+    "console": "Admin Console",
+    "search": "Search operations, venues, or reports...",
+    "analytics": "Analytics",
+    "reports": "Reports",
+    "logs": "Logs",
+    "title": "Settings",
+    "subtitle": "Manage your account preferences and profile.",
+    "systemPreferences": "System Preferences",
+    "language": "Language",
+    "languageDesc": "Choose your preferred language for the admin interface.",
+    "theme": "Theme",
+    "themeDesc": "Choose between light, dark, or system mode."
   },
   "staffDashboard": {
     "title": "Staff Dashboard 👔",
@@ -703,5 +728,25 @@
     "publishedSuccess": "Published successfully!",
     "publishing": "Publishing…",
     "saveAndPublish": "Save & Publish"
+  },
+  "adminDashboard": {
+    "console": "Admin Console",
+    "search": "Search operations, venues, or reports...",
+    "eyebrow": "Theater Overview",
+    "chief": "Chief",
+    "greeting": {
+      "morning": "Good Morning",
+      "afternoon": "Good Afternoon",
+      "evening": "Good Evening",
+      "night": "Good Evening"
+    },
+    "nav": {
+      "analytics": "Analytics",
+      "reports": "Reports",
+      "logs": "Logs"
+    },
+    "loading": "Loading dashboard...",
+    "totalRevenue": "Total Revenue",
+    "noRevenueData": "No revenue data yet"
   }
 }

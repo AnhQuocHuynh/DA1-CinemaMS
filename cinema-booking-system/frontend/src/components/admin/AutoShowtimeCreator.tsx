@@ -48,20 +48,20 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 function existingToBlock(st: ShowtimeResponse, open: number): ShowtimeBlock {
   const startHHMM = st.startTime.slice(11, 16);
-  const endHHMM   = st.endTime.slice(11, 16);
-  const startMin  = toMinutes(startHHMM);
-  const endMin    = toMinutes(endHHMM);
+  const endHHMM = st.endTime.slice(11, 16);
+  const startMin = toMinutes(startHHMM);
+  const endMin = toMinutes(endHHMM);
   return {
-    id:            `existing-${st.id}`,
-    movieId:       st.movieId ?? undefined,
-    eventId:       st.eventId ?? undefined,
-    title:         st.movieId ? `Movie #${st.movieId}` : st.eventId ? `Event #${st.eventId}` : 'Showtime',
-    startTime:     startHHMM,
-    endTime:       endHHMM,
-    totalMinutes:  endMin - startMin,
-    colorClass:    'bg-slate-500',
-    isLocked:      true,
-    isConflict:    false,
+    id: `existing-${st.id}`,
+    movieId: st.movieId ?? undefined,
+    eventId: st.eventId ?? undefined,
+    title: st.movieId ? `Movie #${st.movieId}` : st.eventId ? `Event #${st.eventId}` : 'Showtime',
+    startTime: startHHMM,
+    endTime: endHHMM,
+    totalMinutes: endMin - startMin,
+    colorClass: 'bg-slate-500',
+    isLocked: true,
+    isConflict: false,
     offsetMinutes: startMin - open,
   };
 }
@@ -84,19 +84,19 @@ const DraggableBlock: React.FC<DraggableBlockProps> = ({
   liveTranslateX = 0,
 }) => {
   const widthPct = (block.totalMinutes / totalMinutes) * 100;
-  const leftPct  = (block.offsetMinutes / totalMinutes) * 100;
+  const leftPct = (block.offsetMinutes / totalMinutes) * 100;
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id:       block.id,
+    id: block.id,
     disabled: block.isLocked,
-    data:     { block },
+    data: { block },
   });
 
   const baseClass = block.isConflict
     ? 'bg-error border-2 border-red-700'
     : block.isLocked
-    ? 'bg-slate-400 border border-slate-500'
-    : `${block.colorClass} border border-white/20`;
+      ? 'bg-slate-400 border border-slate-500'
+      : `${block.colorClass} border border-white/20`;
 
   return (
     <div
@@ -107,8 +107,8 @@ const DraggableBlock: React.FC<DraggableBlockProps> = ({
         ${block.isLocked ? 'cursor-default' : isDragging ? 'opacity-40 cursor-grabbing z-30' : 'cursor-grab z-10 hover:brightness-110'}
         ${baseClass}`}
       style={{
-        left:      `${leftPct}%`,
-        width:     `${Math.max(widthPct, 0.5)}%`,
+        left: `${leftPct}%`,
+        width: `${Math.max(widthPct, 0.5)}%`,
         transform: isDragging ? `translateX(${liveTranslateX}px)` : undefined,
       }}
       title={`${block.title} | ${block.startTime}–${block.endTime}`}
@@ -171,7 +171,7 @@ const MovieSelectorRow: React.FC<MovieSelectorRowProps> = ({
   return (
     <div
       className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer
-        ${isSelected ? 'border-blue-400 bg-primary-container' : 'border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low'}`}
+        ${isSelected ? 'border-blue-400 bg-highlight' : 'border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low'}`}
       onClick={() => onToggle(movie, colorClass)}
     >
       <div className={`w-3 h-3 rounded-full flex-shrink-0 ${colorClass}`} />
@@ -215,22 +215,22 @@ interface AutoShowtimeCreatorProps {
 export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClose }) => {
   const { t } = useTranslation();
   // ── State ─────────────────────────────────────────────────────────────────
-  const [selectedDate, setSelectedDate]     = useState(today());
+  const [selectedDate, setSelectedDate] = useState(today());
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
-  const [basePrice, setBasePrice]           = useState<number>(85000);
-  const [constraints, setConstraints]       = useState<ScheduleConstraints>(DEFAULT_CONSTRAINTS);
+  const [basePrice, setBasePrice] = useState<number>(85000);
+  const [constraints, setConstraints] = useState<ScheduleConstraints>(DEFAULT_CONSTRAINTS);
   const [selectedMovies, setSelectedMovies] = useState<ScheduledMovie[]>([]);
   const [availableMovies, setAvailableMovies] = useState<MovieResponse[]>([]);
-  const [theaters, setTheaters]             = useState<{ id: string; name: string; rooms: { id: string; name: string }[] }[]>([]);
+  const [theaters, setTheaters] = useState<{ id: string; name: string; rooms: { id: string; name: string }[] }[]>([]);
   const [existingBlocks, setExistingBlocks] = useState<ShowtimeBlock[]>([]);
-  const [isLoadingMovies, setIsLoadingMovies]   = useState(false);
-  const [isLoadingRooms, setIsLoadingRooms]     = useState(false);
+  const [isLoadingMovies, setIsLoadingMovies] = useState(false);
+  const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
 
   // Tracks the active dragging block id and the live pixel delta during drag
-  const [activeDragId, setActiveDragId]         = useState<string | null>(null);
-  const [liveDragDeltaX, setLiveDragDeltaX]     = useState(0);
-  const timelineRef                             = useRef<HTMLDivElement>(null);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [liveDragDeltaX, setLiveDragDeltaX] = useState(0);
+  const timelineRef = useRef<HTMLDivElement>(null);
 
   const {
     blocks, isPublishing, publishError, publishSuccess,
@@ -241,7 +241,7 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
   // MouseSensor + TouchSensor give us both desktop and mobile drag support.
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor,  { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
   );
 
   // ── Load data ─────────────────────────────────────────────────────────────
@@ -264,7 +264,7 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
     setIsLoadingExisting(true);
     showtimeService.getShowtimesByRoom(selectedRoomId)
       .then((showtimes) => {
-        const open      = toMinutes(constraints.openTime);
+        const open = toMinutes(constraints.openTime);
         const dayBlocks = showtimes
           .filter((st) => st.startTime.startsWith(selectedDate))
           .map((st) => existingToBlock(st, open));
@@ -275,13 +275,13 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
   }, [selectedRoomId, selectedDate, constraints.openTime]);
 
   // ── Derived values ────────────────────────────────────────────────────────
-  const openMin              = toMinutes(constraints.openTime);
-  const closeMin             = toMinutes(constraints.closeTime);
+  const openMin = toMinutes(constraints.openTime);
+  const closeMin = toMinutes(constraints.closeTime);
   const totalOperatingMinutes = Math.max(closeMin - openMin, 1);
   const allBlocks: ShowtimeBlock[] = [...existingBlocks, ...blocks];
-  const hasConflicts         = blocks.some((b) => b.isConflict);
-  const utilizationMinutes   = blocks.reduce((acc, b) => acc + b.totalMinutes, 0);
-  const utilizationPct       = Math.round((utilizationMinutes / totalOperatingMinutes) * 100);
+  const hasConflicts = blocks.some((b) => b.isConflict);
+  const utilizationMinutes = blocks.reduce((acc, b) => acc + b.totalMinutes, 0);
+  const utilizationPct = Math.round((utilizationMinutes / totalOperatingMinutes) * 100);
 
   const activeBlock = activeDragId ? allBlocks.find((b) => b.id === activeDragId) : null;
 
@@ -307,17 +307,17 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
     const { active, delta } = event;
     if (!delta.x || !timelineRef.current) return;
 
-    const blockId     = active.id as string;
-    const dragged     = allBlocks.find((b) => b.id === blockId);
+    const blockId = active.id as string;
+    const dragged = allBlocks.find((b) => b.id === blockId);
     if (!dragged || dragged.isLocked) return;
 
     const parentWidth = timelineRef.current.getBoundingClientRect().width;
     const deltaMinutes = (delta.x / parentWidth) * totalOperatingMinutes;
     // Snap to 5-minute grid
-    const rawOffset    = dragged.offsetMinutes + deltaMinutes;
-    const snapped      = Math.round(rawOffset / 5) * 5;
-    const clamped      = Math.max(0, Math.min(snapped, totalOperatingMinutes - dragged.totalMinutes));
-    const newStart     = toHHMM(openMin + clamped);
+    const rawOffset = dragged.offsetMinutes + deltaMinutes;
+    const snapped = Math.round(rawOffset / 5) * 5;
+    const clamped = Math.max(0, Math.min(snapped, totalOperatingMinutes - dragged.totalMinutes));
+    const newStart = toHHMM(openMin + clamped);
 
     moveBlock(blockId, newStart, constraints, existingBlocks);
   };
@@ -431,7 +431,7 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">{t('autoShowtime.moviePool', 'Movie Pool')}</h3>
                 {selectedMovies.length > 0 && (
-                  <span className="text-xs bg-primary-container text-primary font-bold px-2 py-0.5 rounded-full">{t('autoShowtime.selected', '{{count}} selected', { count: selectedMovies.length })}</span>
+                  <span className="text-xs bg-highlight text-primary font-bold px-2 py-0.5 rounded-full">{t('autoShowtime.selected', '{{count}} selected', { count: selectedMovies.length })}</span>
                 )}
               </div>
               {isLoadingMovies ? (
@@ -553,11 +553,11 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
                       <thead className="bg-surface-container-low">
                         <tr>
                           {[
-                            t('autoShowtime.colMovie', 'Movie'), 
-                            t('autoShowtime.colStart', 'Start'), 
-                            t('autoShowtime.colEnd', 'End'), 
-                            t('autoShowtime.colDuration', 'Duration'), 
-                            t('autoShowtime.colStatus', 'Status'), 
+                            t('autoShowtime.colMovie', 'Movie'),
+                            t('autoShowtime.colStart', 'Start'),
+                            t('autoShowtime.colEnd', 'End'),
+                            t('autoShowtime.colDuration', 'Duration'),
+                            t('autoShowtime.colStatus', 'Status'),
                             ''
                           ].map((h, i) => (
                             <th key={i} className="px-4 py-3 text-left text-[10px] uppercase font-bold text-on-surface-variant tracking-widest">{h}</th>

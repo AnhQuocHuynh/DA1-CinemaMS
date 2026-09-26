@@ -2,6 +2,7 @@ import React from 'react';
 import { StaffLayout } from '../../components/staff/StaffLayout';
 import { ProfileSettingsContent } from '../../components/profile/ProfileSettingsContent';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
+import { ThemeToggle } from '../../components/ThemeToggle';
 import { useTranslation } from 'react-i18next';
 
 export const StaffSettings: React.FC = () => {
@@ -17,12 +18,21 @@ export const StaffSettings: React.FC = () => {
         <div className="max-w-4xl space-y-8">
           <div className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/50">
             <h2 className="text-xl font-bold text-on-surface mb-6">{t('staffSettings.systemPreferences', 'System Preferences')}</h2>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-on-surface">{t('staffSettings.language', 'Language')}</p>
-                <p className="text-sm text-on-surface-variant">{t('staffSettings.languageDesc', 'Choose your preferred language for the staff interface.')}</p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-4 border-b border-outline-variant/30">
+                <div>
+                  <p className="font-medium text-on-surface">{t('staffSettings.language', 'Language')}</p>
+                  <p className="text-sm text-on-surface-variant">{t('staffSettings.languageDesc', 'Choose your preferred language for the staff interface.')}</p>
+                </div>
+                <LanguageSwitcher />
               </div>
-              <LanguageSwitcher />
+              <div className="flex items-center justify-between pt-1">
+                <div>
+                  <p className="font-medium text-on-surface">{t('staffSettings.theme', 'Theme')}</p>
+                  <p className="text-sm text-on-surface-variant">{t('staffSettings.themeDesc', 'Choose between light, dark, or system mode.')}</p>
+                </div>
+                <ThemeToggle />
+              </div>
             </div>
           </div>
           <ProfileSettingsContent />

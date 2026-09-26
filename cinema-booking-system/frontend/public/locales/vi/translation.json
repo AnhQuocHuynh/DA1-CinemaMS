@@ -99,7 +99,11 @@
     "theaters": "Rạp phim",
     "membership": "Thành viên",
     "myTickets": "Vé của tôi",
-    "bookNow": "Đặt vé ngay"
+    "bookNow": "Đặt vé ngay",
+    "themeToggle": "Đổi giao diện",
+    "themeLight": "Sáng",
+    "themeDark": "Tối",
+    "themeSystem": "Hệ thống"
   },
   "adminSidebar": {
     "title": "Admin Console",
@@ -178,7 +182,12 @@
   },
   "settings": {
     "title": "Cài đặt",
-    "subtitle": "Quản lý tùy chọn tài khoản và hồ sơ của bạn."
+    "subtitle": "Quản lý tùy chọn tài khoản và hồ sơ của bạn.",
+    "systemPreferences": "Tùy chọn hệ thống",
+    "language": "Ngôn ngữ",
+    "languageDesc": "Chọn ngôn ngữ bạn muốn sử dụng.",
+    "theme": "Giao diện",
+    "themeDesc": "Chọn chế độ sáng, tối hoặc theo hệ thống."
   },
   "ticketInfo": {
     "loading": "Đang tải vé...",
@@ -323,7 +332,23 @@
     "subtitle": "Quản lý tùy chọn và hồ sơ của bạn.",
     "systemPreferences": "Tùy chọn hệ thống",
     "language": "Ngôn ngữ",
-    "languageDesc": "Chọn ngôn ngữ giao diện ưa thích cho nhân viên."
+    "languageDesc": "Chọn ngôn ngữ giao diện ưa thích cho nhân viên.",
+    "theme": "Giao diện",
+    "themeDesc": "Chọn chế độ sáng, tối hoặc theo hệ thống."
+  },
+  "adminSettings": {
+    "console": "Admin Console",
+    "search": "Tìm kiếm hoạt động, rạp hoặc báo cáo...",
+    "analytics": "Phân tích",
+    "reports": "Báo cáo",
+    "logs": "Nhật ký",
+    "title": "Cài đặt",
+    "subtitle": "Quản lý tùy chọn tài khoản và hồ sơ của bạn.",
+    "systemPreferences": "Tùy chọn hệ thống",
+    "language": "Ngôn ngữ",
+    "languageDesc": "Chọn ngôn ngữ giao diện cho quản trị viên.",
+    "theme": "Giao diện",
+    "themeDesc": "Chọn chế độ sáng, tối hoặc theo hệ thống."
   },
   "staffDashboard": {
     "title": "Bảng điều khiển nhân viên 👔",
@@ -703,5 +728,25 @@
     "publishedSuccess": "Đã xuất bản thành công!",
     "publishing": "Đang xuất bản…",
     "saveAndPublish": "Lưu & Xuất Bản"
+  },
+  "adminDashboard": {
+    "console": "Bảng điều khiển quản trị",
+    "search": "Tìm kiếm vận hành, rạp hoặc báo cáo...",
+    "eyebrow": "Tổng quan rạp chiếu",
+    "chief": "Sếp",
+    "greeting": {
+      "morning": "Chào buổi sáng",
+      "afternoon": "Chào buổi chiều",
+      "evening": "Chào buổi tối",
+      "night": "Chào buổi tối"
+    },
+    "nav": {
+      "analytics": "Phân tích",
+      "reports": "Báo cáo",
+      "logs": "Nhật ký"
+    },
+    "loading": "Đang tải bảng điều khiển...",
+    "totalRevenue": "Tổng doanh thu",
+    "noRevenueData": "Chưa có dữ liệu doanh thu"
   }
 }

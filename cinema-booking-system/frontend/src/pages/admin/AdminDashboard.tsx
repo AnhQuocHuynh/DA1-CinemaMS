@@ -1,19 +1,67 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { useAdminDashboard } from '../../hooks/useAdminDashboard';
 import { useAdminRooms } from '../../hooks/useAdminRooms';
+import { useAuthStore } from '../../store/authStore';
 import genericPoster from '../../resources/generic_movie_poster.png';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export const AdminDashboard: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
   const { overview, revenueSeries, liveSales, popularMovies, isLoading } = useAdminDashboard();
   const { theaters } = useAdminRooms();
+
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const greeting = useMemo(() => {
+    const hour = currentTime.getHours();
+    if (hour >= 5 && hour < 12) {
+      return t('adminDashboard.greeting.morning', 'Good Morning');
+    }
+    if (hour >= 12 && hour < 18) {
+      return t('adminDashboard.greeting.afternoon', 'Good Afternoon');
+    }
+    if (hour >= 18 && hour < 22) {
+      return t('adminDashboard.greeting.evening', 'Good Evening');
+    }
+    return t('adminDashboard.greeting.night', 'Good Evening');
+  }, [currentTime, t]);
+
+  const recipientName = useMemo(() => {
+    if (user?.firstName) return user.firstName;
+    if (user?.username && !user.username.includes('@')) return user.username;
+    return t('adminDashboard.chief', 'Chief');
+  }, [user, t]);
+
+  const formattedDateTime = useMemo(() => {
+    const locale = i18n.language === 'vi' ? 'vi-VN' : 'en-US';
+    const dateStr = currentTime.toLocaleDateString(locale, {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const timeStr = currentTime.toLocaleTimeString(locale, {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: locale !== 'vi-VN',
+    });
+    return `${dateStr} • ${timeStr}`;
+  }, [currentTime, i18n.language]);
 
   const highlightedRooms = useMemo(() => {
     return theaters.flatMap((theater) => theater.rooms.map((room) => ({ theater, room }))).slice(0, 6);
@@ -37,8 +85,8 @@ export const AdminDashboard: React.FC = () => {
       <main className="p-6 md:p-10 bg-surface min-h-screen">
         <AdminPageHeader
           eyebrow={t('adminDashboard.eyebrow', 'Theater Overview')}
-          title={t('adminDashboard.title', 'Good Morning, Chief.')}
-          subtitle="Monday, October 23, 2023"
+          title={`${greeting}, ${recipientName}.`}
+          subtitle={formattedDateTime}
         // actions={
         //   <>
         //     <button className="bg-surface-container-low px-4 py-3 rounded-lg flex items-center gap-3 text-sm font-semibold">
