@@ -1,105 +1,10 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, User, ArrowRight, ArrowLeft, AlertCircle, Phone } from 'lucide-react';
-import { InputField } from '../components/InputField';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, Lock } from 'lucide-react';
 import { authService } from '@/services/authService';
 import genericMovieBg from '../resources/generic_movie_bg.png';
 
-interface SignUpFormData {
-  fullName: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-  phone: string;
-}
-
 export const SignUp: React.FC = () => {
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState<SignUpFormData>({
-    fullName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    phone: '',
-  });
-  const [errors, setErrors] = useState<Partial<SignUpFormData>>({});
-  const [generalError, setGeneralError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const validateForm = (): boolean => {
-    const newErrors: Partial<SignUpFormData> = {};
-
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required';
-    }
-
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-    if (formData.phone && !/^\d{10}$/.test(formData.phone)) {
-      newErrors.phone = 'Please enter a valid 10-digit phone number';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    if (errors[name as keyof SignUpFormData]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: '',
-      }));
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setGeneralError('');
-
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      await authService.register({
-        fullName: formData.fullName,
-        email: formData.email,
-        password: formData.password,
-        phone: formData.phone,
-      });
-      console.log('✅ [SIGNUP] Account created successfully');
-      navigate('/login');
-    } catch (error: any) {
-      console.error('❌ [SIGNUP] Error:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to create account. Email may already be in use.';
-      setGeneralError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="bg-surface text-on-surface min-h-screen flex flex-col">
 
@@ -182,7 +87,7 @@ export const SignUp: React.FC = () => {
                 Back to Home
               </Link>
 
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-8 mt-6">
                 <div>
                   <span className="text-xl font-black tracking-tighter text-on-surface block">
                     CinemaArchitect
@@ -191,137 +96,32 @@ export const SignUp: React.FC = () => {
                     Create Account
                   </h2>
                   <p className="text-on-surface-variant text-sm mt-2">
-                    Open a booking profile with verified access.
+                    Open a booking profile with verified access via Keycloak.
                   </p>
                 </div>                
               </div>
 
-              {generalError && (
-                <div className="mb-6 p-4 bg-error/10 border border-error/20 rounded-lg flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-error mt-0.5" />
-                  <p className="text-sm text-error">{generalError}</p>
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 gap-6">
-                  <InputField
-                    id="fullName"
-                    label="Full Name"
-                    type="text"
-                    placeholder="John Doe"
-                    icon={User}
-                    value={formData.fullName}
-                    onChange={handleChange}
-                    error={errors.fullName}
-                    required
-                  />
-
-                  <InputField
-                    id="email"
-                    label="Email Address"
-                    type="email"
-                    placeholder="name@company.com"
-                    icon={Mail}
-                    value={formData.email}
-                    onChange={handleChange}
-                    error={errors.email}
-                    required
-                  />
-                  <InputField
-                    id="phone"
-                    label="Phone Number"
-                    type="tel"
-                    placeholder="123-456-7890"
-                    icon={Phone}
-                    value={formData.phone}
-                    onChange={handleChange}
-                    error={errors.phone}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="password"
-                    className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1"
-                  >
-                    Password <span className="text-error">*</span>
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-outline w-5 h-5" />
-                    <input
-                      id="password"
-                      name="password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className={`w-full pl-12 pr-4 py-3 bg-surface-container-highest border-none rounded-lg focus:ring-0 text-sm placeholder:text-outline-variant transition-all border-b-2 ${
-                        errors.password
-                          ? 'border-error focus:border-error'
-                          : 'border-transparent focus:border-primary'
-                      }`}
-                    />
-                  </div>
-                  {errors.password && (
-                    <p className="text-[12px] text-error px-1">{errors.password}</p>
-                  )}
-                  <p className="text-[11px] text-on-surface-variant px-1">
-                    Use at least 6 characters with a mix of letters and numbers.
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="confirmPassword"
-                    className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1"
-                  >
-                    Confirm Password <span className="text-error">*</span>
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-outline w-5 h-5" />
-                    <input
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      type="password"
-                      placeholder="••••••••"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      className={`w-full pl-12 pr-4 py-3 bg-surface-container-highest border-none rounded-lg focus:ring-0 text-sm placeholder:text-outline-variant transition-all border-b-2 ${
-                        errors.confirmPassword
-                          ? 'border-error focus:border-error'
-                          : 'border-transparent focus:border-primary'
-                      }`}
-                    />
-                  </div>
-                  {errors.confirmPassword && (
-                    <p className="text-[12px] text-error px-1">{errors.confirmPassword}</p>
-                  )}
-                </div>
-
-                <div className="pt-2 space-y-4">
-                  <div className="flex items-center justify-between rounded-lg border border-outline-variant/40 bg-surface-container-low p-4">
-                    <div>
-                      <div className="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-                        Access Tier
-                      </div>
-                      <div className="text-sm font-semibold text-on-surface mt-1">Standard Member</div>
+              <div className="pt-2 space-y-4">
+                <div className="flex items-center justify-between rounded-lg border border-outline-variant/40 bg-surface-container-low p-4">
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">
+                      Access Tier
                     </div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
-                      Ready
-                    </span>
+                    <div className="text-sm font-semibold text-on-surface mt-1">Standard Member</div>
                   </div>
-
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full py-4 bg-blue-600 text-white rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-blue-600/20 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
-                  >
-                    {isLoading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'}
-                    {!isLoading && <ArrowRight className="w-4 h-4" />}
-                  </button>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
+                    Ready
+                  </span>
                 </div>
-              </form>
+
+                <button
+                  onClick={() => authService.register()}
+                  className="w-full py-4 bg-blue-600 text-white rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-blue-600/20 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                >
+                  CONTINUE TO REGISTRATION
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <div className="border-t border-outline-variant/30 px-8 py-6 text-center">
@@ -330,9 +130,9 @@ export const SignUp: React.FC = () => {
               </p>
               <p className="text-sm text-on-surface-variant mt-4">
                 Already have an account?{' '}
-                <Link to="/login" className="text-primary font-bold hover:underline">
+                <button onClick={() => authService.login()} className="text-primary font-bold hover:underline">
                   Sign In
-                </Link>
+                </button>
               </p>
             </div>
 

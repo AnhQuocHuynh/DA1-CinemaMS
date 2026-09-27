@@ -1,0 +1,21 @@
+name: cinema-migration-rehearsal
+
+services:
+  migration-db:
+    image: postgres:18-alpine
+    container_name: cinema-migration-rehearsal-db
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: rehearsal-only
+    ports:
+      - "55432:5432"
+    volumes:
+      - ./migrations/rehearsal-fixture.sql:/docker-entrypoint-initdb.d/001-rehearsal-fixture.sql:ro
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cinema_legacy_fixture"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

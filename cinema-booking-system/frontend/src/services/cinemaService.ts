@@ -1,3 +1,4 @@
+// TODO: Migrate to src/lib/apiClient.ts
 import apiClient from './authService';
 import { ApiResponse } from '../types/auth';
 

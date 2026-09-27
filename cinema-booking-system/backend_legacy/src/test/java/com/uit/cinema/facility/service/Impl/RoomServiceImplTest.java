@@ -4,7 +4,6 @@ import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.facility.dto.request.RoomRequest;
 import com.uit.cinema.facility.dto.request.SeatMapUpdateRequest;
 import com.uit.cinema.facility.dto.response.RoomResponse;
-import com.uit.cinema.facility.dto.response.SeatTemplateResponse;
 import com.uit.cinema.facility.entity.Cinema;
 import com.uit.cinema.facility.entity.Room;
 import com.uit.cinema.facility.entity.SeatTemplate;
@@ -14,8 +13,7 @@ import com.uit.cinema.facility.repository.CinemaRepository;
 import com.uit.cinema.facility.repository.RoomRepository;
 import com.uit.cinema.facility.repository.SeatTemplateRepository;
 import com.uit.cinema.facility.repository.SeatTypeRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.TypedQuery;
+import com.uit.cinema.facility.service.client.FacilityShowtimeGuard;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -25,29 +23,35 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RoomServiceImplTest {
 
     @Mock
     private RoomRepository roomRepository;
+
     @Mock
     private CinemaRepository cinemaRepository;
+
     @Mock
     private SeatTemplateRepository seatTemplateRepository;
+
     @Mock
     private SeatTypeRepository seatTypeRepository;
+
     @Mock
     private RoomMapper roomMapper;
+
     @Mock
-    private EntityManager entityManager;
-    @Mock
-    private TypedQuery<Long> typedQuery;
+    private FacilityShowtimeGuard facilityShowtimeGuard;
 
     @InjectMocks
     private RoomServiceImpl roomService;
@@ -81,11 +85,12 @@ class RoomServiceImplTest {
         SeatType standardSeatType = new SeatType();
         standardSeatType.setCode(SeatType.SeatTypeCode.STANDARD);
         when(seatTypeRepository.findByCode(SeatType.SeatTypeCode.STANDARD)).thenReturn(Optional.of(standardSeatType));
+        when(seatTypeRepository.save(standardSeatType)).thenReturn(standardSeatType);
 
         RoomResponse response = roomService.createRoom(request);
 
         assertNotNull(response);
-        verify(seatTemplateRepository, times(4)).save(any(SeatTemplate.class)); // 2 rows * 2 columns = 4
+        verify(seatTemplateRepository, times(4)).save(any(SeatTemplate.class));
     }
 
     @Test
@@ -93,11 +98,7 @@ class RoomServiceImplTest {
         Room room = new Room();
         room.setActive(true);
         when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
-
-        when(entityManager.createQuery(anyString(), eq(Long.class))).thenReturn(typedQuery);
-        when(typedQuery.setParameter(eq("roomId"), eq(1L))).thenReturn(typedQuery);
-        when(typedQuery.setParameter(eq("now"), any())).thenReturn(typedQuery);
-        when(typedQuery.getSingleResult()).thenReturn(0L);
+        when(facilityShowtimeGuard.hasFutureShowtimesForRoom(1L)).thenReturn(false);
 
         roomService.deleteRoom(1L);
 
@@ -110,40 +111,36 @@ class RoomServiceImplTest {
         Room room = new Room();
         room.setActive(true);
         when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
-
-        when(entityManager.createQuery(anyString(), eq(Long.class))).thenReturn(typedQuery);
-        when(typedQuery.setParameter(eq("roomId"), eq(1L))).thenReturn(typedQuery);
-        when(typedQuery.setParameter(eq("now"), any())).thenReturn(typedQuery);
-        when(typedQuery.getSingleResult()).thenReturn(1L);
+        when(facilityShowtimeGuard.hasFutureShowtimesForRoom(1L)).thenReturn(true);
 
         CustomException ex = assertThrows(CustomException.class, () -> roomService.deleteRoom(1L));
+
         assertEquals("CONFLICT", ex.getErrorCode());
     }
-    
+
     @Test
     void updateSeatMap_DeletesOldAndSavesNew() {
         Room room = new Room();
         when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
-        
+
         SeatMapUpdateRequest request = new SeatMapUpdateRequest();
         request.setRows(5);
         request.setColumns(5);
-        request.setSeats(List.of()); // Empty seats list for simplicity
+        request.setSeats(List.of());
 
         roomService.updateSeatMap(1L, request);
 
         verify(roomRepository).save(room);
         verify(seatTemplateRepository).deleteByRoomId(1L);
     }
+
     @Test
     void getRoomById_WhenExists_ReturnsResponse() {
         Room room = new Room();
         room.setId(1L);
 
         when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
-
-        RoomResponse mapped = new RoomResponse();
-        when(roomMapper.toResponse(room)).thenReturn(mapped);
+        when(roomMapper.toResponse(room)).thenReturn(new RoomResponse());
 
         RoomResponse result = roomService.getRoomById(1L);
 
@@ -158,16 +155,14 @@ class RoomServiceImplTest {
 
         Room room = new Room();
         room.setId(1L);
-        
+
         Cinema cinema = new Cinema();
         cinema.setId(1L);
         room.setCinema(cinema);
 
         when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
         when(roomRepository.save(any(Room.class))).thenReturn(room);
-
-        RoomResponse mapped = new RoomResponse();
-        when(roomMapper.toResponse(room)).thenReturn(mapped);
+        when(roomMapper.toResponse(room)).thenReturn(new RoomResponse());
 
         RoomResponse result = roomService.updateRoom(1L, request);
 
@@ -180,19 +175,18 @@ class RoomServiceImplTest {
     void getSeatMapByRoomId_ReturnsList() {
         Room room = new Room();
         room.setId(1L);
-        
+
         SeatTemplate template = new SeatTemplate();
         template.setId(1L);
         template.setRoom(room);
-        
+
         SeatType type = new SeatType();
         type.setName("Standard");
         type.setCode(SeatType.SeatTypeCode.STANDARD);
         template.setSeatType(type);
 
         when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
-        when(seatTemplateRepository.findByRoomIdAndActiveTrue(1L))
-            .thenReturn(List.of(template));
+        when(seatTemplateRepository.findByRoomIdAndActiveTrue(1L)).thenReturn(List.of(template));
 
         List<com.uit.cinema.facility.dto.response.SeatTemplateResponse> result = roomService.getSeatMapByRoomId(1L);
 

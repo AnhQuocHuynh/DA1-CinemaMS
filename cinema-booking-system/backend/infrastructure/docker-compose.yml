@@ -1,17 +1,456 @@
-# port allocations:
-#| Service | Internal Port | External (via Gateway) |
-#| API Gateway  5000 | 443 (HTTPS) / 80 (HTTP) |
-#| Identity Service | 5001 | — |
-#| Facility Service | 5002 | — |
-#| Payment Service | 5003 | — |
-#| Notification Service | 5004 | — |
-#| Catalog Service | 8081 | — |
-#| Showtime Service | 8082 | — |
-#| Booking Service | 8083 | — |
-#| Analytics Service | 8084 | — |
-#| Recommendation Service | 8085 | — |
-#| PostgreSQL | 5432 | — |
-#| Redis | 6379 | — |
-#| RabbitMQ | 5672 (AMQP) / 15672 (UI) | — |
-#| ClickHouse | 8123 (HTTP) / 9000 (native) | — |
-#| Neo4j | 7474 (Browser) / 7687 (Bolt)
+name: cinema-backend-services
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: cinema-postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cinema_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./init-multiple-databases.sql:/docker-entrypoint-initdb.d/init-multiple-databases.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d cinema_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cinema-services
+
+  redis:
+    image: redis:7-alpine
+    container_name: cinema-redis
+    env_file:
+      - .env
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - cinema-services
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: cinema-rabbitmq
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-cinema}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_UI_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - cinema-services
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: cinema-keycloak
+    env_file:
+      - .env
+    environment:
+      - KC_HEALTH_ENABLED=true
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_BOOTSTRAP_ADMIN_USERNAME}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_BOOTSTRAP_ADMIN_PASSWORD}
+      - KC_DB=${KC_DB_TYPE}
+      - KC_DB_URL=jdbc:postgresql://${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${KEYCLOAK_DB_NAME}
+      - KC_DB_USERNAME=${POSTGRES_USER:-postgres}
+      - KC_DB_PASSWORD=${POSTGRES_PASSWORD:-123}
+      - RABBITMQ_HOST=${RABBITMQ_HOST:-rabbitmq}
+      - RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER:-cinema}
+      - RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS:-guest}
+    command: start-dev --import-realm
+    ports:
+      - "${KC_PORT:-8080}:8080"
+    volumes:
+      - ./keycloak-themes/cinema-theme:/opt/keycloak/themes/cinema-theme
+      - ./keycloak-spi/target/rabbitmq-event-listener.jar:/opt/keycloak/providers/rabbitmq-event-listener.jar
+      - ./keycloak-config:/opt/keycloak/data/import
+    depends_on:
+      postgres:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cinema-services
+
+  api-gateway:
+    build:
+      context: ../services/api-gateway
+      dockerfile: Dockerfile
+    container_name: cinema-api-gateway
+    env_file:
+      - .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ASPNETCORE_URLS=${ASPNETCORE_URLS}
+      - ReverseProxy__Clusters__keycloak-cluster__Destinations__keycloak-1__Address=http://keycloak:8080
+      - ReverseProxy__Clusters__keycloak-cluster__Destinations__keycloak-1__Health=http://keycloak:9000
+      - ReverseProxy__Clusters__user-profile-cluster__Destinations__user-profile-1__Address=http://identity-service:80
+      - ReverseProxy__Clusters__facility-cluster__Destinations__facility-1__Address=http://facility-service:80
+      - ReverseProxy__Clusters__catalog-cluster__Destinations__catalog-1__Address=http://catalog-service:8081
+      - ReverseProxy__Clusters__showtime-cluster__Destinations__showtime-1__Address=http://showtime-service:8082
+      - ReverseProxy__Clusters__booking-cluster__Destinations__booking-1__Address=http://booking-service:8083
+      - ReverseProxy__Clusters__analytics-cluster__Destinations__analytics-1__Address=http://analytics-service:8084
+      - ReverseProxy__Clusters__recommendation-cluster__Destinations__recommendation-1__Address=http://recommendation-service:8085
+      - ReverseProxy__Clusters__payment-cluster__Destinations__payment-1__Address=http://payment-service:80
+      - Jwt__Authority=${KC_AUTHORITY_URL}
+      - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
+      - UserProfileService__BaseUrl=http://identity-service:80
+      - Redis__ConnectionString=${REDIS_CONNECTION_STRING}
+      - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+    ports:
+      - "${API_GATEWAY_PORT:-5000}:80"
+    depends_on:
+      - keycloak
+      - identity-service
+      - facility-service
+      - redis
+    networks:
+      - cinema-services
+
+  identity-service:
+    build:
+      context: ../services/identity-service
+      dockerfile: Dockerfile
+    container_name: cinema-identity-service
+    env_file:
+      - .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ASPNETCORE_URLS=${ASPNETCORE_URLS}
+      - ConnectionStrings__DefaultConnection=Host=${POSTGRES_HOST:-postgres};Port=${POSTGRES_PORT:-5432};Database=${USER_PROFILE_DB_NAME};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-123}
+      - RabbitMQ__HostName=${RABBITMQ_HOST:-rabbitmq}
+      - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER:-cinema}
+      - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS:-guest}
+      - Jwt__Authority=${KC_AUTHORITY_URL}
+      - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
+      - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
+      - Jwt__RequireHttpsMetadata=false
+      - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+    ports:
+      - "${IDENTITY_SERVICE_PORT:-5001}:80"
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - cinema-services
+
+  facility-service:
+    build:
+      context: ../services/facility-service
+      dockerfile: Dockerfile
+    container_name: cinema-facility-service
+    env_file:
+      - .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ASPNETCORE_URLS=${ASPNETCORE_URLS}
+      - ConnectionStrings__DefaultConnection=Host=${POSTGRES_HOST:-postgres};Port=${POSTGRES_PORT:-5432};Database=${FACILITY_DB_NAME};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-123}
+      - ConnectionStrings__RedisConnection=${REDIS_CONNECTION_STRING:-redis:6379}
+      - Jwt__Authority=${KC_AUTHORITY_URL}
+      - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
+      - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
+      - Jwt__RequireHttpsMetadata=false
+      - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+    ports:
+      - "${FACILITY_SERVICE_PORT:-5002}:80"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - cinema-services
+
+  catalog-service:
+    build:
+      context: ..
+      dockerfile: services/catalog-service/Dockerfile
+    container_name: cinema-catalog-service
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${CATALOG_DB_NAME:-cinema_catalog_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-123}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-local-dev-internal-token}
+      CINEMA_SECURITY_JWT_ENABLED: ${CINEMA_SECURITY_JWT_ENABLED:-false}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-cinema-api}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-}
+      SHOWTIME_SERVICE_URL: http://showtime-service:8082
+      OUTBOX_DISPATCHER_ENABLED: "true"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cinema-services
+
+  showtime-redis:
+    image: redis:7-alpine
+    container_name: cinema-showtime-redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cinema-services
+
+  showtime-service:
+    build:
+      context: ..
+      dockerfile: services/showtime-service/Dockerfile
+    container_name: cinema-showtime-service
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${SHOWTIME_DB_NAME:-cinema_showtime_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-123}
+      SPRING_DATA_REDIS_HOST: ${SHOWTIME_REDIS_HOST:-showtime-redis}
+      SPRING_DATA_REDIS_PORT: ${SHOWTIME_REDIS_PORT:-6379}
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      FACILITY_SERVICE_URL: http://facility-service:80
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-local-dev-internal-token}
+      CINEMA_SECURITY_JWT_ENABLED: ${CINEMA_SECURITY_JWT_ENABLED:-false}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-cinema-api}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - "8082:8082"
+    depends_on:
+      catalog-service:
+        condition: service_started
+      facility-service:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      showtime-redis:
+        condition: service_healthy
+    networks:
+      - cinema-services
+
+  booking-service:
+    build:
+      context: ..
+      dockerfile: services/booking-service/Dockerfile
+    container_name: cinema-booking-service
+    environment:
+      SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${BOOKING_DB_NAME:-cinema_booking_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-123}
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      FACILITY_SERVICE_URL: http://facility-service:80
+      SHOWTIME_SERVICE_URL: http://showtime-service:8082
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-local-dev-internal-token}
+      CINEMA_SECURITY_JWT_ENABLED: ${CINEMA_SECURITY_JWT_ENABLED:-false}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-cinema-api}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      OUTBOX_DISPATCHER_ENABLED: "true"
+      BOOKING_PAYMENT_EVENTS_ENABLED: "true"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      catalog-service:
+        condition: service_started
+      facility-service:
+        condition: service_started
+      showtime-service:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cinema-services
+
+  analytics-service:
+    build:
+      context: ..
+      dockerfile: services/analytics-service/Dockerfile
+    container_name: cinema-analytics-service
+    environment:
+      SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${ANALYTICS_DB_NAME:-cinema_analytics_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-123}
+      SPRING_SQL_INIT_MODE: always
+      ANALYTICS_READ_MODEL_ENABLED: "true"
+      ANALYTICS_MESSAGING_ENABLED: "true"
+      CINEMA_SECURITY_JWT_ENABLED: ${CINEMA_SECURITY_JWT_ENABLED:-false}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-cinema-api}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cinema-services
+
+  neo4j:
+    image: neo4j:5.23-community
+    container_name: cinema-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-cinema_graph_2026}
+      CINEMA_NEO4J_PASSWORD: ${NEO4J_PASSWORD:-cinema_graph_2026}
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 256m
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: [ "CMD-SHELL", "cypher-shell -u neo4j -p \"$${CINEMA_NEO4J_PASSWORD}\" 'RETURN 1' >/dev/null" ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks:
+      - cinema-services
+
+  recommendation-service:
+    build:
+      context: ..
+      dockerfile: services/recommendation-service/Dockerfile
+    container_name: cinema-recommendation-service
+    environment:
+      SERVER_PORT: 8085
+      RECOMMENDATION_GRAPH_ENABLED: "true"
+      CINEMA_SECURITY_JWT_ENABLED: ${CINEMA_SECURITY_JWT_ENABLED:-false}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-cinema-api}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-}
+      SPRING_NEO4J_URI: bolt://neo4j:7687
+      SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
+      SPRING_NEO4J_AUTHENTICATION_PASSWORD: ${NEO4J_PASSWORD:-cinema_graph_2026}
+      RECOMMENDATION_MESSAGING_ENABLED: "true"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+    ports:
+      - "8085:8085"
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cinema-services
+
+  payment-service:
+    build:
+      context: ../services/payment-service
+      dockerfile: Dockerfile
+    container_name: cinema-payment-service
+    env_file:
+      - .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ASPNETCORE_URLS=${ASPNETCORE_URLS}
+      - ConnectionStrings__DefaultConnection=Host=${POSTGRES_HOST:-postgres};Port=${POSTGRES_PORT:-5432};Database=${PAYMENT_DB_NAME:-payment_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-123}
+      - RabbitMQ__HostName=${RABBITMQ_HOST:-rabbitmq}
+      - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER:-cinema}
+      - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS:-guest}
+      - Jwt__Authority=${KC_AUTHORITY_URL}
+      - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
+      - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
+      - Jwt__RequireHttpsMetadata=false
+      - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+    ports:
+      - "${PAYMENT_SERVICE_PORT:-5003}:80"
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - cinema-services
+
+  mongo:
+    image: mongo:6-jammy
+    container_name: cinema-mongo
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cinema-services
+
+  notification-service:
+    build:
+      context: ../services/notification-service
+      dockerfile: Dockerfile
+    container_name: cinema-notification-service
+    env_file:
+      - .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ASPNETCORE_URLS=${ASPNETCORE_URLS}
+      - MongoDb__ConnectionString=mongodb://mongo:27017
+      - MongoDb__DatabaseName=${NOTIFICATION_DB_NAME:-cinema_notification_db}
+      - RabbitMQ__HostName=${RABBITMQ_HOST:-rabbitmq}
+      - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER:-cinema}
+      - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS:-guest}
+      - Jwt__Authority=${KC_AUTHORITY_URL}
+      - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
+      - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
+      - Jwt__RequireHttpsMetadata=false
+      - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+    ports:
+      - "${NOTIFICATION_SERVICE_PORT:-5004}:80"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cinema-services
+
+volumes:
+  rabbitmq_data:
+  postgres_data:
+  neo4j_data:
+  redis_data:
+  mongo_data:
+
+networks:
+  cinema-services:
+    name: cinema-services

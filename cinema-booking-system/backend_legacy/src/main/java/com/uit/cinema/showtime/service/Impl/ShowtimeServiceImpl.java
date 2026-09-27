@@ -1,14 +1,11 @@
 package com.uit.cinema.showtime.service.Impl;
 
-import com.uit.cinema.facility.entity.SeatTemplate;
-import com.uit.cinema.facility.entity.SeatType;
-import com.uit.cinema.facility.repository.SeatTemplateRepository;
-import jakarta.persistence.EntityManager;
-import com.uit.cinema.catalog.entity.Event;
-import com.uit.cinema.catalog.entity.Movie;
-import com.uit.cinema.catalog.repository.EventRepository;
-import com.uit.cinema.catalog.repository.MovieRepository;
+import com.uit.cinema.catalog.service.CatalogReadService;
+import com.uit.cinema.catalog.service.contract.CatalogContentView;
 import com.uit.cinema.core.exception.CustomException;
+import com.uit.cinema.facility.service.FacilityReadService;
+import com.uit.cinema.facility.service.contract.FacilityRoomView;
+import com.uit.cinema.facility.service.contract.FacilitySeatTemplateView;
 import com.uit.cinema.showtime.dto.request.ShowtimeRequest;
 import com.uit.cinema.showtime.dto.response.ShowtimeResponse;
 import com.uit.cinema.showtime.dto.response.ShowtimeSeatResponse;
@@ -17,10 +14,9 @@ import com.uit.cinema.showtime.entity.ShowtimeSeat;
 import com.uit.cinema.showtime.mapper.ShowtimeMapper;
 import com.uit.cinema.showtime.repository.ShowtimeRepository;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
-import com.uit.cinema.facility.dto.response.RoomResponse;
-import com.uit.cinema.facility.service.RoomService;
 import com.uit.cinema.showtime.service.SeatHoldPolicy;
 import com.uit.cinema.showtime.service.ShowtimeService;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -31,6 +27,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,10 +41,8 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     private final ShowtimeMapper showtimeMapper;
     private final RedisTemplate<String, Object> redisTemplate;
     private final EntityManager entityManager;
-    private final SeatTemplateRepository seatTemplateRepository;
-    private final RoomService roomService;
-    private final MovieRepository movieRepository;
-    private final EventRepository eventRepository;
+    private final FacilityReadService facilityReadService;
+    private final CatalogReadService catalogReadService;
 
     @Override
     public List<ShowtimeResponse> getShowtimesByMovie(Long movieId) {
@@ -102,20 +97,16 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     @Transactional
     public ShowtimeResponse createShowtime(ShowtimeRequest request) {
         if (request.getMovieId() == null && request.getEventId() == null) {
-            throw new CustomException("Phải cung cấp Movie ID hoặc Event ID", HttpStatus.BAD_REQUEST, "MISSING_REFERENCE_ID");
+            throw new CustomException("Movie ID or Event ID is required", HttpStatus.BAD_REQUEST, "MISSING_REFERENCE_ID");
         }
 
         validateShowtimeTarget(request);
-        // Check room maintenance status
-        RoomResponse room = null;
-        try {
-            room = roomService.getRoomById(request.getRoomId());
-        } catch (CustomException e) {
-            throw new CustomException("Phòng chiếu không tồn tại", HttpStatus.NOT_FOUND, "ROOM_NOT_FOUND");
-        }
-        
+
+        FacilityRoomView room = facilityReadService.findRoom(request.getRoomId())
+            .orElseThrow(() -> new CustomException("Room not found", HttpStatus.NOT_FOUND, "ROOM_NOT_FOUND"));
+
         if (room.isUnderMaintenance()) {
-            throw new CustomException("Phòng chiếu đang bảo trì, không thể tạo suất chiếu", HttpStatus.BAD_REQUEST, "ROOM_UNDER_MAINTENANCE");
+            throw new CustomException("Room is under maintenance", HttpStatus.BAD_REQUEST, "ROOM_UNDER_MAINTENANCE");
         }
 
         Long overlapCount = entityManager.createQuery(
@@ -126,40 +117,31 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             .setParameter("startTime", request.getStartTime())
             .setParameter("endTime", request.getEndTime())
             .getSingleResult();
-            
+
         if (overlapCount > 0) {
-            throw new CustomException("Suất chiếu bị trùng lặp thời gian", HttpStatus.CONFLICT, "CONFLICT");
+            throw new CustomException("Showtime overlaps another showtime", HttpStatus.CONFLICT, "CONFLICT");
         }
 
         Showtime showtime = showtimeMapper.toEntity(request);
         Showtime savedShowtime = showtimeRepository.save(showtime);
 
-        // Fetch seat templates for the showtime's room and generate showtime seats
-        List<SeatTemplate> templates = entityManager.createQuery(
-                "SELECT t FROM SeatTemplate t WHERE t.room.id = :roomId AND t.active = true",
-                SeatTemplate.class
-        )
-        .setParameter("roomId", savedShowtime.getRoomId())
-        .getResultList();
-
-        for (SeatTemplate template : templates) {
+        List<FacilitySeatTemplateView> templates = facilityReadService.findActiveSeatTemplatesByRoom(savedShowtime.getRoomId());
+        for (FacilitySeatTemplateView template : templates) {
             ShowtimeSeat seat = ShowtimeSeat.builder()
-                    .showtimeId(savedShowtime.getId())
-                    .seatTemplateId(template.getId())
-                    .price(calculateSeatPrice(savedShowtime.getBasePrice(), template))
-                    .status(ShowtimeSeat.SeatStatus.AVAILABLE)
-                    .build();
+                .showtimeId(savedShowtime.getId())
+                .seatTemplateId(template.seatTemplateId())
+                .price(calculateSeatPrice(savedShowtime.getBasePrice(), template))
+                .status(ShowtimeSeat.SeatStatus.AVAILABLE)
+                .build();
             showtimeSeatRepository.save(seat);
         }
 
         ShowtimeResponse response = showtimeMapper.toResponse(savedShowtime);
         enrichDisplayTitle(savedShowtime, response);
-        if (room != null) {
-            response.setRoomName(room.getName());
-            if (room.getCinemaId() != null) {
-                response.setCinemaId(room.getCinemaId());
-                response.setCinemaName(room.getCinemaName());
-            }
+        response.setRoomName(room.roomName());
+        if (room.cinemaId() != null) {
+            response.setCinemaId(room.cinemaId());
+            response.setCinemaName(room.cinemaName());
         }
         return response;
     }
@@ -179,12 +161,13 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         enrichDisplayTitle(showtime, response);
         if (showtime.getRoomId() != null) {
             try {
-                RoomResponse room = roomService.getRoomById(showtime.getRoomId());
-                response.setRoomName(room.getName());
-                response.setCinemaId(room.getCinemaId());
-                response.setCinemaName(room.getCinemaName());
-            } catch (Exception e) {
-                // Room not found or other error, just return basic response
+                facilityReadService.findRoom(showtime.getRoomId()).ifPresent(room -> {
+                    response.setRoomName(room.roomName());
+                    response.setCinemaId(room.cinemaId());
+                    response.setCinemaName(room.cinemaName());
+                });
+            } catch (Exception ignored) {
+                // Keep the showtime response available even if the facility projection is temporarily unavailable.
             }
         }
         return response;
@@ -195,33 +178,31 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             throw new CustomException("Showtime must reference a movie or an event", HttpStatus.BAD_REQUEST, "SHOWTIME_TARGET_REQUIRED");
         }
         if (request.getMovieId() != null) {
-            Movie movie = movieRepository.findById(request.getMovieId())
+            CatalogContentView movie = catalogReadService.findMovie(request.getMovieId())
                 .orElseThrow(() -> new CustomException("Movie not found", HttpStatus.NOT_FOUND, "MOVIE_NOT_FOUND"));
-            if (request.getStartTime() != null && movie.getReleaseDate() != null && request.getStartTime().toLocalDate().isBefore(movie.getReleaseDate())) {
-                throw new CustomException("Không thể tạo suất chiếu trước ngày công chiếu của phim", HttpStatus.BAD_REQUEST, "SHOWTIME_BEFORE_RELEASE_DATE");
+            if (request.getStartTime() != null && movie.releaseDate() != null
+                && request.getStartTime().toLocalDate().isBefore(movie.releaseDate())) {
+                throw new CustomException("Showtime cannot be created before movie release date", HttpStatus.BAD_REQUEST, "SHOWTIME_BEFORE_RELEASE_DATE");
             }
         }
-        if (request.getEventId() != null && !eventRepository.existsById(request.getEventId())) {
+        if (request.getEventId() != null && catalogReadService.findEvent(request.getEventId()).isEmpty()) {
             throw new CustomException("Event not found", HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND");
         }
     }
 
     private void enrichDisplayTitle(Showtime showtime, ShowtimeResponse response) {
         if (showtime.getMovieId() != null) {
-            movieRepository.findById(showtime.getMovieId())
-                .map(Movie::getTitle)
-                .ifPresent(title -> {
-                    response.setDisplayTitle(title);
-                    response.setDisplayType("MOVIE");
-                });
+            catalogReadService.findMovie(showtime.getMovieId()).ifPresent(movie -> {
+                response.setDisplayTitle(movie.title());
+                response.setDisplayType("MOVIE");
+            });
         }
         if (response.getDisplayTitle() == null && showtime.getEventId() != null) {
-            eventRepository.findById(showtime.getEventId())
-                .ifPresent(event -> {
-                    response.setEventName(event.getName());
-                    response.setDisplayTitle(event.getName());
-                    response.setDisplayType("EVENT");
-                });
+            catalogReadService.findEvent(showtime.getEventId()).ifPresent(event -> {
+                response.setEventName(event.title());
+                response.setDisplayTitle(event.title());
+                response.setDisplayType("EVENT");
+            });
         }
         if (response.getDisplayTitle() == null) {
             response.setDisplayTitle("Showtime #" + showtime.getId());
@@ -237,10 +218,10 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         response.setSeatId(String.valueOf(seat.getId()));
         response.setStatus(mapSeatStatus(seat.getStatus(), response.getHoldTtlSeconds()));
 
-        seatTemplateRepository.findById(seat.getSeatTemplateId()).ifPresent(template -> {
-            response.setRowLabel(template.getRowLabel());
-            response.setColumnNumber(template.getColumnNumber());
-            response.setLabel(template.getRowLabel() + template.getColumnNumber());
+        facilityReadService.findSeatTemplate(seat.getSeatTemplateId()).ifPresent(template -> {
+            response.setRowLabel(template.rowLabel());
+            response.setColumnNumber(template.columnNumber());
+            response.setLabel(template.label());
             response.setIsPathway(template.isPathway());
             applySeatTypeContract(response, template);
         });
@@ -250,46 +231,37 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         }
         if (response.getSeatType() == null) {
             response.setSeatType("standard");
-            response.setSeatTypeCode(SeatType.SeatTypeCode.STANDARD.name());
+            response.setSeatTypeCode("STANDARD");
             response.setSeatTypeName("Standard");
-            response.setSeatKind(SeatType.SeatTypeCode.STANDARD.name());
+            response.setSeatKind("STANDARD");
             response.setColumnSpan(1);
         }
         return response;
     }
 
-    private BigDecimal calculateSeatPrice(BigDecimal basePrice, SeatTemplate template) {
-        BigDecimal multiplier = BigDecimal.ONE;
-        if (template.getSeatType() != null && template.getSeatType().getPriceMultiplier() != null) {
-            multiplier = template.getSeatType().getPriceMultiplier();
-        }
-        return basePrice.multiply(multiplier);
+    private BigDecimal calculateSeatPrice(BigDecimal basePrice, FacilitySeatTemplateView template) {
+        BigDecimal safeBasePrice = basePrice != null ? basePrice : BigDecimal.ZERO;
+        return safeBasePrice.multiply(template.effectivePriceMultiplier());
     }
 
-    private void applySeatTypeContract(ShowtimeSeatResponse response, SeatTemplate template) {
-        SeatType seatType = template.getSeatType();
-        SeatType.SeatTypeCode code = seatType != null && seatType.getCode() != null
-            ? seatType.getCode()
-            : SeatType.SeatTypeCode.STANDARD;
-        String displayName = seatType != null && seatType.getDisplayName() != null
-            ? seatType.getDisplayName()
-            : toDisplayName(code);
-        Integer columnSpan = template.getColumnSpan() != null
-            ? template.getColumnSpan()
-            : seatType != null && seatType.getDefaultColumnSpan() != null ? seatType.getDefaultColumnSpan() : 1;
+    private void applySeatTypeContract(ShowtimeSeatResponse response, FacilitySeatTemplateView template) {
+        String code = template.seatTypeCode() != null ? template.seatTypeCode() : "STANDARD";
+        String displayName = template.seatTypeName() != null ? template.seatTypeName() : toDisplayName(code);
+        Integer columnSpan = template.columnSpan() != null ? template.columnSpan() : 1;
 
-        response.setSeatType(code.name().toLowerCase());
-        response.setSeatTypeCode(code.name());
+        response.setSeatType(code.toLowerCase(Locale.ROOT));
+        response.setSeatTypeCode(code);
         response.setSeatTypeName(displayName);
-        response.setSeatKind(code.name());
+        response.setSeatKind(code);
         response.setColumnSpan(columnSpan);
     }
 
-    private String toDisplayName(SeatType.SeatTypeCode code) {
+    private String toDisplayName(String code) {
         return switch (code) {
-            case VIP -> "VIP";
-            case COUPLE -> "Couple";
-            case STANDARD -> "Standard";
+            case "VIP" -> "VIP";
+            case "COUPLE" -> "Couple";
+            case "STANDARD" -> "Standard";
+            default -> code;
         };
     }
 

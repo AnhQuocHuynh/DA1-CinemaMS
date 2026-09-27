@@ -7,8 +7,7 @@ import com.uit.cinema.facility.entity.Cinema;
 import com.uit.cinema.facility.entity.Room;
 import com.uit.cinema.facility.mapper.CinemaMapper;
 import com.uit.cinema.facility.repository.CinemaRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.TypedQuery;
+import com.uit.cinema.facility.service.client.FacilityShowtimeGuard;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -17,13 +16,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CinemaServiceImplTest {
@@ -35,10 +35,7 @@ class CinemaServiceImplTest {
     private CinemaMapper cinemaMapper;
 
     @Mock
-    private EntityManager entityManager;
-
-    @Mock
-    private TypedQuery<Long> typedQuery;
+    private FacilityShowtimeGuard facilityShowtimeGuard;
 
     @InjectMocks
     private CinemaServiceImpl cinemaService;
@@ -70,6 +67,7 @@ class CinemaServiceImplTest {
         when(cinemaRepository.findById(1L)).thenReturn(Optional.empty());
 
         CustomException ex = assertThrows(CustomException.class, () -> cinemaService.getCinemaById(1L));
+
         assertEquals("CINEMA_NOT_FOUND", ex.getErrorCode());
     }
 
@@ -89,20 +87,9 @@ class CinemaServiceImplTest {
 
     @Test
     void deleteCinema_WhenNoFutureShowtimes_SoftDeletes() {
-        Cinema cinema = new Cinema();
-        cinema.setActive(true);
-        
-        Room room = new Room();
-        room.setId(10L);
-        room.setActive(true);
-        cinema.setRooms(List.of(room));
-
+        Cinema cinema = cinemaWithActiveRoom();
         when(cinemaRepository.findById(1L)).thenReturn(Optional.of(cinema));
-
-        when(entityManager.createQuery(anyString(), eq(Long.class))).thenReturn(typedQuery);
-        when(typedQuery.setParameter(eq("roomIds"), anyList())).thenReturn(typedQuery);
-        when(typedQuery.setParameter(eq("now"), any())).thenReturn(typedQuery);
-        when(typedQuery.getSingleResult()).thenReturn(0L); // No future showtimes
+        when(facilityShowtimeGuard.hasFutureShowtimesForRooms(List.of(10L))).thenReturn(false);
 
         cinemaService.deleteCinema(1L);
 
@@ -112,24 +99,15 @@ class CinemaServiceImplTest {
 
     @Test
     void deleteCinema_WhenFutureShowtimesExist_ThrowsException() {
-        Cinema cinema = new Cinema();
-        cinema.setActive(true);
-        
-        Room room = new Room();
-        room.setId(10L);
-        room.setActive(true);
-        cinema.setRooms(List.of(room));
-
+        Cinema cinema = cinemaWithActiveRoom();
         when(cinemaRepository.findById(1L)).thenReturn(Optional.of(cinema));
-
-        when(entityManager.createQuery(anyString(), eq(Long.class))).thenReturn(typedQuery);
-        when(typedQuery.setParameter(eq("roomIds"), anyList())).thenReturn(typedQuery);
-        when(typedQuery.setParameter(eq("now"), any())).thenReturn(typedQuery);
-        when(typedQuery.getSingleResult()).thenReturn(1L); // 1 future showtime exists
+        when(facilityShowtimeGuard.hasFutureShowtimesForRooms(List.of(10L))).thenReturn(true);
 
         CustomException ex = assertThrows(CustomException.class, () -> cinemaService.deleteCinema(1L));
+
         assertEquals("CONFLICT", ex.getErrorCode());
     }
+
     @Test
     void updateCinema_Success() {
         CinemaRequest request = new CinemaRequest();
@@ -140,14 +118,24 @@ class CinemaServiceImplTest {
 
         when(cinemaRepository.findById(1L)).thenReturn(Optional.of(cinema));
         when(cinemaRepository.save(any(Cinema.class))).thenReturn(cinema);
-        
-        CinemaResponse mapped = new CinemaResponse();
-        when(cinemaMapper.toResponse(cinema)).thenReturn(mapped);
+        when(cinemaMapper.toResponse(cinema)).thenReturn(new CinemaResponse());
 
         CinemaResponse result = cinemaService.updateCinema(1L, request);
 
         assertNotNull(result);
         verify(cinemaMapper).updateEntity(cinema, request);
         verify(cinemaRepository).save(cinema);
+    }
+
+    private Cinema cinemaWithActiveRoom() {
+        Cinema cinema = new Cinema();
+        cinema.setActive(true);
+
+        Room room = new Room();
+        room.setId(10L);
+        room.setActive(true);
+        cinema.setRooms(List.of(room));
+
+        return cinema;
     }
 }

@@ -6,18 +6,16 @@ import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.TicketRepository;
 import com.uit.cinema.booking.service.Impl.PaymentServiceImpl;
 import com.uit.cinema.core.exception.CustomException;
-import com.uit.cinema.showtime.entity.Showtime;
-import com.uit.cinema.showtime.entity.ShowtimeSeat;
-import com.uit.cinema.showtime.repository.ShowtimeRepository;
-import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
-import com.uit.cinema.showtime.service.SeatHoldPolicy;
+import com.uit.cinema.showtime.service.SeatReservationService;
+import com.uit.cinema.showtime.service.contract.SeatBookingResult;
+import com.uit.cinema.showtime.service.contract.SeatReleaseRequest;
+import com.uit.cinema.showtime.service.contract.SeatView;
+import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
@@ -37,17 +35,11 @@ class PaymentServiceImplTest {
     @Mock
     private OrderRepository orderRepository;
     @Mock
-    private ShowtimeSeatRepository showtimeSeatRepository;
-    @Mock
-    private ShowtimeRepository showtimeRepository;
-    @Mock
     private TicketRepository ticketRepository;
     @Mock
     private TicketGenerationService ticketGenerationService;
     @Mock
-    private RedisTemplate<String, Object> redisTemplate;
-    @Mock
-    private ValueOperations<String, Object> valueOperations;
+    private SeatReservationService seatReservationService;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;
@@ -55,18 +47,11 @@ class PaymentServiceImplTest {
     @Test
     void processPayment_happyPath_marksOrderPaidAndBooksSeat() {
         Order order = buildOrder(1L, Order.OrderStatus.PENDING);
-        ShowtimeSeat seat = ShowtimeSeat.builder()
-            .id(55L)
-            .showtimeId(100L)
-            .price(new BigDecimal("100.00"))
-            .status(ShowtimeSeat.SeatStatus.HELD)
-            .build();
 
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
         when(orderRepository.findByPaymentTransactionId("TXN-1")).thenReturn(Optional.empty());
-        when(showtimeSeatRepository.findById(55L)).thenReturn(Optional.of(seat));
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(SeatHoldPolicy.holdKey(100L, 55L))).thenReturn("10");
+        when(seatReservationService.confirmHeldSeats(any()))
+            .thenReturn(new SeatBookingResult(100L, List.of(55L), 1, List.of(new SeatView(55L, new BigDecimal("100.00")))));
         when(ticketGenerationService.generateTicket(any(Ticket.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -75,9 +60,8 @@ class PaymentServiceImplTest {
         assertEquals(Order.OrderStatus.PAID, result.getStatus());
         assertEquals("VNPAY", result.getPaymentMethod());
         assertEquals("TXN-1", result.getPaymentTransactionId());
-        assertEquals(ShowtimeSeat.SeatStatus.BOOKED, seat.getStatus());
-        verify(showtimeSeatRepository).save(seat);
-        verify(redisTemplate).delete(SeatHoldPolicy.holdKey(100L, 55L));
+        verify(seatReservationService).confirmHeldSeats(any());
+        verify(ticketGenerationService).generateTicket(any(Ticket.class));
     }
 
     @Test
@@ -111,11 +95,6 @@ class PaymentServiceImplTest {
     @Test
     void refund_happyPath_marksOrderRefunded() {
         Order order = buildOrder(1L, Order.OrderStatus.PAID);
-        Showtime showtime = Showtime.builder()
-            .id(100L)
-            .startTime(LocalDateTime.now().plusHours(30))
-            .endTime(LocalDateTime.now().plusHours(32))
-            .build();
         Ticket ticket = Ticket.builder()
             .id(9L)
             .order(order)
@@ -123,19 +102,17 @@ class PaymentServiceImplTest {
             .status(Ticket.TicketStatus.VALID)
             .price(BigDecimal.TEN)
             .build();
-        ShowtimeSeat seat = ShowtimeSeat.builder().id(55L).status(ShowtimeSeat.SeatStatus.BOOKED).build();
 
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(showtimeRepository.findById(100L)).thenReturn(Optional.of(showtime));
+        when(seatReservationService.getSchedule(100L)).thenReturn(scheduleInHours(30));
         when(ticketRepository.findByOrderIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(ticket));
-        when(showtimeSeatRepository.findById(55L)).thenReturn(Optional.of(seat));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Order result = paymentService.refund(1L, "user request");
 
         assertEquals(Order.OrderStatus.REFUNDED, result.getStatus());
         assertEquals(Ticket.TicketStatus.REFUNDED, ticket.getStatus());
-        assertEquals(ShowtimeSeat.SeatStatus.AVAILABLE, seat.getStatus());
+        verify(seatReservationService).releaseBookedSeats(any(SeatReleaseRequest.class));
     }
 
     @Test
@@ -155,11 +132,6 @@ class PaymentServiceImplTest {
     @Test
     void refund_when4To24Hours_refunds50Percent() {
         Order order = buildOrder(1L, Order.OrderStatus.PAID);
-        Showtime showtime = Showtime.builder()
-            .id(100L)
-            .startTime(LocalDateTime.now().plusHours(10)) // Between 4 and 24 hours
-            .endTime(LocalDateTime.now().plusHours(12))
-            .build();
         Ticket ticket = Ticket.builder()
             .id(9L)
             .order(order)
@@ -167,32 +139,24 @@ class PaymentServiceImplTest {
             .status(Ticket.TicketStatus.VALID)
             .price(BigDecimal.TEN)
             .build();
-        ShowtimeSeat seat = ShowtimeSeat.builder().id(55L).status(ShowtimeSeat.SeatStatus.BOOKED).build();
 
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(showtimeRepository.findById(100L)).thenReturn(Optional.of(showtime));
+        when(seatReservationService.getSchedule(100L)).thenReturn(scheduleInHours(10));
         when(ticketRepository.findByOrderIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(ticket));
-        when(showtimeSeatRepository.findById(55L)).thenReturn(Optional.of(seat));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Order result = paymentService.refund(1L, "user request");
 
         assertEquals(Order.OrderStatus.REFUNDED, result.getStatus());
         assertEquals(Ticket.TicketStatus.REFUNDED, ticket.getStatus());
-        assertEquals(ShowtimeSeat.SeatStatus.AVAILABLE, seat.getStatus());
     }
 
     @Test
     void refund_whenLessThan4Hours_throwsException() {
         Order order = buildOrder(1L, Order.OrderStatus.PAID);
-        Showtime showtime = Showtime.builder()
-            .id(100L)
-            .startTime(LocalDateTime.now().plusHours(2)) // Less than 4 hours
-            .endTime(LocalDateTime.now().plusHours(4))
-            .build();
 
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(showtimeRepository.findById(100L)).thenReturn(Optional.of(showtime));
+        when(seatReservationService.getSchedule(100L)).thenReturn(scheduleInHours(2));
 
         CustomException ex = assertThrows(
             CustomException.class,
@@ -201,6 +165,18 @@ class PaymentServiceImplTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
         assertEquals("REFUND_WINDOW_CLOSED", ex.getErrorCode());
+    }
+
+    private ShowtimeScheduleView scheduleInHours(long hours) {
+        return new ShowtimeScheduleView(
+            100L,
+            1L,
+            null,
+            2L,
+            LocalDateTime.now().plusHours(hours),
+            LocalDateTime.now().plusHours(hours + 2),
+            "SCHEDULED"
+        );
     }
 
     private Order buildOrder(Long id, Order.OrderStatus status) {

@@ -10,11 +10,10 @@ import com.uit.cinema.booking.mapper.ReviewMapper;
 import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.ReviewRepository;
 import com.uit.cinema.booking.service.ReviewService;
-import com.uit.cinema.catalog.repository.EventRepository;
-import com.uit.cinema.catalog.repository.MovieRepository;
+import com.uit.cinema.catalog.service.CatalogReadService;
 import com.uit.cinema.core.exception.CustomException;
-import com.uit.cinema.showtime.entity.Showtime;
-import com.uit.cinema.showtime.repository.ShowtimeRepository;
+import com.uit.cinema.showtime.service.SeatReservationService;
+import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -22,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -30,9 +30,8 @@ public class ReviewServiceImpl implements ReviewService {
     private final ReviewRepository reviewRepository;
     private final ReviewMapper reviewMapper;
     private final OrderRepository orderRepository;
-    private final ShowtimeRepository showtimeRepository;
-    private final MovieRepository movieRepository;
-    private final EventRepository eventRepository;
+    private final SeatReservationService seatReservationService;
+    private final CatalogReadService catalogReadService;
 
     @Override
     @Transactional
@@ -85,7 +84,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     public ReviewEligibilityResponse getMovieEligibility(Long userId, Long movieId) {
-        if (!movieRepository.existsById(movieId)) {
+        if (!catalogReadService.movieExists(movieId)) {
             throw new CustomException("Movie not found", HttpStatus.NOT_FOUND, "MOVIE_NOT_FOUND");
         }
         boolean hasReviewed = reviewRepository.existsByUserIdAndMovieId(userId, movieId);
@@ -100,15 +99,15 @@ public class ReviewServiceImpl implements ReviewService {
         boolean watched = false;
         LocalDateTime now = LocalDateTime.now();
         for (Order order : paidOrders) {
-            Showtime showtime = showtimeRepository.findById(order.getShowtimeId()).orElse(null);
-            if (showtime == null || !movieId.equals(showtime.getMovieId())) {
+            Optional<ShowtimeScheduleView> showtime = seatReservationService.findSchedule(order.getShowtimeId());
+            if (showtime.isEmpty() || !movieId.equals(showtime.get().movieId())) {
                 continue;
             }
             hasPaidTicket = true;
             // Allow review if the showtime has started or ended
-            if (showtime.getStatus() == Showtime.Status.ENDED || 
-                (showtime.getStartTime() != null && !showtime.getStartTime().isAfter(now)) ||
-                (showtime.getEndTime() != null && !showtime.getEndTime().isAfter(now))) {
+            if ("ENDED".equals(showtime.get().status()) ||
+                (showtime.get().startTime() != null && !showtime.get().startTime().isAfter(now)) ||
+                (showtime.get().endTime() != null && !showtime.get().endTime().isAfter(now))) {
                 watched = true;
                 break;
             }
@@ -125,7 +124,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     public ReviewEligibilityResponse getEventEligibility(Long userId, Long eventId) {
-        if (!eventRepository.existsById(eventId)) {
+        if (!catalogReadService.eventExists(eventId)) {
             throw new CustomException("Event not found", HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND");
         }
         boolean hasReviewed = reviewRepository.existsByUserIdAndEventId(userId, eventId);
@@ -139,10 +138,10 @@ public class ReviewServiceImpl implements ReviewService {
         if ((movieId == null && eventId == null) || (movieId != null && eventId != null)) {
             throw new CustomException("Only one target is allowed: movieId or eventId", HttpStatus.BAD_REQUEST, "REVIEW_TARGET_INVALID");
         }
-        if (movieId != null && !movieRepository.existsById(movieId)) {
+        if (movieId != null && !catalogReadService.movieExists(movieId)) {
             throw new CustomException("Movie not found", HttpStatus.NOT_FOUND, "MOVIE_NOT_FOUND");
         }
-        if (eventId != null && !eventRepository.existsById(eventId)) {
+        if (eventId != null && !catalogReadService.eventExists(eventId)) {
             throw new CustomException("Event not found", HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND");
         }
     }

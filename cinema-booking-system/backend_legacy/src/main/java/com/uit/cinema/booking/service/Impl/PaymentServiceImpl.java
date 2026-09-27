@@ -7,21 +7,25 @@ import com.uit.cinema.booking.repository.TicketRepository;
 import com.uit.cinema.booking.service.PaymentService;
 import com.uit.cinema.booking.service.TicketGenerationService;
 import com.uit.cinema.core.exception.CustomException;
-import com.uit.cinema.showtime.entity.Showtime;
-import com.uit.cinema.showtime.entity.ShowtimeSeat;
-import com.uit.cinema.showtime.repository.ShowtimeRepository;
-import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
-import com.uit.cinema.showtime.service.SeatHoldPolicy;
+import com.uit.cinema.showtime.service.SeatReservationService;
+import com.uit.cinema.showtime.service.contract.SeatBookingRequest;
+import com.uit.cinema.showtime.service.contract.SeatBookingResult;
+import com.uit.cinema.showtime.service.contract.SeatReleaseRequest;
+import com.uit.cinema.showtime.service.contract.SeatView;
+import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -29,11 +33,9 @@ import java.util.List;
 public class PaymentServiceImpl implements PaymentService {
 
     private final OrderRepository orderRepository;
-    private final ShowtimeSeatRepository showtimeSeatRepository;
-    private final ShowtimeRepository showtimeRepository;
     private final TicketRepository ticketRepository;
     private final TicketGenerationService ticketGenerationService;
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final SeatReservationService seatReservationService;
 
     @Override
     @Transactional
@@ -56,34 +58,21 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         List<Long> seatIds = parseSeatIds(order.getSeatIdsSnapshot());
-        for (Long seatId : seatIds) {
-            ShowtimeSeat seat = showtimeSeatRepository.findById(seatId)
-                .orElseThrow(() -> new CustomException("Seat not found", HttpStatus.NOT_FOUND, "SEAT_NOT_FOUND"));
-            if (!order.getShowtimeId().equals(seat.getShowtimeId())) {
-                throw new CustomException("Seat-showtime mismatch", HttpStatus.BAD_REQUEST, "SEAT_SHOWTIME_MISMATCH");
-            }
-            if (seat.getStatus() != ShowtimeSeat.SeatStatus.HELD) {
-                throw new CustomException("Seat hold expired", HttpStatus.CONFLICT, "SEAT_HOLD_EXPIRED");
-            }
-            Object holder = redisTemplate.opsForValue().get(SeatHoldPolicy.holdKey(order.getShowtimeId(), seatId));
-            if (holder == null || !String.valueOf(order.getUserId()).equals(String.valueOf(holder))) {
-                throw new CustomException("Seat hold owner mismatch", HttpStatus.CONFLICT, "SEAT_HOLD_OWNER_MISMATCH");
-            }
-        }
+        SeatBookingResult bookingResult = seatReservationService.confirmHeldSeats(
+            new SeatBookingRequest(order.getUserId(), order.getShowtimeId(), seatIds)
+        );
+        Map<Long, SeatView> seatsById = bookingResult.seats().stream()
+            .collect(Collectors.toMap(SeatView::seatId, Function.identity()));
 
         for (Long seatId : seatIds) {
-            ShowtimeSeat seat = showtimeSeatRepository.findById(seatId).orElseThrow();
-            seat.setStatus(ShowtimeSeat.SeatStatus.BOOKED);
-            showtimeSeatRepository.save(seat);
-
+            SeatView seat = seatsById.get(seatId);
             Ticket ticket = Ticket.builder()
                 .order(order)
                 .showtimeSeatId(seatId)
-                .price(seat.getPrice())
+                .price(seat != null ? seat.price() : BigDecimal.ZERO)
                 .status(Ticket.TicketStatus.VALID)
                 .build();
             ticketGenerationService.generateTicket(ticket);
-            redisTemplate.delete(SeatHoldPolicy.holdKey(order.getShowtimeId(), seatId));
         }
 
         order.setPaymentMethod(paymentMethod);
@@ -102,9 +91,8 @@ public class PaymentServiceImpl implements PaymentService {
             throw new CustomException("Only paid order can be refunded", HttpStatus.BAD_REQUEST, "INVALID_ORDER_STATUS");
         }
 
-        Showtime showtime = showtimeRepository.findById(order.getShowtimeId())
-            .orElseThrow(() -> new CustomException("Showtime not found", HttpStatus.NOT_FOUND, "SHOWTIME_NOT_FOUND"));
-        int refundPercent = calculateRefundPercent(showtime.getStartTime(), LocalDateTime.now());
+        ShowtimeScheduleView showtime = seatReservationService.getSchedule(order.getShowtimeId());
+        int refundPercent = calculateRefundPercent(showtime.startTime(), LocalDateTime.now());
         if (refundPercent == 0) {
             throw new CustomException("Refund window has closed", HttpStatus.BAD_REQUEST, "REFUND_WINDOW_CLOSED");
         }
@@ -114,14 +102,15 @@ public class PaymentServiceImpl implements PaymentService {
             if (ticket.getStatus() == Ticket.TicketStatus.CHECKED_IN) {
                 throw new CustomException("Checked-in ticket cannot be refunded", HttpStatus.BAD_REQUEST, "TICKET_ALREADY_CHECKED_IN");
             }
+        }
+
+        for (Ticket ticket : tickets) {
             ticket.setStatus(Ticket.TicketStatus.REFUNDED);
             ticketRepository.save(ticket);
-
-            ShowtimeSeat seat = showtimeSeatRepository.findById(ticket.getShowtimeSeatId()).orElse(null);
-            if (seat != null) {
-                seat.setStatus(ShowtimeSeat.SeatStatus.AVAILABLE);
-                showtimeSeatRepository.save(seat);
-            }
+        }
+        List<Long> refundedSeatIds = tickets.stream().map(Ticket::getShowtimeSeatId).toList();
+        if (!refundedSeatIds.isEmpty()) {
+            seatReservationService.releaseBookedSeats(new SeatReleaseRequest(order.getShowtimeId(), refundedSeatIds));
         }
 
         order.setStatus(Order.OrderStatus.REFUNDED);

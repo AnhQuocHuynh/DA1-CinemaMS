@@ -1,0 +1,210 @@
+openapi: 3.0.3
+info:
+  title: Cinema Payment Service API
+  version: 0.1.0
+paths:
+  /api/payments:
+    get:
+      summary: Get all payments.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Paginated payments.
+  /api/payments/me:
+    get:
+      summary: Get my payments.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of my payments.
+  /api/payments/initiate:
+    post:
+      summary: Initiate payment.
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: "#/components/requestBodies/InitiatePaymentRequest"
+      responses:
+        "200":
+          description: Payment initiated.
+  /api/payments/cash/confirm:
+    post:
+      summary: Confirm cash payment.
+      security:
+        - bearerAuth: []
+      requestBody:
+        $ref: "#/components/requestBodies/ConfirmCashRequest"
+      responses:
+        "200":
+          description: Cash payment confirmed.
+  /api/payments/callback/stripe:
+    post:
+      summary: Stripe webhook callback.
+      responses:
+        "200":
+          description: Success.
+  /api/payments/callback/paypal/return:
+    get:
+      summary: PayPal return callback.
+      parameters:
+        - name: token
+          in: query
+          schema:
+            type: string
+        - name: PayerID
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success.
+  /api/payments/callback/paypal/cancel:
+    get:
+      summary: PayPal cancel callback.
+      responses:
+        "200":
+          description: Cancelled.
+  /api/payments/{id}:
+    get:
+      summary: Get payment by id.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      responses:
+        "200":
+          description: Payment details.
+  /api/payments/{id}/refund:
+    post:
+      summary: Request a refund.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      requestBody:
+        $ref: "#/components/requestBodies/RequestRefundRequest"
+      responses:
+        "200":
+          description: Refund requested.
+  /api/payments/order/{orderId}:
+    get:
+      summary: Get payments by order id.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: Order payment details.
+  /api/payments/order/{orderId}/status:
+    get:
+      summary: Get order payment status.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: Order status.
+  /api/payments/refunds/{refundId}:
+    put:
+      summary: Process refund.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RefundId"
+      requestBody:
+        $ref: "#/components/requestBodies/ProcessRefundRequest"
+      responses:
+        "200":
+          description: Refund processed.
+  /internal/payments/order/{orderId}/status:
+    get:
+      summary: Internal get payment status.
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: Order status.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        The API Gateway intercepts the JWT, validates it against Keycloak, and injects the following headers for downstream services:
+        - `X-User-Id`: Resolved internal User ID (long)
+        - `X-User-Roles`: Comma-separated roles
+        - `X-User-Email`: User's email
+        - `X-Keycloak-Id`: Original Keycloak UUID
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        default: 20
+    PaymentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    RefundId:
+      name: refundId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+  requestBodies:
+    InitiatePaymentRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    ConfirmCashRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    RequestRefundRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    ProcessRefundRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object

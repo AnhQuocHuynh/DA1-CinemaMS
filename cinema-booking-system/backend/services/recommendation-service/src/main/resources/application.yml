@@ -1,0 +1,59 @@
+server:
+  port: ${SERVER_PORT:8085}
+
+spring:
+  application:
+    name: recommendation-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+      - org.springframework.boot.autoconfigure.neo4j.Neo4jAutoConfiguration
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: ${RECOMMENDATION_AMQP_MAX_ATTEMPTS:5}
+          initial-interval: ${RECOMMENDATION_AMQP_INITIAL_INTERVAL:500ms}
+          multiplier: ${RECOMMENDATION_AMQP_RETRY_MULTIPLIER:2}
+          max-interval: ${RECOMMENDATION_AMQP_MAX_INTERVAL:5s}
+
+recommendation:
+  graph:
+    enabled: ${RECOMMENDATION_GRAPH_ENABLED:false}
+    uri: ${SPRING_NEO4J_URI:bolt://localhost:7687}
+    username: ${SPRING_NEO4J_AUTHENTICATION_USERNAME:neo4j}
+    password: ${SPRING_NEO4J_AUTHENTICATION_PASSWORD:cinema_graph_2026}
+    max-connection-pool-size: ${RECOMMENDATION_NEO4J_MAX_CONNECTION_POOL_SIZE:20}
+  messaging:
+    enabled: ${RECOMMENDATION_MESSAGING_ENABLED:false}
+    catalog-queue: ${RECOMMENDATION_CATALOG_QUEUE:recommendation.catalog.v1}
+    booking-queue: ${RECOMMENDATION_BOOKING_QUEUE:recommendation.booking.v1}
+  backfill:
+    enabled: ${RECOMMENDATION_BACKFILL_ENABLED:false}
+    dry-run: ${RECOMMENDATION_BACKFILL_DRY_RUN:true}
+    confirmation: ${RECOMMENDATION_BACKFILL_CONFIRMATION:}
+    source:
+      url: ${RECOMMENDATION_BACKFILL_SOURCE_URL:jdbc:postgresql://localhost:5432/cinema_db}
+      username: ${RECOMMENDATION_BACKFILL_SOURCE_USERNAME:postgres}
+      password: ${RECOMMENDATION_BACKFILL_SOURCE_PASSWORD:}
+    fetch-size: ${RECOMMENDATION_BACKFILL_FETCH_SIZE:500}
+
+cinema:
+  security:
+    jwt:
+      enabled: ${CINEMA_SECURITY_JWT_ENABLED:false}
+      issuer-uri: ${KEYCLOAK_ISSUER_URI:}
+      audience: ${KEYCLOAK_AUDIENCE:cinema-api}
+      jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -6,19 +6,17 @@ import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.VoucherRepository;
 import com.uit.cinema.booking.service.OrderService;
 import com.uit.cinema.core.exception.CustomException;
-import com.uit.cinema.showtime.entity.ShowtimeSeat;
-import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
-import com.uit.cinema.showtime.service.SeatHoldPolicy;
+import com.uit.cinema.showtime.service.SeatReservationService;
+import com.uit.cinema.showtime.service.contract.SeatBookingRequest;
+import com.uit.cinema.showtime.service.contract.SeatHoldValidationResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,8 +27,7 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final VoucherRepository voucherRepository;
-    private final ShowtimeSeatRepository showtimeSeatRepository;
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final SeatReservationService seatReservationService;
 
     @Override
     @Transactional
@@ -39,28 +36,10 @@ public class OrderServiceImpl implements OrderService {
             throw new CustomException("Seat list is empty", HttpStatus.BAD_REQUEST, "SEAT_LIST_EMPTY");
         }
 
-        List<ShowtimeSeat> seats = new ArrayList<>();
-        BigDecimal total = BigDecimal.ZERO;
-
-        for (Long seatId : seatIds) {
-            ShowtimeSeat seat = showtimeSeatRepository.findById(seatId)
-                .orElseThrow(() -> new CustomException("Seat not found", HttpStatus.NOT_FOUND, "SEAT_NOT_FOUND"));
-            if (!showtimeId.equals(seat.getShowtimeId())) {
-                throw new CustomException("Seat does not belong to showtime", HttpStatus.BAD_REQUEST, "SEAT_SHOWTIME_MISMATCH");
-            }
-            if (seat.getStatus() != ShowtimeSeat.SeatStatus.HELD) {
-                throw new CustomException("Seat is not in HELD status", HttpStatus.CONFLICT, "SEAT_NOT_HELD");
-            }
-
-            String lockKey = SeatHoldPolicy.holdKey(showtimeId, seatId);
-            Object lockHolder = redisTemplate.opsForValue().get(lockKey);
-            if (lockHolder == null || !String.valueOf(userId).equals(String.valueOf(lockHolder))) {
-                throw new CustomException("Seat hold is invalid or expired", HttpStatus.CONFLICT, "SEAT_HOLD_INVALID");
-            }
-
-            seats.add(seat);
-            total = total.add(seat.getPrice());
-        }
+        SeatHoldValidationResult seatValidation = seatReservationService.validateHeldSeats(
+            new SeatBookingRequest(userId, showtimeId, seatIds)
+        );
+        BigDecimal total = seatValidation.totalAmount();
 
         BigDecimal discount = BigDecimal.ZERO;
         Long voucherId = null;
