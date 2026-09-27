@@ -1,12 +1,28 @@
 using Microsoft.Extensions.Options;
+using MongoDB.Bson;
+using MongoDB.Bson.IO;
+using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using NotificationService.Domain.Entities;
+using System.Text.Json;
 
 namespace NotificationService.Infrastructure.Data;
 
 public class MongoDbContext
 {
     private readonly IMongoDatabase _database;
+
+    static MongoDbContext()
+    {
+        // Register ObjectSerializer to allow all types (needed for Dictionary<string, object>)
+#pragma warning disable CS0618 // ObjectSerializer.AllAllowedTypes is obsolete but required for polymorphic serialization
+        BsonSerializer.RegisterSerializer(new ObjectSerializer(ObjectSerializer.AllAllowedTypes));
+#pragma warning restore CS0618
+
+        // Register a custom serializer for System.Text.Json.JsonElement
+        BsonSerializer.RegisterSerializer(typeof(JsonElement), new JsonElementBsonSerializer());
+    }
 
     public MongoDbContext(IOptions<MongoDbSettings> settings)
     {
@@ -20,6 +36,7 @@ public class MongoDbContext
     public IMongoCollection<NotificationTemplate> Templates => _database.GetCollection<NotificationTemplate>("notification_templates");
     public IMongoCollection<DeliveryLog> DeliveryLogs => _database.GetCollection<DeliveryLog>("delivery_logs");
     public IMongoCollection<UserPreference> UserPreferences => _database.GetCollection<UserPreference>("user_preferences");
+    public IMongoCollection<InboxMessage> InboxMessages => _database.GetCollection<InboxMessage>("inbox_messages");
 
     private void ConfigureIndexes()
     {
@@ -69,5 +86,17 @@ public class MongoDbContext
             new CreateIndexOptions { Unique = true });
             
         UserPreferences.Indexes.CreateOne(userPrefIndex);
+
+        // Inbox Messages Indexes
+        var inboxIndexBuilder = Builders<InboxMessage>.IndexKeys;
+        var inboxUniqueIndex = new CreateIndexModel<InboxMessage>(
+            inboxIndexBuilder.Ascending(x => x.MessageId).Ascending(x => x.ConsumerName),
+            new CreateIndexOptions { Unique = true });
+
+        var inboxTtlIndex = new CreateIndexModel<InboxMessage>(
+            inboxIndexBuilder.Ascending(x => x.ReceivedAt),
+            new CreateIndexOptions { ExpireAfter = TimeSpan.FromDays(14) });
+
+        InboxMessages.Indexes.CreateMany(new[] { inboxUniqueIndex, inboxTtlIndex });
     }
 }

@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { SeatType } from '../types/booking';
 import { adminService } from '../services/adminService';
+import { useToast } from '../contexts/ToastContext';
 import {
   SeatCell,
   getRowLabel,
@@ -38,6 +39,13 @@ export const useSeatConfigurator = (
   const [grid, setGrid] = useState<SeatCell[][]>(() => buildGrid(initialRows || DEFAULT_ROWS, initialColumns || DEFAULT_COLUMNS));
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { addToast } = useToast();
+  
+  const [initialState, setInitialState] = useState(() => ({
+    rows: initialRows || DEFAULT_ROWS,
+    columns: initialColumns || DEFAULT_COLUMNS,
+    grid: JSON.stringify(buildGrid(initialRows || DEFAULT_ROWS, initialColumns || DEFAULT_COLUMNS))
+  }));
 
   const loadGrid = useCallback(async () => {
     if (!cinemaId || !roomId) return;
@@ -54,6 +62,11 @@ export const useSeatConfigurator = (
       setRows(newRows);
       setColumns(newCols);
       setGrid(newGrid);
+      setInitialState({
+        rows: newRows,
+        columns: newCols,
+        grid: JSON.stringify(newGrid)
+      });
     } catch (e) {
       console.error(e);
     } finally {
@@ -82,10 +95,15 @@ export const useSeatConfigurator = (
         columns,
         seats: seatsToSave
       });
-      alert('Seat configuration saved successfully!');
+      addToast('Seat configuration saved successfully!', 'success');
+      setInitialState({
+        rows,
+        columns,
+        grid: JSON.stringify(grid)
+      });
     } catch (e) {
       console.error(e);
-      alert('Failed to save configuration.');
+      addToast('Failed to save configuration.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -168,6 +186,12 @@ export const useSeatConfigurator = (
     setGrid((prev) => prev.map((row) => row.map((cell) => ({ ...cell, type: null, coveredByLeft: false }))));
   };
 
+  const hasChanges = useMemo(() => {
+    return rows !== initialState.rows || 
+           columns !== initialState.columns || 
+           JSON.stringify(grid) !== initialState.grid;
+  }, [rows, columns, grid, initialState]);
+
   return {
     rows,
     columns,
@@ -183,5 +207,6 @@ export const useSeatConfigurator = (
     clearGrid,
     loadGrid,
     saveGrid,
+    hasChanges,
   };
 };

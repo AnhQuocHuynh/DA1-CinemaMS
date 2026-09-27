@@ -22,7 +22,7 @@ public class OrderRefundedEventConsumer : RabbitMqConsumerBase<EventEnvelope<Ord
     public OrderRefundedEventConsumer(
         IRabbitMqConnectionProvider connectionProvider,
         ILogger<OrderRefundedEventConsumer> logger,
-        IServiceScopeFactory scopeFactory) : base(connectionProvider, logger)
+        IServiceScopeFactory scopeFactory) : base(connectionProvider, logger, scopeFactory)
     {
         _scopeFactory = scopeFactory;
     }
@@ -37,8 +37,8 @@ public class OrderRefundedEventConsumer : RabbitMqConsumerBase<EventEnvelope<Ord
         {
             type = "OrderRefunded",
             orderId = message.Payload.OrderId,
-            amount = message.Payload.RefundAmount,
-            reason = message.Payload.Reason
+            amount = message.Payload.FinalAmount,
+            ticketCount = message.Payload.TicketCount
         });
 
         // 2. Send the Email Notification via MediatR
@@ -49,13 +49,15 @@ public class OrderRefundedEventConsumer : RabbitMqConsumerBase<EventEnvelope<Ord
             NotificationType.PAYMENT_RECEIPT,
             NotificationChannel.EMAIL,
             $"Refund processed for Order #{message.Payload.OrderId}",
-            $"A refund of {message.Payload.RefundAmount} has been processed. Reason: {message.Payload.Reason}",
+            $"A refund of {message.Payload.FinalAmount} has been processed for {message.Payload.TicketCount} ticket(s).",
             new Dictionary<string, object>
             {
-                { "orderId", message.Payload.OrderId }
+                { "orderId", message.Payload.OrderId },
+                { "showtimeId", message.Payload.ShowtimeId }
             }
         );
 
         await mediator.Send(command, cancellationToken);
     }
 }
+

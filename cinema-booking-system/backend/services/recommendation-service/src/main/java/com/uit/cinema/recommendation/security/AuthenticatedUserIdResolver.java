@@ -8,6 +8,11 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.util.StringUtils;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
 import java.math.BigDecimal;
 
 @Component
@@ -48,6 +53,16 @@ public class AuthenticatedUserIdResolver {
         }
 
         Object userIdClaim = jwtAuthentication.getToken().getClaim("user_id");
+        if (userIdClaim == null) {
+            HttpServletRequest request = currentHttpRequest();
+            if (request != null) {
+                String headerVal = request.getHeader("X-User-Id");
+                if (StringUtils.hasText(headerVal)) {
+                    userIdClaim = headerVal;
+                }
+            }
+        }
+
         try {
             long userId = new BigDecimal(String.valueOf(userIdClaim)).longValueExact();
             if (userId <= 0) {
@@ -57,6 +72,14 @@ public class AuthenticatedUserIdResolver {
         } catch (ArithmeticException | NumberFormatException exception) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "USER_ID_MAPPING_UNAVAILABLE");
         }
+    }
+
+    private HttpServletRequest currentHttpRequest() {
+        var attrs = RequestContextHolder.getRequestAttributes();
+        if (attrs instanceof ServletRequestAttributes servletAttrs) {
+            return servletAttrs.getRequest();
+        }
+        return null;
     }
 
     private boolean hasRole(String role) {

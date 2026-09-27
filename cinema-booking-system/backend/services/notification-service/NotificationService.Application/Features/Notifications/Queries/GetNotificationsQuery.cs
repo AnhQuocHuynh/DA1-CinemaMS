@@ -1,7 +1,9 @@
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using NotificationService.Application.DTOs;
+using NotificationService.Domain.Interfaces;
 
 namespace NotificationService.Application.Features.Notifications.Queries;
 
@@ -9,12 +11,38 @@ public record GetNotificationsQuery(int Page = 1, int PageSize = 10) : IRequest<
 
 public class GetNotificationsQueryHandler : IRequestHandler<GetNotificationsQuery, PagedResult<NotificationDto>>
 {
-    // Requires a method on INotificationRepository for paginated fetch: 
-    // Task<(IEnumerable<Notification>, int)> GetPagedAsync(...)
-    
-    public Task<PagedResult<NotificationDto>> Handle(GetNotificationsQuery request, CancellationToken cancellationToken)
+    private readonly INotificationRepository _notificationRepository;
+
+    public GetNotificationsQueryHandler(INotificationRepository notificationRepository)
     {
-        // TODO: Implement paginated fetch from repository
-        return Task.FromResult(new PagedResult<NotificationDto>());
+        _notificationRepository = notificationRepository;
+    }
+
+    public async Task<PagedResult<NotificationDto>> Handle(GetNotificationsQuery request, CancellationToken cancellationToken)
+    {
+        var (items, totalCount) = await _notificationRepository.GetPagedAsync(
+            request.Page, request.PageSize, cancellationToken);
+
+        return new PagedResult<NotificationDto>
+        {
+            Items = items.Select(n => new NotificationDto
+            {
+                Id = n.Id,
+                UserId = n.UserId,
+                Type = n.Type,
+                Channel = n.Channel,
+                Title = n.Title,
+                Body = n.Body,
+                Metadata = n.Metadata,
+                Status = n.Status,
+                RetryCount = n.RetryCount,
+                SentAt = n.SentAt,
+                FailedReason = n.FailedReason,
+                CreatedAt = n.CreatedAt
+            }),
+            TotalCount = (int)totalCount,
+            Page = request.Page,
+            PageSize = request.PageSize
+        };
     }
 }

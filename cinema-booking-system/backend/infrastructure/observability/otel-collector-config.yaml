@@ -1,3 +1,7 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
 receivers:
   otlp:
     protocols:
@@ -10,31 +14,102 @@ exporters:
   prometheus:
     endpoint: "0.0.0.0:8889"
     send_timestamps: true
+    resource_to_telemetry_conversion:
+      enabled: true
 
   otlp/tempo:
     endpoint: "tempo:4317"
     tls:
       insecure: true
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 256
 
   otlphttp/loki:
     endpoint: "http://loki:3100/otlp"
     tls:
       insecure: true
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 256
 
 processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 1024
+    spike_limit_mib: 256
+
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: development
+        action: upsert
+
+  filter/health_traces:
+    error_mode: ignore
+    traces:
+      span:
+        - 'attributes["http.route"] == "/health"'
+        - 'attributes["http.route"] == "/healthz"'
+        - 'attributes["http.route"] == "/ready"'
+        - 'attributes["http.route"] == "/readyz"'
+        - 'attributes["http.route"] == "/ping"'
+        - 'attributes["http.route"] == "/livez"'
+        - 'attributes["http.route"] == "/actuator/health"'
+        - 'attributes["http.route"] == "/actuator/prometheus"'
+        - 'attributes["url.path"] == "/health"'
+        - 'attributes["url.path"] == "/actuator/health"'
+
+  filter/health_metrics:
+    error_mode: ignore
+    metrics:
+      datapoint:
+        - 'attributes["http.route"] == "/health"'
+        - 'attributes["http.route"] == "/healthz"'
+        - 'attributes["http.route"] == "/ready"'
+        - 'attributes["http.route"] == "/readyz"'
+        - 'attributes["http.route"] == "/ping"'
+        - 'attributes["http.route"] == "/actuator/health"'
+        - 'attributes["http.route"] == "/actuator/prometheus"'
+
+  filter/health_logs:
+    error_mode: ignore
+    logs:
+      log_record:
+        - 'attributes["http.route"] == "/health"'
+        - 'attributes["http.route"] == "/healthz"'
+        - 'attributes["http.route"] == "/actuator/health"'
+        - 'IsMatch(body, ".*GET /health(z)?\\s.*")'
+        - 'IsMatch(body, ".*GET /actuator/health\\s.*")'
+
   batch:
+    send_batch_size: 512
+    timeout: 5s
 
 service:
+  extensions: [health_check]
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
+      processors: [memory_limiter, resource, filter/health_traces, batch]
       exporters: [otlp/tempo]
     metrics:
       receivers: [otlp]
-      processors: [batch]
+      processors: [memory_limiter, resource, filter/health_metrics, batch]
       exporters: [prometheus]
     logs:
       receivers: [otlp]
-      processors: [batch]
+      processors: [memory_limiter, resource, filter/health_logs, batch]
       exporters: [otlphttp/loki]

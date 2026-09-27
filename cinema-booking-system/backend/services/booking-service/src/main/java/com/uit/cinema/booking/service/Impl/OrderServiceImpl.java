@@ -65,8 +65,15 @@ public class OrderServiceImpl implements OrderService {
             .build();
 
         Order saved = orderRepository.save(order);
-        log.info("Order {} created for user {}, {} seats", saved.getId(), userId, seatIds.size());
+        log.info("Created order {} for user {} showtime {}", saved.getId(), userId, showtimeId);
         return saved;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Order getOrderById(Long orderId) {
+        return orderRepository.findById(orderId)
+            .orElseThrow(() -> new CustomException("Order not found", HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND"));
     }
 
     private void validateVoucher(Voucher voucher, Long userId) {

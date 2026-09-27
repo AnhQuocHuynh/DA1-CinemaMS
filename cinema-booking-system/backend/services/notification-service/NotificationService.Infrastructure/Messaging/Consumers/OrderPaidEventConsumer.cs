@@ -22,7 +22,7 @@ public class OrderPaidEventConsumer : RabbitMqConsumerBase<EventEnvelope<OrderPa
     public OrderPaidEventConsumer(
         IRabbitMqConnectionProvider connectionProvider,
         ILogger<OrderPaidEventConsumer> logger,
-        IServiceScopeFactory scopeFactory) : base(connectionProvider, logger)
+        IServiceScopeFactory scopeFactory) : base(connectionProvider, logger, scopeFactory)
     {
         _scopeFactory = scopeFactory;
     }
@@ -50,12 +50,15 @@ public class OrderPaidEventConsumer : RabbitMqConsumerBase<EventEnvelope<OrderPa
             NotificationType.PAYMENT_RECEIPT,
             NotificationChannel.EMAIL,
             $"Order #{message.Payload.OrderId} Confirmed",
-            $"Your payment of {message.Payload.FinalAmount} was successful.",
+            $"Your payment of {message.Payload.FinalAmount:N0} VND was successful. Order #{message.Payload.OrderId} has been confirmed for {message.Payload.TicketCount} ticket(s).",
             new Dictionary<string, object>
             {
                 { "orderId", message.Payload.OrderId },
                 { "showtimeId", message.Payload.ShowtimeId },
-                { "transactionId", message.Payload.TransactionId }
+                { "transactionId", message.Payload.TransactionId ?? string.Empty },
+                { "amount", message.Payload.FinalAmount },
+                { "ticketCount", message.Payload.TicketCount },
+                { "paymentMethod", message.Payload.PaymentMethod ?? string.Empty }
             }
         );
 

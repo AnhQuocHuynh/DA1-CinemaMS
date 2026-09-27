@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NotificationService.Application.Contracts;
 using NotificationService.Application.Features.Notifications.Commands;
 using NotificationService.Application.Messages;
 using NotificationService.Domain.Enums;
@@ -21,7 +22,7 @@ public class PasswordResetEventConsumer : RabbitMqConsumerBase<EventEnvelope<Key
     public PasswordResetEventConsumer(
         IRabbitMqConnectionProvider connectionProvider,
         ILogger<PasswordResetEventConsumer> logger,
-        IServiceScopeFactory scopeFactory) : base(connectionProvider, logger)
+        IServiceScopeFactory scopeFactory) : base(connectionProvider, logger, scopeFactory)
     {
         _scopeFactory = scopeFactory;
     }
@@ -29,13 +30,14 @@ public class PasswordResetEventConsumer : RabbitMqConsumerBase<EventEnvelope<Key
     protected override async Task ProcessMessageAsync(EventEnvelope<KeycloakPasswordResetPayload> message, CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
+
+        var resolver = scope.ServiceProvider.GetRequiredService<IKeycloakUserResolver>();
+        var userId = await resolver.ResolveUserIdAsync(message.Payload.KeycloakId, cancellationToken);
+
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
-        // TODO: Map KeycloakId to internal numeric UserId.
-        long defaultUserId = 1;
-
         var command = new SendNotificationCommand(
-            defaultUserId,
+            userId,
             NotificationType.PASSWORD_RESET,
             NotificationChannel.EMAIL,
             "Password Reset Request",

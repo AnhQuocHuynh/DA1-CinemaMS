@@ -1,3 +1,4 @@
+using System;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NotificationService.Application.Contracts;
@@ -5,6 +6,7 @@ using NotificationService.Domain.Interfaces;
 using NotificationService.Infrastructure.BackgroundServices;
 using NotificationService.Infrastructure.Data;
 using NotificationService.Infrastructure.Messaging;
+using NotificationService.Infrastructure.Messaging.Consumers;
 using NotificationService.Infrastructure.Repositories;
 using NotificationService.Infrastructure.Services;
 
@@ -29,22 +31,37 @@ public static class DependencyInjection
         services.AddScoped<ITemplateRepository, TemplateRepository>();
         services.AddScoped<IDeliveryLogRepository, DeliveryLogRepository>();
         services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
+        services.AddScoped<IInboxRepository, InboxRepository>();
 
         // Services
         services.AddTransient<IEmailSender, MailKitEmailSender>();
         services.AddTransient<ISmsSender, DummySmsSender>();
-        services.AddTransient<IPushNotificationSender, SignalRPushSender>();
+        // IPushNotificationSender (SignalRPushSender) is registered in Presentation layer (needs IHubContext<NotificationHub>)
         services.AddTransient<ITemplateRenderer, TemplateRenderer>();
+
+        // Keycloak → Internal UserId resolver (calls Identity Service)
+        var identityBaseUrl = configuration["IdentityService:BaseUrl"] ?? "http://localhost:5001";
+        var internalToken = configuration["InternalApi:Token"] ?? configuration["INTERNAL_API_TOKEN"];
+        services.AddHttpClient<IKeycloakUserResolver, HttpKeycloakUserResolver>(client =>
+        {
+            client.BaseAddress = new Uri(identityBaseUrl);
+            if (!string.IsNullOrWhiteSpace(internalToken))
+            {
+                client.DefaultRequestHeaders.Add("X-Internal-Token", internalToken);
+            }
+        });
 
         // Background Services
         services.AddHostedService<NotificationDispatcherService>();
         
         // RabbitMQ Consumers
-        services.AddHostedService<NotificationService.Infrastructure.Messaging.Consumers.UserRegisteredEventConsumer>();
-        services.AddHostedService<NotificationService.Infrastructure.Messaging.Consumers.PasswordResetEventConsumer>();
-        services.AddHostedService<NotificationService.Infrastructure.Messaging.Consumers.OrderPaidEventConsumer>();
-        services.AddHostedService<NotificationService.Infrastructure.Messaging.Consumers.OrderRefundedEventConsumer>();
-        services.AddHostedService<NotificationService.Infrastructure.Messaging.Consumers.ShowtimeCreatedEventConsumer>();
+        services.AddHostedService<UserRegisteredEventConsumer>();
+        services.AddHostedService<UserProfileUpdatedEventConsumer>();
+        services.AddHostedService<PasswordResetEventConsumer>();
+        services.AddHostedService<OrderPaidEventConsumer>();
+        services.AddHostedService<OrderRefundedEventConsumer>();
+        services.AddHostedService<ReviewCreatedEventConsumer>();
+        services.AddHostedService<ShowtimeCreatedEventConsumer>();
 
         return services;
     }

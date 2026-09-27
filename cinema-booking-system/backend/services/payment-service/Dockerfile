@@ -6,18 +6,19 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 # Copy project files and restore
-COPY ["PaymentService.Domain/PaymentService.Domain.csproj", "PaymentService.Domain/"]
-COPY ["PaymentService.Application/PaymentService.Application.csproj", "PaymentService.Application/"]
-COPY ["PaymentService.Infrastructure/PaymentService.Infrastructure.csproj", "PaymentService.Infrastructure/"]
-COPY ["PaymentService.Presentation/PaymentService.Presentation.csproj", "PaymentService.Presentation/"]
+COPY ["services/payment-service/PaymentService.Domain/PaymentService.Domain.csproj", "services/payment-service/PaymentService.Domain/"]
+COPY ["services/payment-service/PaymentService.Application/PaymentService.Application.csproj", "services/payment-service/PaymentService.Application/"]
+COPY ["services/payment-service/PaymentService.Infrastructure/PaymentService.Infrastructure.csproj", "services/payment-service/PaymentService.Infrastructure/"]
+COPY ["services/payment-service/PaymentService.Presentation/PaymentService.Presentation.csproj", "services/payment-service/PaymentService.Presentation/"]
 
-RUN dotnet restore "PaymentService.Presentation/PaymentService.Presentation.csproj"
+COPY ["shared/Shared.Hosting/CinemaBooking.Shared.Hosting.csproj", "shared/Shared.Hosting/"]
+RUN dotnet restore "services/payment-service/PaymentService.Presentation/PaymentService.Presentation.csproj"
 
 # Copy all source
 COPY . .
 
 # Build
-WORKDIR /src/PaymentService.Presentation
+WORKDIR /src/services/payment-service/PaymentService.Presentation
 RUN dotnet build "PaymentService.Presentation.csproj" -c Release -o /app/build
 
 FROM build AS publish

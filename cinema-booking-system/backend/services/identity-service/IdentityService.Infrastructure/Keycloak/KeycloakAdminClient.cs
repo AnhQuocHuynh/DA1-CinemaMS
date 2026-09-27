@@ -92,10 +92,17 @@ public class KeycloakAdminClient : IKeycloakAdminClient
         var client = await AuthorizedClient(ct);
         var url = $"{_opts.BaseUrl}/admin/realms/{_opts.Realm}/users/{keycloakId}/role-mappings/realm";
 
-        var roles = await client.GetFromJsonAsync<List<KeycloakRoleDto>>(url, ct)
-            ?? [];
+        try
+        {
+            var roles = await client.GetFromJsonAsync<List<KeycloakRoleDto>>(url, ct)
+                ?? [];
 
-        return roles.Select(r => new RoleRepresentation(r.Id, r.Name));
+            return roles.Select(r => new RoleRepresentation(r.Id, r.Name));
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return [];
+        }
     }
 
     public async Task AssignRealmRoleAsync(string keycloakId, RoleRepresentation role, CancellationToken ct = default)
