@@ -1,181 +1,215 @@
 # Current State
 
-For a new agent session, read `../AGENTS.md` and `SESSION_BOOTSTRAP.md` first.
-This file is the detailed operational reference. Migration evidence and cutover
-gates are maintained in
-`../cinema-booking-system/backend/MIGRATION_STATUS.md`.
+Ảnh chụp vận hành của Đồ án 1 — Cinema Booking System.
+
+Ngày cập nhật: 2026-09-27. File này là hiện trạng đang dùng. `SESSION_BOOTSTRAP.md`,
+`AGENTS.md` và `cinema-booking-system/backend/MIGRATION_STATUS.md` vẫn mô tả
+nhánh `refactor-compose-single-postgres` trước khi gộp, nên khi lệch nhau thì
+ưu tiên file này và mã đang có trên `main`.
 
 ## Snapshot
 
-- Date of handoff: 2026-08-23.
-- Branch: `refactor-compose-single-postgres`.
-- Runnable full backend remains `cinema-booking-system/backend_legacy/`.
-- `cinema-booking-system/backend/` now contains extracted, independently buildable, and full-stack-smoke-tested `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, `analytics-service`, and `recommendation-service` Spring Boot services.
+- Nhánh deploy: `main`, commit `d0e0060` (`Merge branch 'dev' into main`), khớp `origin/main`.
+- Nhánh tích hợp: `dev`, commit `0816c46` (`Merge branch 'refactor-compose-single-postgres' into dev`), khớp `origin/dev`.
+- Cây thư mục của `dev` và `main` giống nhau. `refactor-compose-single-postgres` (`4c8a3a3`) đã nằm trong cả hai.
+- Bản demo chạy được vẫn là monolith `cinema-booking-system/backend_legacy/` cộng React ở `cinema-booking-system/frontend/`.
+- `cinema-booking-system/backend/` là đích microservice. Traffic và dữ liệu chuẩn chưa chuyển khỏi `backend_legacy`.
+- Working tree sạch sau khi đẩy hai merge commit. Chưa chạy lại test, smoke hay build sau lần gộp ngày 2026-09-27.
 
-## Exact Repository State
+## Git và CI
 
-- `backend_legacy` is still the source of truth for the complete booking flow.
-- `backend` is a partial microservice migration target, not a full replacement yet.
-- Extracted services:
-  - `backend/services/catalog-service`
-  - `backend/services/facility-service`
-  - `backend/services/showtime-service`
-  - `backend/services/booking-service`
-  - `backend/services/analytics-service`
-  - `backend/services/recommendation-service`
-- Remaining service folders are placeholders unless documented otherwise.
-- `backend/infrastructure/docker-compose.yml` runs Catalog, Facility, Showtime, Booking, Analytics, and Recommendation against one PostgreSQL 18 container on host port `5432` with logical databases (`cinema_catalog_db`, `cinema_facility_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, plus teammate placeholders). Showtime Redis, RabbitMQ, and Neo4j remain separate containers.
-- `backend_legacy/src/main/resources/application.yml` now has a valid Base64 JWT default while preserving `APP_JWT_SECRET`.
-- `backend_legacy/src/main/resources/DB_PATCH_2026_06_25_SEAT_MAP.sql` is present in source.
+Ngày 2026-09-27 đã gộp `refactor-compose-single-postgres` vào `dev`, rồi `dev` vào `main`, và đẩy cả hai lên `origin`.
 
-## Migration Notes
+Chỉ một file sửa ở cả hai phía: `.github/workflows/run-tests.yml`. Cách giải quyết là giữ cả hai đường kiểm tra:
 
-- Booking/Payment/Staff have been reduced to use Showtime seat-reservation boundaries instead of direct showtime repositories.
-- Showtime now reads Catalog and Facility through read-service boundaries instead of direct cross-module repositories/entities.
-- Facility now checks future-showtime conflicts through `FacilityShowtimeGuard` instead of direct JPQL in service methods.
-- Standalone Facility now queries Showtime internal guard endpoints for destructive room/cinema deletes and fails closed if Showtime is unavailable.
-- Standalone Catalog now uses `EventShowtimeClient` over internal HTTP to create/delete event showtimes and fails closed if Showtime sync fails.
-- Standalone Showtime reads Catalog/Facility through HTTP clients and exposes internal command, guard, and seat-reservation endpoints for future service extraction.
-- Standalone Booking calls Showtime internal seat-reservation endpoints and uses Catalog/Facility internal projections for response enrichment.
-- Standalone Analytics exposes admin dashboard route compatibility and maintains its PostgreSQL read model through durable, idempotent RabbitMQ consumers for Catalog and Booking events.
-- Standalone Recommendation serves popular, similar, personalized, and hybrid recommendations from Neo4j, with safe fallback responses when graph mode is disabled.
-- Catalog records movie-created, movie-updated, and movie-deleted envelopes in a transactional outbox.
-- Booking records order-paid, order-refunded, and review-created envelopes in a transactional outbox; paid events are enriched with the owning Showtime content identifier.
-- Shared event contracts define the envelope, RabbitMQ exchanges, routing keys, and idempotent consumer rule before any broker is enabled.
-- Analytics has idempotent, ordering-aware AMQP projections for paid/refunded orders and movie lifecycle events, with bounded retry, DLQs, validation, and metrics.
-- Recommendation consumes the same durable event streams into Neo4j using atomic processed-event markers and timestamp guards for out-of-order order events.
-- Recommendation includes a read-only copied-legacy-DB backfill that defaults to dry-run and requires exact confirmation before graph writes.
-- Catalog and Booking have opt-in RabbitMQ outbox relays with mandatory routing and publisher-confirm checks before events are marked published.
-- The event-flow smoke publishes duplicate and out-of-order events through RabbitMQ and verifies durable Analytics/Neo4j state plus Recommendation API behavior.
-- Migration export now checks legacy relational invariants and writes a SHA-256 manifest; restore validates compatibility/checksums before mutation, and reconciliation compares row counts, content fingerprints, and owned ID-sequence state.
-- A disposable PostgreSQL rehearsal passed two restore/reconciliation cycles, two Analytics backfills, tampered-dump rejection, and deliberate stale-sequence rejection/repair on 2026-08-07.
-- The current local development `cinema_db` also passed two restore/content/sequence reconciliation cycles and two Analytics backfills against disposable PostgreSQL 18 targets. This was a local-data audit, not the canonical cutover rehearsal.
-- Static contract tests now guard Spring Boot client paths against the OpenAPI drafts for Catalog, Facility, Showtime, and Booking.
-- Spring context tests protect JPA repository scanning, constructor injection, Redis typing, and AMQP queue binding; a packaged-runtime regression test protects Spring MVC parameter metadata.
-- The extracted backend now has 179 passing tests. The 2026-08-07 verification
-  ran all six service modules, including JWT validators/route policies,
-  authenticated `user_id` binding, booking ownership, and seat-hold ownership.
-- All six Docker images build as executable non-root Java 21 images. The full Compose stack, expanded runtime smoke, and RabbitMQ/Neo4j event-flow suite passed locally on 2026-08-07, then the stack was stopped while named data volumes were retained.
-- Frontend `npm ci` and the Vite production build passed on 2026-08-07. Production dependency audit still reports 6 advisories, and `@zxing/library@0.22.0` declares Node 24 or newer while the verified environment used Node 22.16.0.
-- Repository-controlled preparation for the Spring-owned migration scope is complete. Remaining risk is external execution against a real copied snapshot and coordinated cutover/rollback, not missing Spring service code.
-- Backend CI now enforces `mvn clean verify`, Compose and PowerShell validation, migration dry-runs, and the RabbitMQ-to-Analytics/Neo4j event-flow test.
-- Do not expand ASP.NET-assigned services in this Spring Boot track: Identity, target Facility, Payment, Notification, and API Gateway.
+- `backend-legacy-tests`: `mvn test` trong `cinema-booking-system/backend_legacy` khi thư mục monolith đổi.
+- `backend-tests`: `mvn --batch-mode clean verify`, kiểm tra script PowerShell và `docker compose config` trong `cinema-booking-system/backend` khi thư mục microservice đổi.
+- `backend-event-flow`: chạy `event-flow-smoke.ps1 -StartCompose -StopCompose` sau job Spring, timeout 25 phút.
 
-## Commands To Verify
+`.github/workflows/run-build.yml` vẫn chỉ theo dõi `frontend/**` và `backend_legacy/**`. Build frontend trên CI dùng Node 20.
 
-From workspace root `D:\UNI_DOCS\HK6\DA1\DA1-CinemaMS`:
+Bằng chứng test cũ vẫn đúng với ngày ghi nhận, và chưa được lặp lại sau merge:
+
+- 2026-08-07: reactor Spring 179 test, sáu image Java 21 non-root, runtime smoke, event-flow, và rehearsal migrate trên PostgreSQL dùng một lần.
+- 2026-08-07: `npm ci` và Vite build của frontend đạt. Audit production còn 6 cảnh báo. `@zxing/library@0.22.0` khai báo Node 24 trở lên, môi trường kiểm tra lúc đó là Node 22.16.0.
+- 2026-08-23: consumer sự kiện thanh toán của `booking-service` có 70 test đơn vị.
+
+## Hình dạng repository
+
+| Khu vực | Vai trò trên `main` |
+|---|---|
+| `backend_legacy` | Monolith Spring Boot, nguồn sự thật của luồng đặt vé demo |
+| `frontend` | React 18, Vite 5, TypeScript, Tailwind, Zustand |
+| `catalog-service`, `showtime-service`, `booking-service`, `analytics-service`, `recommendation-service` | Spring, đã tách và có test trong cây mã |
+| `facility-service` | ASP.NET là bản triển khai trong Compose. Không còn source Java trong service này |
+| `identity-service`, `api-gateway`, `payment-service`, `notification-service` | ASP.NET, đã có mã trên `main` |
+| `backend/infrastructure/docker-compose.yml` | Một PostgreSQL 18, Redis, RabbitMQ, Keycloak, Neo4j, MongoDB và các service ở trên |
+
+Compose tạo nhiều database logic trên một container PostgreSQL 18, cổng host `5432`, qua `init-multiple-databases.sql`. Redis suất chiếu, RabbitMQ và Neo4j là container riêng. Notification dùng MongoDB.
+
+Ranh giới đã có trong mã Spring:
+
+- Catalog gọi lệnh suất chiếu sự kiện nội bộ của Showtime.
+- Showtime đọc Catalog và Facility qua HTTP.
+- Booking giữ và nhả ghế qua Showtime, lấy dữ liệu phim và phòng qua projection.
+- Facility chặn xóa rạp hoặc phòng khi còn suất chiếu tương lai, và đóng lại nếu Showtime không trả lời.
+- Endpoint nội bộ nằm dưới `/internal/**`, header chuyển tiếp là `X-Internal-Token`.
+- Catalog và Booking ghi outbox trong transaction. Analytics và Recommendation tiêu thụ sự kiện có chống trùng và chống sự kiện cũ.
+
+`CINEMA_SECURITY_JWT_ENABLED` của các service Spring vẫn là công tắc. Chưa có đợt test token thật của Keycloak sau khi gộp.
+
+## Cổng và tài khoản
+
+Compose, cổng host mặc định:
+
+- PostgreSQL `5432`, Redis `6379`, RabbitMQ `5672` và UI `15672`.
+- Keycloak `8080`.
+- API Gateway `5000`.
+- Identity `5001`, Facility `5002`, Payment `5003`, Notification `5004`.
+- Catalog `8081`, Showtime `8082`, Booking `8083`, Analytics `8084`, Recommendation `8085`.
+- Redis của Showtime `6380`. Neo4j `7474` và `7687`. MongoDB `27017`.
+
+Monolith local dùng `localhost:5432/cinema_db` và Redis `localhost:6379`. Keycloak trong Compose cũng nhận host `8080`, trùng cổng thường dùng của monolith. Postgres `5432` và Redis `6379` cũng trùng. Chỉ chạy một trong hai cụm tại một thời điểm.
+
+Tài khoản seed, từ `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
+
+- Admin: `admin@cinema.com` / `admin123`.
+- Staff: `staff@cinema.com` / `staff123`.
+- Customer: `customer@cinema.com` / `customer123`.
+- Customer bị khóa: `locked@cinema.com` / `locked123`.
+
+## Hiện trạng sản phẩm
+
+Nhận xét test tay của teammate, ghi ngày 2026-09-27, chưa được kiểm lại trong phiên này:
+
+- Admin khoảng 80 phần trăm, chưa test hết màn hình.
+- Staff chưa test.
+- Đặt vé của khách ổn.
+- Hoàn tiền còn lỗi, sẽ sửa sau.
+- Bình luận ổn.
+- Recommendation ổn.
+- Sự kiện chưa test.
+
+Đối chiếu với mã của bản demo:
+
+| Phần | Trong mã | Ghi chú |
+|---|---|---|
+| Đặt vé khách | Trang chủ, chi tiết phim, suất chiếu, chọn ghế, thanh toán, vé của tôi | Khớp nhận xét teammate |
+| Admin | Dashboard, phim, sự kiện, suất chiếu, rạp và phòng, sơ đồ ghế, voucher, phân quyền | Màn hình có đủ để test nốt |
+| Staff | Dashboard, đặt vé quầy, tra cứu vé, quét QR | Màn hình có, chưa có bằng chứng test |
+| Sự kiện | Chi tiết, quản trị, và kết quả tìm kiếm có sự kiện | Chưa được test tay |
+| Bình luận | `ReviewSection` trên phim và sự kiện. Chỉ người đã mua vé mới được đánh giá | Khớp nhận xét teammate |
+| Recommendation | Service cổng `8085`: phổ biến, tương tự, cá nhân hóa, hybrid, Neo4j | React không gọi service này. Nhận xét "ổn" ứng với API |
+| Tìm kiếm | `LIKE` không phân biệt hoa thường trên `title` và `description`, lọc thể loại và ngày khởi chiếu | Chưa phải tìm theo nội dung |
+| Hoàn tiền | Trên 24 giờ trả 100%, từ 4 đến 24 giờ trả 50%, dưới 4 giờ hoặc vé đã check-in thì từ chối | Phần trăm chỉ được ghi log. `orders` không có số tiền hoàn, `finalAmount` không đổi, monolith không gọi cổng thanh toán |
+| Báo cáo | Dashboard: doanh thu, suất lấp đầy, vé bán, đặt chỗ, người dùng, phim phổ biến | Analytics service lặp lại bốn endpoint đó |
+| Mobile | Trang khách có một số breakpoint `md` và `lg` | Sidebar admin là `hidden md:flex` và không có menu thay thế. Hero cao 620px. Sơ đồ ghế là lưới ngang |
+
+Hai đường hoàn tiền đang song song. Monolith đổi trạng thái đơn thành `REFUNDED` và trả ghế. `payment-service` có saga `PaymentRefunded`, publish envelope lên exchange topic `payment.events`, routing key lấy từ `EventType`. `booking-service` có consumer khi `BOOKING_PAYMENT_EVENTS_ENABLED=true`. Chưa chạy lại một lần giao tiếp RabbitMQ thật giữa Payment và Booking sau merge.
+
+Gateway đã có route YARP cho auth, phim, sự kiện, suất chiếu, đơn, vé, đánh giá, analytics, recommendation và payment. Route `/api/payments/callback/**` đứng trước route payment có `AuthorizationPolicy: authenticated` và không gắn policy, để callback của cổng thanh toán đi qua. `appsettings.json` trỏ destination về localhost. Compose ghi đè sang tên service Docker. Chưa có bộ test token thật và header giả sau khi các nhánh nằm chung một cây.
+
+## Lệnh kiểm tra
+
+Từ `D:\UNI_DOCS\HK6\DA1\DA1-CinemaMS`:
 
 ```powershell
-git status --short
+git status --short --branch
 ```
 
-Legacy backend tests:
+Monolith:
 
 ```powershell
 cd cinema-booking-system\backend_legacy
-..\..\.codex-tools\apache-maven-3.9.9\bin\mvn.cmd clean verify
+mvn test
 ```
 
-Extracted service tests:
+Reactor Spring:
 
 ```powershell
 cd cinema-booking-system\backend
-..\..\.codex-tools\apache-maven-3.9.9\bin\mvn.cmd test
+mvn test
 ```
 
-Extracted service package:
-
-```powershell
-cd cinema-booking-system\backend
-..\..\.codex-tools\apache-maven-3.9.9\bin\mvn.cmd package -DskipTests
-```
-
-Docker compose syntax:
+Compose và smoke:
 
 ```powershell
 cd cinema-booking-system\backend
 docker compose -f infrastructure\docker-compose.yml config
-```
-
-Extracted service runtime smoke:
-
-```powershell
-cd cinema-booking-system\backend
 .\infrastructure\smoke-test.ps1
-```
-
-Event-flow integration with automatic stack lifecycle:
-
-```powershell
-cd cinema-booking-system\backend
 .\infrastructure\event-flow-smoke.ps1 -StartCompose -StopCompose
-```
-
-Disposable data-migration rehearsal:
-
-```powershell
-cd cinema-booking-system\backend
 .\infrastructure\migrations\migration-rehearsal.ps1
 ```
 
-Frontend build:
+Frontend:
 
 ```powershell
 cd cinema-booking-system\frontend
 npm ci
 npm run build
-npm audit --omit=dev
 ```
 
-## Runtime Ports
+Dev UI: `npm run dev` trong `frontend`, mặc định `http://localhost:5173`, proxy `/api` về monolith.
 
-- Shared extracted PostgreSQL 18: `localhost:5432`. Logical databases:
-  `cinema_catalog_db`, `cinema_facility_db`, `cinema_showtime_db`,
-  `cinema_booking_db`, `cinema_analytics_db`.
-- Legacy backend DB (when `backend_legacy` or a local `my-postgres` is used
-  instead of extracted Compose): `localhost:5432/cinema_db`. Do not run both
-  stacks on `5432` at the same time.
-- Catalog service: `localhost:8081`.
-- Facility service: `localhost:5002`.
-- Showtime service: `localhost:8082`, Redis `localhost:6380`.
-- Booking service: `localhost:8083`.
-- Analytics service: `localhost:8084`.
-- Recommendation service: `localhost:8085`.
-- RabbitMQ: `localhost:5672`, management UI `localhost:15672`.
-- Neo4j: browser `localhost:7474`, Bolt `localhost:7687`.
-- Legacy Redis: `localhost:6379`.
+## Việc còn mở của đợt tách service
 
-## Seed/Test Accounts
+Các mục dưới đây vẫn mở. Mã đã vào `main`, nhưng chưa có buổi kiểm tra tích hợp lại.
 
-From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
+- Bật JWT Spring chỉ sau khi Gateway chuyển nguyên bearer token, gỡ header giả được, chặn `/internal/**`, và bộ test token thật đạt.
+- Chạy một lần Payment publish `payment.completed`, `payment.failed`, `payment.refunded` để Booking tiêu thụ trên broker thật.
+- Đối chiếu contract Facility ASP.NET với projection mà Showtime và Booking đang gọi.
+- Rehearsal trên bản sao database chuẩn, đúng PostgreSQL 18, hai vòng export, restore, đối soát nội dung và sequence, rồi lưu bằng chứng.
+- Backfill graph Recommendation trên bản sao đó.
+- Diễn tập rollback về `backend_legacy` trước khi chuyển traffic.
 
-- Admin: `admin@cinema.com` / `admin123`.
-- Staff: `staff@cinema.com` / `staff123`.
-- Customer: `customer@cinema.com` / `customer123`.
-- Locked customer: `locked@cinema.com` / `locked123`.
+Rehearsal ngày 2026-08-07 trên database dùng một lần và trên dữ liệu dev local đã đạt hai vòng restore, hai lần backfill Analytics, từ chối dump sai checksum, và từ chối sequence cũ. Đó chưa phải buổi cutover.
 
-## Known Verification Gaps
+## Hướng mở rộng
 
-- Frontend build passes, but the 6 production dependency advisories and Node-version mismatch must be resolved and regression-tested before release.
-- Data backfill has not been executed against the canonical copied database snapshot because no approved snapshot credential is available.
-- Migration dry-runs, the isolated PostgreSQL rehearsal, and a local-development-data audit passed on 2026-08-07. Destructive resets require explicit confirmation, dumps require matching SHA-256 manifest entries, restores are transactional, and reconciliation verifies row content plus ID sequences.
-- Extracted Compose now targets PostgreSQL 18, matching the 2026-08-07 local-data audit major. Confirm the canonical snapshot is also PostgreSQL 18 before rehearsal; do not bypass the restore version guard.
-- Runtime smoke verifies six service health endpoints, Analytics/Recommendation response envelopes, eight RabbitMQ consumer/DLQ queues, and internal-token guards; it passed with automatic Compose teardown.
-- Event-flow smoke verifies duplicate delivery, stale-event ordering, Analytics and Neo4j projections, Recommendation API output, and evidence cleanup; it passed with automatic Compose teardown.
-- Booking payment-event consumers are implemented behind `BOOKING_PAYMENT_EVENTS_ENABLED` (Compose booking-service sets this `true`). Unit tests for apply/complete/fail/refund/duplicate/poison passed on 2026-08-23 (`booking-service` 70 tests). Live Payment→Booking routing still depends on Payment publishing to `payment.events`.
-- API gateway routing and end-user JWT propagation are not wired because those are owned by the separate ASP.NET workstream.
-- Catalog, Showtime, Booking, Analytics, and Recommendation now have opt-in
-  Keycloak Resource Server enforcement with issuer/audience/JWKS validation and
-  canonical role mapping. Booking, Showtime holds, and personalized
-  Recommendation bind numeric identity to the signed `user_id` claim and reject
-  caller-supplied mismatches. Activation remains off until the teammate-owned
-  Keycloak/Gateway stack supplies the agreed claims and forwards bearer tokens.
-- Production distributed tracing and multi-host service discovery are not configured.
+Việc sản phẩm mới làm trên `backend_legacy` và `frontend`, vì đó là bản demo. Chưa mở thêm microservice cho đến khi monolith demo xong các mục dưới. Nhánh gợi ý, tách từ `main`: `feature/discovery-rental-insights`.
 
-## Suggested Next Steps
+### Tìm theo nội dung phim
 
-1. Rebase or recreate teammate Auth/Gateway, Facility, and Payment branches from the latest `refactor-compose-single-postgres` before resolving Compose ownership. Do not restore the old per-service Postgres port map.
-2. Integrate Keycloak/Gateway and pass the authentication contract's real-token and forged-header tests before enabling Spring JWT.
-3. Integrate ASP.NET Facility. Payment must publish to `payment.events`; Booking consumers are already in `booking-service`.
-4. Run one conflict-resolved full-stack backend, event, auth, Payment, and frontend booking suite.
-5. Confirm PostgreSQL versions, execute the guarded procedure twice against a canonical copied snapshot, archive evidence, and rehearse rollback before cutover.
+Giảng viên yêu cầu tìm theo nội dung, không chỉ theo tên. Hiện chỉ có `title`, `description` và thể loại. Hướng làm:
+
+- Thêm dữ liệu nội dung đủ để giải thích kết quả: tóm tắt, đạo diễn, diễn viên, từ khóa.
+- Dùng full-text của PostgreSQL trên các trường đó.
+- Trang `/movies/search` hiện đoạn chữ khớp với từ khóa.
+- Tìm theo nghĩa bằng embedding chỉ thêm khi buổi bảo vệ cần demo riêng. Full-text là phạm vi mặc định.
+
+### Luồng cho thuê phòng chiếu
+
+Repo chưa có entity, API hay trang cho thuê. Luồng phù hợp với dữ liệu sẵn có là thuê cả phòng cho một khung giờ riêng:
+
+- Khách chọn rạp, phòng và khung giờ.
+- Hệ thống báo giá, thanh toán, rồi nhân viên duyệt lịch.
+- Đơn thuê là loại đơn riêng, vì không đi qua chọn từng ghế của suất chiếu lẻ.
+- Tái sử dụng phòng, bảng giá và thanh toán. Chặn trùng lịch với suất chiếu đã có.
+
+### Báo cáo cho các tính năng bổ sung
+
+Dashboard hiện dừng ở doanh thu và phim phổ biến. Báo cáo mới bám đúng phần bổ sung và phần đang yếu:
+
+- Tỷ lệ và số tiền hoàn.
+- Điểm đánh giá theo phim và theo sự kiện.
+- Doanh thu sự kiện đặt cạnh doanh thu vé phim.
+- Công suất phòng được thuê, sau khi có luồng cho thuê.
+- Số lượt tìm nội dung dẫn tới đặt vé, sau khi có tìm theo nội dung.
+- Với recommendation: số lần API trả kết quả và số lần khách mở phim được gợi ý, khi portal đã gọi service.
+
+### Responsive cho mobile
+
+Làm theo thứ tự này:
+
+- Menu admin và điều hướng staff trên màn hẹp. Sidebar admin hiện biến mất dưới `md`.
+- Sơ đồ ghế cuộn và bấm được trên điện thoại.
+- Trang đặt vé, thanh toán và vé của tôi ở chiều rộng điện thoại.
+- Hero trang chủ, hiện cao cố định 620px.
+- Kiểm tra cả desktop và mobile trên các trang dùng chung layout vừa sửa.
+
+### Việc kèm theo, trước khi nhận các feature mới là xong
+
+- Sửa hoàn tiền trên monolith: lưu số tiền hoàn theo 100% hoặc 50%, và một đường duy nhất với saga của `payment-service`. Teammate đã đánh dấu sẽ sửa sau.
+- Test nốt admin, toàn bộ staff, và luồng sự kiện bằng ba tài khoản seed.
+- Đưa recommendation ra trang khách. Service đã có. Portal chưa gọi.
+- Giữ nguyên các cổng tích hợp ở mục trên. Feature demo không thay cho buổi cutover.
