@@ -36,7 +36,15 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 // Configure HttpClient for User Profile Resolution with Resilience
-builder.Services.AddHttpClient("UserProfileClient")
+var internalApiToken = builder.Configuration["INTERNAL_API_TOKEN"] ?? builder.Configuration["InternalApi:Token"] ?? "local-dev-internal-token";
+
+builder.Services.AddHttpClient("UserProfileClient", client =>
+{
+    if (!string.IsNullOrEmpty(internalApiToken))
+    {
+        client.DefaultRequestHeaders.Add("X-Internal-Token", internalApiToken);
+    }
+})
     .AddStandardResilienceHandler(options =>
     {
         // 3 retries, exponential backoff starting at 2s + jitter

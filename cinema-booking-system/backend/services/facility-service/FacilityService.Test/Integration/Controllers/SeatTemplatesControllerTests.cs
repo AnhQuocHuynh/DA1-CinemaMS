@@ -133,7 +133,9 @@ public class SeatTemplatesControllerTests : BaseIntegrationTest
         await _dbContext.SaveChangesAsync();
 
         // Act
-        var response = await _client.GetAsync($"/internal/rooms/{room.Id}/seats");
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/internal/rooms/{room.Id}/seats");
+        request.Headers.Add("X-Internal-Token", "local-dev-internal-token");
+        var response = await _client.SendAsync(request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);

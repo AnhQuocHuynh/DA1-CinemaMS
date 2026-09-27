@@ -38,40 +38,61 @@ public abstract class RabbitMqConsumerBase<TMessage> : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        try
+        while (!stoppingToken.IsCancellationRequested)
         {
-            _connection = await _connectionProvider.GetConnectionAsync(stoppingToken);
-            _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
-
-            await _channel.ExchangeDeclareAsync(exchange: ExchangeName, type: ExchangeType.Topic, durable: true, cancellationToken: stoppingToken);
-            await _channel.QueueDeclareAsync(queue: QueueName, durable: true, exclusive: false, autoDelete: false, cancellationToken: stoppingToken);
-            await _channel.QueueBindAsync(queue: QueueName, exchange: ExchangeName, routingKey: RoutingKey, cancellationToken: stoppingToken);
-
-            var consumer = new AsyncEventingBasicConsumer(_channel);
-            consumer.ReceivedAsync += async (model, ea) =>
+            try
             {
-                await HandleDeliveryAsync(
-                    ea.Body.ToArray(),
-                    ea.BasicProperties?.MessageId,
-                    ea.DeliveryTag,
-                    _channel.BasicAckAsync,
-                    _channel.BasicNackAsync,
-                    stoppingToken);
-            };
+                _connection = await _connectionProvider.GetConnectionAsync(stoppingToken);
+                _channel = await _connection.CreateChannelAsync(cancellationToken: stoppingToken);
 
-            await _channel.BasicConsumeAsync(queue: QueueName, autoAck: false, consumer: consumer, cancellationToken: stoppingToken);
+                await _channel.ExchangeDeclareAsync(exchange: ExchangeName, type: ExchangeType.Topic, durable: true, cancellationToken: stoppingToken);
+                await _channel.QueueDeclareAsync(queue: QueueName, durable: true, exclusive: false, autoDelete: false, cancellationToken: stoppingToken);
+                await _channel.QueueBindAsync(queue: QueueName, exchange: ExchangeName, routingKey: RoutingKey, cancellationToken: stoppingToken);
 
-            Logger.LogInformation("Started listening to queue {QueueName}...", QueueName);
+                var consumer = new AsyncEventingBasicConsumer(_channel);
+                consumer.ReceivedAsync += async (model, ea) =>
+                {
+                    await HandleDeliveryAsync(
+                        ea.Body.ToArray(),
+                        ea.BasicProperties?.MessageId,
+                        ea.DeliveryTag,
+                        _channel.BasicAckAsync,
+                        _channel.BasicNackAsync,
+                        stoppingToken);
+                };
 
-            // Keep the task alive
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                await Task.Delay(1000, stoppingToken);
+                await _channel.BasicConsumeAsync(queue: QueueName, autoAck: false, consumer: consumer, cancellationToken: stoppingToken);
+
+                Logger.LogInformation("Started listening to queue {QueueName}...", QueueName);
+
+                var shutdownTcs = new TaskCompletionSource<bool>();
+                using var reg = stoppingToken.Register(() => shutdownTcs.TrySetResult(true));
+
+                _channel.ChannelShutdownAsync += (sender, args) =>
+                {
+                    Logger.LogWarning("Channel for queue {QueueName} shut down: {Reason}", QueueName, args.ReplyText);
+                    shutdownTcs.TrySetResult(true);
+                    return Task.CompletedTask;
+                };
+
+                await shutdownTcs.Task;
             }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to initialize RabbitMQ Consumer for queue {QueueName}", QueueName);
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to connect or maintain RabbitMQ Consumer for queue {QueueName}. Retrying in 5 seconds...", QueueName);
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
         }
     }
 

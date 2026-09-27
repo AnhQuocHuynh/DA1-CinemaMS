@@ -49,7 +49,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      test: [ "CMD-SHELL", "rabbitmq-diagnostics -q ping && rabbitmq-diagnostics -q check_port_connectivity" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -116,6 +116,7 @@ services:
       - UserProfileService__BaseUrl=http://identity-service:80
       - Redis__ConnectionString=${REDIS_CONNECTION_STRING}
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-local-dev-internal-token}
     ports:
       - "${API_GATEWAY_PORT:-5000}:80"
     depends_on:
@@ -178,6 +179,7 @@ services:
       - KeycloakAdmin__ClientId=cinema-admin
       - KeycloakAdmin__ClientSecret=${KC_ADMIN_CLIENT_SECRET}
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-local-dev-internal-token}
     ports:
       - "${FACILITY_SERVICE_PORT:-5002}:80"
     depends_on:
@@ -207,6 +209,7 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8081:8081"
     depends_on:
@@ -250,6 +253,7 @@ services:
       KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-cinema-api}
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8082:8082"
     depends_on:
@@ -288,6 +292,7 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8083:8083"
     depends_on:
@@ -324,6 +329,7 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8084:8084"
     depends_on:
@@ -374,6 +380,7 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8085:8085"
     depends_on:

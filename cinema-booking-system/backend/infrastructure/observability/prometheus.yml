@@ -9,3 +9,13 @@ scrape_configs:
       - source_labels: [http_route]
         regex: '^/health$'
         action: drop
+
+  - job_name: 'spring-boot'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets:
+        - 'catalog-service:8081'
+        - 'showtime-service:8082'
+        - 'booking-service:8083'
+        - 'analytics-service:8084'
+        - 'recommendation-service:8085'
