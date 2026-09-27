@@ -1,0 +1,78 @@
+openapi: 3.0.3
+info:
+  title: Cinema Analytics Service API
+  version: 0.1.0
+paths:
+  /api/admin/dashboard/overview:
+    get:
+      summary: Get admin dashboard overview metrics.
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Dashboard overview.
+  /api/admin/dashboard/revenue-series:
+    get:
+      summary: Get revenue series for the admin dashboard.
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: bucket
+          in: query
+          schema:
+            type: string
+            default: day
+      responses:
+        "200":
+          description: Revenue series.
+  /api/admin/dashboard/live-sales:
+    get:
+      summary: Get latest paid sales for the admin dashboard.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        "200":
+          description: Latest paid sales.
+  /api/admin/dashboard/popular-movies:
+    get:
+      summary: Get popular movies for the admin dashboard.
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        "200":
+          description: Popular movies.

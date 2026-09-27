@@ -1,0 +1,269 @@
+openapi: 3.0.3
+info:
+  title: Cinema Booking Service API
+  version: 0.1.0
+  description: Draft contract for the extracted Booking service.
+servers:
+  - url: http://localhost:8083
+paths:
+  /actuator/health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy.
+  /api/orders:
+    post:
+      summary: Create pending order from held seats
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "200":
+          description: Created pending order.
+  /api/orders/{id}/pay:
+    post:
+      summary: Confirm payment and book held seats
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PayOrderRequest"
+      responses:
+        "200":
+          description: Paid order.
+  /api/orders/{id}/refund:
+    post:
+      summary: Refund paid order and release booked seats
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefundOrderRequest"
+      responses:
+        "200":
+          description: Refunded order.
+  /api/tickets/check-in:
+    post:
+      summary: Check in a ticket
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketCheckInRequest"
+      responses:
+        "200":
+          description: Checked-in ticket.
+  /api/tickets/code/{ticketCode}:
+    get:
+      summary: Get ticket by code
+      parameters:
+        - name: ticketCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ticket details.
+  /api/tickets/users/{userId}:
+    get:
+      summary: List user tickets
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: User tickets.
+  /api/tickets/orders/{orderId}:
+    get:
+      summary: List tickets by order
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: Order tickets.
+  /api/vouchers:
+    get:
+      summary: List vouchers
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Vouchers.
+    post:
+      summary: Create voucher
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Created voucher.
+  /api/vouchers/validate/{code}:
+    get:
+      summary: Validate active voucher
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Active voucher.
+  /api/vouchers/{id}:
+    delete:
+      summary: Delete voucher
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Deleted voucher.
+  /api/reviews:
+    post:
+      summary: Create review
+      responses:
+        "200":
+          description: Created review.
+  /api/reviews/movies/{movieId}:
+    get:
+      summary: List movie reviews
+      parameters:
+        - $ref: "#/components/parameters/MovieId"
+      responses:
+        "200":
+          description: Movie reviews.
+  /api/reviews/events/{eventId}:
+    get:
+      summary: List event reviews
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      responses:
+        "200":
+          description: Event reviews.
+  /api/reviews/movies/{movieId}/insight:
+    get:
+      summary: Get movie review insight
+      parameters:
+        - $ref: "#/components/parameters/MovieId"
+      responses:
+        "200":
+          description: Movie review insight.
+  /api/reviews/events/{eventId}/insight:
+    get:
+      summary: Get event review insight
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      responses:
+        "200":
+          description: Event review insight.
+  /api/reviews/movies/{movieId}/eligibility:
+    get:
+      summary: Check movie review eligibility
+      parameters:
+        - $ref: "#/components/parameters/MovieId"
+        - $ref: "#/components/parameters/UserIdQuery"
+      responses:
+        "200":
+          description: Eligibility.
+  /api/reviews/events/{eventId}/eligibility:
+    get:
+      summary: Check event review eligibility
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+        - $ref: "#/components/parameters/UserIdQuery"
+      responses:
+        "200":
+          description: Eligibility.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    MovieId:
+      name: movieId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    UserIdQuery:
+      name: userId
+      in: query
+      required: true
+      schema:
+        type: integer
+        format: int64
+  schemas:
+    CreateOrderRequest:
+      type: object
+      required:
+        - userId
+        - showtimeId
+        - seatIds
+      properties:
+        userId:
+          type: integer
+          format: int64
+        showtimeId:
+          type: integer
+          format: int64
+        seatIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+        voucherCode:
+          type: string
+    PayOrderRequest:
+      type: object
+      properties:
+        paymentMethod:
+          type: string
+        transactionId:
+          type: string
+    RefundOrderRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    TicketCheckInRequest:
+      type: object
+      required:
+        - ticketCode
+      properties:
+        ticketCode:
+          type: string

@@ -1,0 +1,75 @@
+server:
+  port: ${SERVER_PORT:8083}
+
+spring:
+  application:
+    name: booking-service
+  rabbitmq:
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          initial-interval: 1s
+          max-attempts: 3
+          multiplier: 2.0
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/cinema_booking_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:123}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+app:
+  internal-token: ${INTERNAL_API_TOKEN:local-dev-internal-token}
+
+cinema:
+  security:
+    jwt:
+      enabled: ${CINEMA_SECURITY_JWT_ENABLED:false}
+      issuer-uri: ${KEYCLOAK_ISSUER_URI:}
+      audience: ${KEYCLOAK_AUDIENCE:cinema-api}
+      jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:}
+
+services:
+  catalog:
+    url: ${CATALOG_SERVICE_URL:http://localhost:8081}
+  facility:
+    url: ${FACILITY_SERVICE_URL:http://localhost:5002}
+  showtime:
+    url: ${SHOWTIME_SERVICE_URL:http://localhost:8082}
+
+outbox:
+  dispatcher:
+    enabled: ${OUTBOX_DISPATCHER_ENABLED:false}
+    fixed-delay-ms: ${OUTBOX_DISPATCHER_FIXED_DELAY_MS:5000}
+    batch-size: ${OUTBOX_DISPATCHER_BATCH_SIZE:50}
+    confirm-timeout: ${OUTBOX_DISPATCHER_CONFIRM_TIMEOUT:5s}
+
+booking:
+  messaging:
+    payment-events:
+      enabled: ${BOOKING_PAYMENT_EVENTS_ENABLED:false}
+      completed-queue: ${BOOKING_PAYMENT_COMPLETED_QUEUE:booking.payment.completed.v1}
+      failed-queue: ${BOOKING_PAYMENT_FAILED_QUEUE:booking.payment.failed.v1}
+      refunded-queue: ${BOOKING_PAYMENT_REFUNDED_QUEUE:booking.payment.refunded.v1}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true

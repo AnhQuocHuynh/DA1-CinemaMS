@@ -10,32 +10,29 @@ interface UserRoleModalProps {
 
 export const UserRoleModal: React.FC<UserRoleModalProps> = ({ isOpen, onClose, onSubmit, user }) => {
   const { addToast } = useToast();
-  const [roles, setRoles] = useState({
-    customer: false,
-    staff: false,
-    admin: false,
-  });
+  const [activeRole, setActiveRole] = useState<'customer' | 'staff' | 'admin'>('customer');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (user && user.roles) {
-      setRoles({
-        customer: user.roles.customer || false,
-        staff: user.roles.staff || false,
-        admin: user.roles.admin || false,
-      });
+      if (user.roles.admin) setActiveRole('admin');
+      else if (user.roles.staff) setActiveRole('staff');
+      else setActiveRole('customer');
     }
   }, [user, isOpen]);
 
-  const handleToggle = (role: 'customer' | 'staff' | 'admin') => {
-    setRoles((prev) => ({ ...prev, [role]: !prev[role] }));
-  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await onSubmit({ roles });
+      const rolesToSubmit = {
+        customer: activeRole === 'customer',
+        staff: activeRole === 'staff',
+        admin: activeRole === 'admin',
+      };
+      await onSubmit({ roles: rolesToSubmit });
       addToast(`Roles updated for ${user.name}`, 'success');
       onClose();
     } catch (err: any) {
@@ -63,22 +60,18 @@ export const UserRoleModal: React.FC<UserRoleModalProps> = ({ isOpen, onClose, o
           <p className="text-sm text-slate-500 mb-6">{user.email}</p>
 
           <form id="role-form" onSubmit={handleSubmit} className="space-y-4 text-left">
-            {(['customer', 'staff', 'admin'] as const).map((role) => (
-              <div key={role} className="flex items-center justify-between p-3 border border-surface-container rounded-lg">
-                <span className="text-sm font-semibold capitalize">{role}</span>
-                <button
-                  type="button"
-                  onClick={() => handleToggle(role)}
-                  className={`w-10 h-6 rounded-full relative transition-colors ${
-                    roles[role] ? 'bg-primary' : 'bg-slate-200'
-                  }`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                    roles[role] ? 'right-1' : 'left-1'
-                  }`} />
-                </button>
-              </div>
-            ))}
+            <div className="space-y-1">
+              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Access Level</label>
+              <select 
+                value={activeRole} 
+                onChange={(e) => setActiveRole(e.target.value as any)}
+                className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none"
+              >
+                <option value="customer">Customer</option>
+                <option value="staff">Staff</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
           </form>
         </div>
         

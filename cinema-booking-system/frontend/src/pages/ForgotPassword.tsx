@@ -1,41 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, ArrowRight, AlertCircle } from 'lucide-react';
-import { InputField } from '../components/InputField';
+import { Mail, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Header } from '../components/Header';
 import { authService } from '../services/authService';
 
 export const ForgotPassword: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError('');
-
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Please enter a valid email');
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      await authService.forgotPassword(email);
-      console.log('📧 [FORGOT_PASSWORD] Sending reset email to:', email);
-      setSuccess(true);
-      console.log('✅ [FORGOT_PASSWORD] Reset email sent successfully');
-    } catch (error: any) {
-      console.error('❌ [FORGOT_PASSWORD] Error:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to send reset email. Please try again.';
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="bg-surface text-on-surface min-h-screen flex flex-col">
       <Header />
@@ -52,68 +21,38 @@ export const ForgotPassword: React.FC = () => {
 
           <div className="relative w-full max-w-md bg-surface-container-lowest rounded-xl shadow-2xl overflow-hidden">
             <div className="p-8 sm:p-10">
+              <Link
+                to="/login"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface mb-6"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Login
+              </Link>
+
               <div className="mb-10 text-center">
                 <span className="text-xl font-black tracking-tighter text-on-surface block mb-2">
                   CinemaArchitect
                 </span>
                 <h1 className="text-2xl font-semibold tracking-tight text-on-surface">Reset Password</h1>
                 <p className="text-on-surface-variant text-sm mt-1">
-                  Enter your email to receive a password reset link.
+                  Click below to securely reset your password via Keycloak.
                 </p>
               </div>
 
-              {success ? (
-                <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-center mb-6">
-                  <p className="text-green-800 mb-4">
-                    ✅ Password reset link sent to {email}
-                  </p>
-                  <p className="text-sm text-green-700 mb-4">
-                    Please check your email and follow the instructions to reset your password.
-                  </p>
-                  <Link
-                    to="/login"
-                    className="inline-block px-4 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-blue-700"
-                  >
-                    Back to Login
-                  </Link>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {error && (
-                    <div className="p-4 bg-error/10 border border-error/20 rounded-lg flex items-start gap-3">
-                      <AlertCircle className="w-5 h-5 text-error mt-0.5" />
-                      <p className="text-sm text-error">{error}</p>
-                    </div>
-                  )}
-
-                  <InputField
-                    id="email"
-                    label="Email Address"
-                    type="email"
-                    placeholder="name@company.com"
-                    icon={Mail}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full py-4 bg-primary text-on-primary rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-primary/20 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
-                  >
-                    {isLoading ? 'SENDING...' : 'SEND RESET LINK'}
-                    {!isLoading && <ArrowRight className="w-4 h-4" />}
-                  </button>
-                </form>
-              )}
+              <button
+                onClick={() => authService.forgotPassword()}
+                className="w-full py-4 bg-primary text-on-primary rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-primary/20 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              >
+                CONTINUE TO PASSWORD RESET
+                <ArrowRight className="w-4 h-4" />
+              </button>
 
               <div className="mt-8 pt-8 border-t border-outline-variant/30 text-center">
                 <p className="text-sm text-on-surface-variant">
                   Remember your password?{' '}
-                  <Link to="/login" className="text-primary font-bold hover:underline">
+                  <button onClick={() => authService.login()} className="text-primary font-bold hover:underline">
                     Sign In
-                  </Link>
+                  </button>
                 </p>
               </div>
             </div>

@@ -5,11 +5,15 @@ import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { useAdminMovies } from '../../hooks/useAdminMovies';
 import { MovieModal } from '../../components/admin/modals/MovieModal';
+import { GenreManagementModal } from '../../components/admin/modals/GenreManagementModal';
 import { RatingBadge } from '../../components/Review/RatingBadge';
+import { movieService } from '../../services/movieService';
+import { AdminDataState, AdminTableSkeleton } from '../../components/admin/AdminDataState';
 
 export const MovieManagement: React.FC = () => {
-  const { movies, isLoading, addMovie, updateMovie, deleteMovie } = useAdminMovies();
+  const { movies, isLoading, isRetrying, retry, addMovie, updateMovie, deleteMovie } = useAdminMovies();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isGenreModalOpen, setIsGenreModalOpen] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<any>(null);
 
   const handleAddClick = () => {
@@ -18,11 +22,16 @@ export const MovieManagement: React.FC = () => {
   };
 
   const handleEditClick = async (id: number) => {
-    // In a real app we might fetch the full movie details first
-    // For now we pass the basic info we have
-    const movie = movies.find(m => m.id === id);
-    setSelectedMovie(movie);
-    setIsModalOpen(true);
+    try {
+      const fullMovie = await movieService.getMovieById(id);
+      setSelectedMovie(fullMovie);
+      setIsModalOpen(true);
+    } catch (error) {
+      console.error('Failed to fetch movie details', error);
+      const movie = movies.find(m => m.id === id);
+      setSelectedMovie(movie);
+      setIsModalOpen(true);
+    }
   };
 
   const handleDeleteClick = async (id: number) => {
@@ -48,10 +57,15 @@ export const MovieManagement: React.FC = () => {
           title="Movie Management"
           subtitle="Curate releases, adjust availability, and maintain the lineup."
           actions={
-            <button onClick={handleAddClick} className="px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-blue-700 flex items-center gap-2">
-              <Plus className="w-4 h-4" />
-              Add Movie
-            </button>
+            <div className="flex gap-3">
+              <button onClick={() => setIsGenreModalOpen(true)} className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg font-semibold text-sm hover:bg-surface-container-highest flex items-center gap-2">
+                Manage Genres
+              </button>
+              <button onClick={handleAddClick} className="px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-blue-700 flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                Add Movie
+              </button>
+            </div>
           }
         />
 
@@ -74,9 +88,14 @@ export const MovieManagement: React.FC = () => {
             </div>
           </div>
 
-          {isLoading ? (
-            <div className="p-8 text-center text-on-surface-variant">Loading movies...</div>
-          ) : (
+          <AdminDataState
+            isLoading={isLoading}
+            isEmpty={!isLoading && movies.length === 0}
+            onRetry={retry}
+            isRetrying={isRetrying}
+            emptyMessage="No movies found."
+            skeleton={<AdminTableSkeleton rows={5} cols={5} />}
+          >
             <table className="w-full text-left border-collapse">
               <thead className="bg-surface-container-low/50">
                 <tr>
@@ -114,7 +133,7 @@ export const MovieManagement: React.FC = () => {
                 ))}
               </tbody>
             </table>
-          )}
+          </AdminDataState>
         </section>
       </main>
 
@@ -123,6 +142,11 @@ export const MovieManagement: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleModalSubmit}
         initialData={selectedMovie}
+      />
+
+      <GenreManagementModal 
+        isOpen={isGenreModalOpen}
+        onClose={() => setIsGenreModalOpen(false)}
       />
     </AdminLayout>
   );

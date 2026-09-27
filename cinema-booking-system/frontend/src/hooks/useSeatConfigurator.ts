@@ -2,17 +2,20 @@ import { useCallback, useMemo, useState } from 'react';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { SeatType } from '../types/booking';
 import { adminService } from '../services/adminService';
+import {
+  SeatCell,
+  getRowLabel,
+  buildGrid,
+  mapSeatsToGrid,
+} from '../utils/seatGridUtils';
 
 export const DEFAULT_ROWS = 10;
 export const DEFAULT_COLUMNS = 14;
 export const MIN_GRID = 4;
 export const MAX_GRID = 26;
 
-export type SeatCell = {
-  id: string;
-  type: SeatType | null;
-  coveredByLeft?: boolean;
-};
+export type { SeatCell };
+export { getRowLabel };
 
 export type SeatCounts = {
   standard: number;
@@ -22,26 +25,6 @@ export type SeatCounts = {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
-
-export const getRowLabel = (index: number) => {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  if (index < alphabet.length) return alphabet[index];
-  const first = Math.floor(index / alphabet.length) - 1;
-  const second = index % alphabet.length;
-  return `${alphabet[first]}${alphabet[second]}`;
-};
-
-const buildGrid = (rows: number, columns: number, previous?: SeatCell[][]): SeatCell[][] =>
-  Array.from({ length: rows }, (_, rowIndex) =>
-    Array.from({ length: columns }, (_, colIndex) => {
-      const existing = previous?.[rowIndex]?.[colIndex];
-      return {
-        id: existing?.id ?? `seat-${rowIndex}-${colIndex}`,
-        type: existing?.type ?? null,
-        coveredByLeft: existing?.coveredByLeft ?? false,
-      };
-    })
-  );
 
 export const useSeatConfigurator = (
   cinemaId?: string, 
@@ -61,38 +44,16 @@ export const useSeatConfigurator = (
     setIsLoading(true);
     try {
       const seats = await adminService.getRoomSeatMap(cinemaId, roomId);
-      if (seats && seats.length > 0) {
-        let maxRow = 0;
-        let maxCol = 0;
-        seats.forEach((seat: any) => {
-          const rIndex = seat.rowLabel.charCodeAt(0) - 65;
-          maxRow = Math.max(maxRow, rIndex);
-          maxCol = Math.max(maxCol, seat.columnNumber - 1);
-        });
-        const newRows = initialRows && initialRows > 0 ? initialRows : Math.max(DEFAULT_ROWS, maxRow + 1);
-        const newCols = initialColumns && initialColumns > 0 ? initialColumns : Math.max(DEFAULT_COLUMNS, maxCol + 1);
-        setRows(newRows);
-        setColumns(newCols);
-
-        const newGrid = buildGrid(newRows, newCols);
-        seats.forEach((seat: any) => {
-          const rIndex = seat.rowLabel.charCodeAt(0) - 65;
-          const cIndex = seat.columnNumber - 1;
-          if (rIndex < newRows && cIndex < newCols) {
-            newGrid[rIndex][cIndex].type = seat.seatTypeCode.toLowerCase() as SeatType;
-            if (seat.columnSpan > 1 && cIndex + 1 < newCols) {
-              newGrid[rIndex][cIndex + 1].coveredByLeft = true;
-            }
-          }
-        });
-        setGrid(newGrid);
-      } else {
-        const newRows = initialRows && initialRows > 0 ? initialRows : DEFAULT_ROWS;
-        const newCols = initialColumns && initialColumns > 0 ? initialColumns : DEFAULT_COLUMNS;
-        setRows(newRows);
-        setColumns(newCols);
-        setGrid(buildGrid(newRows, newCols));
-      }
+      const { rows: newRows, columns: newCols, grid: newGrid } = mapSeatsToGrid(
+        seats,
+        initialRows,
+        initialColumns,
+        DEFAULT_ROWS,
+        DEFAULT_COLUMNS
+      );
+      setRows(newRows);
+      setColumns(newCols);
+      setGrid(newGrid);
     } catch (e) {
       console.error(e);
     } finally {

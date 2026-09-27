@@ -5,6 +5,7 @@ import { AdminTheater } from '../types/admin';
 export const useAdminRooms = () => {
   const [theaters, setTheaters] = useState<AdminTheater[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const loadRooms = async () => {
     setIsLoading(true);
@@ -15,7 +16,13 @@ export const useAdminRooms = () => {
       console.error('Failed to load theater data:', error);
     } finally {
       setIsLoading(false);
+      setIsRetrying(false);
     }
+  };
+
+  const retry = () => {
+    setIsRetrying(true);
+    loadRooms();
   };
 
   useEffect(() => {
@@ -47,6 +54,16 @@ export const useAdminRooms = () => {
     await loadRooms();
   };
 
+  const updateRoom = async (cinemaId: number | string, roomId: number | string, data: any) => {
+    try {
+      await adminService.updateRoom(cinemaId, roomId, { ...data, id: Number(roomId), cinemaId: Number(cinemaId) });
+    } catch (e) {
+      console.error('Failed to update room:', e);
+      throw e;
+    }
+    await loadRooms();
+  };
+
   const deleteRoom = async (cinemaId: number | string, roomId: number | string) => {
     await adminService.deleteRoom(cinemaId, roomId);
     await loadRooms();
@@ -55,11 +72,14 @@ export const useAdminRooms = () => {
   return {
     theaters,
     isLoading,
+    isRetrying,
     refetchTheaters: loadRooms,
+    retry,
     addTheater,
     updateTheater,
     deleteTheater,
     addRoom,
+    updateRoom,
     deleteRoom,
   };
 };
