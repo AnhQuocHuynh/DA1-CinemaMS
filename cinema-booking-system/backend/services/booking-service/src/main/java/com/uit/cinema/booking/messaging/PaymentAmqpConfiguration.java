@@ -51,6 +51,13 @@ public class PaymentAmqpConfiguration {
     }
 
     @Bean
+    Queue bookingPaymentExpiredQueue(
+        @Value("${booking.messaging.payment-events.expired-queue:booking.payment.expired.v1}") String queueName
+    ) {
+        return eventQueue(queueName);
+    }
+
+    @Bean
     Queue bookingPaymentCompletedDeadLetterQueue(
         @Value("${booking.messaging.payment-events.completed-queue:booking.payment.completed.v1}") String queueName
     ) {
@@ -67,6 +74,13 @@ public class PaymentAmqpConfiguration {
     @Bean
     Queue bookingPaymentRefundedDeadLetterQueue(
         @Value("${booking.messaging.payment-events.refunded-queue:booking.payment.refunded.v1}") String queueName
+    ) {
+        return QueueBuilder.durable(deadLetterQueueName(queueName)).build();
+    }
+
+    @Bean
+    Queue bookingPaymentExpiredDeadLetterQueue(
+        @Value("${booking.messaging.payment-events.expired-queue:booking.payment.expired.v1}") String queueName
     ) {
         return QueueBuilder.durable(deadLetterQueueName(queueName)).build();
     }
@@ -102,6 +116,16 @@ public class PaymentAmqpConfiguration {
     }
 
     @Bean
+    Binding bookingPaymentExpiredBinding(
+        @Qualifier("bookingPaymentExpiredQueue") Queue bookingPaymentExpiredQueue,
+        @Qualifier("bookingPaymentEventsExchange") TopicExchange bookingPaymentEventsExchange
+    ) {
+        return BindingBuilder.bind(bookingPaymentExpiredQueue)
+            .to(bookingPaymentEventsExchange)
+            .with("order.expired");
+    }
+
+    @Bean
     Binding bookingPaymentCompletedDeadLetterBinding(
         @Qualifier("bookingPaymentCompletedDeadLetterQueue") Queue bookingPaymentCompletedDeadLetterQueue,
         @Qualifier("bookingPaymentDeadLetterExchange") DirectExchange bookingPaymentDeadLetterExchange,
@@ -130,6 +154,17 @@ public class PaymentAmqpConfiguration {
         @Value("${booking.messaging.payment-events.refunded-queue:booking.payment.refunded.v1}") String queueName
     ) {
         return BindingBuilder.bind(bookingPaymentRefundedDeadLetterQueue)
+            .to(bookingPaymentDeadLetterExchange)
+            .with(queueName);
+    }
+
+    @Bean
+    Binding bookingPaymentExpiredDeadLetterBinding(
+        @Qualifier("bookingPaymentExpiredDeadLetterQueue") Queue bookingPaymentExpiredDeadLetterQueue,
+        @Qualifier("bookingPaymentDeadLetterExchange") DirectExchange bookingPaymentDeadLetterExchange,
+        @Value("${booking.messaging.payment-events.expired-queue:booking.payment.expired.v1}") String queueName
+    ) {
+        return BindingBuilder.bind(bookingPaymentExpiredDeadLetterQueue)
             .to(bookingPaymentDeadLetterExchange)
             .with(queueName);
     }

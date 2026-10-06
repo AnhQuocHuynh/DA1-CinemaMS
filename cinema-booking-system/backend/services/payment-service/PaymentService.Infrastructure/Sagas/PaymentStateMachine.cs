@@ -26,16 +26,21 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
     private readonly ILogger<PaymentStateMachine> _logger;
 
     // ── States ─────────────────────────────────────────────────────────────────
+    public State Created { get; private set; } = null!;
     public State Pending { get; private set; } = null!;
     public State Completed { get; private set; } = null!;
     public State Failed { get; private set; } = null!;
     public State Refunded { get; private set; } = null!;
 
     // ── Events ─────────────────────────────────────────────────────────────────
+    public Event<OrderSlotReserved> OrderSlotReservedEvent { get; private set; } = null!;
     public Event<PaymentInitiated> PaymentInitiatedEvent { get; private set; } = null!;
     public Event<GatewayCallbackReceived> GatewayCallbackReceivedEvent { get; private set; } = null!;
     public Event<CashPaymentConfirmed> CashPaymentConfirmedEvent { get; private set; } = null!;
     public Event<RefundRequested> RefundRequestedEvent { get; private set; } = null!;
+
+    // ── Schedules ──────────────────────────────────────────────────────────────
+    public Schedule<PaymentSagaState, PaymentSlotExpired> ExpirySchedule { get; private set; } = null!;
 
     public PaymentStateMachine(ILogger<PaymentStateMachine> logger)
     {
@@ -44,8 +49,16 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
         // ── State column mapping ────────────────────────────────────────────────
         InstanceState(s => s.CurrentState);
 
+        // ── Expiry schedule (15-minute slot timeout) ───────────────────────────
+        Schedule(() => ExpirySchedule, s => s.ExpiryTokenId, s =>
+        {
+            s.Delay = TimeSpan.FromMinutes(15);
+            s.Received = r => r.CorrelateById(m => m.Message.CorrelationId);
+        });
+
         // ── Event correlation definitions (MassTransit v8 syntax) ──────────────
         // All events carry CorrelationId (= Payment.SagaId) as the saga key
+        Event(() => OrderSlotReservedEvent, x => x.CorrelateById(m => m.Message.CorrelationId));
         Event(() => PaymentInitiatedEvent, x => x.CorrelateById(m => m.Message.CorrelationId));
         Event(() => GatewayCallbackReceivedEvent, x => x.CorrelateById(m => m.Message.CorrelationId));
         Event(() => CashPaymentConfirmedEvent, x => x.CorrelateById(m => m.Message.CorrelationId));
@@ -53,11 +66,38 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
 
         // ── Transitions ─────────────────────────────────────────────────────────
 
-        // Initial → Pending on PaymentInitiated
         Initially(
+            When(OrderSlotReservedEvent)
+                .Then(OnOrderSlotReserved)
+                .Schedule(ExpirySchedule, ctx => ctx.Init<PaymentSlotExpired>(new { ctx.Saga.CorrelationId }))
+                .TransitionTo(Created),
+
             When(PaymentInitiatedEvent)
                 .Then(OnPaymentInitiated)
                 .TransitionTo(Pending));
+
+        During(Created,
+            When(PaymentInitiatedEvent)
+                .Unschedule(ExpirySchedule)
+                .Then(OnPaymentInitiated)
+                .TransitionTo(Pending),
+
+            When(ExpirySchedule.Received)
+                .ThenAsync(OnPaymentExpired)
+                .PublishAsync(ctx => ctx.Init<EventEnvelope<OrderExpired>>(new EventEnvelope<OrderExpired>
+                {
+                    EventType = "order.expired",
+                    Source = "payment-service",
+                    Payload = new OrderExpired
+                    {
+                        CorrelationId = ctx.Saga.CorrelationId,
+                        PaymentId = ctx.Saga.PaymentId,
+                        OrderId = ctx.Saga.OrderId,
+                        UserId = ctx.Saga.UserId,
+                        Reason = "Payment initiation timed out (15 minutes)"
+                    }
+                }))
+                .Finalize());
 
         // Pending → Completed (gateway success) or Failed (gateway failure)
         During(Pending,
@@ -144,6 +184,38 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
     }
 
     // ── Handlers ───────────────────────────────────────────────────────────────
+
+    private void OnOrderSlotReserved(BehaviorContext<PaymentSagaState, OrderSlotReserved> ctx)
+    {
+        var msg = ctx.Message;
+        ctx.Saga.PaymentId = msg.PaymentId;
+        ctx.Saga.OrderId = msg.OrderId;
+        ctx.Saga.UserId = msg.UserId;
+        ctx.Saga.Amount = msg.Amount;
+        ctx.Saga.Currency = msg.Currency;
+        ctx.Saga.CreatedAt = DateTime.UtcNow;
+
+        _logger.LogInformation(
+            "Saga {CorrelationId}: OrderSlotReserved — PaymentId={PaymentId}, OrderId={OrderId}, Amount={Amount}",
+            ctx.Saga.CorrelationId, msg.PaymentId, msg.OrderId, msg.Amount);
+    }
+
+    private async Task OnPaymentExpired(BehaviorContext<PaymentSagaState, PaymentSlotExpired> ctx)
+    {
+        var repository = ctx.GetPayload<IServiceProvider>()
+            .GetService(typeof(IPaymentRepository)) as IPaymentRepository;
+
+        if (repository != null)
+        {
+            var payment = await repository.GetByIdAsync(ctx.Saga.PaymentId);
+            if (payment != null && payment.Status == PaymentStatus.CREATED)
+                payment.Expire();
+        }
+
+        _logger.LogWarning(
+            "Saga {CorrelationId}: Payment {PaymentId} for Order {OrderId} expired after 15 minutes",
+            ctx.Saga.CorrelationId, ctx.Saga.PaymentId, ctx.Saga.OrderId);
+    }
 
     private void OnPaymentInitiated(BehaviorContext<PaymentSagaState, PaymentInitiated> ctx)
     {

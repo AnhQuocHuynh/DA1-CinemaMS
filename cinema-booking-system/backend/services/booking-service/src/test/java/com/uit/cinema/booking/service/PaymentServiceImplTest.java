@@ -45,6 +45,8 @@ class PaymentServiceImplTest {
     private SeatReservationService seatReservationService;
     @Mock
     private BookingOutboxEventWriter bookingOutboxEventWriter;
+    @Mock
+    private com.uit.cinema.booking.client.HttpPaymentService httpPaymentService;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;
@@ -120,6 +122,7 @@ class PaymentServiceImplTest {
 
         assertEquals(Order.OrderStatus.REFUNDED, result.getStatus());
         assertEquals(Ticket.TicketStatus.REFUNDED, ticket.getStatus());
+        verify(httpPaymentService).executeOrderRefund(1L, new BigDecimal("100.00"), "user request");
         verify(seatReservationService).releaseBookedSeats(any(SeatReleaseRequest.class));
         verify(bookingOutboxEventWriter).orderRefunded(order, 1);
     }
@@ -158,6 +161,7 @@ class PaymentServiceImplTest {
 
         assertEquals(Order.OrderStatus.REFUNDED, result.getStatus());
         assertEquals(Ticket.TicketStatus.REFUNDED, ticket.getStatus());
+        verify(httpPaymentService).executeOrderRefund(1L, new BigDecimal("50.00"), "user request");
     }
 
     @Test
