@@ -25,16 +25,19 @@ public static class RabbitMqConfigurationExtensions
         cfg.Message<EventEnvelope<PaymentCompleted>>(x => x.SetEntityName("payment.events"));
         cfg.Message<EventEnvelope<PaymentFailed>>(x => x.SetEntityName("payment.events"));
         cfg.Message<EventEnvelope<PaymentRefunded>>(x => x.SetEntityName("payment.events"));
+        cfg.Message<EventEnvelope<OrderExpired>>(x => x.SetEntityName("payment.events"));
 
         // Configure them as topic exchanges
         cfg.Publish<EventEnvelope<PaymentCompleted>>(p => p.ExchangeType = "topic");
         cfg.Publish<EventEnvelope<PaymentFailed>>(p => p.ExchangeType = "topic");
         cfg.Publish<EventEnvelope<PaymentRefunded>>(p => p.ExchangeType = "topic");
+        cfg.Publish<EventEnvelope<OrderExpired>>(p => p.ExchangeType = "topic");
 
         // Set the routing keys using the EventType property from the envelope
         cfg.Send<EventEnvelope<PaymentCompleted>>(x => x.UseRoutingKeyFormatter(c => c.Message.EventType));
         cfg.Send<EventEnvelope<PaymentFailed>>(x => x.UseRoutingKeyFormatter(c => c.Message.EventType));
         cfg.Send<EventEnvelope<PaymentRefunded>>(x => x.UseRoutingKeyFormatter(c => c.Message.EventType));
+        cfg.Send<EventEnvelope<OrderExpired>>(x => x.UseRoutingKeyFormatter(c => c.Message.EventType));
 
         // ── Receive endpoints ──────────────────────────────────────────
         // Saga queue: receives PaymentInitiated, GatewayCallbackReceived, etc.
@@ -54,6 +57,19 @@ public static class RabbitMqConfigurationExtensions
             {
                 b.ExchangeType = "topic";
                 b.RoutingKey = "order.paid";
+            });
+            e.UseEntityFrameworkOutbox<PaymentDbContext>(ctx);
+        });
+
+        // OrderCreated consumer: receives from booking.events exchange
+        cfg.ReceiveEndpoint("payment.order.created", e =>
+        {
+            e.ConfigureConsumeTopology = false;
+            e.ConfigureConsumer<OrderCreatedConsumer>(ctx);
+            e.Bind("booking.events", b =>
+            {
+                b.ExchangeType = "topic";
+                b.RoutingKey = "order.created";
             });
             e.UseEntityFrameworkOutbox<PaymentDbContext>(ctx);
         });

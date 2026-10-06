@@ -89,3 +89,40 @@ public record OrderPaid
     public string PaymentMethod { get; init; } = string.Empty;
     public string TransactionId { get; init; } = string.Empty;
 }
+
+/// <summary>Inbound event from Booking Service (order.created routing key).</summary>
+public record OrderCreated
+{
+    public long OrderId { get; init; }
+    public long UserId { get; init; }
+    public decimal TotalAmount { get; init; }
+    public decimal DiscountAmount { get; init; }
+    public decimal FinalAmount { get; init; }
+}
+
+/// <summary>Published when a payment slot is reserved by OrderCreatedConsumer. Initiates the saga into Created state.</summary>
+public record OrderSlotReserved
+{
+    public Guid CorrelationId { get; init; }
+    public long PaymentId { get; init; }
+    public long OrderId { get; init; }
+    public long UserId { get; init; }
+    public decimal Amount { get; init; }
+    public string Currency { get; init; } = "VND";
+}
+
+/// <summary>Internal saga scheduled event fired when a reserved payment slot reaches timeout.</summary>
+public record PaymentSlotExpired
+{
+    public Guid CorrelationId { get; init; }
+}
+
+/// <summary>Published by the saga when a CREATED payment slot expires without initiation. Consumed by Booking Service.</summary>
+public record OrderExpired
+{
+    public Guid CorrelationId { get; init; }
+    public long? PaymentId { get; init; }
+    public long OrderId { get; init; }
+    public long UserId { get; init; }
+    public string Reason { get; init; } = "Payment initiation timed out";
+}

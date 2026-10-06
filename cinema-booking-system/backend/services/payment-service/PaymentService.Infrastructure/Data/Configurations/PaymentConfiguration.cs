@@ -56,7 +56,12 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
             .HasColumnName("payment_method")
             .HasMaxLength(30)
             .HasConversion<string>()
-            .IsRequired();
+            .IsRequired(false);
+
+        builder.Property(p => p.GatewaySessionId)
+            .HasColumnName("gateway_session_id")
+            .HasMaxLength(255)
+            .IsRequired(false);
 
         builder.Property(p => p.Status)
             .HasColumnName("status")

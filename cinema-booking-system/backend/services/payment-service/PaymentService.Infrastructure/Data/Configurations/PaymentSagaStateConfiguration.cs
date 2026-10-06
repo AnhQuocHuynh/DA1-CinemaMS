@@ -35,6 +35,7 @@ public class PaymentSagaStateConfiguration : IEntityTypeConfiguration<PaymentSag
         builder.Property(s => s.FailureReason).HasColumnName("failure_reason").HasColumnType("text");
         builder.Property(s => s.CreatedAt).HasColumnName("created_at");
         builder.Property(s => s.CompletedAt).HasColumnName("completed_at");
+        builder.Property(s => s.ExpiryTokenId).HasColumnName("expiry_token_id");
 
         // Fast lookup by payment ID for callback routing
         builder.HasIndex(s => s.PaymentId).HasDatabaseName("idx_saga_payment_id");

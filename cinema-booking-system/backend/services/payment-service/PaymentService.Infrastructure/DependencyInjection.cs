@@ -52,6 +52,7 @@ public static class DependencyInjection
         {
             // ── Consumers ──────────────────────────────────────────────────────
             x.AddConsumer<OrderPaidConsumer>();
+            x.AddConsumer<OrderCreatedConsumer>();
 
             // ── Saga (state machine + EF Core persistence) ─────────────────────
             x.AddSagaStateMachine<PaymentStateMachine, PaymentSagaState>()
