@@ -19,6 +19,23 @@ public class BookingOutboxEventWriter {
 
     private final TransactionalOutbox transactionalOutbox;
 
+    public void orderCreated(Order order) {
+        transactionalOutbox.append(
+            SOURCE,
+            EXCHANGE,
+            "order.created",
+            "order",
+            order.getId(),
+            new OrderCreatedPayload(
+                order.getId(),
+                order.getUserId(),
+                order.getTotalAmount(),
+                order.getDiscountAmount(),
+                order.getFinalAmount()
+            )
+        );
+    }
+
     public void orderPaid(Order order, ShowtimeScheduleView showtime, int ticketCount) {
         transactionalOutbox.append(
             SOURCE,
@@ -75,6 +92,15 @@ public class BookingOutboxEventWriter {
                 review.getCreatedAt()
             )
         );
+    }
+
+    private record OrderCreatedPayload(
+        Long orderId,
+        Long userId,
+        BigDecimal totalAmount,
+        BigDecimal discountAmount,
+        BigDecimal finalAmount
+    ) {
     }
 
     private record OrderPaidPayload(
