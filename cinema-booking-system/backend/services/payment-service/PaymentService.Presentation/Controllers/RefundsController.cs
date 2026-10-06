@@ -47,6 +47,19 @@ public class RefundsController : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { refundId, approved = request.Approve }, message));
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // POST /api/payments/order/{orderId}/refund
+    // Direct order refund (called internally by booking-service or client)
+    // ─────────────────────────────────────────────────────────────────────────
+    [HttpPost("order/{orderId:long}/refund")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ExecuteOrderRefund(long orderId, [FromBody] ExecuteOrderRefundRequest request)
+    {
+        var command = new ExecuteOrderRefundCommand(orderId, request.Amount, request.Reason ?? "Order refund requested");
+        var refund = await _mediator.Send(command);
+        return Ok(ApiResponse<RefundDto>.Ok(refund, "Order refund processed successfully"));
+    }
+
     private long GetCurrentUserId()
     {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -59,3 +72,5 @@ public class RefundsController : ControllerBase
 // Request DTOs
 public record RequestRefundRequest(decimal Amount, string Reason);
 public record ProcessRefundRequest(bool Approve);
+public record ExecuteOrderRefundRequest(decimal Amount, string? Reason);
+

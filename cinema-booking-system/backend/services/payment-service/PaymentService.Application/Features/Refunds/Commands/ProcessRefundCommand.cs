@@ -47,7 +47,10 @@ public class ProcessRefundCommandHandler : IRequestHandler<ProcessRefundCommand,
         {
             refund.Approve();
 
-            var gateway = _paymentGatewayFactory.GetGateway(payment.PaymentMethod);
+            if (!payment.PaymentMethod.HasValue)
+                throw new PaymentGatewayException("Payment has no payment method recorded.");
+
+            var gateway = _paymentGatewayFactory.GetGateway(payment.PaymentMethod.Value);
             if (string.IsNullOrEmpty(payment.TransactionId))
                 throw new PaymentGatewayException("Payment has no transaction ID.");
 
