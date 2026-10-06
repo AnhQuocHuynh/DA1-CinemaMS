@@ -81,6 +81,14 @@ export const bookingService = {
     return response.data;
   },
 
+  /**
+   * GET /orders/users/{userId} — fetch all orders for a user
+   */
+  getUserOrders: async (userId: number): Promise<BackendOrder[]> => {
+    const response = await apiClient.get<BackendOrder[]>(`/orders/users/${userId}`);
+    return response.data ?? [];
+  },
+
 
   // ── Tickets ───────────────────────────────────────────────────────────────
 

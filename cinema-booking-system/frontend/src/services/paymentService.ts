@@ -6,7 +6,6 @@ export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
 export interface PaymentRequest {
   orderId: number;
   paymentMethod: PaymentMethod;
-  amount: number;
   successUrl?: string;
   cancelUrl?: string;
 }

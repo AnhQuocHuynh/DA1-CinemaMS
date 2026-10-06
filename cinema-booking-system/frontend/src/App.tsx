@@ -15,6 +15,7 @@ import { UserDashboard } from './pages/portal/UserDashboard';
 import { Booking } from './pages/portal/Booking';
 import { Checkout } from './pages/portal/Checkout';
 import { CheckoutSuccess } from './pages/portal/CheckoutSuccess';
+import { BookingFailed } from './pages/portal/BookingFailed';
 import { TicketInfo } from './pages/portal/TicketInfo';
 import { Settings } from './pages/portal/Settings';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -64,6 +65,8 @@ function App() {
       <Route path="/user/booking/:showtimeId" element={<ProtectedRoute requiredRole="USER"><Booking /></ProtectedRoute>} />
       <Route path="/user/checkout" element={<ProtectedRoute requiredRole="USER"><Checkout /></ProtectedRoute>} />
       <Route path="/user/checkout-success" element={<ProtectedRoute requiredRole="USER"><CheckoutSuccess /></ProtectedRoute>} />
+      <Route path="/user/booking-failed" element={<ProtectedRoute requiredRole="USER"><BookingFailed /></ProtectedRoute>} />
+      <Route path="/booking-failed" element={<Navigate to="/user/booking-failed" replace />} />
       <Route path="/user/tickets/:ticketId" element={<ProtectedRoute requiredRole="USER"><TicketInfo /></ProtectedRoute>} />
       <Route path="/user/settings" element={<ProtectedRoute requiredRole="USER"><Settings /></ProtectedRoute>} />
 
