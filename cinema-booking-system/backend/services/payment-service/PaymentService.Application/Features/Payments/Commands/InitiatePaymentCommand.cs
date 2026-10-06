@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentValidation;
@@ -6,18 +7,16 @@ using MediatR;
 using PaymentService.Application.Contracts;
 using PaymentService.Application.DTOs;
 using PaymentService.Application.Exceptions;
+using PaymentService.Application.IntegrationEvents;
 using PaymentService.Domain.Entities;
 using PaymentService.Domain.Enums;
 using PaymentService.Domain.Interfaces;
-using PaymentService.Application.IntegrationEvents;
 
 namespace PaymentService.Application.Features.Payments.Commands;
 
 public record InitiatePaymentCommand(
     long OrderId,
     long UserId,
-    decimal Amount,
-    string Currency,
     PaymentMethod PaymentMethod,
     string CancelUrl,
     string SuccessUrl
@@ -29,8 +28,6 @@ public class InitiatePaymentCommandValidator : AbstractValidator<InitiatePayment
     {
         RuleFor(x => x.OrderId).GreaterThan(0);
         RuleFor(x => x.UserId).GreaterThan(0);
-        RuleFor(x => x.Amount).GreaterThan(0);
-        RuleFor(x => x.Currency).NotEmpty();
         RuleFor(x => x.PaymentMethod).IsInEnum();
         RuleFor(x => x.CancelUrl).NotEmpty();
         RuleFor(x => x.SuccessUrl).NotEmpty();
@@ -61,61 +58,102 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
 
     public async Task<PaymentInitiationResult> Handle(InitiatePaymentCommand request, CancellationToken cancellationToken)
     {
-        // Duplicate-order protection
-        var existingPayment = await _paymentRepository.GetByOrderIdAsync(request.OrderId, cancellationToken);
-        if (existingPayment != null && existingPayment.Status != PaymentStatus.FAILED)
+        // Race-condition guard: poll until payment slot appears from order.created event
+        var payment = await PollForPaymentSlotAsync(request.OrderId, cancellationToken);
+
+        if (payment == null)
         {
-            throw new InvalidPaymentStateException($"A payment for Order {request.OrderId} already exists and is not in a failed state.");
+            throw new PaymentNotFoundException(
+                $"Payment slot for order {request.OrderId} not ready yet. " +
+                "The order created event is still being processed. Please retry in a moment.");
         }
 
-        // Create payment entity (generates SagaId internally)
-        var payment = new Payment(
-            request.OrderId,
-            request.UserId,
-            request.Amount,
-            request.Currency,
-            request.PaymentMethod
-        );
-
-        await _paymentRepository.AddAsync(payment, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken); // Flush to DB to get payment.Id
-
-        // Transaction log
-        await _transactionLogRepository.AddAsync(
-            new TransactionLog(payment.Id, "INITIATE", request.ToString(), null, null),
-            cancellationToken
-        );
-
-        PaymentInitiationResult result;
-        if (request.PaymentMethod == PaymentMethod.CASH)
+        // Ownership check
+        if (payment.UserId != request.UserId)
         {
-            // Cash: no external gateway call now — admin confirms via POST /api/payments/cash/confirm
-            // which publishes CashPaymentConfirmed → saga transitions to Completed
-            result = new PaymentInitiationResult(true, request.SuccessUrl, null);
-        }
-        else
-        {
-            // Delegate to gateway synchronously (Stripe/PayPal need to return a redirect URL)
-            var gateway = _gatewayFactory.GetGateway(request.PaymentMethod);
-            var gatewayRequest = new PaymentRequest(payment.Id, payment.Amount, payment.Currency, request.CancelUrl, request.SuccessUrl);
-            result = await gateway.InitiateAsync(gatewayRequest);
+            throw new UnauthorizedAccessException("Payment does not belong to this user.");
         }
 
-        // Publish PaymentInitiated via EF Core Outbox → triggers saga state machine
-        // This is stored atomically with the payment record in the same DB transaction
-        await _publishEndpoint.Publish(new PaymentInitiated
+        switch (payment.Status)
         {
-            CorrelationId = payment.SagaId,
-            PaymentId = payment.Id,
-            OrderId = payment.OrderId,
-            UserId = payment.UserId,
-            Amount = payment.Amount,
-            Currency = payment.Currency,
-            PaymentMethod = payment.PaymentMethod.ToString()
-        }, cancellationToken);
+            case PaymentStatus.CREATED:
+            case PaymentStatus.FAILED:
+            {
+                PaymentInitiationResult result;
+                if (request.PaymentMethod == PaymentMethod.CASH)
+                {
+                    payment.Initiate(PaymentMethod.CASH, null);
+                    result = new PaymentInitiationResult(true, request.SuccessUrl, null);
+                }
+                else
+                {
+                    var gateway = _gatewayFactory.GetGateway(request.PaymentMethod);
+                    var gatewayRequest = new PaymentRequest(payment.Id, payment.Amount, payment.Currency, request.CancelUrl, request.SuccessUrl);
+                    result = await gateway.InitiateAsync(gatewayRequest);
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+                    if (!result.IsSuccess)
+                        return result;
 
-        return result;
+                    payment.Initiate(request.PaymentMethod, result.GatewaySessionId);
+                }
+
+                await _transactionLogRepository.AddAsync(
+                    new TransactionLog(payment.Id, "INITIATE", request.ToString(), null, null),
+                    cancellationToken
+                );
+
+                await _publishEndpoint.Publish(new PaymentInitiated
+                {
+                    CorrelationId = payment.SagaId,
+                    PaymentId = payment.Id,
+                    OrderId = payment.OrderId,
+                    UserId = payment.UserId,
+                    Amount = payment.Amount,
+                    Currency = payment.Currency,
+                    PaymentMethod = request.PaymentMethod.ToString()
+                }, cancellationToken);
+
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                return result;
+            }
+
+            case PaymentStatus.PENDING:
+            {
+                // Idempotency: response was lost, user is retrying
+                if (payment.GatewaySessionId != null && payment.PaymentMethod.HasValue)
+                {
+                    var existingGateway = _gatewayFactory.GetGateway(payment.PaymentMethod.Value);
+                    var existingUrl = await existingGateway.GetExistingSessionUrlAsync(payment.GatewaySessionId, cancellationToken);
+                    return new PaymentInitiationResult(true, existingUrl, null, payment.GatewaySessionId);
+                }
+
+                // Cash path: no session to re-fetch
+                return new PaymentInitiationResult(true, request.SuccessUrl, null);
+            }
+
+            case PaymentStatus.COMPLETED:
+                return new PaymentInitiationResult(true, request.SuccessUrl, null);
+
+            case PaymentStatus.EXPIRED:
+                throw new InvalidPaymentStateException(
+                    $"Payment for order {request.OrderId} has expired. Please start a new booking.");
+
+            default:
+                throw new InvalidPaymentStateException(
+                    $"Unexpected payment status {payment.Status} for order {request.OrderId}.");
+        }
+    }
+
+    private async Task<Payment?> PollForPaymentSlotAsync(long orderId, CancellationToken ct)
+    {
+        int[] delays = [500, 1000, 2000, 3000];
+        foreach (var delay in delays)
+        {
+            var payment = await _paymentRepository.GetByOrderIdAsync(orderId, ct);
+            if (payment != null) return payment;
+            await Task.Delay(delay, ct);
+        }
+        return await _paymentRepository.GetByOrderIdAsync(orderId, ct);
     }
 }

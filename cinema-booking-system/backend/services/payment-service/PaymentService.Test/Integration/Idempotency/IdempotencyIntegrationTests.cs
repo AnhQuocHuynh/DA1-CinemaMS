@@ -80,8 +80,9 @@ public class IdempotencyIntegrationTests : IClassFixture<CustomWebApplicationFac
     [Fact]
     public async Task InitiatePayment_DuplicateOrderId_ShouldReturnConflict()
     {
-        // Arrange — seed a PENDING payment for orderId 7001
-        var existingPayment = new Payment(7001, 42, 150000m, "VND", PaymentMethod.CASH);
+        // Arrange — seed an EXPIRED payment for orderId 7001
+        var existingPayment = new Payment(7001, 42, 150000m, "VND");
+        existingPayment.Expire();
         _dbContext.Payments.Add(existingPayment);
         await _dbContext.SaveChangesAsync();
 
@@ -90,7 +91,6 @@ public class IdempotencyIntegrationTests : IClassFixture<CustomWebApplicationFac
 
         var request = new InitiatePaymentRequest(
             OrderId: 7001,
-            Amount: 150000m,
             PaymentMethod: PaymentMethod.CASH
         );
 

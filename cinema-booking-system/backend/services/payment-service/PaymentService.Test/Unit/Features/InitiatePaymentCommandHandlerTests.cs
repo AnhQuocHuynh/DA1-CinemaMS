@@ -43,25 +43,21 @@ public class InitiatePaymentCommandHandlerTests
     // ── Happy Path: Stripe ────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Handle_StripePayment_ShouldCreatePaymentAndReturnRedirectUrl()
+    public async Task Handle_StripePayment_ShouldInitiatePaymentAndReturnRedirectUrl()
     {
         // Arrange
         var command = new InitiatePaymentCommand(
             OrderId: 1234,
             UserId: 42,
-            Amount: 180000m,
-            Currency: "VND",
             PaymentMethod: PaymentMethod.STRIPE,
             CancelUrl: "https://app.cinema.com/checkout-canceled",
             SuccessUrl: "https://app.cinema.com/checkout-success");
 
-        _paymentRepoMock
-            .Setup(r => r.GetByOrderIdAsync(1234, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Payment?)null);
+        var payment = new Payment(1234, 42, 180000m, "VND");
 
         _paymentRepoMock
-            .Setup(r => r.AddAsync(It.IsAny<Payment>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .Setup(r => r.GetByOrderIdAsync(1234, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(payment);
 
         _unitOfWorkMock
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -71,7 +67,7 @@ public class InitiatePaymentCommandHandlerTests
             .Setup(t => t.AddAsync(It.IsAny<TransactionLog>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var expectedResult = new PaymentInitiationResult(true, "https://checkout.stripe.com/pay/cs_test_xxx", null);
+        var expectedResult = new PaymentInitiationResult(true, "https://checkout.stripe.com/pay/cs_test_xxx", null, "cs_test_xxx");
         _gatewayMock.Setup(g => g.InitiateAsync(It.IsAny<PaymentRequest>())).ReturnsAsync(expectedResult);
         _gatewayFactoryMock.Setup(f => f.GetGateway(PaymentMethod.STRIPE)).Returns(_gatewayMock.Object);
 
@@ -81,10 +77,11 @@ public class InitiatePaymentCommandHandlerTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal("https://checkout.stripe.com/pay/cs_test_xxx", result.RedirectUrl);
+        Assert.Equal(PaymentStatus.PENDING, payment.Status);
+        Assert.Equal("cs_test_xxx", payment.GatewaySessionId);
 
-        _paymentRepoMock.Verify(r => r.AddAsync(It.IsAny<Payment>(), It.IsAny<CancellationToken>()), Times.Once);
         _gatewayMock.Verify(g => g.InitiateAsync(It.IsAny<PaymentRequest>()), Times.Once);
-        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // ── Happy Path: PayPal ────────────────────────────────────────────────────
@@ -94,17 +91,18 @@ public class InitiatePaymentCommandHandlerTests
     {
         // Arrange
         var command = new InitiatePaymentCommand(
-            OrderId: 5678, UserId: 10, Amount: 90000m, Currency: "VND",
+            OrderId: 5678, UserId: 10,
             PaymentMethod: PaymentMethod.PAYPAL,
             CancelUrl: "https://cancel.com",
             SuccessUrl: "https://success.com");
 
-        _paymentRepoMock.Setup(r => r.GetByOrderIdAsync(5678, It.IsAny<CancellationToken>())).ReturnsAsync((Payment?)null);
-        _paymentRepoMock.Setup(r => r.AddAsync(It.IsAny<Payment>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        var payment = new Payment(5678, 10, 90000m, "VND");
+
+        _paymentRepoMock.Setup(r => r.GetByOrderIdAsync(5678, It.IsAny<CancellationToken>())).ReturnsAsync(payment);
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
         _txLogRepoMock.Setup(t => t.AddAsync(It.IsAny<TransactionLog>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        var paypalResult = new PaymentInitiationResult(true, "https://www.sandbox.paypal.com/checkoutnow?token=xxx", null);
+        var paypalResult = new PaymentInitiationResult(true, "https://www.sandbox.paypal.com/checkoutnow?token=xxx", null, "token_xxx");
         _gatewayMock.Setup(g => g.InitiateAsync(It.IsAny<PaymentRequest>())).ReturnsAsync(paypalResult);
         _gatewayFactoryMock.Setup(f => f.GetGateway(PaymentMethod.PAYPAL)).Returns(_gatewayMock.Object);
 
@@ -114,6 +112,7 @@ public class InitiatePaymentCommandHandlerTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Contains("paypal.com", result.RedirectUrl);
+        Assert.Equal(PaymentStatus.PENDING, payment.Status);
         _gatewayFactoryMock.Verify(f => f.GetGateway(PaymentMethod.PAYPAL), Times.Once);
     }
 
@@ -124,13 +123,14 @@ public class InitiatePaymentCommandHandlerTests
     {
         // Arrange
         var command = new InitiatePaymentCommand(
-            OrderId: 9999, UserId: 5, Amount: 60000m, Currency: "VND",
+            OrderId: 9999, UserId: 5,
             PaymentMethod: PaymentMethod.CASH,
             CancelUrl: "https://cancel.com",
             SuccessUrl: "https://success.com");
 
-        _paymentRepoMock.Setup(r => r.GetByOrderIdAsync(9999, It.IsAny<CancellationToken>())).ReturnsAsync((Payment?)null);
-        _paymentRepoMock.Setup(r => r.AddAsync(It.IsAny<Payment>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        var payment = new Payment(9999, 5, 60000m, "VND");
+
+        _paymentRepoMock.Setup(r => r.GetByOrderIdAsync(9999, It.IsAny<CancellationToken>())).ReturnsAsync(payment);
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
         _txLogRepoMock.Setup(t => t.AddAsync(It.IsAny<TransactionLog>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
@@ -139,25 +139,49 @@ public class InitiatePaymentCommandHandlerTests
 
         // Assert
         Assert.True(result.IsSuccess);
+        Assert.Equal("https://success.com", result.RedirectUrl);
+        Assert.Equal(PaymentStatus.PENDING, payment.Status);
+        Assert.Equal(PaymentMethod.CASH, payment.PaymentMethod);
         // Cash: gateway is NOT called
         _gatewayFactoryMock.Verify(f => f.GetGateway(It.IsAny<PaymentMethod>()), Times.Never);
     }
 
-    // ── Duplicate Order Protection ────────────────────────────────────────────
+    // ── Ownership Protection ──────────────────────────────────────────────────
 
     [Fact]
-    public async Task Handle_DuplicateOrder_ShouldThrowInvalidPaymentStateException_WhenExistingPaymentIsNotFailed()
+    public async Task Handle_UnauthorizedUser_ShouldThrowUnauthorizedAccessException()
     {
         // Arrange
-        var existingPayment = new Payment(1234, 42, 180000m, "VND", PaymentMethod.STRIPE);
-        existingPayment.Complete("pi_existing", null);
+        var payment = new Payment(1234, 999, 180000m, "VND");
+        _paymentRepoMock.Setup(r => r.GetByOrderIdAsync(1234, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(payment);
+
+        var command = new InitiatePaymentCommand(
+            OrderId: 1234, UserId: 42,
+            PaymentMethod: PaymentMethod.STRIPE,
+            CancelUrl: "https://cancel.com",
+            SuccessUrl: "https://success.com");
+
+        // Act & Assert
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _handler.Handle(command, CancellationToken.None));
+    }
+
+    // ── Expired Order Protection ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_ExpiredOrder_ShouldThrowInvalidPaymentStateException()
+    {
+        // Arrange
+        var existingPayment = new Payment(1234, 42, 180000m, "VND");
+        existingPayment.Expire();
 
         _paymentRepoMock
             .Setup(r => r.GetByOrderIdAsync(1234, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingPayment);
 
         var command = new InitiatePaymentCommand(
-            OrderId: 1234, UserId: 42, Amount: 180000m, Currency: "VND",
+            OrderId: 1234, UserId: 42,
             PaymentMethod: PaymentMethod.STRIPE,
             CancelUrl: "https://cancel.com",
             SuccessUrl: "https://success.com");
@@ -167,27 +191,24 @@ public class InitiatePaymentCommandHandlerTests
             _handler.Handle(command, CancellationToken.None));
     }
 
+    // ── Pending Order Idempotent Retry ────────────────────────────────────────
+
     [Fact]
-    public async Task Handle_FailedOrderRetry_ShouldCreateNewPayment_WhenExistingPaymentIsFailed()
+    public async Task Handle_PendingOrderRetry_ShouldReturnExistingSessionUrl()
     {
-        // Arrange — a previously failed payment allows retry
-        var failedPayment = new Payment(1234, 42, 180000m, "VND", PaymentMethod.STRIPE);
-        failedPayment.Fail("card_declined");
+        // Arrange
+        var pendingPayment = new Payment(1234, 42, 180000m, "VND");
+        pendingPayment.Initiate(PaymentMethod.STRIPE, "sess_existing_123");
 
-        _paymentRepoMock
-            .Setup(r => r.GetByOrderIdAsync(1234, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(failedPayment);
+        _paymentRepoMock.Setup(r => r.GetByOrderIdAsync(1234, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pendingPayment);
 
-        _paymentRepoMock.Setup(r => r.AddAsync(It.IsAny<Payment>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
-        _txLogRepoMock.Setup(t => t.AddAsync(It.IsAny<TransactionLog>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-
-        var expectedResult = new PaymentInitiationResult(true, "https://checkout.stripe.com/pay/new_session", null);
-        _gatewayMock.Setup(g => g.InitiateAsync(It.IsAny<PaymentRequest>())).ReturnsAsync(expectedResult);
+        _gatewayMock.Setup(g => g.GetExistingSessionUrlAsync("sess_existing_123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("https://checkout.stripe.com/pay/sess_existing_123");
         _gatewayFactoryMock.Setup(f => f.GetGateway(PaymentMethod.STRIPE)).Returns(_gatewayMock.Object);
 
         var command = new InitiatePaymentCommand(
-            OrderId: 1234, UserId: 42, Amount: 180000m, Currency: "VND",
+            OrderId: 1234, UserId: 42,
             PaymentMethod: PaymentMethod.STRIPE,
             CancelUrl: "https://cancel.com",
             SuccessUrl: "https://success.com");
@@ -197,6 +218,44 @@ public class InitiatePaymentCommandHandlerTests
 
         // Assert
         Assert.True(result.IsSuccess);
-        _paymentRepoMock.Verify(r => r.AddAsync(It.IsAny<Payment>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.Equal("https://checkout.stripe.com/pay/sess_existing_123", result.RedirectUrl);
+        _gatewayMock.Verify(g => g.GetExistingSessionUrlAsync("sess_existing_123", It.IsAny<CancellationToken>()), Times.Once);
+        _gatewayMock.Verify(g => g.InitiateAsync(It.IsAny<PaymentRequest>()), Times.Never);
+    }
+
+    // ── Failed Order Retry ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Handle_FailedOrderRetry_ShouldReinitiate_WhenExistingPaymentIsFailed()
+    {
+        // Arrange — a previously failed payment allows retry
+        var failedPayment = new Payment(1234, 42, 180000m, "VND");
+        failedPayment.Initiate(PaymentMethod.STRIPE, "old_session");
+        failedPayment.Fail("card_declined");
+
+        _paymentRepoMock
+            .Setup(r => r.GetByOrderIdAsync(1234, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(failedPayment);
+
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _txLogRepoMock.Setup(t => t.AddAsync(It.IsAny<TransactionLog>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        var expectedResult = new PaymentInitiationResult(true, "https://checkout.stripe.com/pay/new_session", null, "new_session");
+        _gatewayMock.Setup(g => g.InitiateAsync(It.IsAny<PaymentRequest>())).ReturnsAsync(expectedResult);
+        _gatewayFactoryMock.Setup(f => f.GetGateway(PaymentMethod.STRIPE)).Returns(_gatewayMock.Object);
+
+        var command = new InitiatePaymentCommand(
+            OrderId: 1234, UserId: 42,
+            PaymentMethod: PaymentMethod.STRIPE,
+            CancelUrl: "https://cancel.com",
+            SuccessUrl: "https://success.com");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(PaymentStatus.PENDING, failedPayment.Status);
+        Assert.Equal("new_session", failedPayment.GatewaySessionId);
     }
 }

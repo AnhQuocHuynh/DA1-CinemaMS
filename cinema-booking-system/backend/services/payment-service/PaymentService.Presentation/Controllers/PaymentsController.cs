@@ -41,8 +41,6 @@ public class PaymentsController : ControllerBase
         var command = new InitiatePaymentCommand(
             OrderId: request.OrderId,
             UserId: userId,
-            Amount: request.Amount,
-            Currency: request.Currency ?? "VND",
             PaymentMethod: request.PaymentMethod,
             CancelUrl: request.CancelUrl ?? $"{baseUrl}/checkout-canceled?orderId={request.OrderId}",
             SuccessUrl: request.SuccessUrl ?? $"{baseUrl}/checkout-success?orderId={request.OrderId}"
@@ -243,9 +241,7 @@ public class PaymentsController : ControllerBase
 // ─────────────────────────────────────────────────────────────────────────────
 public record InitiatePaymentRequest(
     long OrderId,
-    decimal Amount,
     PaymentMethod PaymentMethod,
-    string? Currency = "VND",
     string? CancelUrl = null,
     string? SuccessUrl = null
 );

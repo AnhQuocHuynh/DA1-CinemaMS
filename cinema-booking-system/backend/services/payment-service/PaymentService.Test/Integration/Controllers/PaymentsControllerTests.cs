@@ -27,11 +27,18 @@ public class PaymentsControllerTests : IClassFixture<CustomWebApplicationFactory
     public async Task InitiatePayment_ShouldReturnOk_WhenValidRequest()
     {
         // Arrange
+        var payment = new Payment(9991, 100, 150000m, "VND");
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
+            db.Payments.Add(payment);
+            await db.SaveChangesAsync();
+        }
+
         _client.DefaultRequestHeaders.Add("Authorization", "Test 100:user");
         
         var request = new InitiatePaymentRequest(
             OrderId: 9991,
-            Amount: 150000m,
             PaymentMethod: PaymentMethod.CASH
         );
 
