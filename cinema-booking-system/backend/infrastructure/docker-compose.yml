@@ -107,6 +107,7 @@ services:
       - ReverseProxy__Clusters__analytics-cluster__Destinations__analytics-1__Address=http://analytics-service:8084
       - ReverseProxy__Clusters__recommendation-cluster__Destinations__recommendation-1__Address=http://recommendation-service:8085
       - ReverseProxy__Clusters__payment-cluster__Destinations__payment-1__Address=http://payment-service:80
+      - ReverseProxy__Clusters__rental-cluster__Destinations__rental-1__Address=http://rental-service:8086
       - Jwt__Authority=${KC_AUTHORITY_URL}
       - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
       - UserProfileService__BaseUrl=http://identity-service:80
@@ -232,6 +233,7 @@ services:
       SPRING_DATA_REDIS_PORT: ${SHOWTIME_REDIS_PORT:-6379}
       CATALOG_SERVICE_URL: http://catalog-service:8081
       FACILITY_SERVICE_URL: http://facility-service:80
+      RENTAL_SERVICE_URL: http://rental-service:8086
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-local-dev-internal-token}
       CINEMA_SECURITY_JWT_ENABLED: ${CINEMA_SECURITY_JWT_ENABLED:-false}
       KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
@@ -369,6 +371,33 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    networks:
+      - cinema-services
+
+  rental-service:
+    build:
+      context: ..
+      dockerfile: services/rental-service/Dockerfile
+    container_name: cinema-rental-service
+    environment:
+      SERVER_PORT: 8086
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${RENTAL_DB_NAME:-cinema_rental_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-123}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-local-dev-internal-token}
+      CINEMA_SECURITY_JWT_ENABLED: ${CINEMA_SECURITY_JWT_ENABLED:-false}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-cinema-api}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-}
+      FACILITY_SERVICE_URL: http://facility-service:80
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      SHOWTIME_SERVICE_URL: http://showtime-service:8082
+      IDENTITY_SERVICE_URL: http://identity-service:80
+    ports:
+      - "8086:8086"
+    depends_on:
+      postgres:
+        condition: service_started
     networks:
       - cinema-services
 

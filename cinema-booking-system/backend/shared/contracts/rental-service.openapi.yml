@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: Rental Service
+  version: 0.1.0
+  description: Private screening-room rental. Approval is limited to ADMIN or the MANAGER assigned to the cinema.
+servers:
+  - url: http://localhost:8086
+paths:
+  /api/rentals/quote:
+    post:
+      summary: Quote a room rental without saving it
+      responses:
+        "200":
+          description: Price, or an unavailable code
+  /api/rentals:
+    post:
+      summary: Submit a rental request
+      responses:
+        "200":
+          description: Pending approval
+        "409":
+          description: ROOM_SLOT_TAKEN or SHOWTIME_OVERLAP
+    get:
+      summary: List rentals visible to the caller scope
+      responses:
+        "200":
+          description: Rental list
+  /api/rentals/report:
+    get:
+      summary: Rental counts and confirmed revenue for a manager or admin
+      responses:
+        "200":
+          description: Report
+        "403":
+          description: Staff and customers cannot read revenue
+  /api/rentals/{id}/approve:
+    post:
+      summary: Manager of the cinema, or admin, approves the request
+      responses:
+        "200":
+          description: Awaiting payment
+        "403":
+          description: Staff, or a manager of another cinema
+  /internal/rentals/rooms/{roomId}/overlaps:
+    get:
+      summary: Whether a blocking rental occupies the window
+      parameters:
+        - in: header
+          name: X-Internal-Token
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Boolean data
+components:
+  schemas:
+    RentalStatus:
+      type: string
+      enum: [PENDING_APPROVAL, AWAITING_PAYMENT, CONFIRMED, REJECTED, CANCELLED, EXPIRED]

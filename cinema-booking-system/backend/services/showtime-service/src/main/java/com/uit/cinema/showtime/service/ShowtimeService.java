@@ -5,6 +5,7 @@ import com.uit.cinema.showtime.dto.response.ShowtimeResponse;
 import com.uit.cinema.showtime.dto.response.ShowtimeSeatResponse;
 import com.uit.cinema.showtime.service.contract.EventShowtimeCreateRequest;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ShowtimeService {
@@ -15,6 +16,7 @@ public interface ShowtimeService {
     List<ShowtimeSeatResponse> getSeatMap(Long showtimeId);
     ShowtimeSeatResponse getSeatById(Long seatId);
     boolean hasFutureShowtimesForRoom(Long roomId);
+    boolean hasOverlappingShowtime(Long roomId, LocalDateTime start, LocalDateTime end);
     boolean hasFutureShowtimesForRooms(List<Long> roomIds);
     ShowtimeResponse createShowtime(ShowtimeRequest request);
     ShowtimeResponse createShowtimeForEvent(EventShowtimeCreateRequest request);

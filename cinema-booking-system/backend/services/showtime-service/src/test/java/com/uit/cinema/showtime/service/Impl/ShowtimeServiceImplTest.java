@@ -14,6 +14,7 @@ import com.uit.cinema.showtime.entity.ShowtimeSeat;
 import com.uit.cinema.showtime.mapper.ShowtimeMapper;
 import com.uit.cinema.showtime.repository.ShowtimeRepository;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.showtime.service.RentalSlotGuard;
 import com.uit.cinema.showtime.service.contract.EventShowtimeCreateRequest;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
@@ -39,6 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -67,6 +69,9 @@ class ShowtimeServiceImplTest {
 
     @Mock
     private CatalogReadService catalogReadService;
+
+    @Mock
+    private RentalSlotGuard rentalSlotGuard;
 
     @InjectMocks
     private ShowtimeServiceImpl showtimeService;
@@ -121,6 +126,43 @@ class ShowtimeServiceImplTest {
         CustomException ex = assertThrows(CustomException.class, () -> showtimeService.createShowtime(request));
 
         assertEquals("CONFLICT", ex.getErrorCode());
+        verify(showtimeRepository, never()).save(any());
+    }
+
+    @Test
+    void createShowtime_WhenRentalOverlaps_DoesNotSave() {
+        ShowtimeRequest request = movieShowtimeRequest();
+        when(catalogReadService.findMovie(1L)).thenReturn(Optional.of(movieContent()));
+        when(facilityReadService.findRoom(1L)).thenReturn(Optional.of(room(false)));
+        TypedQuery<Long> overlapQuery = mock(TypedQuery.class);
+        when(entityManager.createQuery(contains("SELECT COUNT(s)"), eq(Long.class))).thenReturn(overlapQuery);
+        when(overlapQuery.setParameter(anyString(), any())).thenReturn(overlapQuery);
+        when(overlapQuery.getSingleResult()).thenReturn(0L);
+        doThrow(new CustomException("Showtime overlaps a room rental", org.springframework.http.HttpStatus.CONFLICT, "RENTAL_SLOT_TAKEN"))
+            .when(rentalSlotGuard).assertSlotFree(eq(1L), any(), any());
+
+        CustomException ex = assertThrows(CustomException.class, () -> showtimeService.createShowtime(request));
+
+        assertEquals("RENTAL_SLOT_TAKEN", ex.getErrorCode());
+        verify(showtimeRepository, never()).save(any());
+    }
+
+    @Test
+    void createShowtime_WhenRentalGuardUnavailable_DoesNotSave() {
+        ShowtimeRequest request = movieShowtimeRequest();
+        when(catalogReadService.findMovie(1L)).thenReturn(Optional.of(movieContent()));
+        when(facilityReadService.findRoom(1L)).thenReturn(Optional.of(room(false)));
+        TypedQuery<Long> overlapQuery = mock(TypedQuery.class);
+        when(entityManager.createQuery(contains("SELECT COUNT(s)"), eq(Long.class))).thenReturn(overlapQuery);
+        when(overlapQuery.setParameter(anyString(), any())).thenReturn(overlapQuery);
+        when(overlapQuery.getSingleResult()).thenReturn(0L);
+        doThrow(new CustomException("Rental service is unavailable", org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "RENTAL_SERVICE_UNAVAILABLE"))
+            .when(rentalSlotGuard).assertSlotFree(eq(1L), any(), any());
+
+        CustomException ex = assertThrows(CustomException.class, () -> showtimeService.createShowtime(request));
+
+        assertEquals("RENTAL_SERVICE_UNAVAILABLE", ex.getErrorCode());
+        verify(showtimeRepository, never()).save(any());
     }
 
     @Test

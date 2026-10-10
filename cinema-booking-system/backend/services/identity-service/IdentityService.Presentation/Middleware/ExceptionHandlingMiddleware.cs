@@ -47,6 +47,10 @@ namespace IdentityService.Presentation.Middleware
                     code = HttpStatusCode.NotFound;
                     result = JsonSerializer.Serialize(new { error = userNotFoundException.Message });
                     break;
+                case ForbiddenOperationException forbiddenOperationException:
+                    code = HttpStatusCode.Forbidden;
+                    result = JsonSerializer.Serialize(new { error = forbiddenOperationException.Message });
+                    break;
             }
 
             if (string.IsNullOrEmpty(result))

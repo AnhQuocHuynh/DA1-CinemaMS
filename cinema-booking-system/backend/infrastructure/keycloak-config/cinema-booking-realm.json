@@ -80,6 +80,14 @@
       "containerId" : "44e145b2-4175-475d-9dc9-496d3e8512f7",
       "attributes" : { }
     }, {
+      "id" : "8a1c0e44-6b2d-4f0a-9c31-7e5d2a9b14c0",
+      "name" : "MANAGER",
+      "description" : "Manages one or more cinemas",
+      "composite" : false,
+      "clientRole" : false,
+      "containerId" : "44e145b2-4175-475d-9dc9-496d3e8512f7",
+      "attributes" : { }
+    }, {
       "id" : "f6d6dc09-d28f-42ed-8d3b-c6e86e34bf5f",
       "name" : "STAFF",
       "description" : "",

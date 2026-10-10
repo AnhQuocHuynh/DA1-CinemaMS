@@ -25,7 +25,7 @@ import java.util.Set;
 
 final class KeycloakJwtSupport {
 
-    private static final Set<String> APPLICATION_ROLES = Set.of("ADMIN", "STAFF", "CUSTOMER");
+    private static final Set<String> APPLICATION_ROLES = Set.of("ADMIN", "MANAGER", "STAFF", "CUSTOMER");
 
     private KeycloakJwtSupport() {
     }

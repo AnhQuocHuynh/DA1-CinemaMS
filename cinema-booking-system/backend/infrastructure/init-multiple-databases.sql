@@ -8,6 +8,8 @@ CREATE DATABASE cinema_catalog_db;
 CREATE DATABASE cinema_showtime_db;
 CREATE DATABASE cinema_booking_db;
 CREATE DATABASE cinema_analytics_db;
+CREATE DATABASE cinema_rental_db;
+-- Existing Postgres volumes do not re-run this script. Create cinema_rental_db manually on those volumes.
 
 -- ASP.NET & Keycloak Microservice Databases
 CREATE DATABASE keycloak_db;

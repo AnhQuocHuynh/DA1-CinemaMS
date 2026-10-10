@@ -11,6 +11,7 @@ public class UserProfileDbContext : DbContext
     }
 
     public DbSet<User> Users => Set<User>();
+    public DbSet<CinemaAssignment> CinemaAssignments => Set<CinemaAssignment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

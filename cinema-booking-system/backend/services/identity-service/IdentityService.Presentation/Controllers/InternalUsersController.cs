@@ -1,4 +1,6 @@
+using IdentityService.Application.DTOs;
 using IdentityService.Application.Features.Internal.Queries;
+using IdentityService.Presentation.Models;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -29,5 +31,14 @@ public class InternalUsersController : ControllerBase
 
         var userId = await _mediator.Send(new ResolveKeycloakIdQuery(keycloakId));
         return Ok(userId);
+    }
+
+    [HttpGet("{id:long}/cinema-scope")]
+    [AllowAnonymous]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<IActionResult> GetCinemaScope(long id)
+    {
+        var scope = await _mediator.Send(new GetCinemaScopeQuery(id));
+        return Ok(ApiResponse<CinemaScopeDto>.Ok(scope));
     }
 }
