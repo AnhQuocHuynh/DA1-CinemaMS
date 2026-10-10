@@ -10,6 +10,7 @@ public record PaymentInitiated
     public decimal Amount { get; init; }
     public string Currency { get; init; } = "VND";
     public string PaymentMethod { get; init; } = string.Empty;
+    public string? TransactionId { get; init; }
 }
 
 /// <summary>Published after gateway signature verification. Saga drives domain state + downstream events.</summary>
@@ -23,7 +24,8 @@ public record GatewayCallbackReceived
     public string? RawResponse { get; init; }
 }
 
-/// <summary>Published when admin confirms a cash payment was collected at the counter.</summary>
+/// <summary>Published when admin confirms a cash payment was collected at the counter. (Deprecated)</summary>
+[Obsolete("Manual cash confirmation is deprecated; cash payments settle immediately at counter.")]
 public record CashPaymentConfirmed
 {
     public Guid CorrelationId { get; init; }

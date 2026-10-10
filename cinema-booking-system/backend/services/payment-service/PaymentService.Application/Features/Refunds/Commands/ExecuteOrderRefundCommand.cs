@@ -46,7 +46,7 @@ public class ExecuteOrderRefundCommandHandler : IRequestHandler<ExecuteOrderRefu
             throw new PaymentNotFoundException(request.OrderId);
 
         if (payment.Status != PaymentStatus.COMPLETED && payment.Status != PaymentStatus.PARTIALLY_REFUNDED)
-            throw new InvalidOperationException($"Cannot refund payment in status {payment.Status}");
+            throw new InvalidPaymentStateException($"Cannot refund payment in status {payment.Status}");
 
         // For online gateways (Stripe/PayPal), execute gateway refund
         if (!string.IsNullOrEmpty(payment.TransactionId) && payment.PaymentMethod.HasValue && payment.PaymentMethod.Value != PaymentMethod.CASH)

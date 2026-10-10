@@ -67,8 +67,7 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
             .HasColumnName("status")
             .HasMaxLength(30)
             .HasConversion<string>()
-            .IsRequired()
-            .HasDefaultValue(Domain.Enums.PaymentStatus.PENDING);
+            .IsRequired();
 
         builder.Property(p => p.GatewayResponse)
             .HasColumnName("gateway_response")

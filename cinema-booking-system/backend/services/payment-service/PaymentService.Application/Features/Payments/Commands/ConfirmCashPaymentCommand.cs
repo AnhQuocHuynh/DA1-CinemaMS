@@ -13,9 +13,10 @@ using PaymentService.Application.IntegrationEvents;
 namespace PaymentService.Application.Features.Payments.Commands;
 
 /// <summary>
-/// Admin command: manually confirm a CASH payment that has been collected at the counter.
+/// Admin command: manually confirm a CASH payment that has been collected at the counter. (Deprecated)
 /// Publishes CashPaymentConfirmed → saga transitions Pending → Completed → publishes PaymentCompleted.
 /// </summary>
+[Obsolete("Cash payments are settled immediately at counter; manual confirmation is deprecated.")]
 public record ConfirmCashPaymentCommand(long PaymentId, long AdminUserId) : IRequest<PaymentDto>;
 
 public class ConfirmCashPaymentCommandHandler : IRequestHandler<ConfirmCashPaymentCommand, PaymentDto>

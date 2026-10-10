@@ -65,6 +65,11 @@ public class ExceptionHandlingMiddleware
                 result = new { error = "Payment gateway error", details = gatewayEx.Message };
                 break;
 
+            case ForbiddenAccessException forbiddenEx:
+                code = HttpStatusCode.Forbidden;
+                result = new { error = forbiddenEx.Message };
+                break;
+
             case UnauthorizedAccessException:
                 code = HttpStatusCode.Unauthorized;
                 result = new { error = "Unauthorized" };

@@ -19,7 +19,8 @@ public record InitiatePaymentCommand(
     long UserId,
     PaymentMethod PaymentMethod,
     string CancelUrl,
-    string SuccessUrl
+    string SuccessUrl,
+    bool IsStaffOrAdmin = false
 ) : IRequest<PaymentInitiationResult>;
 
 public class InitiatePaymentCommandValidator : AbstractValidator<InitiatePaymentCommand>
@@ -27,7 +28,7 @@ public class InitiatePaymentCommandValidator : AbstractValidator<InitiatePayment
     public InitiatePaymentCommandValidator()
     {
         RuleFor(x => x.OrderId).GreaterThan(0);
-        RuleFor(x => x.UserId).GreaterThan(0);
+        RuleFor(x => x.UserId).GreaterThanOrEqualTo(0);
         RuleFor(x => x.PaymentMethod).IsInEnum();
         RuleFor(x => x.CancelUrl).NotEmpty();
         RuleFor(x => x.SuccessUrl).NotEmpty();
@@ -58,6 +59,13 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
 
     public async Task<PaymentInitiationResult> Handle(InitiatePaymentCommand request, CancellationToken cancellationToken)
     {
+        // Role check: CASH is restricted to staff/admin only
+        if (request.PaymentMethod == PaymentMethod.CASH && !request.IsStaffOrAdmin)
+        {
+            throw new ForbiddenAccessException(
+                "Cash payment method is restricted to staff counter bookings only.");
+        }
+
         // Race-condition guard: poll until payment slot appears from order.created event
         var payment = await PollForPaymentSlotAsync(request.OrderId, cancellationToken);
 
@@ -68,8 +76,8 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
                 "The order created event is still being processed. Please retry in a moment.");
         }
 
-        // Ownership check
-        if (payment.UserId != request.UserId)
+        // Ownership check: staff/admin can process payment for any order (walk-in userId=0 or member order)
+        if (payment.UserId != request.UserId && !request.IsStaffOrAdmin)
         {
             throw new UnauthorizedAccessException("Payment does not belong to this user.");
         }
@@ -82,8 +90,30 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
                 PaymentInitiationResult result;
                 if (request.PaymentMethod == PaymentMethod.CASH)
                 {
-                    payment.Initiate(PaymentMethod.CASH, null);
-                    result = new PaymentInitiationResult(true, request.SuccessUrl, null);
+                    var txnId = $"CASH-{payment.OrderId}-{DateTime.UtcNow:yyyyMMddHHmmss}";
+                    payment.Initiate(PaymentMethod.CASH, txnId);
+                    payment.Complete(txnId, $"Cash collected at counter by staff user ID {request.UserId}");
+
+                    await _transactionLogRepository.AddAsync(
+                        new TransactionLog(payment.Id, "CASH_COLLECTED", request.ToString(), $"StaffId={request.UserId}", 200),
+                        cancellationToken
+                    );
+
+                    await _publishEndpoint.Publish(new PaymentInitiated
+                    {
+                        CorrelationId = payment.SagaId,
+                        PaymentId = payment.Id,
+                        OrderId = payment.OrderId,
+                        UserId = payment.UserId,
+                        Amount = payment.Amount,
+                        Currency = payment.Currency,
+                        PaymentMethod = request.PaymentMethod.ToString(),
+                        TransactionId = txnId
+                    }, cancellationToken);
+
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                    return new PaymentInitiationResult(true, request.SuccessUrl, null, txnId);
                 }
                 else
                 {
@@ -95,31 +125,39 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
                         return result;
 
                     payment.Initiate(request.PaymentMethod, result.GatewaySessionId);
+
+                    await _transactionLogRepository.AddAsync(
+                        new TransactionLog(payment.Id, "INITIATE", request.ToString(), null, null),
+                        cancellationToken
+                    );
+
+                    await _publishEndpoint.Publish(new PaymentInitiated
+                    {
+                        CorrelationId = payment.SagaId,
+                        PaymentId = payment.Id,
+                        OrderId = payment.OrderId,
+                        UserId = payment.UserId,
+                        Amount = payment.Amount,
+                        Currency = payment.Currency,
+                        PaymentMethod = request.PaymentMethod.ToString()
+                    }, cancellationToken);
+
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                    return result;
                 }
-
-                await _transactionLogRepository.AddAsync(
-                    new TransactionLog(payment.Id, "INITIATE", request.ToString(), null, null),
-                    cancellationToken
-                );
-
-                await _publishEndpoint.Publish(new PaymentInitiated
-                {
-                    CorrelationId = payment.SagaId,
-                    PaymentId = payment.Id,
-                    OrderId = payment.OrderId,
-                    UserId = payment.UserId,
-                    Amount = payment.Amount,
-                    Currency = payment.Currency,
-                    PaymentMethod = request.PaymentMethod.ToString()
-                }, cancellationToken);
-
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-                return result;
             }
 
             case PaymentStatus.PENDING:
             {
+                if (request.PaymentMethod == PaymentMethod.CASH)
+                {
+                    var txnId = payment.TransactionId ?? $"CASH-{payment.OrderId}-{DateTime.UtcNow:yyyyMMddHHmmss}";
+                    payment.Complete(txnId, $"Cash collected at counter by staff user ID {request.UserId}");
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+                    return new PaymentInitiationResult(true, request.SuccessUrl, null, txnId);
+                }
+
                 // Idempotency: response was lost, user is retrying
                 if (payment.GatewaySessionId != null && payment.PaymentMethod.HasValue)
                 {
@@ -128,12 +166,11 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
                     return new PaymentInitiationResult(true, existingUrl, null, payment.GatewaySessionId);
                 }
 
-                // Cash path: no session to re-fetch
                 return new PaymentInitiationResult(true, request.SuccessUrl, null);
             }
 
             case PaymentStatus.COMPLETED:
-                return new PaymentInitiationResult(true, request.SuccessUrl, null);
+                return new PaymentInitiationResult(true, request.SuccessUrl, null, payment.TransactionId);
 
             case PaymentStatus.EXPIRED:
                 throw new InvalidPaymentStateException(
