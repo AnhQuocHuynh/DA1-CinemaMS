@@ -277,10 +277,16 @@ export const CounterBooking: React.FC = () => {
             {memberUser ? (
               <div className="bg-primary/10 border border-primary/30 p-2.5 rounded-lg flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-bold text-primary">{memberUser.fullName} ({memberUser.tier || 'Standard'} Member)</p>
-                  <p className="text-xs text-on-surface-variant">Điểm tích lũy: {memberUser.loyaltyPoints ?? 0} pts</p>
+                  <p className="text-xs font-bold text-primary">
+                    {memberUser.fullName} ({t('staffCounterBooking.memberTier', { tier: memberUser.tier || 'Standard', defaultValue: `${memberUser.tier || 'Standard'} Member` })})
+                  </p>
+                  <p className="text-xs text-on-surface-variant">
+                    {t('staffCounterBooking.loyaltyPoints', { points: memberUser.loyaltyPoints ?? 0, defaultValue: `Điểm tích lũy: ${memberUser.loyaltyPoints ?? 0} pts` })}
+                  </p>
                 </div>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-primary text-white">Tích điểm</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-primary text-white">
+                  {t('staffCounterBooking.earnPoints', 'Tích điểm')}
+                </span>
               </div>
             ) : lookupNotice ? (
               <p className="text-xs text-amber-700 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg">{lookupNotice}</p>
