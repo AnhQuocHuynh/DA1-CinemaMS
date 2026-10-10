@@ -65,6 +65,20 @@ This document provides a comprehensive handover summary of all modifications, ad
 - Added endpoint `GET /api/orders/users/{userId}` to retrieve user's order history ordered by creation date descending (`createdAt DESC`).
 - Enforces user authorization via `AuthenticatedUserIdResolver.authorizeRequestedUser(userId)`.
 
+### F. Staff Counter Booking Cash Settlement & Anonymous Order User Matching
+- **Anonymous Walk-In Support**: Added `Order.ANONYMOUS_USER_ID = 0L` to support anonymous customers purchasing tickets at the counter without a user account.
+- **User Mismatch Bypass**:
+  - In `PaymentServiceImpl.assertUserMatches(order, userId)`:
+    - Bypasses userId check when `order.getSalesChannel() == Order.SalesChannel.COUNTER` and `order.getUserId() == Order.ANONYMOUS_USER_ID`.
+    - Fixes the bug where counter cash orders failed with `"Payment userId does not match order owner"`.
+- **Immediate Cash Settlement**:
+  - `payment-service` now completes CASH payments immediately upon staff initiation and emits `payment.completed` (`paymentMethod = "CASH"`).
+  - `booking-service` receives `payment.completed`, marks the order as `PAID`, confirms seats, and generates tickets instantly.
+
+### G. Loyalty Points Outbox Emission (`loyalty.points.earned`)
+- Added `BookingOutboxEventWriter.emitLoyaltyPointsEarned(userId, orderId, finalAmount)` to emit `loyalty.points.earned` events whenever an order is marked `PAID`.
+- Automatically skipped for anonymous walk-in counter orders (`userId == 0L`), ensuring loyalty points are only awarded to authenticated members.
+
 ---
 
 ## 3. Comprehensive File Inventory
@@ -94,6 +108,8 @@ This document provides a comprehensive handover summary of all modifications, ad
   - Added `@ExceptionHandler(DuplicatePendingOrderException.class)` returning structured `409 Conflict` JSON response.
 
 #### 2. Domain & Service Layer
+- **[`Order.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/entity/Order.java)**
+  - Added `public static final Long ANONYMOUS_USER_ID = 0L;` constant.
 - **[`OrderRepository.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/repository/OrderRepository.java)**
   - Added `boolean existsByUserIdAndShowtimeIdAndStatus(Long userId, Long showtimeId, Order.OrderStatus status);`
   - Added `Optional<Order> findByUserIdAndShowtimeIdAndStatus(Long userId, Long showtimeId, Order.OrderStatus status);`
@@ -105,10 +121,12 @@ This document provides a comprehensive handover summary of all modifications, ad
   - Injected `HttpPaymentService`.
   - In `refundOrder(...)`: Computes proportional refund amount (`finalAmount * refundPercent / 100`), calls `httpPaymentService.executeOrderRefund(orderId, refundAmount, reason)` *before* releasing tickets and seats.
   - Implemented `applyExpiredPayment(Long orderId, Long userId, String reason)`: Releases held seats and cancels expired pending orders.
+  - In `applyCompletedPayment(...)`: Bypasses `assertUserMatches` for counter anonymous orders (`Order.ANONYMOUS_USER_ID`), and calls `bookingOutboxEventWriter.emitLoyaltyPointsEarned` when `userId > 0L`.
 
 #### 3. Messaging & Outbox Layer
 - **[`BookingOutboxEventWriter.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/outbox/BookingOutboxEventWriter.java)**
   - Added `public void orderCreated(Order order)` writing `order.created` outbox events.
+  - Added `public void emitLoyaltyPointsEarned(Long userId, Long orderId, BigDecimal amount)` writing `loyalty.points.earned` outbox events.
 - **[`PaymentAmqpConfiguration.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/messaging/PaymentAmqpConfiguration.java)**
   - Declared queue `bookingPaymentExpiredQueue` (`booking.payment.expired.v1`).
   - Declared queue `bookingPaymentExpiredDeadLetterQueue` (`booking.payment.expired.v1.dlq`).
@@ -136,6 +154,7 @@ This document provides a comprehensive handover summary of all modifications, ad
 - **[`PaymentServiceImplTest.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/test/java/com/uit/cinema/booking/service/Impl/PaymentServiceImplTest.java)** & **[`service/PaymentServiceImplTest.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/test/java/com/uit/cinema/booking/service/PaymentServiceImplTest.java)**
   - Mocked `HttpPaymentService`.
   - Verified `httpPaymentService.executeOrderRefund(...)` calls with correct calculated amounts (100% vs 50%).
+  - Added test `applyCompletedPayment_counterOrderAnonymous_bypassesUserMismatch()` verifying anonymous counter orders bypass user validation.
 
 ---
 
@@ -191,6 +210,29 @@ Payment-Service (Cron/Saga)          RabbitMQ                  Booking-Service
             │                           │                             │ ├─ Release held seats
             │                           │                             │ └─ Set Order -> CANCELLED
             │                           │◄────────────────────────────┤ ACK message
+```
+
+### Flow 4: Staff Counter Cash Payment Settlement & Loyalty Points Flow
+```
+Staff Counter POS              Payment-Service (Saga)          RabbitMQ                  Booking-Service
+      │                              │                            │                             │
+      │ POST /api/payments/initiate  │                            │                             │
+      │ (method=CASH, role=STAFF)    │                            │                             │
+      ├─────────────────────────────►│                            │                             │
+      │                              │ 1. Complete immediately    │                             │
+      │                              │ 2. Generate CASH-TxnId     │                             │
+      │                              │ 3. Transition -> Completed │                             │
+      │                              │ 4. Emit payment.completed  │                             │
+      │                              ├───────────────────────────►│                             │
+      │◄─────────────────────────────┤                            │                             │
+      │ 200 OK (CASH completed)      │                            │ Deliver to                  │
+      │                              │                            │ booking.payment.completed.v1│
+      │                              │                            ├────────────────────────────►│
+      │                              │                            │                             │ 1. Bypass user match (if anonymous)
+      │                              │                            │                             │ 2. Set Order -> PAID
+      │                              │                            │                             │ 3. Generate tickets
+      │                              │                            │                             │ 4. Outbox: loyalty.points.earned (if member)
+      │                              │                            │◄────────────────────────────┤ ACK message
 ```
 
 ---

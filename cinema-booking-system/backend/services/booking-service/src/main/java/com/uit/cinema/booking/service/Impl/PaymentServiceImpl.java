@@ -88,6 +88,13 @@ public class PaymentServiceImpl implements PaymentService {
         log.info("Order {} paid via {}, txn {}", orderId, paymentMethod, transactionId);
         Order paidOrder = orderRepository.save(order);
         bookingOutboxEventWriter.orderPaid(paidOrder, showtime, seatIds.size());
+        if (paidOrder.getUserId() != null && paidOrder.getUserId() > 0L) {
+            bookingOutboxEventWriter.emitLoyaltyPointsEarned(
+                paidOrder.getUserId(),
+                paidOrder.getId(),
+                paidOrder.getFinalAmount()
+            );
+        }
         return paidOrder;
     }
 
@@ -264,6 +271,11 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private void assertUserMatches(Order order, Long userId) {
+        // Case 1: Anonymous walk-in counter order (userId == 0L) -> bypass user match validation
+        if (order.getSalesChannel() == Order.SalesChannel.COUNTER && Order.ANONYMOUS_USER_ID.equals(order.getUserId())) {
+            return;
+        }
+        // Case 2: Online order or Member Loyalty counter order -> assert userId matches
         if (userId != null && !userId.equals(order.getUserId())) {
             throw new CustomException(
                 "Payment userId does not match order owner",

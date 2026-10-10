@@ -94,6 +94,28 @@ public class BookingOutboxEventWriter {
         );
     }
 
+    public void emitLoyaltyPointsEarned(Long userId, Long orderId, BigDecimal amount) {
+        transactionalOutbox.append(
+            SOURCE,
+            EXCHANGE,
+            "loyalty.points.earned",
+            "order",
+            orderId,
+            new LoyaltyPointsEarnedPayload(
+                userId,
+                orderId,
+                amount
+            )
+        );
+    }
+
+    private record LoyaltyPointsEarnedPayload(
+        Long userId,
+        Long orderId,
+        BigDecimal amount
+    ) {
+    }
+
     private record OrderCreatedPayload(
         Long orderId,
         Long userId,

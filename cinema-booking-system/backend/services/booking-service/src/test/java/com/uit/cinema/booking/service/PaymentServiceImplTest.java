@@ -305,6 +305,36 @@ class PaymentServiceImplTest {
         );
     }
 
+    @Test
+    void applyCompletedPayment_counterOrderAnonymous_bypassesUserMismatch() {
+        Order counterOrder = Order.builder()
+            .id(2L)
+            .userId(Order.ANONYMOUS_USER_ID)
+            .showtimeId(100L)
+            .seatIdsSnapshot("55")
+            .totalAmount(new BigDecimal("100.00"))
+            .discountAmount(BigDecimal.ZERO)
+            .finalAmount(new BigDecimal("100.00"))
+            .status(Order.OrderStatus.PENDING)
+            .salesChannel(Order.SalesChannel.COUNTER)
+            .build();
+
+        ShowtimeScheduleView showtime = scheduleInHours(2);
+
+        when(orderRepository.findById(2L)).thenReturn(Optional.of(counterOrder));
+        when(orderRepository.findByPaymentTransactionId("CASH-TXN-1")).thenReturn(Optional.empty());
+        when(seatReservationService.confirmHeldSeats(any()))
+            .thenReturn(new SeatBookingResult(100L, List.of(55L), 1, List.of(new SeatView(55L, new BigDecimal("100.00")))));
+        when(seatReservationService.getSchedule(100L)).thenReturn(showtime);
+        when(ticketGenerationService.generateTicket(any(Ticket.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentEventOutcome outcome = paymentService.applyCompletedPayment(2L, 999L, "CASH", "CASH-TXN-1", new BigDecimal("100.00"));
+
+        assertEquals(PaymentEventOutcome.APPLIED, outcome);
+        assertEquals(Order.OrderStatus.PAID, counterOrder.getStatus());
+    }
+
     private ShowtimeScheduleView scheduleInHours(long hours) {
         return new ShowtimeScheduleView(
             100L,
