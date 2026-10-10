@@ -1,5 +1,6 @@
 import React from 'react';
 import { SeatMap, Seat } from '../../types/booking';
+import { useTranslation } from 'react-i18next';
 
 interface SeatMapGridProps {
   seatMap: SeatMap;
@@ -8,6 +9,7 @@ interface SeatMapGridProps {
 }
 
 export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, onSeatToggle }) => {
+  const { t } = useTranslation();
   // Infer column count from the widest seat number
   const colCount = seatMap.rows.reduce(
     (max, row) => Math.max(
@@ -45,11 +47,13 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
             } else if (seat.status === 'holding') {
               baseClass = 'bg-yellow-200 ring-2 ring-gray-400 cursor-wait text-gray-800';
             } else if (selected) {
-              baseClass = 'bg-yellow-200 ring-2 ring-gray-400 text-gray-900 shadow-md';
+              baseClass = 'bg-yellow-200 ring-2 ring-gray-400 text-gray-900 shadow-md cursor-pointer';
             } else if (seat.type === 'vip') {
               baseClass = 'bg-gradient-to-br from-amber-200 to-amber-500 hover:from-amber-300 hover:to-amber-600 text-amber-950 border border-amber-600 shadow-sm transition-all cursor-pointer';
+            } else if (seat.type === 'couple') {
+              baseClass = 'bg-pink-500 hover:bg-pink-600 text-white transition-colors cursor-pointer';
             } else {
-              baseClass = 'bg-green-500 hover:bg-green-600 text-white transition-colors cursor-pointer';
+              baseClass = 'bg-success hover:bg-success text-white transition-colors cursor-pointer';
             }
 
             if (seat.isPathway) {
@@ -64,7 +68,7 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
 
             const isCouple = seat.type === 'couple';
             const spanClass = isCouple ? 'col-span-2' : 'col-span-1';
-            const shapeClass = isCouple ? 'bg-pink-500 hover:bg-pink-600 rounded-lg aspect-[2/1] w-full' : 'rounded-sm w-full aspect-square';
+            const shapeClass = isCouple ? 'rounded-lg aspect-[2/1] w-full' : 'rounded-sm w-full aspect-square';
 
             const isDisabled = seat.status === 'sold' || seat.status === 'holding';
             return (
@@ -78,7 +82,7 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
               >
                 <span className={`${selected || seat.status === 'available' ? 'opacity-100' : 'opacity-40'} transition-opacity truncate w-full text-center leading-tight`}>
                   {seat.label}
-                  {isCouple && <span className="block text-[6px] opacity-80">(Couple)</span>}
+                  {isCouple && <span className="block text-[6px] opacity-80">({t('seatMap.couple', 'Couple')})</span>}
                 </span>
               </button>
             );

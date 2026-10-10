@@ -49,7 +49,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      test: [ "CMD-SHELL", "rabbitmq-diagnostics -q ping && rabbitmq-diagnostics -q check_port_connectivity" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -63,6 +63,10 @@ services:
       - .env
     environment:
       - KC_HEALTH_ENABLED=true
+      - KC_METRICS_ENABLED=true
+      - KC_FEATURES=opentelemetry
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_SERVICE_NAME=cinema-keycloak
       - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_BOOTSTRAP_ADMIN_USERNAME}
       - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_BOOTSTRAP_ADMIN_PASSWORD}
       - KC_DB=${KC_DB_TYPE}
@@ -89,8 +93,8 @@ services:
 
   api-gateway:
     build:
-      context: ../services/api-gateway
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/api-gateway/Dockerfile
     container_name: cinema-api-gateway
     env_file:
       - .env
@@ -112,6 +116,7 @@ services:
       - UserProfileService__BaseUrl=http://identity-service:80
       - Redis__ConnectionString=${REDIS_CONNECTION_STRING}
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-local-dev-internal-token}
     ports:
       - "${API_GATEWAY_PORT:-5000}:80"
     depends_on:
@@ -124,8 +129,8 @@ services:
 
   identity-service:
     build:
-      context: ../services/identity-service
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/identity-service/Dockerfile
     container_name: cinema-identity-service
     env_file:
       - .env
@@ -140,6 +145,10 @@ services:
       - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
       - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
       - Jwt__RequireHttpsMetadata=false
+      - KeycloakAdmin__BaseUrl=http://keycloak:8080
+      - KeycloakAdmin__Realm=cinema-booking
+      - KeycloakAdmin__ClientId=cinema-admin
+      - KeycloakAdmin__ClientSecret=${KC_ADMIN_CLIENT_SECRET}
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
     ports:
       - "${IDENTITY_SERVICE_PORT:-5001}:80"
@@ -151,8 +160,8 @@ services:
 
   facility-service:
     build:
-      context: ../services/facility-service
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/facility-service/Dockerfile
     container_name: cinema-facility-service
     env_file:
       - .env
@@ -165,7 +174,12 @@ services:
       - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
       - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
       - Jwt__RequireHttpsMetadata=false
+      - KeycloakAdmin__BaseUrl=http://keycloak:8080
+      - KeycloakAdmin__Realm=cinema-booking
+      - KeycloakAdmin__ClientId=cinema-admin
+      - KeycloakAdmin__ClientSecret=${KC_ADMIN_CLIENT_SECRET}
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-local-dev-internal-token}
     ports:
       - "${FACILITY_SERVICE_PORT:-5002}:80"
     depends_on:
@@ -195,6 +209,7 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8081:8081"
     depends_on:
@@ -238,6 +253,7 @@ services:
       KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-cinema-api}
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8082:8082"
     depends_on:
@@ -276,6 +292,7 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8083:8083"
     depends_on:
@@ -312,6 +329,7 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8084:8084"
     depends_on:
@@ -362,6 +380,7 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8085:8085"
     depends_on:
@@ -374,8 +393,8 @@ services:
 
   payment-service:
     build:
-      context: ../services/payment-service
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/payment-service/Dockerfile
     container_name: cinema-payment-service
     env_file:
       - .env
@@ -390,6 +409,11 @@ services:
       - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
       - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
       - Jwt__RequireHttpsMetadata=false
+      - KeycloakAdmin__BaseUrl=http://keycloak:8080
+      - KeycloakAdmin__Realm=cinema-booking
+      - KeycloakAdmin__ClientId=cinema-admin
+      - KeycloakAdmin__ClientSecret=${KC_ADMIN_CLIENT_SECRET}
+      - App__BaseUrl=${FRONTEND_URL:-http://localhost:5173}
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
     ports:
       - "${PAYMENT_SERVICE_PORT:-5003}:80"
@@ -416,8 +440,8 @@ services:
 
   notification-service:
     build:
-      context: ../services/notification-service
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/notification-service/Dockerfile
     container_name: cinema-notification-service
     env_file:
       - .env
@@ -433,7 +457,18 @@ services:
       - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
       - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
       - Jwt__RequireHttpsMetadata=false
+      - KeycloakAdmin__BaseUrl=http://keycloak:8080
+      - KeycloakAdmin__Realm=cinema-booking
+      - KeycloakAdmin__ClientId=cinema-admin
+      - KeycloakAdmin__ClientSecret=${KC_ADMIN_CLIENT_SECRET}
+      - IdentityService__BaseUrl=http://identity-service:80
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+      - Smtp__Host=${SMTP_HOST:-smtp.gmail.com}
+      - Smtp__Port=${SMTP_PORT:-587}
+      - Smtp__Username=${SMTP_USER}
+      - Smtp__Password=${SMTP_PASS}
+      - Smtp__FromName=Cinema Booking System
+      - Smtp__FromAddress=${SMTP_USER:-noreply@cinema.com}
     ports:
       - "${NOTIFICATION_SERVICE_PORT:-5004}:80"
     depends_on:

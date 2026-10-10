@@ -40,7 +40,7 @@ export const StarRating: React.FC<StarRatingProps> = ({
             {/* Background (empty) star */}
             <Star
               size={size}
-              className="text-slate-200"
+              className="text-inverse-on-surface"
               strokeWidth={1.5}
             />
             {/* Filled overlay */}

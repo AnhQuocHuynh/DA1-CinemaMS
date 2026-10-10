@@ -35,6 +35,12 @@ public class RabbitMqConnectionProvider : IRabbitMqConnectionProvider, IDisposab
                 return _connection;
             }
 
+            if (_connection is not null)
+            {
+                try { _connection.Dispose(); } catch { }
+                _connection = null;
+            }
+
             _logger.LogInformation("Creating new RabbitMQ connection to {HostName}:{Port}", _settings.HostName, _settings.Port);
             
             var factory = new ConnectionFactory
@@ -42,7 +48,9 @@ public class RabbitMqConnectionProvider : IRabbitMqConnectionProvider, IDisposab
                 HostName = _settings.HostName,
                 Port = _settings.Port,
                 UserName = _settings.UserName,
-                Password = _settings.Password
+                Password = _settings.Password,
+                AutomaticRecoveryEnabled = true,
+                NetworkRecoveryInterval = TimeSpan.FromSeconds(10)
             };
 
             _connection = await factory.CreateConnectionAsync(cancellationToken);

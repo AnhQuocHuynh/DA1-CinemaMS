@@ -72,7 +72,7 @@ public class ExceptionHandlingMiddleware
 
             default:
                 code = HttpStatusCode.InternalServerError;
-                result = new { error = "An internal server error occurred." };
+                result = new { error = "An internal server error occurred.", details = exception.ToString() };
                 break;
         }
 

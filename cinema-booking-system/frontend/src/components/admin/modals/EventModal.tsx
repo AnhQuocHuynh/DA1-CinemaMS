@@ -112,13 +112,13 @@ export const EventModal: React.FC<EventModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/50 backdrop-blur-sm">
+      <div className="bg-surface-container-lowest rounded-xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="px-6 py-4 border-b border-outline-variant flex items-center justify-between">
+          <h2 className="text-xl font-bold text-on-surface">
             {initialData ? 'Edit Event' : 'Add New Event'}
           </h2>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full">
+          <button onClick={onClose} className="p-2 text-on-surface-variant hover:bg-surface-container rounded-full">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -127,42 +127,42 @@ export const EventModal: React.FC<EventModalProps> = ({
           <form id="event-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Event Name</label>
+                <label className="block text-sm font-semibold text-on-surface-variant mb-2">Event Name</label>
                 <input
                   required
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-outline rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Description</label>
+                <label className="block text-sm font-semibold text-on-surface-variant mb-2">Description</label>
                 <textarea
                   required
                   rows={4}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-outline rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Start Time</label>
+                <label className="block text-sm font-semibold text-on-surface-variant mb-2">Start Time</label>
                 <input
                   required
                   type="datetime-local"
                   value={formData.startTime}
                   onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-outline rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Duration</label>
+                <label className="block text-sm font-semibold text-on-surface-variant mb-2">Duration</label>
                 <div className="flex gap-2">
-                  <div className="flex-1 flex items-center border border-slate-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-white">
+                  <div className="flex-1 flex items-center border border-outline rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-surface-container-lowest">
                     <input
                       required
                       type="number"
@@ -171,9 +171,9 @@ export const EventModal: React.FC<EventModalProps> = ({
                       onChange={(e) => setDuration({ ...duration, hours: parseInt(e.target.value) || 0 })}
                       className="w-full px-3 py-2 border-none focus:ring-0 text-center"
                     />
-                    <span className="pr-3 text-slate-500 text-sm font-medium">hrs</span>
+                    <span className="pr-3 text-on-surface-variant text-sm font-medium">hrs</span>
                   </div>
-                  <div className="flex-1 flex items-center border border-slate-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-white">
+                  <div className="flex-1 flex items-center border border-outline rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-surface-container-lowest">
                     <input
                       required
                       type="number"
@@ -183,13 +183,13 @@ export const EventModal: React.FC<EventModalProps> = ({
                       onChange={(e) => setDuration({ ...duration, minutes: parseInt(e.target.value) || 0 })}
                       className="w-full px-3 py-2 border-none focus:ring-0 text-center"
                     />
-                    <span className="pr-3 text-slate-500 text-sm font-medium">min</span>
+                    <span className="pr-3 text-on-surface-variant text-sm font-medium">min</span>
                   </div>
                 </div>
               </div>
 
               <div className="md:col-span-1">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Venue (Room)</label>
+                <label className="block text-sm font-semibold text-on-surface-variant mb-2">Venue (Room)</label>
                 <select
                   required
                   value={formData.roomId}
@@ -200,7 +200,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                     const venueStr = theater && room ? `${theater.name} - ${room.name}` : '';
                     setFormData({ ...formData, roomId, venue: venueStr });
                   }}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-outline rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="" disabled>Select a room</option>
                   {theaters.map((theater) => (
@@ -216,7 +216,7 @@ export const EventModal: React.FC<EventModalProps> = ({
               </div>
 
               <div className="md:col-span-1">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Base Price (VND)</label>
+                <label className="block text-sm font-semibold text-on-surface-variant mb-2">Base Price (VND)</label>
                 <input
                   required
                   type="number"
@@ -224,20 +224,20 @@ export const EventModal: React.FC<EventModalProps> = ({
                   step="1000"
                   value={formData.basePrice}
                   onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-outline rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Image URL</label>
+                <label className="block text-sm font-semibold text-on-surface-variant mb-2">Image URL</label>
                 <div className="flex gap-2 items-center">
                   <input
                     type="url"
                     value={formData.imageUrl}
                     onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2 border border-outline rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
-                  <label className="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold text-sm flex items-center justify-center hover:bg-blue-700 transition-colors whitespace-nowrap h-full">
+                  <label className="cursor-pointer bg-primary text-on-primary px-4 py-2 rounded-lg font-semibold text-sm flex items-center justify-center hover:opacity-90 transition-colors whitespace-nowrap h-full">
                     {isUploadingImage ? 'Uploading...' : 'Upload Image'}
                     <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploadingImage} />
                   </label>
@@ -250,27 +250,27 @@ export const EventModal: React.FC<EventModalProps> = ({
                     type="checkbox"
                     checked={formData.active}
                     onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                    className="w-5 h-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                    className="w-5 h-5 text-primary border-outline rounded focus:ring-blue-500"
                   />
-                  <span className="text-sm font-semibold text-slate-700">Active</span>
+                  <span className="text-sm font-semibold text-on-surface-variant">Active</span>
                 </label>
               </div>
             </div>
           </form>
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+        <div className="px-6 py-4 border-t border-outline-variant bg-surface-container-low flex justify-end gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-200 rounded-lg"
+            className="px-4 py-2 font-semibold text-on-surface-variant hover:bg-surface-container-high rounded-lg"
           >
             Cancel
           </button>
           <button
             form="event-form"
             type="submit"
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm"
+            className="px-6 py-2 bg-primary hover:opacity-90 text-white font-semibold rounded-lg shadow-sm"
           >
             {initialData ? 'Save Changes' : 'Add Event'}
           </button>

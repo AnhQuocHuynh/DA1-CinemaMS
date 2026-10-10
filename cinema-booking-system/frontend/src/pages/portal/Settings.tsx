@@ -1,30 +1,44 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { SiteTopNav } from '../../components/SiteTopNav';
+import { ProfileSettingsContent } from '../../components/profile/ProfileSettingsContent';
+import { LanguageSwitcher } from '../../components/LanguageSwitcher';
+import { ThemeToggle } from '../../components/ThemeToggle';
+import { useTranslation } from 'react-i18next';
 
 export const Settings: React.FC = () => {
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen bg-surface text-on-surface">
       <SiteTopNav activeLabel="Settings" showSearch={false} />
-      <main className="pt-24 px-6 pb-16 max-w-4xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-on-surface">Settings</h1>
-          <p className="text-on-surface-variant mt-2">Manage your account preferences.</p>
+      <main className="pt-24 px-6 pb-16 max-w-4xl mx-auto space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-on-surface">{t('settings.title', 'Settings')}</h1>
+          <p className="text-on-surface-variant mt-2">{t('settings.subtitle', 'Manage your account preferences and profile.')}</p>
         </div>
 
-        <section className="bg-surface-container-lowest rounded-xl p-6 shadow-sm border border-outline-variant/30">
-          <h2 className="text-lg font-semibold text-on-surface mb-2">Security</h2>
-          <p className="text-sm text-on-surface-variant mb-4">
-            Reset your password if you think your account has been compromised.
-          </p>
-          <Link
-            to="/forgot-password"
-            className="inline-flex items-center justify-center px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all"
-          >
-            Reset Password
-          </Link>
-        </section>
+        <div className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/50">
+          <h2 className="text-xl font-bold text-on-surface mb-6">{t('settings.systemPreferences', 'System Preferences')}</h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-4 border-b border-outline-variant/30">
+              <div>
+                <p className="font-medium text-on-surface">{t('settings.language', 'Language')}</p>
+                <p className="text-sm text-on-surface-variant">{t('settings.languageDesc', 'Choose your preferred language.')}</p>
+              </div>
+              <LanguageSwitcher />
+            </div>
+            <div className="flex items-center justify-between pt-1">
+              <div>
+                <p className="font-medium text-on-surface">{t('settings.theme', 'Theme')}</p>
+                <p className="text-sm text-on-surface-variant">{t('settings.themeDesc', 'Choose between light, dark, or system mode.')}</p>
+              </div>
+              <ThemeToggle />
+            </div>
+          </div>
+        </div>
+
+        <ProfileSettingsContent />
       </main>
     </div>
   );
 };
+

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Download, Share2, Ticket } from 'lucide-react';
 import { useBookingStore } from '../../store/bookingStore';
 import { formatVND, formatShowtime } from '../../utils/formatters';
@@ -7,11 +7,28 @@ import { downloadElementAsPDF } from '../../utils/pdfGenerator';
 import { useState } from 'react';
 import { PrintableTicket } from '../../components/PrintableTicket';
 import { TicketDetails } from '../../types/booking';
+import { paymentService } from '../../services/paymentService';
+import { bookingService } from '../../services/bookingService';
+import { useTranslation } from 'react-i18next';
 
 export const CheckoutSuccess: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const { completedOrder, showtimeData, movieTitle, selectedSeats, clearSelection } = useBookingStore();
+  const {
+    completedOrder,
+    showtimeData,
+    movieTitle,
+    selectedSeats,
+    setCompletedOrder,
+    setShowtimeData,
+    setMovieTitle,
+    clearSelection,
+  } = useBookingStore();
   const [isDownloading, setIsDownloading] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isLoadingOrder, setIsLoadingOrder] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
 
   const handleDownloadPDF = async () => {
     if (!completedOrder) return;
@@ -30,17 +47,17 @@ export const CheckoutSuccess: React.FC = () => {
     // @ts-ignore - BackendTicket type is strict, but runtime might have extra fields, we rely on showtimeSeatId
     const seatId = (t as any).showtimeSeatId;
     const seat = selectedSeats.find(s => s.numericId === seatId);
-    
-    // Get time from showtimeData
-    const startTime = showtimeData?.startTime || '';
+
+    // Get time from showtimeData or completedOrder
+    const startTime = showtimeData?.startTime || completedOrder?.startTime || '';
     const dt = startTime ? new Date(startTime) : null;
-    
+
     return {
       ticketCode: t.ticketCode,
       orderId: completedOrder?.id || 0,
-      movieTitle: showtimeData?.displayTitle || showtimeData?.eventName || movieTitle || 'Vé xem phim',
-      cinemaName: showtimeData?.cinemaName || '',
-      hallName: showtimeData?.roomName || '',
+      movieTitle: showtimeData?.displayTitle || showtimeData?.eventName || movieTitle || completedOrder?.displayTitle || completedOrder?.movieTitle || 'Vé xem phim',
+      cinemaName: showtimeData?.cinemaName || completedOrder?.cinemaName || '',
+      hallName: showtimeData?.roomName || completedOrder?.roomName || '',
       showtime: startTime,
       date: dt ? dt.toLocaleDateString('vi-VN') : '',
       time: dt ? dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
@@ -54,21 +71,94 @@ export const CheckoutSuccess: React.FC = () => {
     };
   });
 
-  // Clear selection on unmount so the store is ready for the next booking
+  // Handle provider verification (PayPal or Stripe) & order restoration on redirect return
   useEffect(() => {
-    return () => {
-      // Delay clear so TicketInfo can still read completedOrder on immediate nav
-    };
-  }, []);
+    const sessionId = searchParams.get('session_id') || searchParams.get('sessionId');
+    const token = searchParams.get('token');
+    const orderIdParam = searchParams.get('orderId');
+
+    // Restore booking context from sessionStorage if store is empty
+    try {
+      const stored = sessionStorage.getItem('pending_booking');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.showtimeData && !showtimeData) setShowtimeData(parsed.showtimeData);
+        if (parsed.movieTitle && !movieTitle) setMovieTitle(parsed.movieTitle);
+      }
+    } catch (e) {
+      console.warn('Failed to restore from sessionStorage', e);
+    }
+
+    const orderId = orderIdParam ? parseInt(orderIdParam, 10) : completedOrder?.id;
+
+    if (sessionId || token || (!completedOrder && orderId)) {
+      const verifyAndFetch = async () => {
+        setIsVerifying(true);
+        setVerificationError(null);
+
+        try {
+          if (sessionId) {
+            await paymentService.verifyStripeReturn(sessionId);
+          } else if (token) {
+            await paymentService.verifyPaymentReturn(searchParams, 'paypal');
+          }
+        } catch (err) {
+          console.warn('Payment return verification error (may be handled by webhook):', err);
+        }
+
+        if (orderId) {
+          setIsLoadingOrder(true);
+          let attempts = 0;
+          const maxAttempts = 5;
+          while (attempts < maxAttempts) {
+            try {
+              const ord = await bookingService.getOrderById(orderId);
+              if (ord) {
+                setCompletedOrder(ord as any);
+                if (ord.status === 'PAID') {
+                  break;
+                }
+              }
+            } catch (err) {
+              console.error('Failed to fetch order by ID:', err);
+            }
+            attempts++;
+            if (attempts < maxAttempts) {
+              await new Promise((res) => setTimeout(res, 1200));
+            }
+          }
+          setIsLoadingOrder(false);
+        }
+
+        setIsVerifying(false);
+      };
+
+      verifyAndFetch();
+    }
+  }, [searchParams]);
+
+  if (isVerifying || isLoadingOrder) {
+    return (
+      <main className="min-h-screen bg-surface flex items-center justify-center px-6 py-20">
+        <div className="text-center space-y-4">
+          <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mx-auto animate-pulse">
+            <CheckCircle className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-on-surface">{t('checkoutSuccess.verifying')}</h2>
+          <p className="text-sm text-on-surface-variant">Vui lòng chờ trong giây lát...</p>
+        </div>
+      </main>
+    );
+  }
 
   if (!completedOrder) {
     // Shouldn't happen in normal flow; redirect home if accessed directly
     return (
       <main className="min-h-screen bg-surface flex items-center justify-center px-6 py-20">
         <div className="text-center space-y-4">
-          <p className="text-on-surface-variant">Không tìm thấy thông tin đặt vé.</p>
+          <p className="text-on-surface-variant">{t('checkoutSuccess.notFound')}</p>
           <Link to="/" className="text-primary font-semibold hover:underline">
-            Về trang chủ
+            {t('checkoutSuccess.goHome')}
           </Link>
         </div>
       </main>
@@ -78,11 +168,13 @@ export const CheckoutSuccess: React.FC = () => {
   const firstTicket = completedOrder.tickets?.[0];
   const firstTicketCode = firstTicket?.ticketCode ?? '';
 
-  // Parse seat labels from seatIdsSnapshot (comma-separated seat IDs — not labels)
-  // We display them as "Ghế X" or rely on the stored selected seats
-  const seatCount = completedOrder.seatIdsSnapshot?.split(',').filter(Boolean).length ?? 0;
-
-  const showtimeLabel = showtimeData ? formatShowtime(showtimeData.startTime) : '—';
+  const seatCount = completedOrder.seatIds?.length ?? completedOrder.seatLabels?.length ?? completedOrder.tickets?.length ?? 0;
+  const showtimeLabel = showtimeData
+    ? formatShowtime(showtimeData.startTime)
+    : completedOrder.startTime
+    ? formatShowtime(completedOrder.startTime)
+    : '—';
+  const displayMovie = movieTitle || showtimeData?.displayTitle || completedOrder.displayTitle || completedOrder.movieTitle || '—';
 
   const handleGoHome = () => {
     clearSelection();
@@ -98,40 +190,52 @@ export const CheckoutSuccess: React.FC = () => {
         </div>
 
         <h1 className="text-3xl font-bold tracking-tight mt-6 text-on-surface">
-          Thanh toán thành công!
+          {t('checkoutSuccess.title')}
         </h1>
-        <p className="text-on-surface-variant mt-3">
-          Ghế của bạn đã được đặt. Vé điện tử đã được tạo và gửi đến email của bạn.
-        </p>
+        {isVerifying && (
+          <div className="mt-4 p-3 bg-primary-container text-on-primary-container rounded-lg animate-pulse">
+            {t('checkoutSuccess.verifying')}
+          </div>
+        )}
+        {verificationError && (
+          <div className="mt-4 p-3 bg-error-container text-on-error-container border border-error-container rounded-lg">
+            {verificationError}
+          </div>
+        )}
+        {!isVerifying && !verificationError && (
+          <p className="text-on-surface-variant mt-3">
+            {t('checkoutSuccess.seatsBooked')}
+          </p>
+        )}
 
         {/* Booking info card */}
         <div className="mt-8 bg-surface-container-low p-6 rounded-xl text-left">
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-[10px] uppercase tracking-widest text-on-surface-variant">
-                Mã đơn hàng
+                {t('checkoutSuccess.orderId')}
               </p>
               <p className="text-lg font-bold text-on-surface">#{completedOrder.id}</p>
             </div>
-            <span className="px-3 py-1 bg-primary text-white text-[10px] uppercase tracking-widest rounded font-bold">
-              Đã thanh toán
+            <span className="px-3 py-1 bg-primary text-on-primary text-[10px] uppercase tracking-widest rounded font-bold">
+              {t('checkoutSuccess.paid')}
             </span>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs text-on-surface-variant mb-1">Phim</p>
-              <p className="font-semibold text-on-surface">{movieTitle ?? '—'}</p>
+              <p className="text-xs text-on-surface-variant mb-1">{t('checkoutSuccess.movie')}</p>
+              <p className="font-semibold text-on-surface">{displayMovie}</p>
             </div>
             <div>
-              <p className="text-xs text-on-surface-variant mb-1">Suất chiếu</p>
+              <p className="text-xs text-on-surface-variant mb-1">{t('checkoutSuccess.showtime')}</p>
               <p className="font-semibold text-on-surface">{showtimeLabel}</p>
             </div>
             <div>
-              <p className="text-xs text-on-surface-variant mb-1">Số ghế</p>
-              <p className="font-semibold text-on-surface">{seatCount} ghế</p>
+              <p className="text-xs text-on-surface-variant mb-1">{t('checkoutSuccess.seatCount')}</p>
+              <p className="font-semibold text-on-surface">{seatCount}</p>
             </div>
             <div>
-              <p className="text-xs text-on-surface-variant mb-1">Tổng tiền</p>
+              <p className="text-xs text-on-surface-variant mb-1">{t('checkoutSuccess.totalAmount')}</p>
               <p className="font-semibold text-primary">{formatVND(parseFloat(completedOrder.finalAmount))}</p>
             </div>
           </div>
@@ -140,7 +244,7 @@ export const CheckoutSuccess: React.FC = () => {
           {completedOrder.tickets && completedOrder.tickets.length > 0 && (
             <div className="mt-6 pt-4 border-t border-outline-variant/20">
               <p className="text-[10px] uppercase tracking-widest text-on-surface-variant mb-3">
-                Mã vé
+                {t('checkoutSuccess.ticketCode')}
               </p>
               <div className="flex flex-wrap gap-2">
                 {completedOrder.tickets.map((t) => (
@@ -162,26 +266,26 @@ export const CheckoutSuccess: React.FC = () => {
           {firstTicketCode ? (
             <Link
               to={`/user/tickets/${firstTicketCode}`}
-              className="flex-1 flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 bg-primary text-on-primary py-3 rounded-lg font-semibold hover:opacity-90 transition-colors"
             >
               <Ticket className="w-4 h-4" />
-              Xem vé
+              {t('checkoutSuccess.viewTicket')}
             </Link>
           ) : null}
           <button
-            className="flex-1 flex items-center justify-center gap-2 bg-white border border-outline-variant py-3 rounded-lg font-semibold hover:bg-surface-container-low transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-surface-container-lowest border border-outline-variant py-3 rounded-lg font-semibold hover:bg-surface-container-low transition-colors"
             onClick={handleDownloadPDF}
             disabled={isDownloading}
           >
             <Download className="w-4 h-4" />
-            {isDownloading ? 'Đang tải...' : 'In vé'}
+            {isDownloading ? t('checkoutSuccess.downloading') : t('checkoutSuccess.printTicket')}
           </button>
           <button
-            className="flex-1 flex items-center justify-center gap-2 bg-white border border-outline-variant py-3 rounded-lg font-semibold hover:bg-surface-container-low transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-surface-container-lowest border border-outline-variant py-3 rounded-lg font-semibold hover:bg-surface-container-low transition-colors"
             onClick={handleGoHome}
           >
             <Share2 className="w-4 h-4" />
-            Về trang chủ
+            {t('checkoutSuccess.goHome')}
           </button>
         </div>
       </div>

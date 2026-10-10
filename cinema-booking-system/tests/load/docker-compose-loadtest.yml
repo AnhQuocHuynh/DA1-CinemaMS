@@ -1,0 +1,306 @@
+# ==============================================================================
+# Cinema Booking System — Unified Load Test Docker Compose
+# ==============================================================================
+# Uses Docker Compose profiles to start only required services per test.
+#
+# Usage:
+#   docker compose --profile showtime -f docker-compose-loadtest.yml --env-file .env up -d
+#   docker compose --profile gateway  -f docker-compose-loadtest.yml --env-file .env up -d
+#
+# Available profiles:
+#   showtime  — Showtime seat locking contention test (Postgres, Redis, Showtime, k6)
+#   gateway   — Full gateway path test (adds Keycloak, Identity, API Gateway)
+#   all       — Every service (for future combined tests)
+# ==============================================================================
+
+name: loadtest
+
+services:
+  # ============================================================
+  # INFRASTRUCTURE — shared across all profiles
+  # ============================================================
+  postgres:
+    image: postgres:18-alpine
+    container_name: lt-postgres
+    profiles: [showtime, gateway, all]
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cinema_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ../../backend/infrastructure/init-multiple-databases.sql:/docker-entrypoint-initdb.d/init-multiple-databases.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d cinema_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lt-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: lt-redis
+    profiles: [gateway, all]
+    ports:
+      - "6379:6379"
+    networks:
+      - lt-network
+
+  showtime-redis:
+    image: redis:7-alpine
+    container_name: lt-showtime-redis
+    profiles: [showtime, gateway, all]
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lt-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: lt-rabbitmq
+    profiles: [gateway, all]
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-cinema}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - lt-network
+
+  # ============================================================
+  # AUTH & IDENTITY — only needed for gateway profile
+  # ============================================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: lt-keycloak
+    profiles: [gateway, all]
+    env_file:
+      - .env
+    environment:
+      - KC_HEALTH_ENABLED=true
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_BOOTSTRAP_ADMIN_PASSWORD:-admin}
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak_db
+      - KC_DB_USERNAME=${POSTGRES_USER:-postgres}
+      - KC_DB_PASSWORD=${POSTGRES_PASSWORD:-123}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USERNAME=${RABBITMQ_DEFAULT_USER:-cinema}
+      - RABBITMQ_PASSWORD=${RABBITMQ_DEFAULT_PASS:-guest}
+    command: start-dev --import-realm
+    ports:
+      - "8080:8080"
+      - "9000:9000"
+    volumes:
+      - ../../backend/infrastructure/keycloak-themes/cinema-theme:/opt/keycloak/themes/cinema-theme
+      - ./keycloak-config:/opt/keycloak/data/import
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && timeout 1 cat <&3 | grep -q 'UP'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - lt-network
+
+  identity-service:
+    build:
+      context: ../../backend
+      dockerfile: services/identity-service/Dockerfile
+    container_name: lt-identity-service
+    profiles: [gateway, all]
+    env_file:
+      - .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_HTTP_PORTS=80
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=user_profile_db;Username=postgres;Password=123
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__UserName=cinema
+      - RabbitMQ__Password=guest
+      - Jwt__Authority=http://keycloak:8080/realms/cinema-booking
+      - Jwt__ValidIssuer=http://keycloak:8080/realms/cinema-booking
+      - Jwt__Audience=account
+      - Jwt__RequireHttpsMetadata=false
+      - KeycloakAdmin__BaseUrl=http://keycloak:8080
+      - KeycloakAdmin__Realm=cinema-booking
+      - KeycloakAdmin__ClientId=cinema-admin
+      - KeycloakAdmin__ClientSecret=${KC_ADMIN_CLIENT_SECRET}
+    ports:
+      - "5001:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - lt-network
+
+  # ============================================================
+  # SHOWTIME FLOW — core services for seat map & locking tests
+  # ============================================================
+  catalog-service:
+    build:
+      context: ../../backend
+      dockerfile: services/catalog-service/Dockerfile
+    container_name: lt-catalog-service
+    profiles: [showtime, gateway, all]
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cinema_catalog_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      INTERNAL_API_TOKEN: local-dev-internal-token
+      CINEMA_SECURITY_JWT_ENABLED: "false"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: cinema
+      SPRING_RABBITMQ_PASSWORD: guest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - lt-network
+
+  facility-service:
+    build:
+      context: ../../backend
+      dockerfile: services/facility-service/Dockerfile
+    container_name: lt-facility-service
+    profiles: [showtime, gateway, all]
+    env_file:
+      - .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_HTTP_PORTS=80
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=facility_db;Username=postgres;Password=123
+      - ConnectionStrings__RedisConnection=showtime-redis:6379
+      - Jwt__Authority=http://keycloak:8080/realms/cinema-booking
+      - Jwt__RequireHttpsMetadata=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - lt-network
+
+  showtime-service:
+    build:
+      context: ../../backend
+      dockerfile: services/showtime-service/Dockerfile
+    container_name: lt-showtime-service
+    profiles: [showtime, gateway, all]
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cinema_showtime_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 123
+      SPRING_DATA_REDIS_HOST: showtime-redis
+      SPRING_DATA_REDIS_PORT: 6379
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      FACILITY_SERVICE_URL: http://facility-service:80
+      INTERNAL_API_TOKEN: local-dev-internal-token
+      CINEMA_SECURITY_JWT_ENABLED: "false"
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/cinema-booking
+      KEYCLOAK_AUDIENCE: cinema-api
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/cinema-booking/protocol/openid-connect/certs
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - "8082:8082"
+    depends_on:
+      catalog-service:
+        condition: service_started
+      facility-service:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      showtime-redis:
+        condition: service_healthy
+    networks:
+      - lt-network
+
+  # ============================================================
+  # API GATEWAY — only needed for gateway profile
+  # ============================================================
+  api-gateway:
+    build:
+      context: ../../backend
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: lt-api-gateway
+    profiles: [gateway, all]
+    env_file:
+      - .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_HTTP_PORTS=80
+      - ReverseProxy__Clusters__keycloak-cluster__Destinations__keycloak-1__Address=http://keycloak:8080
+      - ReverseProxy__Clusters__user-profile-cluster__Destinations__user-profile-1__Address=http://identity-service:80
+      - ReverseProxy__Clusters__showtime-cluster__Destinations__showtime-1__Address=http://showtime-service:8082
+      - ReverseProxy__Clusters__catalog-cluster__Destinations__catalog-1__Address=http://catalog-service:8081
+      - ReverseProxy__Clusters__facility-cluster__Destinations__facility-1__Address=http://facility-service:80
+      - Jwt__Authority=http://keycloak:8080/realms/cinema-booking
+      - Jwt__ValidIssuer=http://keycloak:8080/realms/cinema-booking
+      - Jwt__Audience=account
+      - UserProfileService__BaseUrl=http://identity-service:80
+      - Redis__ConnectionString=redis:6379
+      - RateLimiting__GlobalPermitLimit=${RATE_LIMIT_GLOBAL_PERMIT_LIMIT:-10000}
+      - RateLimiting__GlobalQueueLimit=${RATE_LIMIT_GLOBAL_QUEUE_LIMIT:-100}
+    ports:
+      - "5000:80"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      identity-service:
+        condition: service_started
+      redis:
+        condition: service_started
+    networks:
+      - lt-network
+
+  # ============================================================
+  # K6 LOAD GENERATOR
+  # ============================================================
+  k6:
+    image: grafana/k6:latest
+    container_name: lt-k6
+    profiles: [showtime, gateway, all]
+    volumes:
+      - ./scripts:/scripts
+    environment:
+      - GATEWAY_URL=${GATEWAY_URL:-}
+      - SHOWTIME_URL=${SHOWTIME_URL:-http://showtime-service:8082}
+      - KEYCLOAK_URL=${KEYCLOAK_URL:-}
+    # Default script — overridden by the runner script per profile
+    command: run --summary-export=/scripts/summary.json /scripts/showtime-test.js
+    networks:
+      - lt-network
+
+networks:
+  lt-network:
+    driver: bridge
