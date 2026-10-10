@@ -10,12 +10,11 @@ import { bookingService } from '../../services/bookingService';
 import { paymentService } from '../../services/paymentService';
 import { formatVND, formatShowtime } from '../../utils/formatters';
 
-type PaymentMethod = 'STRIPE' | 'PAYPAL' | 'CASH';
+type PaymentMethod = 'STRIPE' | 'PAYPAL';
 
 const getPaymentOptions = (t: (key: string) => string): { value: PaymentMethod; label: string }[] => [
   { value: 'STRIPE', label: t('checkout.stripe') },
   { value: 'PAYPAL', label: t('checkout.paypal') },
-  { value: 'CASH', label: t('checkout.cash') },
 ];
 
 export const Checkout: React.FC = () => {
