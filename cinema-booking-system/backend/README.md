@@ -5,7 +5,7 @@ This folder is the microservice migration target. The full runnable application 
 ## Current Status
 
 - `services/catalog-service` owns catalog data: movies, genres, events, and catalog search.
-- `services/facility-service` is the current Spring Boot compatibility slice for facility data. The target Facility service is ASP.NET per `../docs/architecture_refactor.md`, so keep further Spring changes minimal and contract-driven.
+- `services/facility-service` is the current Spring Boot compatibility slice for facility data. The target Facility service is ASP.NET per `../docs/architecture.md`, so keep further Spring changes minimal and contract-driven.
 - `services/showtime-service` owns showtimes, showtime seats, seat holds, and seat reservation state transitions.
 - `services/booking-service` owns orders, payments, tickets, vouchers, and reviews.
 - `services/analytics-service` maintains a PostgreSQL dashboard read model through durable, idempotent RabbitMQ projections.

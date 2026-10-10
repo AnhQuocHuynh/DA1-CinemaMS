@@ -53,6 +53,21 @@ export const staffService = {
     return response.data.data;
   },
 
+  lookupMemberByPhone: async (
+    phone: string
+  ): Promise<{ id: number; fullName: string; phone: string; tier?: string; loyaltyPoints?: number } | null> => {
+    console.warn('[STAFF] lookupMemberByPhone: Endpoint /users/lookup is missing in backend. Needs backend implementation.');
+    try {
+      const response = await apiClient.get<{
+        success: boolean;
+        data: { id: number; fullName: string; phone: string; tier?: string; loyaltyPoints?: number };
+      }>(`/users/lookup?phone=${encodeURIComponent(phone)}`);
+      return response.data.data ?? null;
+    } catch {
+      return null;
+    }
+  },
+
   scanTicket: async (ticketCode: string): Promise<StaffScanResult> => {
     const response = await apiClient.post<{
       ticketCode: string;

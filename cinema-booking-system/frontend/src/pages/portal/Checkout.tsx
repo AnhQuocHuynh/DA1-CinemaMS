@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lock, Tag, X, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
@@ -10,12 +10,11 @@ import { bookingService } from '../../services/bookingService';
 import { paymentService } from '../../services/paymentService';
 import { formatVND, formatShowtime } from '../../utils/formatters';
 
-type PaymentMethod = 'STRIPE' | 'PAYPAL' | 'CASH';
+type PaymentMethod = 'STRIPE' | 'PAYPAL';
 
 const getPaymentOptions = (t: (key: string) => string): { value: PaymentMethod; label: string }[] => [
   { value: 'STRIPE', label: t('checkout.stripe') },
   { value: 'PAYPAL', label: t('checkout.paypal') },
-  { value: 'CASH', label: t('checkout.cash') },
 ];
 
 export const Checkout: React.FC = () => {
@@ -38,15 +37,52 @@ export const Checkout: React.FC = () => {
     selectedSeats,
     showtimeData,
     holdExpiresAt,
+    pendingOrder,
     setPendingOrder,
     setCompletedOrder,
+    clearSelection,
   } = useBookingStore();
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('STRIPE');
   const [isProcessing, setIsProcessing] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
 
-  const handleTimerExpired = () => navigate(-1);
+  const handleTimerExpired = () => {
+    clearSelection();
+    navigate('/user/booking-failed?reason=timeout');
+  };
+
+  useEffect(() => {
+    // 1. Direct access check: if no seats selected and no showtime
+    if (selectedSeats.length === 0 || !showtimeData) {
+      navigate('/', { replace: true });
+      return;
+    }
+
+    // 2. Hold timer check: if the hold already expired (e.g. while away on gateway)
+    if (holdExpiresAt && new Date(holdExpiresAt).getTime() <= Date.now()) {
+      clearSelection();
+      navigate('/user/booking-failed?reason=timeout', { replace: true });
+      return;
+    }
+
+    // 3. Status check: if an order exists, verify it wasn't already paid or cancelled
+    if (pendingOrder?.id) {
+      bookingService.getOrderById(pendingOrder.id)
+        .then((ord) => {
+          if (ord.status === 'PAID') {
+            setCompletedOrder(ord);
+            navigate(`/user/checkout-success?orderId=${ord.id}`, { replace: true });
+          } else if (ord.status === 'CANCELLED') {
+            clearSelection();
+            navigate(`/user/booking-failed?reason=cancelled&orderId=${ord.id}`, { replace: true });
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not verify pending order status:', err);
+        });
+    }
+  }, [selectedSeats.length, showtimeData, holdExpiresAt, pendingOrder?.id, navigate, clearSelection, setCompletedOrder]);
 
   const handlePay = async () => {
     if (!user || !showtimeData) {
@@ -65,47 +101,63 @@ export const Checkout: React.FC = () => {
       const seatIds = selectedSeats.map((s) => s.numericId);
       const userId = typeof user.id === 'number' ? user.id : parseInt(String(user.id), 10);
 
-      // 1. Create order
-      const order = await bookingService.createOrder({
-        userId,
-        showtimeId: showtimeData.id,
-        seatIds,
-        voucherCode: appliedVoucher?.code ?? null,
-      });
-      setPendingOrder(order);
+      // 1. Create order (or reuse existing pending order if 409 duplicate)
+      let orderId: number;
+      try {
+        const order = await bookingService.createOrder({
+          userId,
+          showtimeId: showtimeData.id,
+          seatIds,
+          voucherCode: appliedVoucher?.code ?? null,
+        });
+        setPendingOrder(order);
+        orderId = order.id;
+      } catch (orderErr: any) {
+        const errData = orderErr?.response?.data;
+        if (
+          orderErr?.response?.status === 409 &&
+          (errData?.code === 'DUPLICATE_PENDING_ORDER' || errData?.errorCode === 'DUPLICATE_PENDING_ORDER') &&
+          errData?.existingOrderId
+        ) {
+          orderId = errData.existingOrderId;
+        } else {
+          throw orderErr;
+        }
+      }
 
       // Save context in sessionStorage before external redirect
       try {
         sessionStorage.setItem('pending_booking', JSON.stringify({
-          orderId: order.id,
+          orderId,
           showtimeData,
           movieTitle: showtimeData?.displayTitle || showtimeData?.eventName || '',
           selectedSeats,
+          holdExpiresAt: holdExpiresAt ? holdExpiresAt.toISOString() : null,
+          voucher: appliedVoucher ?? null,
         }));
       } catch (e) {
         console.warn('Failed to save pending booking in sessionStorage', e);
       }
 
       const successUrl = paymentMethod === 'STRIPE'
-        ? `${window.location.origin}/user/checkout-success?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`
-        : `${window.location.origin}/user/checkout-success?orderId=${order.id}`;
+        ? `${window.location.origin}/user/checkout-success?orderId=${orderId}&session_id={CHECKOUT_SESSION_ID}`
+        : `${window.location.origin}/user/checkout-success?orderId=${orderId}`;
 
       const paymentData = {
-        orderId: order.id,
+        orderId,
         paymentMethod: paymentMethod,
-        amount: summary.total,
         successUrl,
-        cancelUrl: `${window.location.origin}/user/booking/${showtimeData.id}`
+        cancelUrl: `${window.location.origin}/user/booking-failed?reason=cancelled&orderId=${orderId}`
       };
-      const paymentResponse = await paymentService.initiatePayment(paymentData as any);
+      const paymentResponse = await paymentService.initiatePayment(paymentData);
 
       if (paymentResponse.paymentUrl) {
         window.location.href = paymentResponse.paymentUrl;
         return;
       }
 
-      setCompletedOrder(order as any);
-      navigate(`/user/checkout-success?orderId=${order.id}`);
+      setCompletedOrder({ id: orderId } as any);
+      navigate(`/user/checkout-success?orderId=${orderId}`);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setPayError(
@@ -115,6 +167,14 @@ export const Checkout: React.FC = () => {
       setIsProcessing(false);
     }
   };
+
+  if (selectedSeats.length === 0 || !showtimeData) {
+    return (
+      <main className="min-h-screen bg-surface flex items-center justify-center px-6 py-20">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </main>
+    );
+  }
 
   const showtimeLabel = showtimeData ? formatShowtime(showtimeData.startTime) : '';
 

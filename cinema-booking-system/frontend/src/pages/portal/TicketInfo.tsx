@@ -1,8 +1,7 @@
-import React, { useCallback, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { SiteTopNav } from '../../components/SiteTopNav';
 import { useTicketDetails } from '../../hooks/useTicketDetails';
-import { bookingService } from '../../services/bookingService';
 import { formatVND } from '../../utils/formatters';
 import { AlertCircle, Printer } from 'lucide-react';
 import genericPoster from '../../resources/generic_movie_poster.png';
@@ -16,8 +15,6 @@ export const TicketInfo: React.FC = () => {
   const { ticketId: ticketCode = '' } = useParams<{ ticketId: string }>();
   const navigate = useNavigate();
   const { ticket, isLoading, error } = useTicketDetails(ticketCode);
-  const [cancelLoading, setCancelLoading] = useState(false);
-  const [cancelError, setCancelError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownloadPDF = async () => {
@@ -30,22 +27,6 @@ export const TicketInfo: React.FC = () => {
       setIsDownloading(false);
     }
   };
-
-  const handleCancel = useCallback(async () => {
-    if (!ticket?.orderId) return;
-    if (!window.confirm(t('ticketInfo.cancelConfirm'))) return;
-    setCancelLoading(true);
-    setCancelError(null);
-    try {
-      await bookingService.refundOrder(ticket.orderId, 'Khách hàng yêu cầu huỷ');
-      navigate('/my-tickets');
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setCancelError(e?.response?.data?.message || t('ticketInfo.cancelError'));
-    } finally {
-      setCancelLoading(false);
-    }
-  }, [ticket, navigate]);
 
   if (isLoading) {
     return (
@@ -250,21 +231,21 @@ export const TicketInfo: React.FC = () => {
               </div>
             </div>
 
-            {cancelError && (
-              <div className="flex items-start gap-2 bg-error/10 text-error border border-error/30 rounded-lg p-3">
-                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                <p className="text-xs font-medium">{cancelError}</p>
+            {ticket.orderId && (
+              <div className="bg-surface-container-low border border-outline-variant/30 rounded-xl p-3.5 flex items-center justify-between gap-3">
+                <div className="text-xs text-on-surface-variant">
+                  {t('ticketInfo.belongsToOrder', { orderId: ticket.orderId })}
+                </div>
+                <Link
+                  to="/my-tickets"
+                  className="text-xs font-semibold text-primary hover:underline shrink-0"
+                >
+                  {t('ticketInfo.manageOrderRefund')} &rarr;
+                </Link>
               </div>
             )}
 
-            <div className="flex justify-between items-center px-2">
-              <button
-                className="text-sm font-medium text-error hover:underline disabled:opacity-50"
-                onClick={handleCancel}
-                disabled={cancelLoading || ticket.status !== 'VALID'}
-              >
-                {cancelLoading ? t('ticketInfo.canceling') : t('ticketInfo.cancelRefund')}
-              </button>
+            <div className="flex justify-end items-center px-2">
               <button
                 className="text-sm font-medium text-primary hover:underline"
                 onClick={() => navigator.share?.({ title: ticket.ticketCode, text: `${t('ticketInfo.movieTicket')}: ${ticket.ticketCode}` })}
@@ -274,6 +255,7 @@ export const TicketInfo: React.FC = () => {
             </div>
           </div>
         </div>
+
 
         {/* Hidden printable layout */}
         <div id="printable-ticket-content" style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>

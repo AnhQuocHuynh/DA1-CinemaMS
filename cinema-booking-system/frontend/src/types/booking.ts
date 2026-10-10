@@ -48,7 +48,8 @@ export interface BackendTicket {
   ticketCode: string;
   qrCodeData: string;   // base64 PNG
   price: string;
-  status: 'VALID' | 'USED' | 'CANCELLED' | 'CHECKED_IN';
+  status: 'VALID' | 'USED' | 'CANCELLED' | 'CHECKED_IN' | 'REFUNDED';
+  seatLabel?: string;
   checkedInAt: string | null;
   createdAt: string;
 }
@@ -74,9 +75,12 @@ export interface BackendOrder {
   paymentMethod: string | null;
   paymentTransactionId: string | null;
   tickets: BackendTicket[];
+  refundable?: boolean;
+  refundPercent?: number;
   createdAt: string;
   updatedAt: string;
 }
+
 
 export interface BackendVoucher {
   id: number;

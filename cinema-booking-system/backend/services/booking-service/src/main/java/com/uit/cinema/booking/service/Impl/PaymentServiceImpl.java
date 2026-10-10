@@ -15,6 +15,7 @@ import com.uit.cinema.showtime.service.contract.SeatBookingResult;
 import com.uit.cinema.showtime.service.contract.SeatReleaseRequest;
 import com.uit.cinema.showtime.service.contract.SeatView;
 import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
+import com.uit.cinema.booking.client.HttpPaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -39,6 +41,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final TicketGenerationService ticketGenerationService;
     private final SeatReservationService seatReservationService;
     private final BookingOutboxEventWriter bookingOutboxEventWriter;
+    private final HttpPaymentService httpPaymentService;
 
     @Override
     @Transactional
@@ -85,6 +88,13 @@ public class PaymentServiceImpl implements PaymentService {
         log.info("Order {} paid via {}, txn {}", orderId, paymentMethod, transactionId);
         Order paidOrder = orderRepository.save(order);
         bookingOutboxEventWriter.orderPaid(paidOrder, showtime, seatIds.size());
+        if (paidOrder.getUserId() != null && paidOrder.getUserId() > 0L) {
+            bookingOutboxEventWriter.emitLoyaltyPointsEarned(
+                paidOrder.getUserId(),
+                paidOrder.getId(),
+                paidOrder.getFinalAmount()
+            );
+        }
         return paidOrder;
     }
 
@@ -110,6 +120,13 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
+        BigDecimal refundAmount = order.getFinalAmount()
+            .multiply(BigDecimal.valueOf(refundPercent))
+            .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+        // Synchronously execute payment refund first. Throws if gateway fails (reverting transaction, preserving seats).
+        httpPaymentService.executeOrderRefund(orderId, refundAmount, reason);
+
         for (Ticket ticket : tickets) {
             ticket.setStatus(Ticket.TicketStatus.REFUNDED);
             ticketRepository.save(ticket);
@@ -120,7 +137,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         order.setStatus(Order.OrderStatus.REFUNDED);
-        log.info("Order {} refunded ({}%). Reason: {}", orderId, refundPercent, reason);
+        log.info("Order {} refunded ({}%, amount {}). Reason: {}", orderId, refundPercent, refundAmount, reason);
         Order refundedOrder = orderRepository.save(order);
         bookingOutboxEventWriter.orderRefunded(refundedOrder, tickets.size());
         return refundedOrder;
@@ -225,7 +242,40 @@ public class PaymentServiceImpl implements PaymentService {
         return PaymentEventOutcome.APPLIED;
     }
 
+    @Override
+    @Transactional
+    public PaymentEventOutcome applyExpiredPayment(Long orderId, Long userId, String reason) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            return PaymentEventOutcome.ORDER_MISSING;
+        }
+        if (userId != null) {
+            assertUserMatches(order, userId);
+        }
+        if (order.getStatus() == Order.OrderStatus.CANCELLED) {
+            return PaymentEventOutcome.ALREADY_APPLIED;
+        }
+        if (order.getStatus() != Order.OrderStatus.PENDING) {
+            log.warn("Ignoring order.expired for order {} in status {}", orderId, order.getStatus());
+            return PaymentEventOutcome.IGNORED_STALE;
+        }
+
+        List<Long> seatIds = parseSeatIds(order.getSeatIdsSnapshot());
+        seatReservationService.releaseHeldSeats(
+            new SeatBookingRequest(order.getUserId(), order.getShowtimeId(), seatIds)
+        );
+        order.setStatus(Order.OrderStatus.CANCELLED);
+        orderRepository.save(order);
+        log.info("Order {} cancelled after order.expired. Reason: {}", orderId, reason);
+        return PaymentEventOutcome.APPLIED;
+    }
+
     private void assertUserMatches(Order order, Long userId) {
+        // Case 1: Anonymous walk-in counter order (userId == 0L) -> bypass user match validation
+        if (order.getSalesChannel() == Order.SalesChannel.COUNTER && Order.ANONYMOUS_USER_ID.equals(order.getUserId())) {
+            return;
+        }
+        // Case 2: Online order or Member Loyalty counter order -> assert userId matches
         if (userId != null && !userId.equals(order.getUserId())) {
             throw new CustomException(
                 "Payment userId does not match order owner",

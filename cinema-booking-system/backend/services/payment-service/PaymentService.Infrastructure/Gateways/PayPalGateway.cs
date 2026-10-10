@@ -118,13 +118,36 @@ public class PayPalGateway : IPaymentGateway
             _logger.LogInformation("PayPal Order created: {OrderId} for PaymentId: {PaymentId}",
                 orderId, request.PaymentId);
 
-            return new PaymentInitiationResult(true, approvalUrl, null);
+            return new PaymentInitiationResult(true, approvalUrl, null, orderId);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error initiating PayPal payment for PaymentId: {PaymentId}", request.PaymentId);
             return new PaymentInitiationResult(false, null, ex.Message);
         }
+    }
+
+    public async Task<string> GetExistingSessionUrlAsync(string gatewaySessionId, CancellationToken ct = default)
+    {
+        var accessToken = await GetAccessTokenAsync();
+        var baseUrl = GetBaseUrl();
+        var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/v2/checkout/orders/{gatewaySessionId}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var response = await _httpClient.SendAsync(request, ct);
+        response.EnsureSuccessStatusCode();
+        var responseBody = await response.Content.ReadAsStringAsync(ct);
+        var doc = JsonDocument.Parse(responseBody);
+        if (doc.RootElement.TryGetProperty("links", out var links))
+        {
+            foreach (var link in links.EnumerateArray())
+            {
+                if (link.TryGetProperty("rel", out var rel) && rel.GetString() == "payer-action")
+                {
+                    return link.GetProperty("href").GetString()!;
+                }
+            }
+        }
+        throw new InvalidOperationException($"PayPal approval URL not found for existing order {gatewaySessionId}");
     }
 
     public async Task<PaymentVerificationResult> VerifyCallbackAsync(IDictionary<string, string> parameters)

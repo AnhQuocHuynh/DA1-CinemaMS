@@ -78,6 +78,16 @@ public class PaymentEventEnvelopeReader {
         );
     }
 
+    public PaymentExpiredPayload expiredPayload(JsonNode payload) {
+        return new PaymentExpiredPayload(
+            optionalUuid(payload, "correlationId", "CorrelationId"),
+            optionalLong(payload, "paymentId", "PaymentId"),
+            requiredLong(payload, "orderId", "OrderId"),
+            optionalLong(payload, "userId", "UserId"),
+            optionalText(payload, "reason", "Reason")
+        );
+    }
+
     private JsonNode parseObject(String message) {
         try {
             JsonNode root = objectMapper.readTree(message);

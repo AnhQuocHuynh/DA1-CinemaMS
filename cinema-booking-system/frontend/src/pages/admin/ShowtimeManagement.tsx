@@ -291,7 +291,7 @@ export const ShowtimeManagement: React.FC = () => {
                                       </div>
                                       <div>
                                         {st.movieId ? (
-                                          <span className="text-xs font-bold bg-primary-container text-primary px-2 py-0.5 rounded border border-blue-200">
+                                          <span className="text-xs font-bold bg-secondary-container text-primary px-2 py-0.5 rounded border border-blue-200">
                                             {movieMap[st.movieId] || t('adminShowtime.movieFallback', { id: st.movieId, defaultValue: 'Movie #{{id}}' })}
                                           </span>
                                         ) : st.eventId ? (

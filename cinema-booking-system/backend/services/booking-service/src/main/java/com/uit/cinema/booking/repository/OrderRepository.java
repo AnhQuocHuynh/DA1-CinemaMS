@@ -17,4 +17,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findByStatus(Order.OrderStatus status);
 
     Optional<Order> findByPaymentTransactionId(String paymentTransactionId);
+
+    boolean existsByUserIdAndShowtimeIdAndStatus(Long userId, Long showtimeId, Order.OrderStatus status);
+
+    Optional<Order> findByUserIdAndShowtimeIdAndStatus(Long userId, Long showtimeId, Order.OrderStatus status);
 }

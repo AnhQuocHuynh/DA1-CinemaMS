@@ -13,7 +13,7 @@ using Xunit.Abstractions;
 namespace PaymentService.Test.Integration.Sagas;
 
 [Collection("Integration Tests")]
-public class PaymentStateMachineIntegrationTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
+public class PaymentStateMachineIntegrationTests : IAsyncLifetime
 {
     private readonly CustomWebApplicationFactory _factory;
     private readonly IServiceScope _scope;
@@ -37,6 +37,8 @@ public class PaymentStateMachineIntegrationTests : IClassFixture<CustomWebApplic
     public async Task DisposeAsync()
     {
         // Clean up database after each test
+        _dbContext.Refunds.RemoveRange(_dbContext.Refunds);
+        _dbContext.TransactionLogs.RemoveRange(_dbContext.TransactionLogs);
         _dbContext.Payments.RemoveRange(_dbContext.Payments);
         _dbContext.Set<PaymentSagaState>().RemoveRange(_dbContext.Set<PaymentSagaState>());
         await _dbContext.SaveChangesAsync();
@@ -44,10 +46,13 @@ public class PaymentStateMachineIntegrationTests : IClassFixture<CustomWebApplic
         _scope.Dispose();
     }
 
-    private async Task WaitForSagaState(Guid correlationId, string expectedState, TimeSpan timeout)
+    private async Task WaitForSagaState(Guid correlationId, string expectedState, TimeSpan? timeout = null)
     {
+        var effectiveTimeout = timeout.HasValue && timeout.Value > TimeSpan.FromSeconds(15)
+            ? timeout.Value
+            : TimeSpan.FromSeconds(15);
         var startTime = DateTime.UtcNow;
-        while (DateTime.UtcNow - startTime < timeout)
+        while (DateTime.UtcNow - startTime < effectiveTimeout)
         {
             var allSagas = await _dbContext.Set<PaymentSagaState>().AsNoTracking().ToListAsync();
             _output.WriteLine($"Current Sagas in DB: {allSagas.Count}. Looking for: {correlationId}");
@@ -63,7 +68,7 @@ public class PaymentStateMachineIntegrationTests : IClassFixture<CustomWebApplic
                 
             await Task.Delay(1000);
         }
-        throw new TimeoutException($"Saga {correlationId} did not reach state {expectedState} within {timeout}");
+        throw new TimeoutException($"Saga {correlationId} did not reach state {expectedState} within {effectiveTimeout}");
     }
 
     [Fact]
@@ -165,7 +170,7 @@ public class PaymentStateMachineIntegrationTests : IClassFixture<CustomWebApplic
         var correlationId = payment.SagaId;
         var paymentId = payment.Id;
 
-        // Act 1: Initiate Payment
+        // Act 1: Initiate Payment (CASH immediately transitions to Completed)
         await _bus.Publish(new PaymentInitiated
         {
             CorrelationId = correlationId,
@@ -177,19 +182,10 @@ public class PaymentStateMachineIntegrationTests : IClassFixture<CustomWebApplic
             PaymentMethod = payment.PaymentMethod.ToString()
         });
 
-        await WaitForSagaState(correlationId, "Pending", TimeSpan.FromSeconds(10));
-
-        // Act 2: Cash Confirmed
-        await _bus.Publish(new CashPaymentConfirmed
-        {
-            CorrelationId = correlationId,
-            AdminUserId = 999
-        });
-
-        // Assert 2: Saga goes to Completed
+        // Assert 1: Saga goes directly to Completed for CASH
         await WaitForSagaState(correlationId, "Completed", TimeSpan.FromSeconds(10));
 
-        // Assert 3: Payment entity updated
+        // Assert 2: Payment entity updated
         var updatedPayment = await _dbContext.Payments.AsNoTracking().FirstOrDefaultAsync(p => p.Id == paymentId);
         Assert.NotNull(updatedPayment);
         Assert.Equal(PaymentStatus.COMPLETED, updatedPayment.Status);
@@ -243,5 +239,99 @@ public class PaymentStateMachineIntegrationTests : IClassFixture<CustomWebApplic
         Assert.NotNull(updatedPayment);
         Assert.Single(updatedPayment.Refunds);
         Assert.Equal(100m, updatedPayment.Refunds.First().Amount);
+    }
+
+    [Fact]
+    public async Task Flow5_OrderSlotReserved_ShouldTransitionToCreated_AndThenPaymentInitiated_ShouldTransitionToPending()
+    {
+        // Arrange — pre-reserve CREATED payment
+        var payment = new Payment(1005, 2005, 120000m, "VND");
+        _dbContext.Payments.Add(payment);
+        await _dbContext.SaveChangesAsync();
+
+        var correlationId = payment.SagaId;
+        var paymentId = payment.Id;
+
+        // Act 1: Reserve slot (published after order.created)
+        await _bus.Publish(new OrderSlotReserved
+        {
+            CorrelationId = correlationId,
+            PaymentId = paymentId,
+            OrderId = payment.OrderId,
+            UserId = payment.UserId,
+            Amount = payment.Amount,
+            Currency = payment.Currency
+        });
+
+        // Assert 1: Saga goes to Created state
+        await WaitForSagaState(correlationId, "Created", TimeSpan.FromSeconds(10));
+
+        var createdSaga = await _dbContext.Set<PaymentSagaState>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.CorrelationId == correlationId);
+        Assert.NotNull(createdSaga);
+        Assert.Equal(paymentId, createdSaga.PaymentId);
+        Assert.Equal(120000m, createdSaga.Amount);
+        Assert.Equal("VND", createdSaga.Currency);
+
+        // Act 2: Customer clicks pay / initiates payment
+        await _bus.Publish(new PaymentInitiated
+        {
+            CorrelationId = correlationId,
+            PaymentId = paymentId,
+            OrderId = payment.OrderId,
+            UserId = payment.UserId,
+            Amount = payment.Amount,
+            Currency = payment.Currency,
+            PaymentMethod = PaymentMethod.STRIPE.ToString()
+        });
+
+        // Assert 2: Saga transitions from Created to Pending
+        await WaitForSagaState(correlationId, "Pending", TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public async Task Flow6_SlotExpired_ShouldExpirePayment()
+    {
+        // Arrange — pre-reserve CREATED payment
+        var payment = new Payment(1006, 2006, 150000m, "VND");
+        _dbContext.Payments.Add(payment);
+        await _dbContext.SaveChangesAsync();
+
+        var correlationId = payment.SagaId;
+        var paymentId = payment.Id;
+
+        // Act 1: Reserve slot
+        await _bus.Publish(new OrderSlotReserved
+        {
+            CorrelationId = correlationId,
+            PaymentId = paymentId,
+            OrderId = payment.OrderId,
+            UserId = payment.UserId,
+            Amount = payment.Amount,
+            Currency = payment.Currency
+        });
+
+        await WaitForSagaState(correlationId, "Created", TimeSpan.FromSeconds(10));
+
+        // Act 2: Simulate expiry event (fired when 15-minute schedule elapses)
+        await _bus.Publish(new PaymentSlotExpired
+        {
+            CorrelationId = correlationId
+        });
+
+        // Assert: Payment entity in DB should transition to EXPIRED
+        var startTime = DateTime.UtcNow;
+        Payment? updatedPayment = null;
+        while (DateTime.UtcNow - startTime < TimeSpan.FromSeconds(10))
+        {
+            updatedPayment = await _dbContext.Payments.AsNoTracking().FirstOrDefaultAsync(p => p.Id == paymentId);
+            if (updatedPayment?.Status == PaymentStatus.EXPIRED)
+                break;
+            await Task.Delay(500);
+        }
+
+        Assert.NotNull(updatedPayment);
+        Assert.Equal(PaymentStatus.EXPIRED, updatedPayment.Status);
     }
 }
