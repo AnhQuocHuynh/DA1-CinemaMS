@@ -21,7 +21,7 @@ namespace PaymentService.Test.Integration.Idempotency;
 /// Requires Docker (Testcontainers spins up PostgreSQL + RabbitMQ).
 /// </summary>
 [Collection("Integration Tests")]
-public class IdempotencyIntegrationTests : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
+public class IdempotencyIntegrationTests : IAsyncLifetime
 {
     private readonly CustomWebApplicationFactory _factory;
     private readonly IServiceScope _scope;
@@ -45,6 +45,8 @@ public class IdempotencyIntegrationTests : IClassFixture<CustomWebApplicationFac
     public async Task DisposeAsync()
     {
         // Clean up database after each test
+        _dbContext.Refunds.RemoveRange(_dbContext.Refunds);
+        _dbContext.TransactionLogs.RemoveRange(_dbContext.TransactionLogs);
         _dbContext.Payments.RemoveRange(_dbContext.Payments);
         _dbContext.Set<PaymentSagaState>().RemoveRange(_dbContext.Set<PaymentSagaState>());
         await _dbContext.SaveChangesAsync();
@@ -52,10 +54,13 @@ public class IdempotencyIntegrationTests : IClassFixture<CustomWebApplicationFac
         _scope.Dispose();
     }
 
-    private async Task WaitForSagaState(Guid correlationId, string expectedState, TimeSpan timeout)
+    private async Task WaitForSagaState(Guid correlationId, string expectedState, TimeSpan? timeout = null)
     {
+        var effectiveTimeout = timeout.HasValue && timeout.Value > TimeSpan.FromSeconds(15)
+            ? timeout.Value
+            : TimeSpan.FromSeconds(15);
         var startTime = DateTime.UtcNow;
-        while (DateTime.UtcNow - startTime < timeout)
+        while (DateTime.UtcNow - startTime < effectiveTimeout)
         {
             var saga = await _dbContext.Set<PaymentSagaState>()
                 .AsNoTracking()
@@ -72,7 +77,7 @@ public class IdempotencyIntegrationTests : IClassFixture<CustomWebApplicationFac
         }
 
         throw new TimeoutException(
-            $"Saga {correlationId} did not reach state '{expectedState}' within {timeout}");
+            $"Saga {correlationId} did not reach state '{expectedState}' within {effectiveTimeout}");
     }
 
     // ── Test 1: HTTP-level — Duplicate order initiation ──────────────────────
@@ -91,7 +96,7 @@ public class IdempotencyIntegrationTests : IClassFixture<CustomWebApplicationFac
 
         var request = new InitiatePaymentRequest(
             OrderId: 7001,
-            PaymentMethod: PaymentMethod.CASH
+            PaymentMethod: PaymentMethod.STRIPE
         );
 
         // Act — attempt to initiate payment for the same order
@@ -234,7 +239,8 @@ public class IdempotencyIntegrationTests : IClassFixture<CustomWebApplicationFac
             PaymentMethod = payment.PaymentMethod.ToString()
         });
 
-        await WaitForSagaState(correlationId, "Pending", TimeSpan.FromSeconds(10));
+        // With instant settlement, CASH transitions directly to Completed
+        await WaitForSagaState(correlationId, "Completed", TimeSpan.FromSeconds(10));
 
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("Authorization", "Test 999:ADMIN");
@@ -332,5 +338,45 @@ public class IdempotencyIntegrationTests : IClassFixture<CustomWebApplicationFac
         updatedPayment!.Refunds.Should().ContainSingle(
             "duplicate RefundRequested should not create a second refund record");
         updatedPayment.Refunds.First().Amount.Should().Be(120000m);
+    }
+
+    // ── Test 6: Saga-level — Duplicate OrderSlotReserved messages ────────────
+
+    [Fact]
+    public async Task DuplicateOrderSlotReserved_ShouldCreateSingleSagaInstance()
+    {
+        // Arrange — create a pre-reserved CREATED payment in DB
+        var payment = new Payment(7006, 42, 90000m, "VND");
+        _dbContext.Payments.Add(payment);
+        await _dbContext.SaveChangesAsync();
+
+        var correlationId = payment.SagaId;
+
+        var slotReserved = new OrderSlotReserved
+        {
+            CorrelationId = correlationId,
+            PaymentId = payment.Id,
+            OrderId = payment.OrderId,
+            UserId = payment.UserId,
+            Amount = payment.Amount,
+            Currency = payment.Currency
+        };
+
+        // Act — publish OrderSlotReserved twice with the same CorrelationId
+        await _bus.Publish(slotReserved);
+        await _bus.Publish(slotReserved);
+
+        // Wait for saga to reach Created
+        await WaitForSagaState(correlationId, "Created", TimeSpan.FromSeconds(10));
+
+        // Assert — only one saga instance exists for this CorrelationId
+        var sagaInstances = await _dbContext.Set<PaymentSagaState>()
+            .AsNoTracking()
+            .Where(s => s.CorrelationId == correlationId)
+            .ToListAsync();
+
+        sagaInstances.Should().ContainSingle(
+            "duplicate OrderSlotReserved should not create a second saga instance");
+        sagaInstances[0].CurrentState.Should().Be("Created");
     }
 }

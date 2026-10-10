@@ -119,14 +119,15 @@ public class InitiatePaymentCommandHandlerTests
     // ── Happy Path: Cash ──────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Handle_CashPayment_ShouldNotCallGateway_AndReturnSuccessWithSuccessUrl()
+    public async Task Handle_CashPayment_WhenStaff_ShouldSettleImmediatelyAndReturnCompleted()
     {
         // Arrange
         var command = new InitiatePaymentCommand(
             OrderId: 9999, UserId: 5,
             PaymentMethod: PaymentMethod.CASH,
             CancelUrl: "https://cancel.com",
-            SuccessUrl: "https://success.com");
+            SuccessUrl: "https://success.com",
+            IsStaffOrAdmin: true);
 
         var payment = new Payment(9999, 5, 60000m, "VND");
 
@@ -140,10 +141,55 @@ public class InitiatePaymentCommandHandlerTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal("https://success.com", result.RedirectUrl);
-        Assert.Equal(PaymentStatus.PENDING, payment.Status);
+        Assert.Equal(PaymentStatus.COMPLETED, payment.Status);
         Assert.Equal(PaymentMethod.CASH, payment.PaymentMethod);
-        // Cash: gateway is NOT called
+        Assert.NotNull(result.GatewaySessionId);
+        Assert.StartsWith("CASH-9999-", result.GatewaySessionId);
         _gatewayFactoryMock.Verify(f => f.GetGateway(It.IsAny<PaymentMethod>()), Times.Never);
+        _publishEndpointMock.Verify(p => p.Publish(It.IsAny<PaymentInitiated>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_CashPayment_WhenNotStaffOrAdmin_ShouldThrowForbiddenAccessException()
+    {
+        // Arrange
+        var command = new InitiatePaymentCommand(
+            OrderId: 9999, UserId: 5,
+            PaymentMethod: PaymentMethod.CASH,
+            CancelUrl: "https://cancel.com",
+            SuccessUrl: "https://success.com",
+            IsStaffOrAdmin: false);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ForbiddenAccessException>(() =>
+            _handler.Handle(command, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Handle_CashPayment_WhenStaffForDifferentUser_ShouldSucceed()
+    {
+        // Arrange - order belongs to walk-in user (0) or customer (100), but cashier is user 5
+        var command = new InitiatePaymentCommand(
+            OrderId: 9999, UserId: 5,
+            PaymentMethod: PaymentMethod.CASH,
+            CancelUrl: "https://cancel.com",
+            SuccessUrl: "https://success.com",
+            IsStaffOrAdmin: true);
+
+        var payment = new Payment(9999, 0, 60000m, "VND");
+
+        _paymentRepoMock.Setup(r => r.GetByOrderIdAsync(9999, It.IsAny<CancellationToken>())).ReturnsAsync(payment);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _txLogRepoMock.Setup(t => t.AddAsync(It.IsAny<TransactionLog>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(PaymentStatus.COMPLETED, payment.Status);
+        Assert.NotNull(result.GatewaySessionId);
+        Assert.StartsWith("CASH-9999-", result.GatewaySessionId);
     }
 
     // ── Ownership Protection ──────────────────────────────────────────────────

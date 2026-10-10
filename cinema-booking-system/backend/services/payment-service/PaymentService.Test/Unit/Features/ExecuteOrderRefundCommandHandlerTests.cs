@@ -52,7 +52,7 @@ public class ExecuteOrderRefundCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_InvalidPaymentStatus_ShouldThrowInvalidOperationException()
+    public async Task Handle_InvalidPaymentStatus_ShouldThrowInvalidPaymentStateException()
     {
         // Arrange
         var command = new ExecuteOrderRefundCommand(100, 150000m, "Customer cancelled");
@@ -64,7 +64,7 @@ public class ExecuteOrderRefundCommandHandlerTests
             .ReturnsAsync(payment);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<InvalidPaymentStateException>(() =>
             _handler.Handle(command, CancellationToken.None));
     }
 
