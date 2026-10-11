@@ -39,6 +39,19 @@ public class UsersController : ControllerBase
         return Ok(ApiResponse<UserDto>.Ok(result));
     }
 
+    [HttpGet("lookup")]
+    [Authorize(Roles = "ADMIN,STAFF")]
+    public async Task<IActionResult> LookupUserByPhone([FromQuery] string phone)
+    {
+        var query = new GetUserByPhoneQuery(phone);
+        var result = await _mediator.Send(query);
+        if (result == null)
+        {
+            return NotFound(ApiResponse<UserDto>.Error("User not found with provided phone"));
+        }
+        return Ok(ApiResponse<UserDto>.Ok(result));
+    }
+
     [HttpGet("{id}")]
     [Authorize(Roles = "ADMIN")]
     public async Task<IActionResult> GetUserById(long id)
