@@ -7,24 +7,80 @@ gates are maintained in
 
 ## Snapshot
 
-- Date of handoff: 2026-08-23.
-- Branch: `refactor-compose-single-postgres`.
-- Runnable full backend remains `cinema-booking-system/backend_legacy/`.
-- `cinema-booking-system/backend/` now contains extracted, independently buildable, and full-stack-smoke-tested `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, `analytics-service`, and `recommendation-service` Spring Boot services.
+- Date of this status pass: 2026-10-11.
+- Evidence: static reading of branch `refactor-compose-single-postgres` at `ebdfb9d`. Tests, Compose smoke, and the browser were not re-run for this update.
+- `backend_legacy` is the rollback monolith. Traffic has not been cut over.
+- `backend/` now contains the microservice stack, not placeholder folders: Spring Boot Catalog, Showtime, Booking, Analytics, and Recommendation, plus ASP.NET Identity, Facility, Payment, Notification, and the YARP API Gateway. Keycloak is in Compose.
+- The August 2026 verification numbers in `MIGRATION_STATUS.md` still stand as historical evidence. They do not cover the later frontend, payment, notification, gateway, and facility merges.
 
 ## Exact Repository State
 
-- `backend_legacy` is still the source of truth for the complete booking flow.
-- `backend` is a partial microservice migration target, not a full replacement yet.
-- Extracted services:
-  - `backend/services/catalog-service`
-  - `backend/services/facility-service`
-  - `backend/services/showtime-service`
-  - `backend/services/booking-service`
-  - `backend/services/analytics-service`
-  - `backend/services/recommendation-service`
-- Remaining service folders are placeholders unless documented otherwise.
-- `backend/infrastructure/docker-compose.yml` runs Catalog, Facility, Showtime, Booking, Analytics, and Recommendation against one PostgreSQL 18 container on host port `5432` with logical databases (`cinema_catalog_db`, `cinema_facility_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, plus teammate placeholders). Showtime Redis, RabbitMQ, and Neo4j remain separate containers.
+- Customer, staff, and admin UI live in `cinema-booking-system/frontend/` and call `VITE_API_BASE_URL` (default `http://localhost:5000/api`) with a Keycloak bearer token.
+- Spring services: `catalog-service`, `showtime-service`, `booking-service`, `analytics-service`, `recommendation-service`.
+- ASP.NET services: `identity-service`, `facility-service`, `payment-service`, `notification-service`, `api-gateway`.
+- `rental-service` has compiled output only. Room rental is on branch `feature/room-rental`, not here.
+- `backend/infrastructure/docker-compose.yml` runs the services above against one PostgreSQL 18 container on host port `5432`. Logical databases from `init-multiple-databases.sql`: `cinema_catalog_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, `keycloak_db`, `user_profile_db`, `payment_db`, `facility_db`. Notification uses MongoDB. Showtime Redis, shared Redis, RabbitMQ, and Neo4j are separate containers.
+
+## Feature Progress
+
+Status means "present in this branch's source", not "re-tested on 2026-10-11" and not "cut over".
+
+### Completed
+
+Customer:
+
+- Register, login, forgot-password, and logout go through Keycloak (`keycloak-js`, cinema theme, locale and theme query params).
+- Movie and event browse, detail, showtimes, and catalog keyword search.
+- Seat map, Redis seat hold, hold countdown, order create, voucher validation, and checkout.
+- Stripe and PayPal redirect plus return verification, and cash confirmation on the payment service.
+- Reviews and rating summaries are rendered on movie and event detail pages.
+- My tickets, ticket detail, and PDF download.
+- Personalized and popular recommendations on the home page.
+- Vietnamese/English UI and light/dark theme.
+
+Staff and admin:
+
+- QR check-in calls `POST /api/tickets/check-in` and stops the camera after one decode (`processingRef`).
+- Ticket lookup uses the ticket-by-code API. Ticket PDF download exists.
+- Admin movies, events, cinemas, rooms, and seat maps call the real catalog and facility APIs.
+- Admin showtimes list and delete real showtimes. Auto showtime creator publishes generated blocks through `showtimeService`.
+- Admin dashboard reads analytics endpoints.
+- Voucher list, create, and delete call booking-service. Role changes call `PUT /api/users/{id}/role`.
+- Profile read/update uses identity `GET/PUT /api/users/me`.
+
+Platform:
+
+- Gateway routes public APIs, applies Keycloak policies, resolves the internal user id, and blocks `/internal/**`.
+- Booking consumes `payment.completed`, `payment.failed`, and `payment.refunded` from exchange `payment.events`. Payment sets that exchange name in MassTransit.
+- Payment implements `RefundAsync` for Stripe, PayPal, and cash. Integration tests exist under `PaymentService.Test/Integration`.
+- Notification consumes user, order, review, and showtime events, sends email through MailKit, and maps a SignalR hub at `/hubs/notifications`.
+- k6 load-test scripts exist under `cinema-booking-system/tests/load/`. Observability env vars point at an OTLP collector. The collector compose file is separate: `docker-compose.observability.yml`.
+
+### In progress
+
+- Seat holds refresh by polling the seat map every 5 seconds. There is no server-sent event stream.
+- Home still appends local mock movies under the backend list, and empty-search suggestions mix in those mocks.
+- Pricing page shows a hardcoded base rate and tiers (`getPricingOverview`) next to real vouchers. There is no voucher update API; the frontend update helper is a mock. Booking exposes GET, POST, validate, and DELETE only.
+- Permission management lists real users and can change one realm role. Delete user returns success without calling Keycloak. A permission-rule catalog is mock data and is not rendered.
+- Staff dashboard, today's bookings, validation stats, and counter booking call `/api/staff/**`. Those routes are not in the gateway and there is no staff controller in booking-service. Order rows do store `salesChannel` and `createdByStaffId`.
+- Notification email is implemented. SMS is `DummySmsSender` (log only). The SPA has no notification inbox and no SignalR client. The gateway does not route `/api/notifications` or the hub.
+- Spring services still default `CINEMA_SECURITY_JWT_ENABLED` to `false`. Gateway auth can be on while the Spring services are not enforcing JWTs.
+- Membership is a static "coming soon" page.
+- Canonical snapshot migration, shadow traffic, and rollback rehearsal are still open. See `MIGRATION_STATUS.md`.
+
+### Not done
+
+- In-app notification inbox.
+- A real SMS provider.
+- Real-time seat-map push (SSE or equivalent).
+- Staff aggregate APIs and a counter-booking endpoint on the gateway.
+- Membership product.
+- Deleting a user from Keycloak.
+- Admin pricing rules and voucher edit.
+- Fine-grained permission rules beyond the three realm roles.
+- Room rental on this branch.
+- Traffic cutover away from `backend_legacy`.
+- A fresh full-stack test of gateway, payment saga, notification email, and the booking UI together. The last recorded Spring smoke is 2026-08-07, before these merges.
 - `backend_legacy/src/main/resources/application.yml` now has a valid Base64 JWT default while preserving `APP_JWT_SECRET`.
 - `backend_legacy/src/main/resources/DB_PATCH_2026_06_25_SEAT_MAP.sql` is present in source.
 
@@ -57,9 +113,9 @@ gates are maintained in
   authenticated `user_id` binding, booking ownership, and seat-hold ownership.
 - All six Docker images build as executable non-root Java 21 images. The full Compose stack, expanded runtime smoke, and RabbitMQ/Neo4j event-flow suite passed locally on 2026-08-07, then the stack was stopped while named data volumes were retained.
 - Frontend `npm ci` and the Vite production build passed on 2026-08-07. Production dependency audit still reports 6 advisories, and `@zxing/library@0.22.0` declares Node 24 or newer while the verified environment used Node 22.16.0.
-- Repository-controlled preparation for the Spring-owned migration scope is complete. Remaining risk is external execution against a real copied snapshot and coordinated cutover/rollback, not missing Spring service code.
-- Backend CI now enforces `mvn clean verify`, Compose and PowerShell validation, migration dry-runs, and the RabbitMQ-to-Analytics/Neo4j event-flow test.
-- Do not expand ASP.NET-assigned services in this Spring Boot track: Identity, target Facility, Payment, Notification, and API Gateway.
+- The bullets above through the 179-test and six-image smoke are the 2026-08-07 record. They predate the merged gateway, payment, notification, and ASP.NET facility work.
+- Backend CI still enforces `mvn clean verify`, Compose and PowerShell validation, migration dry-runs, and the RabbitMQ-to-Analytics/Neo4j event-flow test for the Spring modules.
+- Identity, Facility, Payment, Notification, and the API Gateway are implemented on this branch. Change them through their contracts. Do not treat them as out of scope.
 
 ## Commands To Verify
 
@@ -129,21 +185,28 @@ npm audit --omit=dev
 
 ## Runtime Ports
 
-- Shared extracted PostgreSQL 18: `localhost:5432`. Logical databases:
-  `cinema_catalog_db`, `cinema_facility_db`, `cinema_showtime_db`,
-  `cinema_booking_db`, `cinema_analytics_db`.
+- Shared PostgreSQL 18: `localhost:5432`. Logical databases:
+  `cinema_catalog_db`, `cinema_showtime_db`, `cinema_booking_db`,
+  `cinema_analytics_db`, `keycloak_db`, `user_profile_db`, `payment_db`,
+  `facility_db`.
 - Legacy backend DB (when `backend_legacy` or a local `my-postgres` is used
   instead of extracted Compose): `localhost:5432/cinema_db`. Do not run both
   stacks on `5432` at the same time.
+- API gateway: `localhost:5000`. Frontend default base is `http://localhost:5000/api`.
+- Keycloak: `localhost:8080`, realm `cinema-booking`, client `cinema-frontend`.
+- Identity service: `localhost:5001`. Database `user_profile_db`.
+- Facility service: `localhost:5002`, health `/health`. Database `facility_db`.
+- Payment service: `localhost:5003`. Database `payment_db`.
+- Notification service: `localhost:5004`. MongoDB `localhost:27017`.
 - Catalog service: `localhost:8081`.
-- Facility service: `localhost:5002`.
 - Showtime service: `localhost:8082`, Redis `localhost:6380`.
 - Booking service: `localhost:8083`.
 - Analytics service: `localhost:8084`.
 - Recommendation service: `localhost:8085`.
 - RabbitMQ: `localhost:5672`, management UI `localhost:15672`.
 - Neo4j: browser `localhost:7474`, Bolt `localhost:7687`.
-- Legacy Redis: `localhost:6379`.
+- Shared Redis: `localhost:6379`.
+- Frontend dev server: `localhost:5173`.
 
 ## Seed/Test Accounts
 
@@ -156,26 +219,21 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 
 ## Known Verification Gaps
 
-- Frontend build passes, but the 6 production dependency advisories and Node-version mismatch must be resolved and regression-tested before release.
-- Data backfill has not been executed against the canonical copied database snapshot because no approved snapshot credential is available.
-- Migration dry-runs, the isolated PostgreSQL rehearsal, and a local-development-data audit passed on 2026-08-07. Destructive resets require explicit confirmation, dumps require matching SHA-256 manifest entries, restores are transactional, and reconciliation verifies row content plus ID sequences.
-- Extracted Compose now targets PostgreSQL 18, matching the 2026-08-07 local-data audit major. Confirm the canonical snapshot is also PostgreSQL 18 before rehearsal; do not bypass the restore version guard.
-- Runtime smoke verifies six service health endpoints, Analytics/Recommendation response envelopes, eight RabbitMQ consumer/DLQ queues, and internal-token guards; it passed with automatic Compose teardown.
-- Event-flow smoke verifies duplicate delivery, stale-event ordering, Analytics and Neo4j projections, Recommendation API output, and evidence cleanup; it passed with automatic Compose teardown.
-- Booking payment-event consumers are implemented behind `BOOKING_PAYMENT_EVENTS_ENABLED` (Compose booking-service sets this `true`). Unit tests for apply/complete/fail/refund/duplicate/poison passed on 2026-08-23 (`booking-service` 70 tests). Live Payment→Booking routing still depends on Payment publishing to `payment.events`.
-- API gateway routing and end-user JWT propagation are not wired because those are owned by the separate ASP.NET workstream.
-- Catalog, Showtime, Booking, Analytics, and Recommendation now have opt-in
-  Keycloak Resource Server enforcement with issuer/audience/JWKS validation and
-  canonical role mapping. Booking, Showtime holds, and personalized
-  Recommendation bind numeric identity to the signed `user_id` claim and reject
-  caller-supplied mismatches. Activation remains off until the teammate-owned
-  Keycloak/Gateway stack supplies the agreed claims and forwards bearer tokens.
-- Production distributed tracing and multi-host service discovery are not configured.
+- This 2026-10-11 pass did not re-run Maven, the frontend build, Compose smoke, the payment saga, or a browser booking. Treat feature rows above as code inspection.
+- Frontend production dependency advisories and the `@zxing/library` Node 24 declaration were last recorded on 2026-08-07 (Node 22.16.0, 6 advisories). They were not rechecked.
+- Data backfill has not been executed against an approved canonical snapshot.
+- August runtime and event-flow smokes covered the six Spring services only. They do not prove the later gateway, payment, notification, and ASP.NET facility stack.
+- Booking payment consumers are in code and Compose sets `BOOKING_PAYMENT_EVENTS_ENABLED=true`. Payment's MassTransit entity name is `payment.events`. A live complete/fail/refund run on this merged branch was not repeated here.
+- Gateway code validates JWTs and blocks `/internal/**`. Spring JWT remains off by default. The authentication contract's real-token suite was not re-run.
+- Notification is not reachable through the gateway. SMS does not leave the process.
+- Staff dashboard and counter booking UI call routes the gateway does not own.
+- OTLP endpoints are configured. Multi-host discovery and a production trace backend are not.
 
 ## Suggested Next Steps
 
-1. Rebase or recreate teammate Auth/Gateway, Facility, and Payment branches from the latest `refactor-compose-single-postgres` before resolving Compose ownership. Do not restore the old per-service Postgres port map.
-2. Integrate Keycloak/Gateway and pass the authentication contract's real-token and forged-header tests before enabling Spring JWT.
-3. Integrate ASP.NET Facility. Payment must publish to `payment.events`; Booking consumers are already in `booking-service`.
-4. Run one conflict-resolved full-stack backend, event, auth, Payment, and frontend booking suite.
-5. Confirm PostgreSQL versions, execute the guarded procedure twice against a canonical copied snapshot, archive evidence, and rehearse rollback before cutover.
+1. Run one Compose stack and a real customer booking: Keycloak login, seat hold, Stripe or cash payment, booking state change, and notification email.
+2. Add gateway routes for notification HTTP and the SignalR hub, or drop the unused inbox until that exists.
+3. Replace `/api/staff/**` with booking endpoints the gateway already routes, including counter booking.
+4. Remove homepage mock movies, the pricing mock, and the fake user-delete success.
+5. Pass the authentication contract suite, then set `CINEMA_SECURITY_JWT_ENABLED=true`.
+6. Rehearse the canonical PostgreSQL 18 snapshot and rollback before any traffic cutover.

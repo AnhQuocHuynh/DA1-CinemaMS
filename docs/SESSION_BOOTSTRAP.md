@@ -1,6 +1,6 @@
 # Agent Session Bootstrap
 
-Updated: 2026-08-23
+Updated: 2026-10-11
 
 Purpose: give a new agent enough current context to continue safely without
 scanning the repository or rereading the full architecture document.
@@ -49,40 +49,38 @@ contract unless the team explicitly changes it.
 
 ## Current Snapshot
 
-- Branch: `refactor-compose-single-postgres`.
-- Complete runnable backend: `cinema-booking-system/backend_legacy/`.
-- Microservice migration target: `cinema-booking-system/backend/`.
-- Frontend: `cinema-booking-system/frontend/`.
-- Spring-owned migration preparation is complete for Catalog, Showtime,
-  Booking, Analytics, and Recommendation.
-- The Spring Facility service is a compatibility slice only. Target Facility
-  ownership belongs to the ASP.NET workstream.
-- Extracted Compose now uses one PostgreSQL 18 container on host port `5432`
-  with logical databases created by `init-multiple-databases.sql`.
-- The product has not switched traffic or canonical data away from
-  `backend_legacy`.
-- Standalone Spring JWT enforcement remains disabled until teammate-owned
-  Keycloak and Gateway integration passes real-token tests.
-- The next work is coordinated integration and canonical snapshot rehearsal,
-  not another broad Spring extraction or monolith refactor.
+- Branch: `refactor-compose-single-postgres` (`ebdfb9d` at the 2026-10-11 read).
+- Rollback monolith: `cinema-booking-system/backend_legacy/`.
+- Microservice stack: `cinema-booking-system/backend/`.
+- Frontend: `cinema-booking-system/frontend/`, Keycloak PKCE, gateway base URL.
+- Spring services in tree: Catalog, Showtime, Booking, Analytics, Recommendation.
+- ASP.NET services in tree: Identity, Facility, Payment, Notification, API Gateway.
+- Keycloak, one PostgreSQL 18 container, Redis, RabbitMQ, Neo4j, and MongoDB are in Compose.
+- Traffic and the canonical database have not moved off `backend_legacy`.
+- Spring `CINEMA_SECURITY_JWT_ENABLED` still defaults to `false`.
+- The 2026-10-11 feature matrix is in `docs/CURRENT_STATE.md`. It is a code
+  inspection. August smoke results were not re-run.
+- Next work is to close the staff, notification-gateway, mock-UI, and live
+  payment/auth gaps, then rehearse the canonical snapshot. Do not start another
+  broad extraction.
 
 ## Ownership Matrix
 
-| Service/area | Target owner | Current status |
+| Service/area | Owner | Current status |
 |---|---|---|
-| Catalog | Spring | Migration-prepared |
-| Showtime | Spring | Migration-prepared |
-| Booking | Spring | Payment outcome consumers implemented; live Payment publish topology pending |
-| Analytics | Spring | Migration-prepared |
-| Recommendation | Spring | Migration-prepared |
-| Facility | ASP.NET | Spring compatibility slice exists; keep it minimal |
-| Identity/Keycloak | ASP.NET | Shared contract approved; merge pending |
-| API Gateway | ASP.NET | Shared contract approved; merge pending |
-| Payment | ASP.NET | Saga exists; must publish camelCase envelopes to `payment.events` |
-| Notification | ASP.NET | Outside the Spring workstream |
-| Frontend auth/routing | Shared with teammate | Integrated Gateway flow pending |
+| Catalog | Spring | In this branch. Migration rehearsal evidence is from 2026-08-07 |
+| Showtime | Spring | In this branch. Seat hold is Redis plus frontend polling |
+| Booking | Spring | Payment consumers implemented. No `/api/staff/**` controller |
+| Analytics | Spring | Admin dashboard read model |
+| Recommendation | Spring | Wired to the home page |
+| Facility | ASP.NET | Cinema, room, and seat-template APIs on this branch |
+| Identity/Keycloak | ASP.NET + Keycloak | Login UI uses Keycloak. User delete is not implemented |
+| API Gateway | ASP.NET | Routes catalog, facility, showtime, booking, analytics, recommendation, payment, and users. No notification or `/api/staff/**` routes |
+| Payment | ASP.NET | Stripe, PayPal, cash, refunds. Publishes to `payment.events` in code |
+| Notification | ASP.NET | Email and event consumers. SMS is a log stub. Not on the gateway |
+| Frontend | React | Most use cases call real APIs. See the feature matrix for mocks |
 
-Do not add features to ASP.NET-owned services in the Spring workstream.
+ASP.NET services on this branch are in scope. Keep their HTTP and event contracts stable.
 
 ## Implemented Boundaries
 
@@ -180,6 +178,9 @@ per-service ports only if an older multi-container layout is still running.
 
 ## Latest Verification Evidence
 
+Recorded 2026-08-07 for the Spring services. Not repeated after the gateway,
+payment, notification, and frontend merges.
+
 - Extracted backend `mvn clean verify`: 179 tests, 0 failures, 0 errors, 0
   skipped across 58 Surefire reports.
 - Six Spring Docker images rebuilt and verified as non-root `appuser` images.
@@ -202,35 +203,31 @@ For detailed evidence and all cutover gates, read
 
 ## Remaining Gates
 
-- Rebase or recreate teammate branches from the latest
-  `refactor-compose-single-postgres`; do not merge old multi-Postgres Compose
-  or service definitions blindly.
-- Merge Keycloak and Gateway first, then pass the authentication contract's
-  real-token, forged-header, `/internal/**`, key-rotation, and Google mapping
-  tests.
-- Integrate ASP.NET Facility while preserving the current OpenAPI projections
-  and Showtime delete guards.
-- Confirm Payment publishes camelCase envelopes to `payment.events` (not
-  MassTransit type exchanges) and run the Booking consumer test matrix.
-- Resolve frontend production dependency advisories and run the complete booking
-  flow through Gateway.
-- Confirm canonical PostgreSQL versions and run the guarded migration twice
-  against a protected copied snapshot.
-- Rehearse shadow traffic, active Redis hold handling, final write delta, and
-  rollback to `backend_legacy` before switching traffic.
+- Keycloak, Gateway, Facility, Payment, and Notification source are already on
+  this branch. Do not merge an older multi-Postgres Compose over it.
+- Pass the authentication contract's real-token, forged-header, `/internal/**`,
+  key-rotation, and Google mapping tests before enabling Spring JWT.
+- Prove Facility projections and Showtime delete guards against the ASP.NET
+  service, not the removed Spring slice.
+- Run the Booking consumer matrix against Payment's `payment.events` publish
+  path on this branch.
+- Route notification HTTP and SignalR, or leave them unused on purpose.
+- Replace staff dashboard and counter-booking calls that target missing
+  `/api/staff/**` routes.
+- Resolve frontend production dependency advisories and run one booking through
+  the gateway.
+- Run the guarded migration twice against a protected copied PostgreSQL 18
+  snapshot, then rehearse rollback to `backend_legacy`.
 
 ## Safe Next Order
 
-1. Sync teammate branches from the latest `refactor-compose-single-postgres`.
-2. Integrate Keycloak and Gateway contracts.
+1. Boot the current Compose stack and complete one customer booking through the gateway.
+2. Fix staff and notification route gaps found by that run.
 3. Run real-token security tests and only then enable Spring JWT.
-4. Integrate ASP.NET Facility and contract-test Showtime/Booking dependencies.
-5. Point Payment publish topology at `payment.events` and run the Booking
-   consumer matrix (complete / fail / refund / duplicate / poison).
-6. Build one conflict-resolved Compose stack and run all backend, event, auth,
-   Payment, and frontend flows.
-7. Rehearse the canonical snapshot, archive evidence, then rehearse rollback.
-8. Plan the write freeze/final delta and approve cutover.
+4. Run the Payment consumer matrix (complete / fail / refund / duplicate / poison).
+5. Remove user-visible mocks: homepage movies, pricing tiers, fake user delete.
+6. Rehearse the canonical snapshot, archive evidence, then rehearse rollback.
+7. Plan the write freeze and approve cutover only after those gates have fresh evidence.
 
 ## Task-To-Files
 
@@ -240,7 +237,7 @@ For detailed evidence and all cutover gates, read
 | Spring service change | `cinema-booking-system/backend/README.md`, matching OpenAPI contract | That service's `src/main`, `src/test`, and `pom.xml` |
 | Auth/Gateway integration | `cinema-booking-system/docs/authentication_integration_contract.md` | Five Spring security configs/tests, Gateway config, Compose env |
 | Internal authentication | Auth contract Sections 9-10 | Only affected HTTP client/filter and its contract test |
-| Payment/Booking Saga | Architecture Sections 8 and 11, `cinema-booking-system/backend/shared/events/` | Booking order/payment state code and teammate Payment branch |
+| Payment/Booking Saga | `cinema-booking-system/docs/booking_status.md`, `backend/shared/events/` | `payment-service` publish topology and `booking-service` consumers |
 | ASP.NET Facility integration | Facility OpenAPI contract | Showtime/Booking Facility clients and Spring compatibility tests |
 | Data migration | `cinema-booking-system/backend/infrastructure/migrations/README.md` | Scripts in that directory and target schemas only |
 | Runtime/Compose failure | `cinema-booking-system/backend/README.md` | Compose file, affected service config, smoke script |

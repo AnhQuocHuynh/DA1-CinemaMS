@@ -1,18 +1,23 @@
 # Backend Migration Status
 
-Updated: 2026-08-18
+Updated: 2026-10-11
 
 ## Executive Decision
 
-The repository-controlled work for the Spring-owned services is complete and
-ready for coordinated integration. Catalog, Showtime, Booking, Analytics, and
-Recommendation can be built, tested, containerized, and migrated independently.
-The current local development data also passed a guarded two-cycle restore.
+Spring Catalog, Showtime, Booking, Analytics, and Recommendation were
+migration-prepared by 2026-08-07. Since then, Keycloak, the YARP gateway,
+ASP.NET Facility, Identity, Payment, and Notification have landed on
+`refactor-compose-single-postgres` (HEAD `ebdfb9d` when this note was written).
+
+That merge is source presence, not a new cutover proof. The 2026-10-11 update
+is a code inspection. Maven, Compose smoke, the payment saga, and the frontend
+build were not re-run. Feature-by-feature status is in
+`../../docs/CURRENT_STATE.md`.
 
 This does **not** mean the product is ready for traffic cutover. The remaining
-work is cross-workstream integration with the teammate-owned Keycloak/Gateway,
-Facility, and Payment services, followed by a rehearsal against the canonical
-copied database snapshot and an approved traffic/rollback procedure.
+work is a live integrated run (gateway auth, payment events, notification
+email, staff routes), then a rehearsal against the canonical copied database
+snapshot and an approved traffic/rollback procedure.
 
 Until those gates pass:
 
@@ -23,25 +28,27 @@ Until those gates pass:
 
 ## Ownership Boundary
 
-| Area | Owner/workstream | Current position |
+| Area | Owner | Current position |
 |---|---|---|
-| Catalog | Spring | Migration-prepared |
-| Showtime | Spring | Migration-prepared |
-| Booking | Spring | Payment outcome consumers implemented in `booking-service`; live publish to `payment.events` still required |
-| Analytics | Spring | Migration-prepared |
-| Recommendation | Spring | Migration-prepared |
-| Facility | ASP.NET teammate | Spring folder is compatibility-only; do not expand it |
-| Identity/Keycloak | ASP.NET teammate | Contract agreed; integration pending |
-| API Gateway | ASP.NET teammate | Contract agreed; integration pending |
-| Payment | ASP.NET teammate | Saga implementation exists on teammate branch; envelope/Booking integration pending |
-| Notification | ASP.NET teammate | Outside the current Spring scope |
+| Catalog | Spring | In this branch. Last clean-verify evidence is 2026-08-07 |
+| Showtime | Spring | In this branch |
+| Booking | Spring | Payment consumers implemented. No staff aggregate API |
+| Analytics | Spring | In this branch |
+| Recommendation | Spring | In this branch and used by the home page |
+| Facility | ASP.NET | Cinema, room, and seat APIs are in this branch. Health is `/health`. Database is `facility_db` |
+| Identity/Keycloak | ASP.NET + Keycloak | In Compose. Frontend uses Keycloak PKCE. User delete is not implemented |
+| API Gateway | ASP.NET | In Compose on port 5000. No notification or `/api/staff/**` routes |
+| Payment | ASP.NET | Stripe, PayPal, cash, and `RefundAsync` are in this branch. MassTransit entity name is `payment.events`. Live saga not re-run on 2026-10-11 |
+| Notification | ASP.NET | Email consumers and SignalR hub are in this branch. SMS logs only. Gateway does not route it |
 
 ## Spring Deliverables Complete
 
-- Six extracted applications build independently: Catalog, compatibility
-  Facility, Showtime, Booking, Analytics, and Recommendation.
-- Catalog, Showtime, Booking, and compatibility Facility communicate through
-  explicit HTTP boundaries rather than cross-service repositories/entities.
+Recorded before Facility became the ASP.NET service. The Spring list is now
+Catalog, Showtime, Booking, Analytics, and Recommendation.
+
+- Those Spring applications build independently.
+- Catalog, Showtime, and Booking talk to Facility over HTTP rather than sharing
+  repositories or entities.
 - Internal HTTP routes use `/internal/**` and the transitional canonical header
   `X-Internal-Token`; clients fail closed when required dependencies are down.
 - Catalog and Booking use transactional outboxes with publisher confirms,
@@ -80,8 +87,8 @@ Implemented behind `CINEMA_SECURITY_JWT_ENABLED`:
 - Booking ownership checks for pay, refund, and ticket reads.
 - Rejection of conflicting caller-supplied identity values in JWT mode.
 
-Activation still requires the teammate-owned stack to provide all of the
-following in one integrated environment:
+Keycloak and the gateway are in this branch. Spring JWT stays off until one
+integrated environment shows all of the following:
 
 - Stable canonical issuer and backend audience.
 - Numeric `user_id` claim or the approved idempotent UUID-to-Long provisioning
@@ -164,23 +171,25 @@ point in the team's protected evidence location.
 |---|---|---|
 | `catalog-service` | Ready for coordinated migration | Gateway/Keycloak activation and canonical data snapshot |
 | `showtime-service` | Ready for coordinated migration | Gateway/Keycloak activation, Redis hold cutover plan, and canonical snapshot |
-| `booking-service` | Ready for integration, not final cutover | Payment must publish to `payment.events`; Gateway/Keycloak; canonical snapshot |
+| `booking-service` | Consumers implemented; not cut over | Live payment-event run, staff routes, canonical snapshot |
 | `analytics-service` | Ready for coordinated migration | Identity data/event integration and canonical backfill |
 | `recommendation-service` | Ready for coordinated migration | Canonical graph backfill and integrated user identity |
-| `facility-service` | Compatibility slice only | Replace/route to teammate-owned ASP.NET Facility after parity checks |
+| `facility-service` | ASP.NET implementation in Compose | Contract parity against Showtime/Booking clients not re-run |
+| `identity-service` | In Compose | User delete and real-token suite still open |
+| `api-gateway` | In Compose | Notification and `/api/staff/**` routes missing. Real-token suite not re-run |
+| `payment-service` | In Compose; publishes to `payment.events` in source | Live saga against Booking not re-run on 2026-10-11 |
+| `notification-service` | Email consumers in Compose | Gateway route missing. SMS is log-only |
 
 ## Cross-Workstream Contracts Still Pending
 
 ### Auth and Gateway
 
-The teammate should branch or rebase from the latest
-`refactor-compose-single-postgres` before integration. Older auth/gateway
-branches that still ship one PostgreSQL container per service must not be
-merged blindly over the single-Postgres Compose file.
+Keycloak and the gateway are already in this branch's Compose file. Do not
+merge an older branch that replaces the single PostgreSQL 18 container with
+one database container per service.
 
-Merge Keycloak and Gateway first, then run every security test in Section 14 of
-the authentication contract. Only after those tests pass should
-`CINEMA_SECURITY_JWT_ENABLED=true` be enabled in the integrated deployment.
+Run every security test in Section 14 of the authentication contract. Only
+after those tests pass should `CINEMA_SECURITY_JWT_ENABLED=true` be enabled.
 
 ### Internal Authentication
 
@@ -205,43 +214,38 @@ The shared Spring event envelope is:
 }
 ```
 
-MassTransit must publish this envelope rather than a raw payload. Before merging
-Payment, freeze JSON field names and semantics for `payment.completed`,
-`payment.failed`, and `payment.refunded`, including `orderId`, payment/reference
-ID, amount, currency, provider status/reason, and event timestamp.
+Payment's MassTransit configuration now sets the entity name `payment.events`
+for `payment.completed`, `payment.failed`, and `payment.refunded`. That was
+read from source on 2026-10-11 and was not executed against RabbitMQ.
 
-Booking now consumes those three outcomes in `booking-service` when
-`BOOKING_PAYMENT_EVENTS_ENABLED=true` (idempotent on `eventId`, stale
-transitions ignored, checked-in refunds dead-lettered). Remaining Payment work
-is publish topology: camelCase envelopes on exchange `payment.events` with
-routing keys `payment.completed`, `payment.failed`, and `payment.refunded`.
-Teammate test notes: `../docs/booking_status.md`.
+Booking consumes those three outcomes when `BOOKING_PAYMENT_EVENTS_ENABLED=true`
+(idempotent on `eventId`, stale transitions ignored, checked-in refunds
+dead-lettered). The open check is a live complete/fail/refund/duplicate/poison
+run. Notes: `../docs/booking_status.md`.
 
 Do not copy this integration into `backend_legacy`. That tree is rollback only.
 
 ### Facility
 
-The Spring Facility folder exists only to keep the extracted stack testable. The
-teammate-owned ASP.NET Facility remains the target implementation. Integration
-must preserve the current public/internal OpenAPI behavior needed by Showtime
-and Booking, especially room/cinema projections and future-showtime delete
-guards. Avoid parallel feature development in the Spring compatibility slice.
+Compose builds the ASP.NET Facility service. There is no Spring Facility source
+to extend. Integration must keep the public and internal behavior Showtime and
+Booking already call, especially room and cinema projections and
+future-showtime delete guards. That parity suite was not re-run on 2026-10-11.
 
 ## Safe Integration and Cutover Order
 
-1. Push/rebase teammate work from the latest
-   `refactor-compose-single-postgres`; resolve Compose ownership without
-   replacing Spring service definitions or the single PostgreSQL 18 container.
-2. Merge Keycloak and Gateway; freeze issuer, audience, roles, claims, route
-   policies, header stripping, and `/internal/**` blocking.
-3. Enable Spring JWT only in the integrated environment and pass the complete
-   real-token security suite, including key rotation and Google login mapping.
-4. Integrate ASP.NET Facility and run contract plus Booking/Showtime dependency
-   tests before removing the compatibility route.
-5. Point Payment publish topology at `payment.events` and pass the Booking
-   consumer matrix (complete / fail / refund / duplicate / poison).
-6. Produce one conflict-resolved integrated Compose stack and rerun clean build,
-   runtime smoke, event flow, auth flow, Payment Saga, and frontend booking flow.
+1. Keep the single PostgreSQL 18 Compose file. Do not overlay an older
+   per-service Postgres layout.
+2. Freeze issuer, audience, roles, claims, header stripping, and `/internal/**`
+   blocking on the gateway that is already in this branch.
+3. Pass the real-token security suite, then enable Spring JWT in that environment.
+4. Run Facility contract tests against the ASP.NET service and the Showtime and
+   Booking clients.
+5. Run the Booking consumer matrix against Payment's `payment.events` publish
+   path (complete / fail / refund / duplicate / poison).
+6. Rerun clean build, runtime smoke, event flow, auth, payment saga, and one
+   frontend booking on this merged stack. Add the missing notification and
+   staff gateway routes before calling staff and inbox flows done.
 7. Confirm the canonical PostgreSQL version; take a protected read-only copy and
    run the guarded export/restore/backfill twice on disposable targets.
 8. Archive checksums, content/sequence reconciliation, graph/read-model counts,
@@ -253,23 +257,29 @@ guards. Avoid parallel feature development in the Spring compatibility slice.
 
 ## Cutover Gates
 
-Completed locally:
+Completed locally on 2026-08-07 unless noted. Not repeated on 2026-10-11:
 
 - [x] Spring clean verification: 179 tests.
-- [x] Six-service Docker build and non-root runtime.
+- [x] Six Spring Docker images and non-root runtime.
 - [x] Runtime and event-flow smoke with automatic teardown.
 - [x] Fixture migration repeatability, checksum, fingerprint, sequence, and
   Analytics checks.
 - [x] Equivalent two-cycle audit against current local development data.
 - [x] Spring Keycloak resource-server and signed-identity implementation.
-
-Must complete with the teammate or canonical environment:
-
-- [ ] Teammate branches rebased/merged without overwriting Spring service work.
-- [ ] Integrated Keycloak/Gateway security tests with real tokens.
-- [ ] ASP.NET Facility contract parity and route replacement.
 - [x] Idempotent Booking Saga consumers in `booking-service` (unit-tested 2026-08-23).
-- [ ] Payment publishes versioned envelopes to `payment.events` (not MassTransit type exchanges).
+
+Present in source on 2026-10-11, not re-executed:
+
+- [x] Gateway, Keycloak, ASP.NET Facility, Identity, Payment, and Notification are in this branch's Compose file.
+- [x] Payment entity name is `payment.events` for the three outcome events.
+- [x] Notification consumes booking and identity events and can send email.
+
+Still open:
+
+- [ ] Integrated Keycloak/Gateway security tests with real tokens.
+- [ ] ASP.NET Facility contract parity with Showtime and Booking clients.
+- [ ] Live Payment-to-Booking consumer matrix on the merged stack.
+- [ ] Gateway routes for notification HTTP/SignalR and for staff dashboard and counter booking.
 - [ ] Frontend production dependency advisories resolved and booking flow tested.
 - [ ] Canonical copied-snapshot migration with aligned PostgreSQL versions.
 - [ ] Recommendation graph backfill against the canonical copied snapshot.
@@ -285,6 +295,5 @@ Must complete with the teammate or canonical environment:
 - `59e4fac` - native PostgreSQL notice/log handling for migration scripts.
 - `b14dd64` - row/content/sequence reconciliation and sequence-drift rehearsal.
 
-The next action is coordinated integration, not more independent Spring service
-extraction. A real cutover should begin only after the unchecked gates above are
-assigned, evidenced, and approved.
+The next action is a live run of the stack that is already merged, not another
+service extraction. A cutover starts only after the open gates have fresh evidence.
