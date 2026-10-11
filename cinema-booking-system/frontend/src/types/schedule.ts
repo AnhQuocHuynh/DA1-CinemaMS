@@ -5,6 +5,10 @@ export interface ScheduleConstraints {
   closeTime: string;     // "HH:mm"
   cleaningTimeMinutes: number;
   adsTimeMinutes: number;
+  goldenHoursStart?: string;      // "HH:mm", e.g. "18:30"
+  goldenHoursEnd?: string;        // "HH:mm", e.g. "21:30"
+  maxPreShiftMinutes?: number;    // e.g. 45-60
+  staggerOffsetMinutes?: number;  // e.g. 15
 }
 
 /** A coloured block on the timeline – either a movie screening or an event slot */
@@ -36,9 +40,16 @@ export interface ScheduledMovie {
   id: number;
   title: string;
   durationMinutes: number;
-  /** How many times this movie should appear (minimum) */
+  /** Priority weight (1 = Standard, 2 = High Demand, 3 = Blockbuster / Golden Hour) */
   priority: number;
+  isHot?: boolean;
   colorClass: string;
+}
+
+export interface CachedMoviePriority {
+  priority: number;
+  isHot?: boolean;
+  updatedAt?: string;
 }
 
 /** Payload sent to POST /showtimes for each block */
