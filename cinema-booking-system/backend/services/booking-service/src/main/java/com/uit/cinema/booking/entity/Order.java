@@ -17,6 +17,8 @@ import java.util.List;
 @Builder
 public class Order {
 
+    public static final Long ANONYMOUS_USER_ID = 0L;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

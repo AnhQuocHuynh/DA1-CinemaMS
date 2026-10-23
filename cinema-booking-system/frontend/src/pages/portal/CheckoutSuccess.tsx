@@ -118,6 +118,10 @@ export const CheckoutSuccess: React.FC = () => {
                 if (ord.status === 'PAID') {
                   break;
                 }
+                if (ord.status === 'CANCELLED') {
+                  navigate(`/user/booking-failed?reason=cancelled&orderId=${orderId}`);
+                  return;
+                }
               }
             } catch (err) {
               console.error('Failed to fetch order by ID:', err);
@@ -177,6 +181,11 @@ export const CheckoutSuccess: React.FC = () => {
   const displayMovie = movieTitle || showtimeData?.displayTitle || completedOrder.displayTitle || completedOrder.movieTitle || '—';
 
   const handleGoHome = () => {
+    try {
+      sessionStorage.removeItem('pending_booking');
+    } catch {
+      // Ignore
+    }
     clearSelection();
     navigate('/');
   };

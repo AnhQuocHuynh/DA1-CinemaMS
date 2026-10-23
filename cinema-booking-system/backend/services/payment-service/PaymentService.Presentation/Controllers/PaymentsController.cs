@@ -38,14 +38,24 @@ public class PaymentsController : ControllerBase
         var userId = GetCurrentUserId();
         var baseUrl = _configuration["App:BaseUrl"] ?? "http://localhost:3000";
 
+        var isStaffOrAdmin = User.IsInRole("STAFF") || User.IsInRole("ADMIN") ||
+                             User.HasClaim(ClaimTypes.Role, "STAFF") || User.HasClaim(ClaimTypes.Role, "ADMIN") ||
+                             (Request.Headers.TryGetValue("X-User-Roles", out var rolesHeader) &&
+                              (rolesHeader.ToString().Contains("STAFF", StringComparison.OrdinalIgnoreCase) ||
+                               rolesHeader.ToString().Contains("ADMIN", StringComparison.OrdinalIgnoreCase)));
+
+        if (request.PaymentMethod == PaymentMethod.CASH && !isStaffOrAdmin)
+        {
+            return StatusCode(403, ApiResponse<object>.Error("Cash payment method is restricted to staff counter bookings only."));
+        }
+
         var command = new InitiatePaymentCommand(
             OrderId: request.OrderId,
             UserId: userId,
-            Amount: request.Amount,
-            Currency: request.Currency ?? "VND",
             PaymentMethod: request.PaymentMethod,
             CancelUrl: request.CancelUrl ?? $"{baseUrl}/checkout-canceled?orderId={request.OrderId}",
-            SuccessUrl: request.SuccessUrl ?? $"{baseUrl}/checkout-success?orderId={request.OrderId}"
+            SuccessUrl: request.SuccessUrl ?? $"{baseUrl}/checkout-success?orderId={request.OrderId}",
+            IsStaffOrAdmin: isStaffOrAdmin
         );
 
         var result = await _mediator.Send(command);
@@ -54,8 +64,8 @@ public class PaymentsController : ControllerBase
             return BadRequest(ApiResponse<object>.Error(result.ErrorMessage ?? "Payment initiation failed"));
 
         if (request.PaymentMethod == PaymentMethod.CASH)
-            return Ok(ApiResponse<object>.Ok(new { status = "AWAITING_CASH", orderId = request.OrderId },
-                "Cash payment pending counter confirmation"));
+            return Ok(ApiResponse<object>.Ok(new { status = "COMPLETED", orderId = request.OrderId, transactionId = result.GatewaySessionId },
+                "Cash payment completed successfully at counter"));
 
         return Ok(ApiResponse<object>.Ok(new { checkoutUrl = result.RedirectUrl, paymentUrl = result.RedirectUrl }));
     }
@@ -155,6 +165,7 @@ public class PaymentsController : ControllerBase
     // ─────────────────────────────────────────────────────────────────────────
     [HttpPost("cash/confirm")]
     [Authorize(Roles = "ADMIN")]
+    [Obsolete("Cash payments are completed immediately at counter; manual confirmation is deprecated.")]
     public async Task<IActionResult> ConfirmCashPayment([FromBody] ConfirmCashRequest request)
     {
         var adminUserId = GetCurrentUserId();
@@ -243,9 +254,7 @@ public class PaymentsController : ControllerBase
 // ─────────────────────────────────────────────────────────────────────────────
 public record InitiatePaymentRequest(
     long OrderId,
-    decimal Amount,
     PaymentMethod PaymentMethod,
-    string? Currency = "VND",
     string? CancelUrl = null,
     string? SuccessUrl = null
 );

@@ -8,4 +8,9 @@ public class PaymentNotFoundException : Exception
         : base($"Payment with ID {paymentId} was not found.")
     {
     }
+
+    public PaymentNotFoundException(string message) 
+        : base(message)
+    {
+    }
 }

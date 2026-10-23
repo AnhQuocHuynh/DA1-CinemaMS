@@ -27,6 +27,9 @@ export const CounterBooking: React.FC = () => {
   const [isLoadingSeats, setIsLoadingSeats] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [memberUser, setMemberUser] = useState<{ id: number; fullName: string; phone: string; tier?: string; loyaltyPoints?: number } | null>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [lookupNotice, setLookupNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchMovies = async () => {
@@ -105,6 +108,28 @@ export const CounterBooking: React.FC = () => {
     );
   };
 
+  const handleLookupMember = async () => {
+    if (!customerPhone.trim()) return;
+    console.warn('[STAFF] Lookup user by phone is not supported by backend yet. Needs implementation (/users/lookup?phone=...).');
+    setIsLookingUp(true);
+    setLookupNotice(null);
+    try {
+      const member = await staffService.lookupMemberByPhone(customerPhone.trim());
+      if (member) {
+        setMemberUser(member);
+        if (!customerName) setCustomerName(member.fullName);
+      } else {
+        setMemberUser(null);
+        setLookupNotice(t('staffCounterBooking.memberNotFound', 'Không tìm thấy thành viên. Đặt vé theo khách vãng lai.'));
+      }
+    } catch {
+      setMemberUser(null);
+      setLookupNotice(t('staffCounterBooking.memberNotFound', 'Không tìm thấy thành viên. Đặt vé theo khách vãng lai.'));
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
   const submitBooking = async () => {
     const numericShowtimeId = Number(showtimeId);
     if (!numericShowtimeId || selectedSeats.length === 0) {
@@ -120,6 +145,7 @@ export const CounterBooking: React.FC = () => {
         seatIds: selectedSeats.map((seat) => seat.numericId),
         customerName: customerName || undefined,
         customerPhone: customerPhone || undefined,
+        userId: memberUser ? memberUser.id : 0,
         voucherCode: voucherCode || null,
         paymentMethod,
       });
@@ -217,22 +243,56 @@ export const CounterBooking: React.FC = () => {
             </label>
 
             <label className="block">
+              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{t('staffCounterBooking.customerPhone', 'Số điện thoại')}</span>
+              <div className="mt-1 flex gap-2">
+                <input
+                  value={customerPhone}
+                  onChange={(event) => {
+                    setCustomerPhone(event.target.value);
+                    if (memberUser) {
+                      setMemberUser(null);
+                      setLookupNotice(null);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleLookupMember();
+                    }
+                  }}
+                  className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="090..."
+                />
+                <button
+                  type="button"
+                  onClick={handleLookupMember}
+                  disabled={isLookingUp || !customerPhone.trim()}
+                  className="rounded-lg bg-surface-container-high px-3 py-2 text-xs font-bold text-on-surface hover:bg-surface-container-highest disabled:opacity-50 shrink-0 border border-outline-variant/50 flex items-center gap-1.5"
+                >
+                  {isLookingUp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : t('staffCounterBooking.findMember', 'Tra cứu')}
+                </button>
+              </div>
+            </label>
+
+            {memberUser ? (
+              <div className="bg-primary/10 border border-primary/30 p-2.5 rounded-lg flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-primary">{memberUser.fullName} ({memberUser.tier || 'Standard'} Member)</p>
+                  <p className="text-xs text-on-surface-variant">Điểm tích lũy: {memberUser.loyaltyPoints ?? 0} pts</p>
+                </div>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-primary text-white">Tích điểm</span>
+              </div>
+            ) : lookupNotice ? (
+              <p className="text-xs text-amber-700 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg">{lookupNotice}</p>
+            ) : null}
+
+            <label className="block">
               <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{t('staffCounterBooking.customerName', 'Tên khách')}</span>
               <input
                 value={customerName}
                 onChange={(event) => setCustomerName(event.target.value)}
                 className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
                 placeholder={t('staffCounterBooking.customerNamePlaceholder', 'Walk-in Customer')}
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{t('staffCounterBooking.customerPhone', 'Số điện thoại')}</span>
-              <input
-                value={customerPhone}
-                onChange={(event) => setCustomerPhone(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-                placeholder="090..."
               />
             </label>
 

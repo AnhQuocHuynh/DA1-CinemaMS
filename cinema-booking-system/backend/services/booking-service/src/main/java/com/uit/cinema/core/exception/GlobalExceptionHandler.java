@@ -18,6 +18,16 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(DuplicatePendingOrderException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicatePendingOrder(DuplicatePendingOrderException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("code", "DUPLICATE_PENDING_ORDER");
+        body.put("errorCode", "DUPLICATE_PENDING_ORDER");
+        body.put("existingOrderId", ex.getExistingOrderId());
+        body.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ApiResponse<Object>> handleCustomException(CustomException ex) {
         ApiResponse<Object> response = ApiResponse.error(

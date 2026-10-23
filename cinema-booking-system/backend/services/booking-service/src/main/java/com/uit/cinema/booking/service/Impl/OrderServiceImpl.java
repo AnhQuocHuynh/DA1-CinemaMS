@@ -2,10 +2,12 @@ package com.uit.cinema.booking.service.Impl;
 
 import com.uit.cinema.booking.entity.Order;
 import com.uit.cinema.booking.entity.Voucher;
+import com.uit.cinema.booking.outbox.BookingOutboxEventWriter;
 import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.VoucherRepository;
 import com.uit.cinema.booking.service.OrderService;
 import com.uit.cinema.core.exception.CustomException;
+import com.uit.cinema.core.exception.DuplicatePendingOrderException;
 import com.uit.cinema.showtime.service.SeatReservationService;
 import com.uit.cinema.showtime.service.contract.SeatBookingRequest;
 import com.uit.cinema.showtime.service.contract.SeatHoldValidationResult;
@@ -28,10 +30,17 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final VoucherRepository voucherRepository;
     private final SeatReservationService seatReservationService;
+    private final BookingOutboxEventWriter bookingOutboxEventWriter;
 
     @Override
     @Transactional
     public Order createOrder(Long userId, Long showtimeId, List<Long> seatIds, String voucherCode) {
+        if (orderRepository.existsByUserIdAndShowtimeIdAndStatus(userId, showtimeId, Order.OrderStatus.PENDING)) {
+            Order existing = orderRepository.findByUserIdAndShowtimeIdAndStatus(userId, showtimeId, Order.OrderStatus.PENDING)
+                .orElseThrow();
+            throw new DuplicatePendingOrderException(existing.getId());
+        }
+
         if (seatIds == null || seatIds.isEmpty()) {
             throw new CustomException("Seat list is empty", HttpStatus.BAD_REQUEST, "SEAT_LIST_EMPTY");
         }
@@ -65,6 +74,7 @@ public class OrderServiceImpl implements OrderService {
             .build();
 
         Order saved = orderRepository.save(order);
+        bookingOutboxEventWriter.orderCreated(saved);
         log.info("Created order {} for user {} showtime {}", saved.getId(), userId, showtimeId);
         return saved;
     }
@@ -74,6 +84,12 @@ public class OrderServiceImpl implements OrderService {
     public Order getOrderById(Long orderId) {
         return orderRepository.findById(orderId)
             .orElseThrow(() -> new CustomException("Order not found", HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND"));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Order> getOrdersByUserId(Long userId) {
+        return orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
     private void validateVoucher(Voucher voucher, Long userId) {
