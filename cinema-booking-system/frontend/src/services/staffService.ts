@@ -11,7 +11,6 @@ import {
 
 export const staffService = {
   getStaffDashboard: async (): Promise<StaffDashboardSummary> => {
-    console.warn('[STAFF] getStaffDashboard: Endpoint /staff/dashboard/summary is missing in backend.');
     const response = await apiClient.get<{ success: boolean; data: StaffDashboardSummary }>(
       '/staff/dashboard/summary'
     );
@@ -19,7 +18,6 @@ export const staffService = {
   },
 
   getBookingsList: async (): Promise<StaffBookingListItem[]> => {
-    console.warn('[STAFF] getBookingsList: Endpoint /staff/dashboard/bookings/today is missing in backend.');
     const response = await apiClient.get<{ success: boolean; data: StaffBookingListItem[] }>(
       '/staff/dashboard/bookings/today?limit=10'
     );
@@ -27,7 +25,6 @@ export const staffService = {
   },
 
   getValidationStats: async (): Promise<StaffValidationStats> => {
-    console.warn('[STAFF] getValidationStats: Endpoint /staff/dashboard/validation/stats is missing in backend.');
     const response = await apiClient.get<{ success: boolean; data: StaffValidationStats }>(
       '/staff/dashboard/validation/stats'
     );
@@ -35,7 +32,6 @@ export const staffService = {
   },
 
   getValidationBookings: async (): Promise<StaffBookingValidation[]> => {
-    console.warn('[STAFF] getValidationBookings: Endpoint /staff/dashboard/validation/bookings is missing in backend.');
     const response = await apiClient.get<{ success: boolean; data: StaffBookingValidation[] }>(
       '/staff/dashboard/validation/bookings?limit=20'
     );
@@ -45,12 +41,25 @@ export const staffService = {
   createCounterBooking: async (
     payload: StaffCounterBookingRequest
   ): Promise<StaffCounterBookingResult> => {
-    console.warn('[STAFF] createCounterBooking: Endpoint /staff/bookings is missing in backend.');
     const response = await apiClient.post<{ success: boolean; data: StaffCounterBookingResult }>(
       '/staff/bookings',
       payload
     );
     return response.data.data;
+  },
+
+  lookupMemberByPhone: async (
+    phone: string
+  ): Promise<{ id: number; fullName: string; phone: string; tier?: string; loyaltyPoints?: number } | null> => {
+    try {
+      const response = await apiClient.get<{
+        success: boolean;
+        data: { id: number; fullName: string; phone: string; tier?: string; loyaltyPoints?: number };
+      }>(`/users/lookup?phone=${encodeURIComponent(phone)}`);
+      return response.data.data ?? null;
+    } catch {
+      return null;
+    }
   },
 
   scanTicket: async (ticketCode: string): Promise<StaffScanResult> => {

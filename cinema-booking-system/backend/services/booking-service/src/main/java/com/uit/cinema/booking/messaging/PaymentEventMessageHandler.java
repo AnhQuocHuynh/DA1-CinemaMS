@@ -40,6 +40,11 @@ public class PaymentEventMessageHandler {
         consume(message, PaymentEventProcessor.REFUNDED);
     }
 
+    @RabbitListener(queues = "${booking.messaging.payment-events.expired-queue:booking.payment.expired.v1}")
+    public void consumeExpired(String message) {
+        consume(message, PaymentEventProcessor.EXPIRED);
+    }
+
     void consume(String message, String expectedEventType) {
         try {
             if (paymentEventProcessor.process(message, expectedEventType)) {

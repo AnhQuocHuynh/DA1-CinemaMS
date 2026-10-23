@@ -221,6 +221,11 @@ namespace PaymentService.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("gateway_response");
 
+                    b.Property<string>("GatewaySessionId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("gateway_session_id");
+
                     b.Property<long>("OrderId")
                         .HasColumnType("bigint")
                         .HasColumnName("order_id");
@@ -230,7 +235,6 @@ namespace PaymentService.Infrastructure.Migrations
                         .HasColumnName("paid_at");
 
                     b.Property<string>("PaymentMethod")
-                        .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("payment_method");
@@ -241,10 +245,8 @@ namespace PaymentService.Infrastructure.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
-                        .HasDefaultValue("PENDING")
                         .HasColumnName("status");
 
                     b.Property<string>("TransactionId")
@@ -403,6 +405,10 @@ namespace PaymentService.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("current_state");
+
+                    b.Property<Guid?>("ExpiryTokenId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("expiry_token_id");
 
                     b.Property<string>("FailureReason")
                         .HasColumnType("text")

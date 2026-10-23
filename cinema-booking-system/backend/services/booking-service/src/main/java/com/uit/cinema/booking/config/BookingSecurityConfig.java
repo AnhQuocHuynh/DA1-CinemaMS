@@ -46,7 +46,8 @@ public class BookingSecurityConfig {
                     "/api/orders/**",
                     "/api/tickets/**",
                     "/api/vouchers/**",
-                    "/api/reviews/**"
+                    "/api/reviews/**",
+                    "/api/staff/**"
                 ).permitAll()
                 .anyRequest().denyAll()
             )
@@ -61,6 +62,7 @@ public class BookingSecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/reviews/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/reviews").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/tickets/check-in").hasAnyRole("STAFF", "ADMIN")
+                .requestMatchers("/api/staff/**").hasAnyRole("STAFF", "ADMIN")
                 .requestMatchers("/api/orders/**", "/api/tickets/**").authenticated()
                 .requestMatchers("/api/vouchers/**").hasRole("ADMIN")
                 .anyRequest().denyAll()

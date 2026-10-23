@@ -28,11 +28,17 @@ export const TicketLookup: React.FC = () => {
   const handleCheckIn = async (bookingId: string) => {
     try {
       setIsProcessing(prev => ({ ...prev, [bookingId]: true }));
-      const orderId = Number(bookingId.replace('#BK-', ''));
-      const tickets = await bookingService.getOrderTickets(orderId);
-      for (const t of tickets) {
-        if (t.status !== 'CHECKED_IN' && t.status !== 'CANCELLED' && t.status !== 'REFUNDED') {
-          await staffService.scanTicket(t.ticketCode);
+      if (bookingId.startsWith('TK-')) {
+        await staffService.scanTicket(bookingId);
+      } else {
+        const orderId = Number(bookingId.replace('#BK-', ''));
+        if (!isNaN(orderId)) {
+          const tickets = await bookingService.getOrderTickets(orderId);
+          for (const t of tickets) {
+            if (t.status !== 'CHECKED_IN' && t.status !== 'CANCELLED' && t.status !== 'REFUNDED') {
+              await staffService.scanTicket(t.ticketCode);
+            }
+          }
         }
       }
       await reload();
@@ -47,8 +53,18 @@ export const TicketLookup: React.FC = () => {
   const handlePrintPDF = async (bookingId: string) => {
     try {
       setIsProcessing(prev => ({ ...prev, [bookingId]: true }));
-      const orderId = Number(bookingId.replace('#BK-', ''));
-      const rawTickets = await bookingService.getOrderTickets(orderId);
+      let rawTickets: any[] = [];
+      if (bookingId.startsWith('TK-')) {
+        const singleTicket = await bookingService.getTicketByCode(bookingId);
+        if (singleTicket) {
+          rawTickets = [singleTicket];
+        }
+      } else {
+        const orderId = Number(bookingId.replace('#BK-', ''));
+        if (!isNaN(orderId)) {
+          rawTickets = await bookingService.getOrderTickets(orderId);
+        }
+      }
 
       const mappedTickets: TicketDetails[] = rawTickets.map(raw => {
         const dt = raw.startTime ? new Date(raw.startTime) : null;
@@ -61,7 +77,7 @@ export const TicketLookup: React.FC = () => {
           showtime: raw.startTime || '',
           date: dt ? dt.toLocaleDateString('vi-VN') : '',
           time: dt ? dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '',
-          seats: raw.seatLabel ? [raw.seatLabel] : [],
+          seats: raw.seatLabel ? [raw.seatLabel] : (raw.seats || []),
           seatLabel: raw.seatLabel,
           seatTypeName: raw.seatTypeName,
           qrCodeData: raw.qrCodeData,

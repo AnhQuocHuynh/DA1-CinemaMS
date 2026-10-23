@@ -1,3 +1,4 @@
+using System.Threading;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using PaymentService.Application.Contracts;
@@ -69,7 +70,7 @@ public class StripeGateway : IPaymentGateway
             _logger.LogInformation("Stripe Checkout Session created: {SessionId} for PaymentId: {PaymentId}",
                 session.Id, request.PaymentId);
 
-            return new PaymentInitiationResult(true, session.Url, null);
+            return new PaymentInitiationResult(true, session.Url, null, session.Id);
         }
         catch (StripeException ex)
         {
@@ -81,6 +82,13 @@ public class StripeGateway : IPaymentGateway
             _logger.LogError(ex, "Unexpected error initiating Stripe payment {PaymentId}", request.PaymentId);
             return new PaymentInitiationResult(false, null, ex.Message);
         }
+    }
+
+    public async Task<string> GetExistingSessionUrlAsync(string gatewaySessionId, CancellationToken ct = default)
+    {
+        var service = new SessionService();
+        var session = await service.GetAsync(gatewaySessionId, cancellationToken: ct);
+        return session.Url;
     }
 
     public async Task<PaymentVerificationResult> VerifyCallbackAsync(IDictionary<string, string> parameters)

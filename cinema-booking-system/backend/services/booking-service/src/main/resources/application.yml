@@ -48,11 +48,13 @@ services:
     url: ${FACILITY_SERVICE_URL:http://localhost:5002}
   showtime:
     url: ${SHOWTIME_SERVICE_URL:http://localhost:8082}
+  payment:
+    url: ${PAYMENT_SERVICE_URL:http://localhost:5003}
 
 outbox:
   dispatcher:
     enabled: ${OUTBOX_DISPATCHER_ENABLED:false}
-    fixed-delay-ms: ${OUTBOX_DISPATCHER_FIXED_DELAY_MS:5000}
+    fixed-delay-ms: ${OUTBOX_DISPATCHER_FIXED_DELAY_MS:500}
     batch-size: ${OUTBOX_DISPATCHER_BATCH_SIZE:50}
     confirm-timeout: ${OUTBOX_DISPATCHER_CONFIRM_TIMEOUT:5s}
 
@@ -63,6 +65,7 @@ booking:
       completed-queue: ${BOOKING_PAYMENT_COMPLETED_QUEUE:booking.payment.completed.v1}
       failed-queue: ${BOOKING_PAYMENT_FAILED_QUEUE:booking.payment.failed.v1}
       refunded-queue: ${BOOKING_PAYMENT_REFUNDED_QUEUE:booking.payment.refunded.v1}
+      expired-queue: ${BOOKING_PAYMENT_EXPIRED_QUEUE:booking.payment.expired.v1}
 
 logging:
   pattern:

@@ -129,6 +129,14 @@
     "settings": "Cài đặt",
     "newScreening": "Suất chiếu mới"
   },
+  "staffNav": {
+    "brand": "CinemaArchitect - Nhân viên",
+    "dashboard": "Bảng điều khiển",
+    "counterBooking": "Đặt vé tại quầy",
+    "ticketLookup": "Soát vé",
+    "settings": "Cài đặt",
+    "logout": "Đăng xuất"
+  },
   "checkoutSuccess": {
     "title": "Thanh toán thành công!",
     "verifying": "Đang xác nhận thanh toán...",
@@ -147,6 +155,27 @@
     "printTicket": "In vé",
     "downloading": "Đang tải..."
   },
+  "bookingFailed": {
+    "title": "Đặt vé không thành công",
+    "subtitle": "Rất tiếc, chúng tôi không thể hoàn tất giao dịch đặt vé của bạn",
+    "generalExplanation": "Giao dịch đặt vé chưa thể xác nhận. Nếu tài khoản của bạn đã bị trừ tiền, hệ thống sẽ tự động hoàn tiền về phương thức thanh toán ban đầu theo lịch xử lý của ngân hàng phát hành.",
+    "refundGuarantee": "Không ghi nhận khoản phí cố định",
+    "reasonTimeoutTitle": "Hết hạn giữ ghế",
+    "reasonTimeout": "Thời gian giữ ghế tạm thời đã hết hạn trước khi thanh toán hoàn tất. Để đảm bảo công bằng cho tất cả khán giả, các ghế giữ tạm sẽ được mở lại cho phòng chiếu khi đơn hàng không được thanh toán kịp thời.",
+    "reasonDeclinedTitle": "Giao dịch bị từ chối",
+    "reasonDeclined": "Ngân hàng hoặc nhà cung cấp phương thức thanh toán đã từ chối giao dịch. Vui lòng kiểm tra lại số dư thẻ, hạn mức hoặc liên hệ với ngân hàng của bạn.",
+    "reasonCancelledTitle": "Đã huỷ thanh toán",
+    "reasonCancelled": "Quá trình thanh toán đã bị huỷ hoặc đóng trước khi hoàn tất xác thực. Tài khoản không bị trừ tiền.",
+    "reasonGenericTitle": "Giao dịch chưa hoàn tất",
+    "reasonGeneric": "Chúng tôi chưa thể giữ ghế đã chọn cho bạn. Sự cố này thường xảy ra khi thời gian giữ ghế hết hạn hoặc kết nối mạng bị gián đoạn.",
+    "goHome": "Quay về Trang chủ",
+    "tryAgain": "Khám phá Phim khác",
+    "autoRedirectPrefix": "Tự động chuyển về trang chủ sau",
+    "redirectPaused": "Đã tạm dừng tự động chuyển trang",
+    "stay": "Ở lại trang này",
+    "resume": "Tiếp tục",
+    "needHelp": "Cần hỗ trợ? Vui lòng liên hệ bộ phận chăm sóc khách hàng cùng mã đơn hàng của bạn."
+  },
   "dashboard": {
     "welcome": "Xin chào",
     "subtitle": "Khám phá và đặt vé trải nghiệm điện ảnh yêu thích tiếp theo của bạn",
@@ -163,21 +192,52 @@
     "loading": "Đang tải nội dung..."
   },
   "userDashboard": {
-    "title": "Vé của tôi",
-    "subtitle": "Xem thông tin và quản lý các vé đã đặt của bạn.",
-    "loading": "Đang tải vé...",
-    "loadError": "Không thể tải danh sách vé.",
+    "title": "Vé & Đơn hàng của tôi",
+    "subtitle": "Xem và quản lý tất cả các đơn hàng, vé xem phim và trạng thái thanh toán.",
+    "loading": "Đang tải danh sách đơn hàng...",
+    "loadError": "Không thể tải danh sách đơn hàng.",
     "noUserId": "Không có thông tin người dùng.",
     "bookedOn": "Đặt ngày",
     "viewTicket": "Xem vé",
-    "noTickets": "Chưa có vé nào",
-    "startBooking": "Hãy đặt vé từ trang chủ để xem vé tại đây.",
-    "findMovie": "Tìm phim",
+    "noTickets": "Chưa có đơn hàng nào",
+    "startBooking": "Bạn chưa đặt vé nào. Hãy chọn phim yêu thích và trải nghiệm đặt vé ngay bây giờ!",
+    "findMovie": "Khám phá phim",
+    "totalPayment": "Tổng thanh toán",
+    "movieTicket": "Vé xem phim",
+    "ticketsInOrder": "Danh sách vé trong đơn ({{count}} vé)",
+    "seat": "Ghế {{seat}}",
+    "viewQrCode": "Xem mã QR vé",
+    "refundSupport": "Hỗ trợ hoàn tiền: {{percent}}% ({{amount}})",
+    "refundExpired": "Hết hạn hoàn vé (< 4 giờ trước suất chiếu hoặc vé đã vào rạp)",
+    "refundCompleted": "Đơn hàng đã được hoàn tiền",
+    "refundOrderBtn": "Hoàn vé đơn hàng",
     "status": {
+      "PAID": "Đã thanh toán",
+      "REFUNDED": "Đã hoàn tiền",
+      "PENDING": "Chờ thanh toán",
+      "CANCELLED": "Đã huỷ",
       "VALID": "Hợp lệ",
       "CHECKED_IN": "Đã vào",
-      "CANCELLED": "Đã huỷ",
       "USED": "Đã dùng"
+    },
+    "modal": {
+      "confirmTitle": "Xác nhận hoàn vé đơn hàng #{{orderId}}",
+      "refundSeats": "Ghế hoàn:",
+      "ticketsCount": "({{count}} vé)",
+      "totalPaid": "Tổng tiền đã thanh toán:",
+      "refundRate": "Mức hoàn tiền áp dụng:",
+      "rateOver24h": "(Trước suất chiếu > 24h)",
+      "rate4To24h": "(Trước suất chiếu 4h - 24h)",
+      "refundAmount": "Số tiền nhận lại vào tài khoản:",
+      "notice": "Toàn bộ {{count}} vé trong đơn hàng này sẽ bị huỷ. Tiền hoàn sẽ được chuyển tự động về thẻ/tài khoản thanh toán ban đầu. Thao tác này không thể hoàn tác!",
+      "reasonLabel": "Lý do hoàn vé (tuỳ chọn):",
+      "reasonPlaceholder": "Nhập lý do huỷ vé...",
+      "defaultReason": "Khách hàng yêu cầu hoàn vé",
+      "keepTicket": "Giữ lại vé",
+      "confirmBtn": "Xác nhận hoàn tiền",
+      "processing": "Đang xử lý hoàn tiền...",
+      "successToast": "Đơn hàng #{{orderId}} đã được hoàn tiền thành công!",
+      "errorGeneric": "Không thể thực hiện hoàn tiền. Vui lòng thử lại sau."
     }
   },
   "settings": {
@@ -210,7 +270,9 @@
     "share": "Chia sẻ",
     "downloading": "Đang tải...",
     "qrUnavailable": "QR không khả dụng",
-    "movieTicket": "VÉ XEM PHIM"
+    "movieTicket": "VÉ XEM PHIM",
+    "belongsToOrder": "Vé này thuộc Đơn hàng #{{orderId}}.",
+    "manageOrderRefund": "Quản lý & Hoàn vé đơn hàng"
   },
   "adminPermissions": {
     "deleteConfirm": "Bạn có chắc chắn muốn xóa người dùng này không? Hành động này không thể hoàn tác.",
@@ -331,10 +393,22 @@
     "title": "Cài đặt",
     "subtitle": "Quản lý tùy chọn và hồ sơ của bạn.",
     "systemPreferences": "Tùy chọn hệ thống",
+    "appearance": "Giao diện & Chủ đề",
+    "appearanceDesc": "Tùy chọn chủ đề màu sắc cho giao diện nhân viên.",
     "language": "Ngôn ngữ",
     "languageDesc": "Chọn ngôn ngữ giao diện ưa thích cho nhân viên.",
+    "languageSection": "Ngôn ngữ & Khu vực",
+    "languageSectionDesc": "Chọn ngôn ngữ hiển thị mong muốn.",
     "theme": "Giao diện",
-    "themeDesc": "Chọn chế độ sáng, tối hoặc theo hệ thống."
+    "themeDesc": "Chọn chế độ sáng, tối hoặc theo hệ thống.",
+    "themeLight": "Sáng",
+    "themeLightDesc": "Giao diện sáng sủa, dễ nhìn vào ban ngày.",
+    "themeDark": "Tối",
+    "themeDarkDesc": "Dịu mắt, phù hợp với môi trường rạp chiếu phim.",
+    "themeSystem": "Hệ thống",
+    "themeSystemDesc": "Tự động điều chỉnh theo cài đặt thiết bị của bạn.",
+    "profileSection": "Hồ sơ & Bảo mật",
+    "profileSectionDesc": "Quản lý thông tin tài khoản nhân viên và mật khẩu."
   },
   "adminSettings": {
     "console": "Admin Console",
@@ -408,7 +482,12 @@
     "selectToStart": "Chọn phim và suất chiếu để bắt đầu.",
     "paidBooking": "Booking #{{id}} đã thanh toán",
     "updating": "Đang cập nhật...",
-    "ticket": "Vé:"
+    "ticket": "Vé:",
+    "findMember": "Tra cứu",
+    "memberNotFound": "Không tìm thấy thành viên. Đặt vé theo khách vãng lai.",
+    "loyaltyPoints": "Điểm tích lũy: {{points}} pts",
+    "earnPoints": "Tích điểm",
+    "memberTier": "Thành viên {{tier}}"
   },
   "staffTicketLookup": {
     "errorCheckIn": "Không thể Check-in booking này.",

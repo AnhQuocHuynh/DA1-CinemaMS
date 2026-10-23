@@ -5,7 +5,7 @@ This folder is the microservice stack. `../backend_legacy` remains the rollback 
 ## Current Status
 
 - `services/catalog-service` owns catalog data: movies, genres, events, and catalog search.
-- `services/facility-service` is the ASP.NET cinema, room, and seat-template service on port `5002`.
+- `services/facility-service` is the ASP.NET cinema, room, and seat-template service on port `5002`, database `facility_db`. It is not a Spring Boot module. Contract changes belong to the ASP.NET owner; see `../docs/architecture.md`.
 - `services/showtime-service` owns showtimes, showtime seats, seat holds, and seat reservation state transitions.
 - `services/booking-service` owns orders, payments, tickets, vouchers, and reviews.
 - `services/analytics-service` maintains a PostgreSQL dashboard read model through durable, idempotent RabbitMQ projections.
@@ -144,7 +144,7 @@ Override connection settings with:
 - `INTERNAL_API_TOKEN`
 - `SHOWTIME_SERVICE_URL` for Catalog event showtime sync and Facility destructive-delete validation
 
-For Facility, use the same pattern from `services\facility-service`; the default service port is `5002` and the default database is `cinema_facility_db`.
+Facility is the ASP.NET service on port `5002`, database `facility_db`. Do not apply the Spring local-run pattern to it. `cinema_facility_db` remains only in `infrastructure/migrations/rehearsal-fixture.sql`.
 
 ## Contracts
 
