@@ -142,10 +142,6 @@ services:
       - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
       - Jwt__RequireHttpsMetadata=false
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
-      - KeycloakAdmin__BaseUrl=${KC_BASE_URL:-http://keycloak:8080}
-      - KeycloakAdmin__Realm=${KC_REALM:-cinema-booking}
-      - KeycloakAdmin__ClientId=${KC_ADMIN_CLIENT_ID:-cinema-admin}
-      - KeycloakAdmin__ClientSecret=${KC_ADMIN_CLIENT_SECRET:-}
     ports:
       - "${IDENTITY_SERVICE_PORT:-5001}:80"
     depends_on:

@@ -11,13 +11,13 @@ namespace IdentityService.Application.Features.Users.Commands;
 
 /// <summary>
 /// Command to change the Keycloak realm role of a user.
-/// Only one of CUSTOMER, ADMIN, MANAGER, or STAFF can be held at a time.
+/// Only one of CUSTOMER, ADMIN, or STAFF can be held at a time.
 /// </summary>
 public record ChangeUserRoleCommand(long UserId, string NewRole) : IRequest;
 
 public class ChangeUserRoleCommandValidator : AbstractValidator<ChangeUserRoleCommand>
 {
-    private static readonly string[] AllowedRoles = ["CUSTOMER", "ADMIN", "MANAGER", "STAFF"];
+    private static readonly string[] AllowedRoles = ["CUSTOMER", "ADMIN", "STAFF"];
 
     public ChangeUserRoleCommandValidator()
     {
@@ -33,7 +33,7 @@ public class ChangeUserRoleCommandValidator : AbstractValidator<ChangeUserRoleCo
 
 public class ChangeUserRoleCommandHandler : IRequestHandler<ChangeUserRoleCommand>
 {
-    private static readonly string[] ManagedRoles = ["CUSTOMER", "ADMIN", "MANAGER", "STAFF"];
+    private static readonly string[] ManagedRoles = ["CUSTOMER", "ADMIN", "STAFF"];
 
     private readonly IUserRepository _userRepository;
     private readonly IKeycloakAdminClient _keycloakAdmin;

@@ -22,37 +22,6 @@ namespace IdentityService.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("IdentityService.Domain.Entities.CinemaAssignment", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("CinemaId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("cinema_id");
-
-                    b.Property<string>("Duty")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("duty");
-
-                    b.Property<long>("UserId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId", "CinemaId")
-                        .IsUnique();
-
-                    b.ToTable("cinema_assignments", (string)null);
-                });
-
             modelBuilder.Entity("IdentityService.Domain.Entities.User", b =>
                 {
                     b.Property<long>("Id")
@@ -287,17 +256,6 @@ namespace IdentityService.Infrastructure.Migrations
                     b.HasIndex("Created");
 
                     b.ToTable("OutboxState");
-                });
-
-            modelBuilder.Entity("IdentityService.Domain.Entities.CinemaAssignment", b =>
-                {
-                    b.HasOne("IdentityService.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("MassTransit.EntityFrameworkCoreIntegration.OutboxMessage", b =>

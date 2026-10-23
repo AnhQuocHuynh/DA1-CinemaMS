@@ -13,7 +13,6 @@ public class ChangeUserRoleCommandValidatorTests
     [InlineData("CUSTOMER")]
     [InlineData("ADMIN")]
     [InlineData("STAFF")]
-    [InlineData("MANAGER")]
     public async Task Validate_ValidUppercaseRole_Passes(string role)
     {
         var result = await _validator.ValidateAsync(new ChangeUserRoleCommand(1, role));
@@ -25,7 +24,6 @@ public class ChangeUserRoleCommandValidatorTests
     [InlineData("customer")]
     [InlineData("admin")]
     [InlineData("staff")]
-    [InlineData("manager")]
     public async Task Validate_ValidLowercaseRole_Passes(string role)
     {
         // Validator applies ToUpperInvariant() before checking — lowercase is valid

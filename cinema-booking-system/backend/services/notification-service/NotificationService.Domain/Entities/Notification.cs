@@ -33,7 +33,7 @@ public class Notification
         if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Title is required.", nameof(title));
         if (string.IsNullOrWhiteSpace(body)) throw new ArgumentException("Body is required.", nameof(body));
 
-        Id = Guid.NewGuid().ToString("N");
+        Id = string.Empty;
         UserId = userId;
         Type = type;
         Channel = channel;

@@ -7,14 +7,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using IdentityService.Application.Features.Internal.Queries;
-using System.Linq;
 
 namespace IdentityService.Presentation.Controllers;
 
 /// <summary>Request body for changing a user's role.</summary>
 public record ChangeUserRoleRequest(string NewRole);
-
-public record ReplaceCinemaAssignmentsRequest(IReadOnlyList<CinemaAssignmentInput> Assignments);
 
 [ApiController]
 [Route("api/[controller]")]
@@ -69,30 +66,6 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
-    [HttpGet("{id}/cinema-assignments")]
-    [Authorize(Roles = "ADMIN,MANAGER")]
-    public async Task<IActionResult> GetCinemaAssignments(long id)
-    {
-        var actorId = await CurrentUserId();
-        var roles = User.FindAll(ClaimTypes.Role).Select(claim => claim.Value).ToList();
-        var result = await _mediator.Send(new GetCinemaAssignmentsQuery(actorId, roles, id));
-        return Ok(ApiResponse<IReadOnlyList<CinemaAssignmentDto>>.Ok(result));
-    }
-
-    [HttpPut("{id}/cinema-assignments")]
-    [Authorize(Roles = "ADMIN,MANAGER")]
-    public async Task<IActionResult> ReplaceCinemaAssignments(long id, [FromBody] ReplaceCinemaAssignmentsRequest request)
-    {
-        var actorId = await CurrentUserId();
-        var roles = User.FindAll(ClaimTypes.Role).Select(claim => claim.Value).ToList();
-        var result = await _mediator.Send(new ReplaceCinemaAssignmentsCommand(
-            actorId,
-            roles,
-            id,
-            request.Assignments ?? Array.Empty<CinemaAssignmentInput>()));
-        return Ok(ApiResponse<IReadOnlyList<CinemaAssignmentDto>>.Ok(result));
-    }
-
     [HttpPut("me")]
     [Authorize]
     public async Task<IActionResult> UpdateCurrentUser([FromBody] UpdateUserProfileCommand command)
@@ -103,21 +76,11 @@ public class UsersController : ControllerBase
             return Unauthorized();
         }
 
-        var userId = await CurrentUserId();
+        var userId = await _mediator.Send(new ResolveKeycloakIdQuery(keycloakId));
 
         command = command with { UserId = userId };
 
         await _mediator.Send(command);
         return NoContent();
-    }
-
-    private async Task<long> CurrentUserId()
-    {
-        var keycloakId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(keycloakId))
-        {
-            throw new UnauthorizedAccessException("Authentication is required.");
-        }
-        return await _mediator.Send(new ResolveKeycloakIdQuery(keycloakId));
     }
 }

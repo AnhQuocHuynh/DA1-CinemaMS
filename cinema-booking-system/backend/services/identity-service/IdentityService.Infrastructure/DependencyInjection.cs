@@ -21,7 +21,6 @@ public static class DependencyInjection
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
         services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<ICinemaAssignmentRepository, CinemaAssignmentRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         // Keycloak Admin REST API client
