@@ -54,6 +54,8 @@ From `cinema-booking-system/backend`:
 docker compose -f infrastructure\docker-compose.yml up --build
 ```
 
+That stack includes `cinema-frontend` at `http://localhost:5173`. The image bakes the gateway URL `http://localhost:5000/api` and Keycloak `http://localhost:8080`. Rebuild the frontend image after changing `API_GATEWAY_PORT` or `KC_PORT`. Stop `npm run dev` before starting the container, because both use port `5173`.
+
 Catalog API:
 
 - Service: `http://localhost:8081`

@@ -50,6 +50,7 @@ Durable rules for agents working in this repository.
 - Backend run: `cd cinema-booking-system/backend_legacy; mvn spring-boot:run`.
 - Frontend install/build: `cd cinema-booking-system/frontend; npm ci; npm run build`.
 - Frontend dev: `cd cinema-booking-system/frontend; npm run dev`.
+- Frontend container: `cinema-booking-system/backend/infrastructure/docker-compose.yml` service `frontend`, host port `5173`. Do not run it together with `npm run dev`.
 - Full legacy app Docker compose file exists at `cinema-booking-system/docker-compose-app.yml` but references `./backend`, while the runnable backend is currently under `backend_legacy`; verify before using.
 - Extracted service compose: `cd cinema-booking-system/backend; docker compose -f infrastructure/docker-compose.yml config`.
 

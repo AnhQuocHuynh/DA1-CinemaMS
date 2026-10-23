@@ -8,10 +8,22 @@ gates are maintained in
 ## Snapshot
 
 - Date of this status pass: 2026-10-11.
-- Evidence: static reading of branch `refactor-compose-single-postgres` at `ebdfb9d`. Tests, Compose smoke, and the browser were not re-run for this update.
+- Evidence: code inspection of `refactor-compose-single-postgres` at `ebdfb9d`, plus the local test and Compose run recorded below. The browser booking flow was not exercised.
 - `backend_legacy` is the rollback monolith. Traffic has not been cut over.
 - `backend/` now contains the microservice stack, not placeholder folders: Spring Boot Catalog, Showtime, Booking, Analytics, and Recommendation, plus ASP.NET Identity, Facility, Payment, Notification, and the YARP API Gateway. Keycloak is in Compose.
 - The August 2026 verification numbers in `MIGRATION_STATUS.md` still stand as historical evidence. They do not cover the later frontend, payment, notification, gateway, and facility merges.
+
+## Verification on 2026-10-11
+
+Local run on this machine. This is not a cutover and not an event-flow smoke. The stack was left running.
+
+- Spring `mvn -B clean verify` from `cinema-booking-system/backend`: BUILD SUCCESS. 180 tests, 0 failures: catalog 30, showtime 40, booking 70, analytics 15, recommendation 25. This is the current five-module reactor. It is a different suite from the 2026-08-07 count of 179.
+- Frontend `npm ci` then `npm run build`: exit 0. Vite warned that the main chunk is over 500 kB. `@zxing/library@0.22.0` wants Node 24; this machine is Node 22.16.0. `npm audit` reported 23 vulnerabilities. They were not changed.
+- Keycloak SPI `mvn -B -DskipTests package` produced `infrastructure/keycloak-spi/target/rabbitmq-event-listener.jar`.
+- ASP.NET `dotnet test`: notification 135 passed. Facility 46 passed, 17 failed. Identity 89 passed, 5 failed. Payment 59 passed, 4 failed. The gateway project has no tests and the `dotnet test` invocation exited 0. Facility integration failures are `RedisConnectionException` from `Program.cs` line 35 while the Testcontainers host starts. Identity failures are 401 on current-user routes plus one admin list that cannot deserialize `gender`. Payment failures: missing-payment-id callback did not throw, `status` deserialized as a string instead of `Int32`, a refund saga stayed `Completed`, and an admin refund returned HTTP 502.
+- `docker compose up --build -d` built the service images and started the stack. An old stopped container named `cinema-redis` (exited about three months earlier, not part of this Compose project) blocked the first start. That container was removed. Its anonymous Redis volume was left in place. Facility and identity then exited on the first boot because Postgres was not accepting connections yet. After `docker compose start` they answered HTTP 200 on `/health`.
+- `infrastructure/smoke-test.ps1` passed catalog `/actuator/health`, then stopped: facility exposes `/health`, and `http://localhost:5002/actuator/health` is HTTP 404. The script never reached the later checks.
+- The same later checks, run by hand against the live stack: showtime, booking, analytics, and recommendation actuator health returned 200. Gateway, identity, facility, payment, and notification `/health` returned 200. Keycloak realm `cinema-booking` returned 200. Analytics overview and both recommendation reads returned a success envelope. All 14 queues named by the smoke script exist on RabbitMQ (25 queues total). Internal routes without `X-Internal-Token` returned 401. With the token, facility room, facility seats, and the showtime room guard returned 200. Catalog movie and event projections returned 404 for id 1, which the smoke script treats as an accepted token. Payment saga, notification email, and the booking UI were not exercised.
 
 ## Exact Repository State
 
@@ -19,11 +31,11 @@ gates are maintained in
 - Spring services: `catalog-service`, `showtime-service`, `booking-service`, `analytics-service`, `recommendation-service`.
 - ASP.NET services: `identity-service`, `facility-service`, `payment-service`, `notification-service`, `api-gateway`.
 - `rental-service` has compiled output only. Room rental is on branch `feature/room-rental`, not here.
-- `backend/infrastructure/docker-compose.yml` runs the services above against one PostgreSQL 18 container on host port `5432`. Logical databases from `init-multiple-databases.sql`: `cinema_catalog_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, `keycloak_db`, `user_profile_db`, `payment_db`, `facility_db`. Notification uses MongoDB. Showtime Redis, shared Redis, RabbitMQ, and Neo4j are separate containers.
+- `backend/infrastructure/docker-compose.yml` runs the services above against one PostgreSQL 18 container on host port `5432`. Logical databases from `init-multiple-databases.sql`: `cinema_catalog_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, `keycloak_db`, `user_profile_db`, `payment_db`, `facility_db`. Notification uses MongoDB. Showtime Redis, shared Redis, RabbitMQ, and Neo4j are separate containers. The same file starts `cinema-frontend` (Nginx) on host port `5173`.
 
 ## Feature Progress
 
-Status means "present in this branch's source", not "re-tested on 2026-10-11" and not "cut over".
+Status means the feature is present in this branch's source. The 2026-10-11 test run is in the verification section above. Traffic has not been cut over.
 
 ### Completed
 
@@ -31,7 +43,7 @@ Customer:
 
 - Register, login, forgot-password, and logout go through Keycloak (`keycloak-js`, cinema theme, locale and theme query params).
 - Movie and event browse, detail, showtimes, and catalog keyword search.
-- Seat map, Redis seat hold, hold countdown, order create, voucher validation, and checkout.
+- Seat map, seat hold, hold countdown, order create, voucher validation, and checkout. The hold uses Redis. If Redis is unavailable, showtime-service locks the `showtime_seats` row and stores `held_by_user_id` plus `hold_expires_at`. A hold with no remaining time is shown as available again.
 - Stripe and PayPal redirect plus return verification, and cash confirmation on the payment service.
 - Reviews and rating summaries are rendered on movie and event detail pages.
 - My tickets, ticket detail, and PDF download.
@@ -67,6 +79,11 @@ Platform:
 - Spring services still default `CINEMA_SECURITY_JWT_ENABLED` to `false`. Gateway auth can be on while the Spring services are not enforcing JWTs.
 - Membership is a static "coming soon" page.
 - Canonical snapshot migration, shadow traffic, and rollback rehearsal are still open. See `MIGRATION_STATUS.md`.
+- Instructor roadmap, not started on this branch. The plan is `docs/ROADMAP.md`.
+  - Content search: Catalog already matches title or description with `LIKE`. Full-text ranking, a plot snippet, and removal of home mock suggestions are still open.
+  - Room rental: implemented on `origin/feature/room-rental` (`4b03fb8`) as `rental-service`, with no frontend. Do not merge that branch wholesale.
+  - Supplementary-feature analysis report and the admin rental report screen are not written yet.
+  - Mobile layout still breaks on the seat map, checkout, staff scanner, and admin sidebar.
 
 ### Not done
 
@@ -78,11 +95,9 @@ Platform:
 - Deleting a user from Keycloak.
 - Admin pricing rules and voucher edit.
 - Fine-grained permission rules beyond the three realm roles.
-- Room rental on this branch.
+- Room rental on this branch. See `docs/ROADMAP.md`.
 - Traffic cutover away from `backend_legacy`.
-- A fresh full-stack test of gateway, payment saga, notification email, and the booking UI together. The last recorded Spring smoke is 2026-08-07, before these merges.
-- `backend_legacy/src/main/resources/application.yml` now has a valid Base64 JWT default while preserving `APP_JWT_SECRET`.
-- `backend_legacy/src/main/resources/DB_PATCH_2026_06_25_SEAT_MAP.sql` is present in source.
+- An end-to-end booking through the gateway, a live payment saga, notification email delivery, and the booking UI together. The 2026-10-11 health and read-model checks do not cover that path.
 
 ## Migration Notes
 
@@ -206,7 +221,7 @@ npm audit --omit=dev
 - RabbitMQ: `localhost:5672`, management UI `localhost:15672`.
 - Neo4j: browser `localhost:7474`, Bolt `localhost:7687`.
 - Shared Redis: `localhost:6379`.
-- Frontend dev server: `localhost:5173`.
+- Frontend: container `cinema-frontend` on `localhost:5173`. `npm run dev` uses the same port, so run only one of them.
 
 ## Seed/Test Accounts
 
@@ -231,9 +246,14 @@ From `backend_legacy/src/main/resources/FE_SEED_DATA_REFERENCE.md`:
 
 ## Suggested Next Steps
 
-1. Run one Compose stack and a real customer booking: Keycloak login, seat hold, Stripe or cash payment, booking state change, and notification email.
-2. Add gateway routes for notification HTTP and the SignalR hub, or drop the unused inbox until that exists.
-3. Replace `/api/staff/**` with booking endpoints the gateway already routes, including counter booking.
+Feature work follows `docs/ROADMAP.md`: content search, then a selective port of
+room rental, then the analysis report, then the mobile layout pass.
+
+Cutover work is unchanged:
+
+1. Run one Compose stack and a real customer booking through the gateway.
+2. Add gateway routes for notification HTTP and the SignalR hub, or leave the inbox unused.
+3. Replace `/api/staff/**` with routes the gateway already owns.
 4. Remove homepage mock movies, the pricing mock, and the fake user-delete success.
 5. Pass the authentication contract suite, then set `CINEMA_SECURITY_JWT_ENABLED=true`.
 6. Rehearse the canonical PostgreSQL 18 snapshot and rollback before any traffic cutover.

@@ -19,6 +19,8 @@ import com.uit.cinema.showtime.service.ShowtimeService;
 import com.uit.cinema.showtime.service.contract.EventShowtimeCreateRequest;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -26,11 +28,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ShowtimeServiceImpl implements ShowtimeService {
@@ -280,11 +284,10 @@ public class ShowtimeServiceImpl implements ShowtimeService {
 
     private ShowtimeSeatResponse toRealtimeSeatResponse(Long showtimeId, ShowtimeSeat seat) {
         ShowtimeSeatResponse response = showtimeMapper.toSeatResponse(seat);
-        String holdKey = SeatHoldPolicy.holdKey(showtimeId, seat.getId());
-        Long ttlSeconds = redisTemplate.getExpire(holdKey);
-        response.setHoldTtlSeconds((ttlSeconds != null && ttlSeconds > 0) ? ttlSeconds : null);
+        Long ttlSeconds = resolveHoldTtlSeconds(showtimeId, seat);
+        response.setHoldTtlSeconds(ttlSeconds);
         response.setSeatId(String.valueOf(seat.getId()));
-        response.setStatus(mapSeatStatus(seat.getStatus(), response.getHoldTtlSeconds()));
+        response.setStatus(mapDisplayedStatus(seat, ttlSeconds));
 
         facilityReadService.findSeatTemplate(seat.getSeatTemplateId()).ifPresent(template -> {
             response.setRowLabel(template.rowLabel());
@@ -331,6 +334,39 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             case "STANDARD" -> "Standard";
             default -> code;
         };
+    }
+
+    private Long resolveHoldTtlSeconds(Long showtimeId, ShowtimeSeat seat) {
+        Long redisTtl = readRedisTtl(showtimeId, seat.getId());
+        if (redisTtl != null) {
+            return redisTtl;
+        }
+        Instant expiresAt = seat.getHoldExpiresAt();
+        if (seat.getStatus() != ShowtimeSeat.SeatStatus.HELD || expiresAt == null) {
+            return null;
+        }
+        long remaining = Duration.between(Instant.now(), expiresAt).getSeconds();
+        if (remaining <= 0) {
+            return null;
+        }
+        return remaining;
+    }
+
+    private Long readRedisTtl(Long showtimeId, Long seatId) {
+        try {
+            Long ttlSeconds = redisTemplate.getExpire(SeatHoldPolicy.holdKey(showtimeId, seatId));
+            return (ttlSeconds != null && ttlSeconds > 0) ? ttlSeconds : null;
+        } catch (DataAccessException exception) {
+            log.warn("Redis unavailable while reading the hold timer for seat {}. Using the database expiry.", seatId);
+            return null;
+        }
+    }
+
+    private String mapDisplayedStatus(ShowtimeSeat seat, Long holdTtlSeconds) {
+        if (seat.getStatus() == ShowtimeSeat.SeatStatus.HELD && holdTtlSeconds == null) {
+            return "available";
+        }
+        return mapSeatStatus(seat.getStatus(), holdTtlSeconds);
     }
 
     private String mapSeatStatus(ShowtimeSeat.SeatStatus status, Long holdTtlSeconds) {

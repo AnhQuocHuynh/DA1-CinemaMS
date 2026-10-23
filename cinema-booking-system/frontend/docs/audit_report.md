@@ -49,6 +49,15 @@ Also in the UI, outside the original 27 names: Vietnamese/English copy, light/da
 | UC-12 Thông báo | Backend can email after `order.paid` and `order.refunded`. | No bell or inbox. No SignalR client. Gateway has no notification route. SMS sender only logs. |
 | Staff dashboard and counter booking | Screens exist. | `staffService` calls `/api/staff/**`. The gateway has no such routes, and booking-service has no staff controller. QR check-in and ticket lookup are the staff calls that do hit a real API. |
 
+## Instructor roadmap
+
+Not started in this frontend. The plan is `docs/ROADMAP.md`.
+
+- Content search: `MovieSearch.tsx` already calls catalog keyword search. It does not show a plot snippet, and Home still mixes mock titles into suggestions.
+- Room rental: no page. The API is on branch `feature/room-rental` only.
+- Supplementary-feature report: no admin report screen for rental.
+- Mobile: seat selection, checkout, the QR scanner, and the admin sidebar still need a 390px and 768px pass.
+
 ## Not done
 
 - Membership. `Membership.tsx` is a static coming-soon page.

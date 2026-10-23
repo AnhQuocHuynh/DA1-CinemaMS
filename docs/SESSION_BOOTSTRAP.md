@@ -55,21 +55,26 @@ contract unless the team explicitly changes it.
 - Frontend: `cinema-booking-system/frontend/`, Keycloak PKCE, gateway base URL.
 - Spring services in tree: Catalog, Showtime, Booking, Analytics, Recommendation.
 - ASP.NET services in tree: Identity, Facility, Payment, Notification, API Gateway.
-- Keycloak, one PostgreSQL 18 container, Redis, RabbitMQ, Neo4j, and MongoDB are in Compose.
+- Keycloak, the frontend container, one PostgreSQL 18 container, Redis, RabbitMQ, Neo4j, and MongoDB are in Compose. The frontend container publishes `localhost:5173`.
 - Traffic and the canonical database have not moved off `backend_legacy`.
 - Spring `CINEMA_SECURITY_JWT_ENABLED` still defaults to `false`.
-- The 2026-10-11 feature matrix is in `docs/CURRENT_STATE.md`. It is a code
-  inspection. August smoke results were not re-run.
-- Next work is to close the staff, notification-gateway, mock-UI, and live
-  payment/auth gaps, then rehearse the canonical snapshot. Do not start another
-  broad extraction.
+- The 2026-10-11 feature matrix and the local test/Compose run are in
+  `docs/CURRENT_STATE.md`. Spring verify passed (180 tests). ASP.NET facility,
+  identity, and payment tests have failures. Compose is up. `smoke-test.ps1`
+  stops on facility `/actuator/health` (the service serves `/health`).
+  August event-flow smoke was not repeated. Traffic has not moved.
+- Next feature work is `docs/ROADMAP.md`: content search, a selective port of
+  `feature/room-rental`, the supplementary-feature report, then mobile layout.
+  Do not merge that rental branch wholesale.
+- Cutover work is still the staff routes, notification gateway, live payment
+  proof, and the canonical snapshot. Do not start another broad extraction.
 
 ## Ownership Matrix
 
 | Service/area | Owner | Current status |
 |---|---|---|
 | Catalog | Spring | In this branch. Migration rehearsal evidence is from 2026-08-07 |
-| Showtime | Spring | In this branch. Seat hold is Redis plus frontend polling |
+| Showtime | Spring | In this branch. Seat hold uses Redis, then a database row lock when Redis is unavailable. The seat map still polls |
 | Booking | Spring | Payment consumers implemented. No `/api/staff/**` controller |
 | Analytics | Spring | Admin dashboard read model |
 | Recommendation | Spring | Wired to the home page |
@@ -245,6 +250,7 @@ For detailed evidence and all cutover gates, read
 | Legacy behavior regression | `docs/CONTEXT.md`, legacy API docs | Only the matching `backend_legacy` module and tests |
 | Frontend integration | `cinema-booking-system/frontend/docs/API_DOCS.md`, `cinema-booking-system/frontend/package.json` | Matching service/page/store and Gateway route |
 | Architecture decision | Relevant architecture section only | Approved contract and current implementation evidence |
+| Instructor feature roadmap | `docs/ROADMAP.md` | Catalog search query, `origin/feature/room-rental` rental-service only, the pages named in the roadmap |
 
 ## Verification Commands
 

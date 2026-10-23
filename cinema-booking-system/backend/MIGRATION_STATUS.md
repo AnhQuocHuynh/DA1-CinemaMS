@@ -9,9 +9,12 @@ migration-prepared by 2026-08-07. Since then, Keycloak, the YARP gateway,
 ASP.NET Facility, Identity, Payment, and Notification have landed on
 `refactor-compose-single-postgres` (HEAD `ebdfb9d` when this note was written).
 
-That merge is source presence, not a new cutover proof. The 2026-10-11 update
-is a code inspection. Maven, Compose smoke, the payment saga, and the frontend
-build were not re-run. Feature-by-feature status is in
+That merge is source presence, not a new cutover proof. On 2026-10-11 the
+current Spring reactor passed `mvn clean verify` (180 tests) and the frontend
+production build passed. Compose was started locally. The scripted smoke stops
+because facility health is `/health`, not `/actuator/health`. ASP.NET facility,
+identity, and payment tests have failures. The payment saga, notification
+email, and booking UI were not run. Counts are in
 `../../docs/CURRENT_STATE.md`.
 
 This does **not** mean the product is ready for traffic cutover. The remaining
@@ -257,7 +260,7 @@ future-showtime delete guards. That parity suite was not re-run on 2026-10-11.
 
 ## Cutover Gates
 
-Completed locally on 2026-08-07 unless noted. Not repeated on 2026-10-11:
+Completed locally on 2026-08-07 unless noted. The 2026-10-11 run is a separate, narrower check (see the executive note). These August gates were not repeated:
 
 - [x] Spring clean verification: 179 tests.
 - [x] Six Spring Docker images and non-root runtime.
