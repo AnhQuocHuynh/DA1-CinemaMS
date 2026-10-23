@@ -33,40 +33,101 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
   const [isAddingGenre, setIsAddingGenre] = useState(false);
 
   useEffect(() => {
-    movieService.getGenres().then(setAvailableGenres).catch(console.error);
-  }, []);
-
-  useEffect(() => {
-    if (initialData) {
-      setFormData({
-        title: initialData.title || '',
-        description: initialData.description || '',
-        durationMinutes: initialData.durationMinutes || '',
-        releaseDate: initialData.releaseDate ? new Date(initialData.releaseDate).toISOString().split('T')[0] : '',
-        ageRating: initialData.ageRating || 'PG-13',
-        posterUrl: initialData.posterUrl || '',
-        trailerUrl: initialData.trailerUrl || '',
-        language: initialData.language || 'English',
-        active: initialData.active ?? true,
-        genreIds: initialData.genres 
-          ? initialData.genres.map((name: string) => availableGenres.find(g => g.name === name)?.id).filter(Boolean) as number[]
-          : [],
-      });
-    } else {
-      setFormData({
-        title: '',
-        description: '',
-        durationMinutes: '',
-        releaseDate: '',
-        ageRating: 'PG-13',
-        posterUrl: '',
-        trailerUrl: '',
-        language: 'English',
-        active: true,
-        genreIds: [],
-      });
+    if (!isOpen) {
+      setNewGenreName('');
+      return;
     }
-  }, [initialData, isOpen, availableGenres]);
+
+    let isMounted = true;
+
+    const initializeModal = async () => {
+      try {
+        const genres = await movieService.getGenres();
+        if (!isMounted) return;
+        setAvailableGenres(genres);
+
+        if (initialData) {
+          setFormData({
+            title: initialData.title || '',
+            description: initialData.description || '',
+            durationMinutes: initialData.durationMinutes !== undefined && initialData.durationMinutes !== null 
+              ? String(initialData.durationMinutes) 
+              : '',
+            releaseDate: initialData.releaseDate 
+              ? new Date(initialData.releaseDate).toISOString().split('T')[0] 
+              : '',
+            ageRating: initialData.ageRating || 'PG-13',
+            posterUrl: initialData.posterUrl || '',
+            trailerUrl: initialData.trailerUrl || '',
+            language: initialData.language || 'English',
+            active: initialData.active ?? true,
+            genreIds: initialData.genres 
+              ? initialData.genres
+                  .map((g: string | { id?: number; name?: string }) => {
+                    if (typeof g === 'object' && g?.id) return g.id;
+                    const name = typeof g === 'string' ? g : g?.name;
+                    return genres.find((item) => item.name.toLowerCase() === name?.toLowerCase())?.id;
+                  })
+                  .filter(Boolean) as number[]
+              : (initialData.genreIds || []),
+          });
+        } else {
+          setFormData({
+            title: '',
+            description: '',
+            durationMinutes: '',
+            releaseDate: '',
+            ageRating: 'PG-13',
+            posterUrl: '',
+            trailerUrl: '',
+            language: 'English',
+            active: true,
+            genreIds: [],
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load genres for movie modal', err);
+        if (!isMounted) return;
+        if (initialData) {
+          setFormData({
+            title: initialData.title || '',
+            description: initialData.description || '',
+            durationMinutes: initialData.durationMinutes !== undefined && initialData.durationMinutes !== null 
+              ? String(initialData.durationMinutes) 
+              : '',
+            releaseDate: initialData.releaseDate 
+              ? new Date(initialData.releaseDate).toISOString().split('T')[0] 
+              : '',
+            ageRating: initialData.ageRating || 'PG-13',
+            posterUrl: initialData.posterUrl || '',
+            trailerUrl: initialData.trailerUrl || '',
+            language: initialData.language || 'English',
+            active: initialData.active ?? true,
+            genreIds: initialData.genreIds || [],
+          });
+        } else {
+          setFormData({
+            title: '',
+            description: '',
+            durationMinutes: '',
+            releaseDate: '',
+            ageRating: 'PG-13',
+            posterUrl: '',
+            trailerUrl: '',
+            language: 'English',
+            active: true,
+            genreIds: [],
+          });
+        }
+      }
+    };
+
+    initializeModal();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, initialData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -109,12 +170,31 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
   };
 
   const handleAddInlineGenre = async () => {
-    if (!newGenreName.trim()) return;
+    const trimmed = newGenreName.trim();
+    if (!trimmed) return;
+
+    // If genre already exists in availableGenres, select it directly to prevent duplicate API errors
+    const existing = availableGenres.find(
+      (g) => g.name.trim().toLowerCase() === trimmed.toLowerCase()
+    );
+
+    if (existing) {
+      setFormData((prev) => ({
+        ...prev,
+        genreIds: prev.genreIds.includes(existing.id)
+          ? prev.genreIds
+          : [...prev.genreIds, existing.id],
+      }));
+      setNewGenreName('');
+      addToast(`Genre "${existing.name}" selected`, 'info');
+      return;
+    }
+
     setIsAddingGenre(true);
     try {
-      const addedGenre = await movieService.createGenre(newGenreName.trim());
-      setAvailableGenres(prev => [...prev, addedGenre]);
-      setFormData(prev => ({ ...prev, genreIds: [...prev.genreIds, addedGenre.id] }));
+      const addedGenre = await movieService.createGenre(trimmed);
+      setAvailableGenres((prev) => [...prev, addedGenre]);
+      setFormData((prev) => ({ ...prev, genreIds: [...prev.genreIds, addedGenre.id] }));
       setNewGenreName('');
       addToast('Genre added successfully', 'success');
     } catch (err: any) {

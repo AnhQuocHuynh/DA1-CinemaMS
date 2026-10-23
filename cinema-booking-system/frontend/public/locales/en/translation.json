@@ -129,6 +129,14 @@
     "settings": "Settings",
     "newScreening": "New Screening"
   },
+  "staffNav": {
+    "brand": "CinemaArchitect - Staff",
+    "dashboard": "Dashboard",
+    "counterBooking": "Counter Booking",
+    "ticketLookup": "Ticket Lookup",
+    "settings": "Settings",
+    "logout": "Logout"
+  },
   "checkoutSuccess": {
     "title": "Payment Successful!",
     "verifying": "Verifying payment...",
@@ -385,10 +393,22 @@
     "title": "Settings",
     "subtitle": "Manage your account preferences and profile.",
     "systemPreferences": "System Preferences",
+    "appearance": "Appearance & Theme",
+    "appearanceDesc": "Choose your preferred color theme for the staff interface.",
     "language": "Language",
     "languageDesc": "Choose your preferred language for the staff interface.",
+    "languageSection": "Language & Region",
+    "languageSectionDesc": "Select your display language.",
     "theme": "Theme",
-    "themeDesc": "Choose between light, dark, or system mode."
+    "themeDesc": "Choose between light, dark, or system mode.",
+    "themeLight": "Light",
+    "themeLightDesc": "Clean and bright interface for daytime use.",
+    "themeDark": "Dark",
+    "themeDarkDesc": "Easy on the eyes in low-light cinema environments.",
+    "themeSystem": "System",
+    "themeSystemDesc": "Automatically match your system or device settings.",
+    "profileSection": "Profile & Security",
+    "profileSectionDesc": "Manage your staff profile details and login credentials."
   },
   "adminSettings": {
     "console": "Admin Console",
@@ -462,7 +482,12 @@
     "selectToStart": "Select movie and showtime to start.",
     "paidBooking": "Booking #{{id}} paid",
     "updating": "Updating...",
-    "ticket": "Ticket:"
+    "ticket": "Ticket:",
+    "findMember": "Lookup",
+    "memberNotFound": "Member not found. Booking as walk-in customer.",
+    "loyaltyPoints": "Loyalty points: {{points}} pts",
+    "earnPoints": "Earn Points",
+    "memberTier": "{{tier}} Member"
   },
   "staffTicketLookup": {
     "errorCheckIn": "Cannot Check-in this booking.",

@@ -79,6 +79,35 @@ This document provides a comprehensive handover summary of all modifications, ad
 - Added `BookingOutboxEventWriter.emitLoyaltyPointsEarned(userId, orderId, finalAmount)` to emit `loyalty.points.earned` events whenever an order is marked `PAID`.
 - Automatically skipped for anonymous walk-in counter orders (`userId == 0L`), ensuring loyalty points are only awarded to authenticated members.
 
+### H. Staff Counter Booking, Admission & Operational Aggregations
+- **Dedicated Staff API Surface (`StaffBookingController`)**:
+  - Guarded by `@PreAuthorize("hasRole('STAFF') or hasRole('ADMIN')")` under route prefix `/api/staff/**`.
+  - Matched by YARP API Gateway policy `admin-or-staff` and Spring Security filter rule `.requestMatchers("/api/staff/**").hasAnyRole("STAFF", "ADMIN")`.
+- **Counter Booking Workflow (`POST /api/staff/bookings`)**:
+  - Allows staff to book tickets directly for walk-in customers (`userId = 0L`) or registered members.
+  - Supports instant Cash settlement, immediately marking the order as `PAID` and generating tickets.
+- **Saga Compensation Pattern for Inter-Service Consistency**:
+  - In `StaffBookingServiceImpl.createCounterBooking()`:
+    1. Synchronously calls `SeatReservationService.bookAvailableSeats(...)` in `showtime-service`.
+    2. Encloses subsequent order persistence, ticket creation, and outbox event dispatch in a `try-catch(RuntimeException ex)` block.
+    3. **Automated Compensating Action**: If order saving or ticket generation throws any exception, it immediately calls `seatReservationService.releaseBookedSeats(...)` to release the booked seats back to `AVAILABLE`. This guarantees no orphaned booked seats remain stuck in `showtime-service`.
+- **Operational Dashboard Aggregations (CQRS Read Projections)**:
+  - `GET /api/staff/dashboard/summary`: Aggregates today's total bookings, tickets sold, and peak sales hour.
+  - `GET /api/staff/dashboard/bookings/today`: Chronological stream of today's paid orders for the counter ledger.
+  - `GET /api/staff/dashboard/validation/stats`: Total validated vs pending check-ins for the active operational window.
+  - `GET /api/staff/dashboard/validation/bookings`: Validation list returning `#BK-{orderId}` identifiers with dynamic status (`"pending"` if any tickets remain unvalidated, `"validated"` once all tickets are checked in).
+
+### I. Downstream Error Propagation & Anti-Masking (`HttpSeatReservationService`)
+- **Problem**: Previously, `HttpSeatReservationService` caught all `RestClientException` errors and blindly masked them as `503 SERVICE_UNAVAILABLE` ("Showtime reservation service is unavailable"). This hid real business validation errors (e.g., HTTP `409 Conflict` when a seat was already held or booked).
+- **Solution**:
+  - Distinguishes between HTTP 5xx / connection failures (which throw 503 `SHOWTIME_RESERVATION_UNAVAILABLE`) and HTTP 4xx client errors (e.g. 409 `SEAT_NOT_AVAILABLE`, 400 `INVALID_INPUT`).
+  - Reads downstream error JSON payloads via Jackson `ObjectMapper` and preserves the original HTTP status, error code, and localized message in a `CustomException`.
+  - Prevents false-alarm service outages on the frontend.
+
+### J. Global Exception Handling: Argument Type Mismatch Protection
+- Added `@ExceptionHandler(MethodArgumentTypeMismatchException.class)` in `GlobalExceptionHandler.java`.
+- Catches invalid path variable or parameter conversions (such as `/api/tickets/orders/NaN`) and returns structured **HTTP 400 Bad Request** (`INVALID_INPUT`) instead of cascading into an unhandled **HTTP 500 Internal Server Error**.
+
 ---
 
 ## 3. Comprehensive File Inventory
@@ -87,6 +116,15 @@ This document provides a comprehensive handover summary of all modifications, ad
 
 | File Path | Description |
 | :--- | :--- |
+| [`StaffBookingController.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/controller/StaffBookingController.java) | REST controller handling counter booking and staff operational dashboard endpoints under `/api/staff/**`. |
+| [`StaffBookingService.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/StaffBookingService.java) | Service contract for staff counter booking and validation reporting. |
+| [`StaffBookingServiceImpl.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/StaffBookingServiceImpl.java) | Implementation orchestrating counter booking, compensating seat releases, and dashboard queries. |
+| [`StaffCounterBookingRequest.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/dto/request/StaffCounterBookingRequest.java) | DTO for counter booking creation (showtimeId, seatIds, customer info, payment method). |
+| [`StaffBookingListItemResponse.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/dto/response/StaffBookingListItemResponse.java) | DTO representing a booking row in staff today's bookings ledger. |
+| [`StaffBookingValidationResponse.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/dto/response/StaffBookingValidationResponse.java) | DTO representing an order validation entry (`#BK-{orderId}`) on the ticket lookup dashboard. |
+| [`StaffDashboardSummaryResponse.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/dto/response/StaffDashboardSummaryResponse.java) | DTO for staff summary statistics (todayBookings, totalTicketsSold, peakHour). |
+| [`StaffValidationStatsResponse.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/dto/response/StaffValidationStatsResponse.java) | DTO for validation statistics (totalValidated, pendingCheckIns, totalBookings). |
+| [`StaffBookingServiceImplTest.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/test/java/com/uit/cinema/booking/service/Impl/StaffBookingServiceImplTest.java) | Unit test suite covering counter bookings, compensation rollback on save failure, and `#BK-` formatting. |
 | [`HttpPaymentService.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/client/HttpPaymentService.java) | Spring `RestClient` wrapper to communicate synchronously with `payment-service` (`POST /api/payments/order/{orderId}/refund`). Injects `services.payment.url` and `app.internal-token`. |
 | [`PaymentExpiredPayload.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/messaging/PaymentExpiredPayload.java) | Record representing the JSON payload of `order.expired` events (`correlationId`, `paymentId`, `orderId`, `userId`, `reason`). |
 | [`DuplicatePendingOrderException.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/core/exception/DuplicatePendingOrderException.java) | Domain exception carrying `existingOrderId`, mapping to HTTP `409 Conflict`. |
@@ -246,11 +284,11 @@ mvn test
 ```
 
 ### Test Execution Summary:
-- **Total Tests Run**: 71
+- **Total Tests Run**: 76
 - **Failures**: 0
 - **Errors**: 0
 - **Skipped**: 0
-- **Build Status**: `BUILD SUCCESS` (Total time: ~15s)
+- **Build Status**: `BUILD SUCCESS` (Total time: ~26s)
 
 ---
 

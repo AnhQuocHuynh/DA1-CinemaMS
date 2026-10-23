@@ -20,7 +20,7 @@ export const CounterBooking: React.FC = () => {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [voucherCode, setVoucherCode] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD' | 'BANK_TRANSFER'>('CASH');
+  const [paymentMethod, setPaymentMethod] = useState<'CASH'>('CASH'); //| 'CARD' | 'BANK_TRANSFER
   const [seatMap, setSeatMap] = useState<SeatMap | null>(null);
   const [selectedSeats, setSelectedSeats] = useState<Seat[]>([]);
   const [result, setResult] = useState<StaffCounterBookingResult | null>(null);
@@ -110,7 +110,6 @@ export const CounterBooking: React.FC = () => {
 
   const handleLookupMember = async () => {
     if (!customerPhone.trim()) return;
-    console.warn('[STAFF] Lookup user by phone is not supported by backend yet. Needs implementation (/users/lookup?phone=...).');
     setIsLookingUp(true);
     setLookupNotice(null);
     try {
@@ -155,6 +154,13 @@ export const CounterBooking: React.FC = () => {
     } catch (err) {
       const e = err as { response?: { data?: { message?: string } } };
       setError(e.response?.data?.message || t('staffCounterBooking.errorCreateBooking', 'Không thể tạo booking tại quầy.'));
+      try {
+        const refreshedMap = await bookingService.getSeatMap(numericShowtimeId);
+        setSeatMap(refreshedMap);
+        setSelectedSeats([]);
+      } catch {
+        // ignore seat map reload failure
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -183,7 +189,7 @@ export const CounterBooking: React.FC = () => {
       <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
         <aside className="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
-            <div className="h-10 w-10 rounded-full bg-primary-container text-primary flex items-center justify-center">
+            <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
               <UserRound className="w-5 h-5" />
             </div>
             <div>
@@ -198,11 +204,11 @@ export const CounterBooking: React.FC = () => {
               <select
                 value={selectedMovieId}
                 onChange={handleMovieChange}
-                className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               >
-                <option value="">{t('staffCounterBooking.selectMoviePlaceholder', '-- Chọn phim --')}</option>
+                <option value="" className="bg-surface-container text-on-surface">{t('staffCounterBooking.selectMoviePlaceholder', '-- Chọn phim --')}</option>
                 {movies.map(m => (
-                  <option key={m.id} value={m.id}>{m.title}</option>
+                  <option key={m.id} value={m.id} className="bg-surface-container text-on-surface">{m.title}</option>
                 ))}
               </select>
             </label>
@@ -218,15 +224,15 @@ export const CounterBooking: React.FC = () => {
                     setSelectedSeats([]);
                   }}
                   disabled={!selectedMovieId || showtimes.length === 0}
-                  className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:bg-surface-container-low"
+                  className="w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:bg-surface-container-low"
                 >
-                  <option value="">{t('staffCounterBooking.selectShowtimePlaceholder', '-- Chọn suất chiếu --')}</option>
+                  <option value="" className="bg-surface-container text-on-surface">{t('staffCounterBooking.selectShowtimePlaceholder', '-- Chọn suất chiếu --')}</option>
                   {showtimes.map(st => {
                     const date = new Date(st.startTime);
                     const formattedDate = date.toLocaleDateString('vi-VN', { month: '2-digit', day: '2-digit' });
                     const formattedTime = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
                     return (
-                      <option key={st.id} value={st.id}>
+                      <option key={st.id} value={st.id} className="bg-surface-container text-on-surface">
                         {formattedDate} {formattedTime} - {st.roomName || 'Room ' + st.roomId}
                       </option>
                     );
@@ -235,7 +241,7 @@ export const CounterBooking: React.FC = () => {
                 <button
                   onClick={loadSeats}
                   disabled={isLoadingSeats || !showtimeId}
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-60 shrink-0"
+                  className="rounded-lg bg-primary hover:bg-primary/90 px-4 py-2 text-sm font-bold text-white disabled:opacity-60 shrink-0 shadow-sm transition-colors"
                 >
                   {isLoadingSeats ? <Loader2 className="w-4 h-4 animate-spin" /> : t('staffCounterBooking.load', 'Load')}
                 </button>
@@ -260,7 +266,7 @@ export const CounterBooking: React.FC = () => {
                       handleLookupMember();
                     }
                   }}
-                  className="w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/40 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                   placeholder="090..."
                 />
                 <button
@@ -277,13 +283,19 @@ export const CounterBooking: React.FC = () => {
             {memberUser ? (
               <div className="bg-primary/10 border border-primary/30 p-2.5 rounded-lg flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-bold text-primary">{memberUser.fullName} ({memberUser.tier || 'Standard'} Member)</p>
-                  <p className="text-xs text-on-surface-variant">Điểm tích lũy: {memberUser.loyaltyPoints ?? 0} pts</p>
+                  <p className="text-xs font-bold text-primary">
+                    {memberUser.fullName} ({t('staffCounterBooking.memberTier', { tier: memberUser.tier || 'Standard', defaultValue: `${memberUser.tier || 'Standard'} Member` })})
+                  </p>
+                  <p className="text-xs text-on-surface-variant">
+                    {t('staffCounterBooking.loyaltyPoints', { points: memberUser.loyaltyPoints ?? 0, defaultValue: `Điểm tích lũy: ${memberUser.loyaltyPoints ?? 0} pts` })}
+                  </p>
                 </div>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-primary text-white">Tích điểm</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-primary text-white">
+                  {t('staffCounterBooking.earnPoints', 'Tích điểm')}
+                </span>
               </div>
             ) : lookupNotice ? (
-              <p className="text-xs text-amber-700 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg">{lookupNotice}</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg">{lookupNotice}</p>
             ) : null}
 
             <label className="block">
@@ -291,7 +303,7 @@ export const CounterBooking: React.FC = () => {
               <input
                 value={customerName}
                 onChange={(event) => setCustomerName(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/40 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                 placeholder={t('staffCounterBooking.customerNamePlaceholder', 'Walk-in Customer')}
               />
             </label>
@@ -301,11 +313,11 @@ export const CounterBooking: React.FC = () => {
               <select
                 value={paymentMethod}
                 onChange={(event) => setPaymentMethod(event.target.value as typeof paymentMethod)}
-                className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               >
-                <option value="CASH">{t('staffCounterBooking.cash', 'Tiền mặt')}</option>
-                <option value="CARD">{t('staffCounterBooking.card', 'Thẻ')}</option>
-                <option value="BANK_TRANSFER">{t('staffCounterBooking.bankTransfer', 'Chuyển khoản')}</option>
+                <option value="CASH" className="bg-surface-container text-on-surface">{t('staffCounterBooking.cash', 'Tiền mặt')}</option>
+                <option value="CARD" className="bg-surface-container text-on-surface">{t('staffCounterBooking.card', 'Thẻ')}</option>
+                <option value="BANK_TRANSFER" className="bg-surface-container text-on-surface">{t('staffCounterBooking.bankTransfer', 'Chuyển khoản')}</option>
               </select>
             </label>
 
@@ -314,13 +326,13 @@ export const CounterBooking: React.FC = () => {
               <input
                 value={voucherCode}
                 onChange={(event) => setVoucherCode(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-outline-variant px-3 py-2 text-sm uppercase outline-none focus:ring-2 focus:ring-primary"
+                className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm uppercase text-on-surface placeholder:text-on-surface-variant/40 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                 placeholder="WELCOME10"
               />
             </label>
           </div>
 
-          <div className="mt-6 rounded-xl bg-surface-container-low p-4">
+          <div className="mt-6 rounded-xl bg-surface-container-low p-4 border border-outline-variant/30">
             <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{t('staffCounterBooking.selected', 'Đã chọn')}</p>
             <p className="mt-1 text-lg font-extrabold text-on-surface">
               {selectedSeats.map((seat) => seat.label).join(', ') || t('staffCounterBooking.noSeatSelected', 'Chưa chọn ghế')}
@@ -331,7 +343,7 @@ export const CounterBooking: React.FC = () => {
           <button
             onClick={submitBooking}
             disabled={isSubmitting || selectedSeats.length === 0}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-inverse-surface px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-primary hover:bg-primary/90 px-4 py-3.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ticket className="w-4 h-4" />}
             {t('staffCounterBooking.confirmBooking', 'Xác nhận đặt vé')}
@@ -339,15 +351,32 @@ export const CounterBooking: React.FC = () => {
         </aside>
 
         <section className="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-6 shadow-sm">
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="font-bold text-on-surface">{t('staffCounterBooking.seatMap', 'Sơ đồ ghế')}</h3>
               <p className="text-xs text-on-surface-variant">{t('staffCounterBooking.seatMapDesc', 'Chỉ ghế trống mới được đặt tại quầy.')}</p>
             </div>
-            <div className="flex gap-3 text-xs text-on-surface-variant">
-              <span>{t('staffCounterBooking.available', 'Available')}</span>
-              <span>{t('staffCounterBooking.soldHold', 'Sold/Hold')}</span>
-              <span>{t('staffCounterBooking.seatSelected', 'Selected')}</span>
+            <div className="flex flex-wrap items-center gap-3.5 text-xs text-on-surface-variant">
+              <span className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded border border-outline-variant bg-surface-container inline-block" />
+                {t('staffCounterBooking.available', 'Available')}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 inline-block" />
+                VIP
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded border border-pink-500/40 bg-pink-500/10 text-pink-600 dark:text-pink-400 inline-block" />
+                Couple
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded border border-outline-variant/20 bg-surface-container-high/60 inline-block" />
+                {t('staffCounterBooking.soldHold', 'Sold/Hold')}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded bg-primary inline-block" />
+                {t('staffCounterBooking.seatSelected', 'Selected')}
+              </span>
             </div>
           </div>
 
@@ -369,17 +398,16 @@ export const CounterBooking: React.FC = () => {
                           key={seat.id}
                           onClick={() => toggleSeat(seat)}
                           disabled={unavailable}
-                          className={`h-10 rounded-lg border px-3 text-xs font-bold transition-all ${
-                            selected
-                              ? 'border-primary bg-primary text-on-primary'
+                          className={`h-10 rounded-lg border px-3 text-xs font-bold transition-all ${selected
+                              ? 'border-primary bg-primary text-white shadow-md shadow-primary/25 scale-[1.02]'
                               : unavailable
-                                ? 'border-outline-variant/30 bg-surface-container text-inverse-on-surface'
+                                ? 'border-outline-variant/20 bg-surface-container-high/60 text-on-surface-variant/40 cursor-not-allowed'
                                 : seat.type === 'vip'
-                                  ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                                  ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/60'
                                   : seat.type === 'couple'
-                                    ? 'border-pink-200 bg-pink-50 text-pink-700 hover:bg-pink-100'
-                                    : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-primary'
-                          }`}
+                                    ? 'border-pink-500/40 bg-pink-500/10 text-pink-700 dark:text-pink-300 hover:bg-pink-500/20 hover:border-pink-500/60'
+                                    : 'border-outline-variant bg-surface-container text-on-surface hover:border-primary hover:bg-surface-container-high'
+                            }`}
                           style={{ minWidth: `${Math.max(40, seat.columnSpan * 42)}px` }}
                         >
                           {seat.isPathway ? 'PATH' : seat.label}
@@ -393,7 +421,7 @@ export const CounterBooking: React.FC = () => {
           )}
 
           {result && (
-            <div className="mt-6 rounded-xl border border-success-container bg-success-container p-5 text-on-success-container">
+            <div className="mt-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-emerald-800 dark:text-emerald-200">
               <div className="flex items-center gap-2 font-bold">
                 <CheckCircle className="w-5 h-5" />
                 {t('staffCounterBooking.paidBooking', { id: result.id, defaultValue: 'Booking #{{id}} đã thanh toán' })}
