@@ -55,6 +55,13 @@ public class RoomRental {
     @Column(length = 500)
     private String decisionReason;
 
+    @Column(precision = 12, scale = 2)
+    private BigDecimal refundAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private RefundStatus refundStatus = RefundStatus.NONE;
+
     private LocalDateTime expiresAt;
 
     @Column(nullable = false)
@@ -98,6 +105,10 @@ public class RoomRental {
     public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
     public String getDecisionReason() { return decisionReason; }
     public void setDecisionReason(String decisionReason) { this.decisionReason = decisionReason; }
+    public BigDecimal getRefundAmount() { return refundAmount; }
+    public void setRefundAmount(BigDecimal refundAmount) { this.refundAmount = refundAmount; }
+    public RefundStatus getRefundStatus() { return refundStatus; }
+    public void setRefundStatus(RefundStatus refundStatus) { this.refundStatus = refundStatus; }
     public LocalDateTime getExpiresAt() { return expiresAt; }
     public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }

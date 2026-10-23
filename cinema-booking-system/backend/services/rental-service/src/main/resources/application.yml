@@ -23,6 +23,15 @@ spring:
 
 app:
   internal-token: ${INTERNAL_API_TOKEN:local-dev-internal-token}
+  rental:
+    zone: ${APP_RENTAL_ZONE:Asia/Ho_Chi_Minh}
+    turnover-minutes: ${APP_RENTAL_TURNOVER_MINUTES:15}
+    customer-cancel-hours: ${APP_RENTAL_CUSTOMER_CANCEL_HOURS:24}
+    default-price-per-hour: ${APP_RENTAL_DEFAULT_PRICE_PER_HOUR:150000}
+    weekend-multiplier: ${APP_RENTAL_WEEKEND_MULTIPLIER:1.5}
+    peak-multiplier: ${APP_RENTAL_PEAK_MULTIPLIER:1.2}
+    peak-start-hour: ${APP_RENTAL_PEAK_START_HOUR:18}
+    peak-end-hour: ${APP_RENTAL_PEAK_END_HOUR:22}
 
 cinema:
   security:
@@ -41,6 +50,8 @@ services:
     url: ${SHOWTIME_SERVICE_URL:http://localhost:8082}
   identity:
     url: ${IDENTITY_SERVICE_URL:http://localhost:5001}
+  notification:
+    url: ${NOTIFICATION_SERVICE_URL:http://localhost:5004}
 
 management:
   endpoints:

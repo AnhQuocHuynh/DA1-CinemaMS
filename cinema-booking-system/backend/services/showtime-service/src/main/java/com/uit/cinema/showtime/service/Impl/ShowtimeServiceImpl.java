@@ -18,6 +18,7 @@ import com.uit.cinema.showtime.service.RentalSlotGuard;
 import com.uit.cinema.showtime.service.SeatHoldPolicy;
 import com.uit.cinema.showtime.service.ShowtimeService;
 import com.uit.cinema.showtime.service.contract.EventShowtimeCreateRequest;
+import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -99,6 +100,24 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     @Override
     public boolean hasOverlappingShowtime(Long roomId, LocalDateTime start, LocalDateTime end) {
         return showtimeRepository.countActiveOverlap(roomId, start, end, Showtime.Status.CANCELLED) > 0;
+    }
+
+    @Override
+    public List<ShowtimeScheduleView> findActiveSchedule(Long roomId, LocalDateTime from, LocalDateTime to) {
+        if (roomId == null || from == null || to == null || !to.isAfter(from)) {
+            return List.of();
+        }
+        return showtimeRepository.findActiveIntersecting(roomId, from, to, Showtime.Status.CANCELLED).stream()
+            .map(showtime -> new ShowtimeScheduleView(
+                showtime.getId(),
+                showtime.getMovieId(),
+                showtime.getEventId(),
+                showtime.getRoomId(),
+                showtime.getStartTime(),
+                showtime.getEndTime(),
+                showtime.getStatus() != null ? showtime.getStatus().name() : null
+            ))
+            .toList();
     }
 
     @Override

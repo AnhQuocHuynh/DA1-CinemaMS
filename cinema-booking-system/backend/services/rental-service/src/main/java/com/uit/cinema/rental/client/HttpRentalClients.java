@@ -104,6 +104,30 @@ public class HttpRentalClients implements
     }
 
     @Override
+    public List<RentalClients.ShowtimeSlot> activeShowtimes(Long roomId, LocalDateTime from, LocalDateTime to) {
+        try {
+            ApiResponse<List<ShowtimePayload>> response = showtime.get()
+                .uri(uri -> uri.path("/internal/showtimes/rooms/{roomId}/schedule")
+                    .queryParam("from", from.toString())
+                    .queryParam("to", to.toString())
+                    .build(roomId))
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+            if (response == null || response.getData() == null) {
+                return List.of();
+            }
+            return response.getData().stream()
+                .filter(slot -> slot != null && slot.startTime != null && slot.endTime != null)
+                .map(slot -> new RentalClients.ShowtimeSlot(slot.startTime, slot.endTime, slot.status))
+                .toList();
+        } catch (CustomException ex) {
+            throw ex;
+        } catch (RestClientException ex) {
+            throw new CustomException("Showtime is unavailable", HttpStatus.SERVICE_UNAVAILABLE, "SHOWTIME_UNAVAILABLE");
+        }
+    }
+
+    @Override
     public RentalClients.CinemaScope scopeOf(Long userId) {
         try {
             ApiResponse<ScopePayload> response = identity.get()
@@ -140,5 +164,11 @@ public class HttpRentalClients implements
     private static final class ScopePayload {
         public String realmRole;
         public List<Long> cinemaIds;
+    }
+
+    private static final class ShowtimePayload {
+        public LocalDateTime startTime;
+        public LocalDateTime endTime;
+        public String status;
     }
 }

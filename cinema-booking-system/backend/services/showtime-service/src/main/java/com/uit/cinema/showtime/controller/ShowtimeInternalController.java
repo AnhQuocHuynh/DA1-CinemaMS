@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/internal/showtimes")
@@ -45,6 +46,15 @@ public class ShowtimeInternalController {
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end
     ) {
         return ResponseEntity.ok(ApiResponse.success(showtimeService.hasOverlappingShowtime(roomId, start, end)));
+    }
+
+    @GetMapping("/rooms/{roomId}/schedule")
+    public ResponseEntity<ApiResponse<List<ShowtimeScheduleView>>> schedule(
+        @PathVariable Long roomId,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(showtimeService.findActiveSchedule(roomId, from, to)));
     }
 
     @PostMapping("/rooms/future-exists")

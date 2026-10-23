@@ -31,6 +31,21 @@ public interface RoomRentalRepository extends JpaRepository<RoomRental, Long> {
 
     @Query("""
         SELECT r FROM RoomRental r
+        WHERE r.roomId = :roomId
+          AND r.status IN :statuses
+          AND r.startTime < :rangeEnd
+          AND r.endTime > :rangeStart
+        ORDER BY r.startTime
+        """)
+    List<RoomRental> findBlockingForRoom(
+        @Param("roomId") Long roomId,
+        @Param("rangeStart") LocalDateTime rangeStart,
+        @Param("rangeEnd") LocalDateTime rangeEnd,
+        @Param("statuses") Collection<RentalStatus> statuses
+    );
+
+    @Query("""
+        SELECT r FROM RoomRental r
         WHERE r.startTime < :rangeEnd
           AND r.endTime > :rangeStart
         ORDER BY r.startTime

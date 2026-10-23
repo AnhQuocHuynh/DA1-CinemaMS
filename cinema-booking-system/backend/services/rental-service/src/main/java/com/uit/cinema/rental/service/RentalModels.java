@@ -1,5 +1,6 @@
 package com.uit.cinema.rental.service;
 
+import com.uit.cinema.rental.entity.RefundStatus;
 import com.uit.cinema.rental.entity.RentalStatus;
 
 import java.math.BigDecimal;
@@ -35,7 +36,15 @@ public final class RentalModels {
 
     public record RentalView(Long id, Long userId, Long cinemaId, Long roomId, Long movieId, LocalDateTime startTime,
                              LocalDateTime endTime, BigDecimal pricePerHour, BigDecimal totalAmount, RentalStatus status,
-                             String paymentMethod, String decisionReason, LocalDateTime expiresAt) {
+                             String paymentMethod, String decisionReason, LocalDateTime expiresAt,
+                             BigDecimal refundAmount, RefundStatus refundStatus) {
+    }
+
+    public record BusySlot(String source, LocalDateTime startTime, LocalDateTime endTime, String status) {
+    }
+
+    public record Availability(Long roomId, LocalDateTime from, LocalDateTime to, BigDecimal pricePerHour,
+                               List<BusySlot> busy) {
     }
 
     public record Report(long rentalCount, BigDecimal confirmedRevenue, List<Bucket> byRoom, List<Bucket> byDay) {

@@ -3,12 +3,15 @@ package com.uit.cinema.rental.security;
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.rental.client.RentalClients;
 import com.uit.cinema.rental.service.RentalModels;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
 
@@ -27,6 +30,13 @@ public class RentalActorResolver {
     }
 
     public Long userId(Long requestedUserId) {
+        Long headerUserId = headerUserId();
+        if (headerUserId != null) {
+            if (requestedUserId != null && !requestedUserId.equals(headerUserId)) {
+                throw new CustomException("Requested user does not match the authenticated user", HttpStatus.FORBIDDEN, "USER_ID_MISMATCH");
+            }
+            return headerUserId;
+        }
         if (!jwtEnabled) {
             if (requestedUserId == null || requestedUserId <= 0) {
                 throw new CustomException("User is required", HttpStatus.BAD_REQUEST, "USER_REQUIRED");
@@ -49,6 +59,26 @@ public class RentalActorResolver {
             return userId;
         } catch (ArithmeticException | NumberFormatException ex) {
             throw new CustomException("Authenticated user profile mapping is not available", HttpStatus.SERVICE_UNAVAILABLE, "USER_ID_MAPPING_UNAVAILABLE");
+        }
+    }
+
+    private Long headerUserId() {
+        if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)) {
+            return null;
+        }
+        HttpServletRequest request = attributes.getRequest();
+        String raw = request.getHeader("X-User-Id");
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            long userId = Long.parseLong(raw.trim());
+            if (userId <= 0) {
+                throw new NumberFormatException("user id");
+            }
+            return userId;
+        } catch (NumberFormatException ex) {
+            throw new CustomException("User is required", HttpStatus.BAD_REQUEST, "USER_REQUIRED");
         }
     }
 

@@ -23,8 +23,13 @@ public interface RentalClients {
         MovieFact getMovie(Long movieId);
     }
 
+    record ShowtimeSlot(LocalDateTime startTime, LocalDateTime endTime, String status) {
+    }
+
     interface ShowtimeSlotClient {
         boolean hasShowtimeOverlap(Long roomId, LocalDateTime start, LocalDateTime end);
+
+        List<ShowtimeSlot> activeShowtimes(Long roomId, LocalDateTime from, LocalDateTime to);
     }
 
     interface CinemaScopeClient {

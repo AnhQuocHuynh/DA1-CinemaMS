@@ -2,6 +2,7 @@ package com.uit.cinema.rental.service;
 
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.rental.client.RentalClients;
+import com.uit.cinema.rental.entity.RefundStatus;
 import com.uit.cinema.rental.entity.RentalRoomRate;
 import com.uit.cinema.rental.entity.RentalStatus;
 import com.uit.cinema.rental.entity.RoomRental;
@@ -14,19 +15,24 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
 public class RentalService {
 
-    static final int TURNOVER_MINUTES = 15;
     static final int MIN_MINUTES = 60;
     static final int MAX_MINUTES = 8 * 60;
+    private static final int MAX_AVAILABILITY_DAYS = 62;
     private static final List<RentalStatus> BLOCKING = List.of(
         RentalStatus.PENDING_APPROVAL, RentalStatus.AWAITING_PAYMENT, RentalStatus.CONFIRMED);
     private static final List<RentalStatus> EXPIRABLE = List.of(
@@ -37,19 +43,28 @@ public class RentalService {
     private final RentalClients.FacilityRoomClient rooms;
     private final RentalClients.MovieClient movies;
     private final RentalClients.ShowtimeSlotClient showtimes;
+    private final Clock clock;
+    private final RentalRules rules;
+    private final RentalNotifier notifier;
 
     public RentalService(
         RoomRentalRepository rentals,
         RentalRoomRateRepository rates,
         RentalClients.FacilityRoomClient rooms,
         RentalClients.MovieClient movies,
-        RentalClients.ShowtimeSlotClient showtimes
+        RentalClients.ShowtimeSlotClient showtimes,
+        Clock clock,
+        RentalRules rules,
+        RentalNotifier notifier
     ) {
         this.rentals = rentals;
         this.rates = rates;
         this.rooms = rooms;
         this.movies = movies;
         this.showtimes = showtimes;
+        this.clock = clock;
+        this.rules = rules;
+        this.notifier = notifier;
     }
 
     public RentalModels.Quote quote(RentalModels.Window window) {
@@ -57,7 +72,7 @@ public class RentalService {
             Prepared prepared = prepare(window);
             return new RentalModels.Quote(
                 prepared.room.id(), prepared.room.cinemaId(), prepared.room.name(),
-                window.startTime(), window.endTime(), prepared.rate.getPricePerHour(),
+                window.startTime(), window.endTime(), prepared.pricePerHour,
                 prepared.hours, prepared.total, true, null
             );
         } catch (CustomException ex) {
@@ -80,11 +95,14 @@ public class RentalService {
         rental.setMovieId(window.movieId());
         rental.setStartTime(window.startTime());
         rental.setEndTime(window.endTime());
-        rental.setPricePerHour(prepared.rate.getPricePerHour());
+        rental.setPricePerHour(prepared.pricePerHour);
         rental.setTotalAmount(prepared.total);
         rental.setStatus(RentalStatus.PENDING_APPROVAL);
-        rental.setExpiresAt(LocalDateTime.now().plusHours(2));
-        return view(rentals.save(rental));
+        rental.setRefundStatus(RefundStatus.NONE);
+        rental.setExpiresAt(now().plusHours(2));
+        RoomRental saved = rentals.save(rental);
+        notify(saved, "Đã gửi yêu cầu thuê", "Đơn thuê " + saved.getId() + " đang chờ duyệt.");
+        return view(saved);
     }
 
     @Transactional
@@ -122,14 +140,50 @@ public class RentalService {
         return new RentalModels.Report(rows.size(), revenue, buckets(rows, true), buckets(rows, false));
     }
 
+    public RentalModels.Availability availability(Long roomId, LocalDateTime from, LocalDateTime to) {
+        if (roomId == null || from == null || to == null || !to.isAfter(from)) {
+            throw new CustomException("Availability range is required", HttpStatus.BAD_REQUEST, "INVALID_WINDOW");
+        }
+        if (Duration.between(from, to).toDays() > MAX_AVAILABILITY_DAYS) {
+            throw new CustomException("Availability range must be 62 days or less", HttpStatus.BAD_REQUEST, "INVALID_WINDOW");
+        }
+        RentalClients.FacilityRoom room = rooms.getRoom(roomId);
+        LocalDateTime rangeStart = blockedStart(from);
+        LocalDateTime rangeEnd = blockedEnd(to);
+        List<RentalModels.BusySlot> busy = new ArrayList<>();
+        for (RoomRental rental : rentals.findBlockingForRoom(roomId, rangeStart, rangeEnd, BLOCKING)) {
+            busy.add(new RentalModels.BusySlot(
+                "RENTAL",
+                blockedStart(rental.getStartTime()),
+                blockedEnd(rental.getEndTime()),
+                rental.getStatus().name()
+            ));
+        }
+        for (RentalClients.ShowtimeSlot slot : showtimes.activeShowtimes(roomId, rangeStart, rangeEnd)) {
+            if (slot.startTime() == null || slot.endTime() == null) {
+                continue;
+            }
+            busy.add(new RentalModels.BusySlot(
+                "SHOWTIME",
+                blockedStart(slot.startTime()),
+                blockedEnd(slot.endTime()),
+                slot.status()
+            ));
+        }
+        return new RentalModels.Availability(room.id(), from, to, baseHourlyPrice(roomId), busy);
+    }
+
     @Transactional
     public RentalModels.RentalView approve(Long id, RentalModels.Actor actor) {
         RoomRental rental = loadFresh(id);
         requireManager(actor, rental.getCinemaId());
         requireStatus(rental, RentalStatus.PENDING_APPROVAL);
+        requireShowtimeClear(rental);
         rental.setStatus(RentalStatus.AWAITING_PAYMENT);
-        rental.setExpiresAt(LocalDateTime.now().plusMinutes(15));
-        return view(rentals.save(rental));
+        rental.setExpiresAt(now().plusMinutes(15));
+        RoomRental saved = rentals.save(rental);
+        notify(saved, "Đã duyệt đơn thuê", "Đơn thuê " + saved.getId() + " đang chờ thanh toán.");
+        return view(saved);
     }
 
     @Transactional
@@ -143,16 +197,33 @@ public class RentalService {
         rental.setStatus(RentalStatus.REJECTED);
         rental.setDecisionReason(reason.trim());
         rental.setExpiresAt(null);
-        return view(rentals.save(rental));
+        RoomRental saved = rentals.save(rental);
+        notify(saved, "Đã từ chối đơn thuê", "Đơn thuê " + saved.getId() + " bị từ chối: " + saved.getDecisionReason());
+        return view(saved);
     }
 
     @Transactional
     public RentalModels.RentalView pay(Long id, String paymentMethod, RentalModels.Actor actor) {
         RoomRental rental = loadFresh(id);
-        if (!(actor.userId().equals(rental.getUserId()) || actor.admin() || actor.managerOf(rental.getCinemaId()))) {
+        if (actor == null || !(actor.userId().equals(rental.getUserId()) || actor.admin() || actor.managerOf(rental.getCinemaId()))) {
             throw forbidden();
         }
-        return confirmPayment(rental, paymentMethod);
+        requireStatus(rental, RentalStatus.AWAITING_PAYMENT);
+        String method = normalizeMethod(paymentMethod);
+        if ("CASH".equals(method)) {
+            if (!(actor.admin() || actor.managerOf(rental.getCinemaId()))) {
+                throw new CustomException(
+                    "Cash payment can only be confirmed at the cinema counter",
+                    HttpStatus.FORBIDDEN,
+                    "CASH_COUNTER_ONLY"
+                );
+            }
+            return confirmPayment(rental, method);
+        }
+        rental.setPaymentMethod(method);
+        RoomRental saved = rentals.save(rental);
+        notify(saved, "Đã ghi nhận thanh toán", "Đơn thuê " + saved.getId() + " đang chờ kết quả " + method + ".");
+        return view(saved);
     }
 
     @Transactional
@@ -161,12 +232,15 @@ public class RentalService {
         if (!success) {
             return view(rental);
         }
-        return confirmPayment(rental, paymentMethod);
+        return confirmPayment(rental, normalizeMethod(paymentMethod));
     }
 
     @Transactional
     public RentalModels.RentalView cancel(Long id, RentalModels.Actor actor) {
         RoomRental rental = loadFresh(id);
+        if (actor == null) {
+            throw forbidden();
+        }
         boolean owner = actor.userId().equals(rental.getUserId());
         boolean manager = actor.admin() || actor.managerOf(rental.getCinemaId());
         if (rental.getStatus() == RentalStatus.PENDING_APPROVAL || rental.getStatus() == RentalStatus.AWAITING_PAYMENT) {
@@ -174,18 +248,48 @@ public class RentalService {
                 throw forbidden();
             }
         } else if (rental.getStatus() == RentalStatus.CONFIRMED) {
-            if (!manager) {
-                throw forbidden();
+            if (!rental.getStartTime().isAfter(now())) {
+                throw new CustomException(
+                    "Confirmed rental can only be cancelled before it starts",
+                    HttpStatus.BAD_REQUEST,
+                    "RENTAL_ALREADY_STARTED"
+                );
             }
-            if (!rental.getStartTime().isAfter(LocalDateTime.now())) {
-                throw new CustomException("Confirmed rental can only be cancelled before it starts", HttpStatus.BAD_REQUEST, "RENTAL_ALREADY_STARTED");
+            if (manager) {
+                markRefundPending(rental);
+            } else if (owner) {
+                if (rental.getStartTime().isBefore(now().plusHours(rules.customerCancelHours()))) {
+                    throw new CustomException(
+                        "Customer can cancel a confirmed rental only until 24 hours before it starts",
+                        HttpStatus.BAD_REQUEST,
+                        "CUSTOMER_CANCEL_WINDOW_CLOSED"
+                    );
+                }
+                markRefundPending(rental);
+            } else {
+                throw forbidden();
             }
         } else {
             throw new CustomException("Rental cannot be cancelled", HttpStatus.BAD_REQUEST, "INVALID_RENTAL_STATUS");
         }
         rental.setStatus(RentalStatus.CANCELLED);
         rental.setExpiresAt(null);
-        return view(rentals.save(rental));
+        RoomRental saved = rentals.save(rental);
+        notify(saved, "Đã hủy đơn thuê", "Đơn thuê " + saved.getId() + " đã được hủy.");
+        return view(saved);
+    }
+
+    @Transactional
+    public RentalModels.RentalView completeRefund(Long id, RentalModels.Actor actor) {
+        RoomRental rental = loadFresh(id);
+        requireManager(actor, rental.getCinemaId());
+        if (rental.getStatus() != RentalStatus.CANCELLED || rental.getRefundStatus() != RefundStatus.PENDING) {
+            throw new CustomException("Refund is not pending", HttpStatus.BAD_REQUEST, "REFUND_NOT_PENDING");
+        }
+        rental.setRefundStatus(RefundStatus.COMPLETED);
+        RoomRental saved = rentals.save(rental);
+        notify(saved, "Đã hoàn tiền", "Hoàn tiền cho đơn thuê " + saved.getId() + " đã được ghi nhận.");
+        return view(saved);
     }
 
     @Transactional
@@ -206,24 +310,27 @@ public class RentalService {
     }
 
     public boolean hasBlockingRental(Long roomId, LocalDateTime start, LocalDateTime end) {
-        return rentals.countOverlapping(roomId, start, end, BLOCKING) > 0;
+        if (roomId == null || start == null || end == null || !end.isAfter(start)) {
+            return false;
+        }
+        return rentals.countOverlapping(roomId, blockedStart(start), blockedEnd(end), BLOCKING) > 0;
     }
 
     @Scheduled(fixedDelay = 60_000)
     @Transactional
     public void expireDueRentals() {
-        rentals.expireDue(LocalDateTime.now(), RentalStatus.EXPIRED, EXPIRABLE);
+        rentals.expireDue(now(), RentalStatus.EXPIRED, EXPIRABLE);
     }
 
     private RentalModels.RentalView confirmPayment(RoomRental rental, String paymentMethod) {
         requireStatus(rental, RentalStatus.AWAITING_PAYMENT);
-        if (paymentMethod == null || paymentMethod.isBlank()) {
-            throw new CustomException("Payment method is required", HttpStatus.BAD_REQUEST, "PAYMENT_METHOD_REQUIRED");
-        }
+        requireShowtimeClear(rental);
         rental.setStatus(RentalStatus.CONFIRMED);
-        rental.setPaymentMethod(paymentMethod.trim());
+        rental.setPaymentMethod(paymentMethod);
         rental.setExpiresAt(null);
-        return view(rentals.save(rental));
+        RoomRental saved = rentals.save(rental);
+        notify(saved, "Đã xác nhận thanh toán", "Đơn thuê " + saved.getId() + " đã được xác nhận.");
+        return view(saved);
     }
 
     private Prepared prepare(RentalModels.Window window) {
@@ -234,30 +341,102 @@ public class RentalService {
         }
         if (window.movieId() != null) {
             RentalClients.MovieFact movie = movies.getMovie(window.movieId());
-            int needed = (movie.durationMinutes() == null ? 0 : movie.durationMinutes()) + TURNOVER_MINUTES;
+            int needed = (movie.durationMinutes() == null ? 0 : movie.durationMinutes()) + rules.turnoverMinutes();
             if (!movie.active() || minutes < needed) {
                 throw new CustomException("Rental window does not fit the movie", HttpStatus.BAD_REQUEST, "MOVIE_DOES_NOT_FIT");
             }
         }
-        if (showtimes.hasShowtimeOverlap(window.roomId(), window.startTime(), window.endTime())) {
+        LocalDateTime blockedStart = blockedStart(window.startTime());
+        LocalDateTime blockedEnd = blockedEnd(window.endTime());
+        if (showtimes.hasShowtimeOverlap(window.roomId(), blockedStart, blockedEnd)) {
             throw new CustomException("Room overlaps a showtime", HttpStatus.CONFLICT, "SHOWTIME_OVERLAP");
         }
-        if (rentals.countOverlapping(window.roomId(), window.startTime(), window.endTime(), BLOCKING) > 0) {
+        if (rentals.countOverlapping(window.roomId(), blockedStart, blockedEnd, BLOCKING) > 0) {
             throw new CustomException("Room slot is already taken", HttpStatus.CONFLICT, "ROOM_SLOT_TAKEN");
         }
-        RentalRoomRate rate = rates.findById(window.roomId())
-            .filter(RentalRoomRate::isActive)
-            .orElseThrow(() -> new CustomException("Room has no rental rate", HttpStatus.BAD_REQUEST, "ROOM_RATE_MISSING"));
+        BigDecimal hourly = pricedHourly(baseHourlyPrice(window.roomId()), window.startTime(), window.endTime());
         int hours = (int) ((minutes + 59) / 60);
-        BigDecimal total = rate.getPricePerHour().multiply(BigDecimal.valueOf(hours)).setScale(2, RoundingMode.HALF_UP);
-        return new Prepared(room, rate, hours, total);
+        BigDecimal total = hourly.multiply(BigDecimal.valueOf(hours)).setScale(2, RoundingMode.HALF_UP);
+        return new Prepared(room, hourly, hours, total);
+    }
+
+    private BigDecimal baseHourlyPrice(Long roomId) {
+        BigDecimal configured = rates.findById(roomId)
+            .filter(RentalRoomRate::isActive)
+            .map(RentalRoomRate::getPricePerHour)
+            .orElse(null);
+        if (configured != null && configured.signum() > 0) {
+            return configured;
+        }
+        if (rules.defaultPricePerHour() != null && rules.defaultPricePerHour().signum() > 0) {
+            return rules.defaultPricePerHour();
+        }
+        throw new CustomException("Room has no rental rate", HttpStatus.BAD_REQUEST, "ROOM_RATE_MISSING");
+    }
+
+    private BigDecimal pricedHourly(BigDecimal base, LocalDateTime start, LocalDateTime end) {
+        BigDecimal hourly = base;
+        DayOfWeek day = start.getDayOfWeek();
+        if (day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY) {
+            hourly = hourly.multiply(rules.weekendMultiplier());
+        }
+        if (overlapsPeak(start, end)) {
+            hourly = hourly.multiply(rules.peakMultiplier());
+        }
+        return hourly.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private boolean overlapsPeak(LocalDateTime start, LocalDateTime end) {
+        LocalDate last = end.toLocalDate();
+        for (LocalDate day = start.toLocalDate(); !day.isAfter(last); day = day.plusDays(1)) {
+            LocalDateTime peakStart = day.atTime(rules.peakStartHour(), 0);
+            LocalDateTime peakEnd = day.atTime(rules.peakEndHour(), 0);
+            if (start.isBefore(peakEnd) && end.isAfter(peakStart)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void requireShowtimeClear(RoomRental rental) {
+        if (showtimes.hasShowtimeOverlap(rental.getRoomId(), blockedStart(rental.getStartTime()), blockedEnd(rental.getEndTime()))) {
+            throw new CustomException("Room overlaps a showtime", HttpStatus.CONFLICT, "SHOWTIME_OVERLAP");
+        }
+    }
+
+    private void markRefundPending(RoomRental rental) {
+        rental.setRefundAmount(rental.getTotalAmount());
+        rental.setRefundStatus(RefundStatus.PENDING);
+    }
+
+    private LocalDateTime blockedStart(LocalDateTime start) {
+        return start.minusMinutes(rules.turnoverMinutes());
+    }
+
+    private LocalDateTime blockedEnd(LocalDateTime end) {
+        return end.plusMinutes(rules.turnoverMinutes());
+    }
+
+    private String normalizeMethod(String paymentMethod) {
+        if (paymentMethod == null || paymentMethod.isBlank()) {
+            throw new CustomException("Payment method is required", HttpStatus.BAD_REQUEST, "PAYMENT_METHOD_REQUIRED");
+        }
+        return paymentMethod.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private void notify(RoomRental rental, String title, String body) {
+        try {
+            notifier.statusChanged(rental.getUserId(), rental.getId(), title, body);
+        } catch (RuntimeException ex) {
+            // Notification delivery must not roll back the rental change.
+        }
     }
 
     private long validateWindow(RentalModels.Window window) {
         if (window.roomId() == null || window.startTime() == null || window.endTime() == null) {
             throw new CustomException("Room and time window are required", HttpStatus.BAD_REQUEST, "INVALID_WINDOW");
         }
-        if (!window.startTime().isAfter(LocalDateTime.now())) {
+        if (!window.startTime().isAfter(now())) {
             throw new CustomException("Rental must start in the future", HttpStatus.BAD_REQUEST, "INVALID_WINDOW");
         }
         long minutes = Duration.between(window.startTime(), window.endTime()).toMinutes();
@@ -270,7 +449,7 @@ public class RentalService {
     private RoomRental loadFresh(Long id) {
         RoomRental rental = rentals.findById(id)
             .orElseThrow(() -> new CustomException("Rental not found", HttpStatus.NOT_FOUND, "RENTAL_NOT_FOUND"));
-        if (EXPIRABLE.contains(rental.getStatus()) && rental.getExpiresAt() != null && !rental.getExpiresAt().isAfter(LocalDateTime.now())) {
+        if (EXPIRABLE.contains(rental.getStatus()) && rental.getExpiresAt() != null && !rental.getExpiresAt().isAfter(now())) {
             rental.setStatus(RentalStatus.EXPIRED);
             rental.setExpiresAt(null);
             return rentals.save(rental);
@@ -280,8 +459,8 @@ public class RentalService {
 
     private List<RoomRental> filtered(RentalModels.Actor actor, Long cinemaId, Long roomId, RentalStatus status,
                                       LocalDateTime from, LocalDateTime to) {
-        LocalDateTime rangeStart = from == null ? LocalDateTime.now().minusYears(1) : from;
-        LocalDateTime rangeEnd = to == null ? LocalDateTime.now().plusYears(2) : to;
+        LocalDateTime rangeStart = from == null ? now().minusYears(1) : from;
+        LocalDateTime rangeEnd = to == null ? now().plusYears(2) : to;
         return rentals.findIntersecting(rangeStart, rangeEnd).stream()
             .filter(row -> cinemaId == null || cinemaId.equals(row.getCinemaId()))
             .filter(row -> roomId == null || roomId.equals(row.getRoomId()))
@@ -352,13 +531,19 @@ public class RentalService {
     }
 
     private RentalModels.RentalView view(RoomRental rental) {
+        RefundStatus refundStatus = rental.getRefundStatus() == null ? RefundStatus.NONE : rental.getRefundStatus();
         return new RentalModels.RentalView(
             rental.getId(), rental.getUserId(), rental.getCinemaId(), rental.getRoomId(), rental.getMovieId(),
             rental.getStartTime(), rental.getEndTime(), rental.getPricePerHour(), rental.getTotalAmount(),
-            rental.getStatus(), rental.getPaymentMethod(), rental.getDecisionReason(), rental.getExpiresAt()
+            rental.getStatus(), rental.getPaymentMethod(), rental.getDecisionReason(), rental.getExpiresAt(),
+            rental.getRefundAmount(), refundStatus
         );
     }
 
-    private record Prepared(RentalClients.FacilityRoom room, RentalRoomRate rate, int hours, BigDecimal total) {
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
+    }
+
+    private record Prepared(RentalClients.FacilityRoom room, BigDecimal pricePerHour, int hours, BigDecimal total) {
     }
 }

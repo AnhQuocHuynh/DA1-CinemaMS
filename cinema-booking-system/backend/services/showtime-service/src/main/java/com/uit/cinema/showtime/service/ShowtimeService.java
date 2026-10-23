@@ -4,6 +4,7 @@ import com.uit.cinema.showtime.dto.request.ShowtimeRequest;
 import com.uit.cinema.showtime.dto.response.ShowtimeResponse;
 import com.uit.cinema.showtime.dto.response.ShowtimeSeatResponse;
 import com.uit.cinema.showtime.service.contract.EventShowtimeCreateRequest;
+import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,6 +18,7 @@ public interface ShowtimeService {
     ShowtimeSeatResponse getSeatById(Long seatId);
     boolean hasFutureShowtimesForRoom(Long roomId);
     boolean hasOverlappingShowtime(Long roomId, LocalDateTime start, LocalDateTime end);
+    List<ShowtimeScheduleView> findActiveSchedule(Long roomId, LocalDateTime from, LocalDateTime to);
     boolean hasFutureShowtimesForRooms(List<Long> roomIds);
     ShowtimeResponse createShowtime(ShowtimeRequest request);
     ShowtimeResponse createShowtimeForEvent(EventShowtimeCreateRequest request);

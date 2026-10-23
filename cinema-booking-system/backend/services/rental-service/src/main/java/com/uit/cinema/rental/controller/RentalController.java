@@ -48,6 +48,15 @@ public class RentalController {
         return ResponseEntity.ok(ApiResponse.success(rentalService.mine(actors.userId(userId)), "Đơn thuê của tôi"));
     }
 
+    @GetMapping("/rooms/{roomId}/availability")
+    public ResponseEntity<ApiResponse<RentalModels.Availability>> availability(
+        @PathVariable Long roomId,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(rentalService.availability(roomId, from, to), "Lịch phòng"));
+    }
+
     @GetMapping("/report")
     public ResponseEntity<ApiResponse<RentalModels.Report>> report(
         @RequestParam(required = false) Long userId,
@@ -104,10 +113,11 @@ public class RentalController {
         @PathVariable Long id,
         @RequestBody PaymentRequest request
     ) {
-        return ResponseEntity.ok(ApiResponse.success(
-            rentalService.pay(id, request.paymentMethod(), actors.actor(request.userId())),
-            "Đã xác nhận thanh toán"
-        ));
+        RentalModels.RentalView paid = rentalService.pay(id, request.paymentMethod(), actors.actor(request.userId()));
+        String message = paid.status() == RentalStatus.CONFIRMED
+            ? "Đã xác nhận thanh toán"
+            : "Đã ghi nhận thanh toán, chờ cổng thanh toán";
+        return ResponseEntity.ok(ApiResponse.success(paid, message));
     }
 
     @PostMapping("/{id}/cancel")
@@ -116,6 +126,17 @@ public class RentalController {
         @RequestParam(required = false) Long userId
     ) {
         return ResponseEntity.ok(ApiResponse.success(rentalService.cancel(id, actors.actor(userId)), "Đã hủy đơn thuê"));
+    }
+
+    @PostMapping("/{id}/refunds/complete")
+    public ResponseEntity<ApiResponse<RentalModels.RentalView>> completeRefund(
+        @PathVariable Long id,
+        @RequestParam(required = false) Long userId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+            rentalService.completeRefund(id, actors.actor(userId)),
+            "Đã hoàn tất hoàn tiền"
+        ));
     }
 
     @PutMapping("/rates/{roomId}")

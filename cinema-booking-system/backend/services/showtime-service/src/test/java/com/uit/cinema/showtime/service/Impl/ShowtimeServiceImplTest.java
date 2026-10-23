@@ -16,6 +16,7 @@ import com.uit.cinema.showtime.repository.ShowtimeRepository;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
 import com.uit.cinema.showtime.service.RentalSlotGuard;
 import com.uit.cinema.showtime.service.contract.EventShowtimeCreateRequest;
+import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import org.junit.jupiter.api.Test;
@@ -325,6 +326,29 @@ class ShowtimeServiceImplTest {
         verify(showtimeRepository).deleteById(20L);
         verify(showtimeSeatRepository, never()).deleteByShowtimeId(21L);
         verify(showtimeRepository, never()).deleteById(21L);
+    }
+
+    @Test
+    void findActiveSchedule_mapsActiveShowtimes() {
+        Showtime showtime = new Showtime();
+        showtime.setId(2L);
+        showtime.setMovieId(1L);
+        showtime.setRoomId(3L);
+        showtime.setStartTime(LocalDateTime.of(2026, 11, 4, 10, 0));
+        showtime.setEndTime(LocalDateTime.of(2026, 11, 4, 12, 0));
+        showtime.setStatus(Showtime.Status.SCHEDULED);
+        when(showtimeRepository.findActiveIntersecting(eq(3L), any(), any(), eq(Showtime.Status.CANCELLED)))
+            .thenReturn(List.of(showtime));
+
+        List<ShowtimeScheduleView> schedule = showtimeService.findActiveSchedule(
+            3L,
+            LocalDateTime.of(2026, 11, 4, 9, 0),
+            LocalDateTime.of(2026, 11, 4, 13, 0)
+        );
+
+        assertEquals(1, schedule.size());
+        assertEquals(2L, schedule.get(0).showtimeId());
+        assertEquals("SCHEDULED", schedule.get(0).status());
     }
 
     private ShowtimeRequest movieShowtimeRequest() {

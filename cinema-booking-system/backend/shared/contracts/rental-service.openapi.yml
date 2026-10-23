@@ -1,8 +1,15 @@
 openapi: 3.0.3
 info:
   title: Rental Service
-  version: 0.1.0
-  description: Private screening-room rental. Approval is limited to ADMIN or the MANAGER assigned to the cinema.
+  version: 0.2.0
+  description: |
+    Private screening-room rental. Business time is Asia/Ho_Chi_Minh.
+    A blocking rental or showtime keeps a 15-minute gap on both sides.
+    The hourly price is the active room rate, or the default rate when no room rate exists.
+    Saturday and Sunday starts use the weekend multiplier. A window that overlaps 18:00-22:00 also uses the peak multiplier.
+    Cash confirms immediately only for an admin or the manager of that cinema.
+    Other methods stay AWAITING_PAYMENT until POST /internal/rentals/{id}/payment-outcome succeeds.
+    The customer can cancel a confirmed rental only when it starts at least 24 hours later. That cancellation records a pending refund.
 servers:
   - url: http://localhost:8086
 paths:
@@ -11,7 +18,9 @@ paths:
       summary: Quote a room rental without saving it
       responses:
         "200":
-          description: Price, or an unavailable code
+          description: Price, or an unavailable code (ROOM_UNAVAILABLE, MOVIE_DOES_NOT_FIT, SHOWTIME_OVERLAP, ROOM_SLOT_TAKEN, ROOM_RATE_MISSING)
+        "400":
+          description: INVALID_WINDOW
   /api/rentals:
     post:
       summary: Submit a rental request
@@ -25,6 +34,37 @@ paths:
       responses:
         "200":
           description: Rental list
+  /api/rentals/me:
+    get:
+      summary: List the caller's own rentals
+      responses:
+        "200":
+          description: Rental list
+  /api/rentals/rooms/{roomId}/availability:
+    get:
+      summary: Busy slots for a room, padded by the turnover gap
+      parameters:
+        - in: path
+          name: roomId
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: from
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Base hourly price and busy rental or showtime slots
   /api/rentals/report:
     get:
       summary: Rental counts and confirmed revenue for a manager or admin
@@ -33,17 +73,93 @@ paths:
           description: Report
         "403":
           description: Staff and customers cannot read revenue
+  /api/rentals/{id}:
+    get:
+      summary: Read one rental when the caller owns it or works at that cinema
+      responses:
+        "200":
+          description: Rental
+        "404":
+          description: RENTAL_NOT_FOUND
   /api/rentals/{id}/approve:
     post:
-      summary: Manager of the cinema, or admin, approves the request
+      summary: Manager of the cinema, or admin, approves the request after a fresh showtime check
       responses:
         "200":
           description: Awaiting payment
         "403":
           description: Staff, or a manager of another cinema
+        "409":
+          description: SHOWTIME_OVERLAP
+  /api/rentals/{id}/reject:
+    post:
+      summary: Manager of the cinema, or admin, rejects a pending request
+      responses:
+        "200":
+          description: Rejected
+        "400":
+          description: REASON_REQUIRED
+  /api/rentals/{id}/pay:
+    post:
+      summary: Record payment. Cash confirms only at the counter. Online methods wait for the payment outcome.
+      responses:
+        "200":
+          description: Confirmed for counter cash, otherwise still awaiting payment
+        "403":
+          description: CASH_COUNTER_ONLY or FORBIDDEN
+        "409":
+          description: SHOWTIME_OVERLAP
+  /api/rentals/{id}/cancel:
+    post:
+      summary: Cancel an open rental, or a confirmed rental before it starts when the cancel rule allows it
+      responses:
+        "200":
+          description: Cancelled. A confirmed rental sets refundStatus PENDING.
+        "400":
+          description: CUSTOMER_CANCEL_WINDOW_CLOSED, RENTAL_ALREADY_STARTED, or INVALID_RENTAL_STATUS
+  /api/rentals/{id}/refunds/complete:
+    post:
+      summary: Manager or admin marks a pending refund completed
+      responses:
+        "200":
+          description: refundStatus COMPLETED
+        "400":
+          description: REFUND_NOT_PENDING
+  /api/rentals/rates/{roomId}:
+    put:
+      summary: Admin sets the active hourly rate for a room
+      responses:
+        "200":
+          description: Stored rate
+        "403":
+          description: Only admin
   /internal/rentals/rooms/{roomId}/overlaps:
     get:
-      summary: Whether a blocking rental occupies the window
+      summary: Whether a blocking rental occupies the window, including the 15-minute gap
+      parameters:
+        - in: header
+          name: X-Internal-Token
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: start
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: end
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Boolean data
+  /internal/rentals/{id}/payment-outcome:
+    post:
+      summary: Confirm a rental after an external payment succeeds. Failure leaves the rental awaiting payment.
       parameters:
         - in: header
           name: X-Internal-Token
@@ -52,9 +168,14 @@ paths:
             type: string
       responses:
         "200":
-          description: Boolean data
+          description: Confirmed when success is true
+        "409":
+          description: SHOWTIME_OVERLAP
 components:
   schemas:
     RentalStatus:
       type: string
       enum: [PENDING_APPROVAL, AWAITING_PAYMENT, CONFIRMED, REJECTED, CANCELLED, EXPIRED]
+    RefundStatus:
+      type: string
+      enum: [NONE, PENDING, COMPLETED]

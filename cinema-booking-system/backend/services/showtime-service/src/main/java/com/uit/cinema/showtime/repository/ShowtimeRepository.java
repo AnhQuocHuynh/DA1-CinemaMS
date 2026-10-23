@@ -33,6 +33,21 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
     );
 
     @Query("""
+        SELECT s FROM Showtime s
+        WHERE s.roomId = :roomId
+          AND s.status <> :cancelled
+          AND s.startTime < :rangeEnd
+          AND s.endTime > :rangeStart
+        ORDER BY s.startTime
+        """)
+    List<Showtime> findActiveIntersecting(
+        @Param("roomId") Long roomId,
+        @Param("rangeStart") LocalDateTime rangeStart,
+        @Param("rangeEnd") LocalDateTime rangeEnd,
+        @Param("cancelled") Showtime.Status cancelled
+    );
+
+    @Query("""
         SELECT COUNT(s) FROM Showtime s
         WHERE s.roomId = :roomId
           AND s.status <> :cancelled

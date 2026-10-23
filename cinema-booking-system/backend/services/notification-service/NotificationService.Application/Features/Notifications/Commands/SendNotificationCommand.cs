@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentValidation;
@@ -65,11 +66,45 @@ public class SendNotificationCommandHandler : IRequestHandler<SendNotificationCo
             request.Channel,
             request.Title,
             request.Body,
-            request.Metadata
+            NormalizeMetadata(request.Metadata)
         );
 
         await _notificationRepository.InsertAsync(notification, cancellationToken);
 
         return notification.Id;
+    }
+
+    private static Dictionary<string, object> NormalizeMetadata(Dictionary<string, object>? metadata)
+    {
+        var normalized = new Dictionary<string, object>();
+        if (metadata == null)
+        {
+            return normalized;
+        }
+        foreach (var pair in metadata)
+        {
+            if (pair.Value is JsonElement element)
+            {
+                normalized[pair.Key] = Unwrap(element);
+            }
+            else if (pair.Value != null)
+            {
+                normalized[pair.Key] = pair.Value;
+            }
+        }
+        return normalized;
+    }
+
+    private static object Unwrap(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString() ?? string.Empty,
+            JsonValueKind.Number when element.TryGetInt64(out var whole) => whole,
+            JsonValueKind.Number => element.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => element.GetRawText()
+        };
     }
 }

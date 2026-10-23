@@ -8,6 +8,7 @@ using NotificationService.Application;
 using NotificationService.Application.Contracts;
 using NotificationService.Infrastructure;
 using NotificationService.Presentation.Hubs;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,7 +18,11 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IDashboardBroadcaster, DashboardBroadcaster>();
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 builder.Services.AddHealthChecks();
 
 // OpenTelemetry Observability

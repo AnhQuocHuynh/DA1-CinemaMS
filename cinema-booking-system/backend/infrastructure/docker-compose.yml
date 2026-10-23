@@ -142,6 +142,10 @@ services:
       - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
       - Jwt__RequireHttpsMetadata=false
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+      - KeycloakAdmin__BaseUrl=${KC_BASE_URL:-http://keycloak:8080}
+      - KeycloakAdmin__Realm=${KC_REALM:-cinema-booking}
+      - KeycloakAdmin__ClientId=${KC_ADMIN_CLIENT_ID:-cinema-admin}
+      - KeycloakAdmin__ClientSecret=${KC_ADMIN_CLIENT_SECRET:-}
     ports:
       - "${IDENTITY_SERVICE_PORT:-5001}:80"
     depends_on:
@@ -374,12 +378,37 @@ services:
     networks:
       - cinema-services
 
+  rental-db-init:
+    image: postgres:18-alpine
+    container_name: cinema-rental-db-init
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-123}
+      PGUSER: ${POSTGRES_USER:-postgres}
+      RENTAL_DB_NAME: ${RENTAL_DB_NAME:-cinema_rental_db}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        case "$$RENTAL_DB_NAME" in
+          ""|*[!A-Za-z0-9_]*) echo "invalid RENTAL_DB_NAME" >&2; exit 1 ;;
+        esac
+        if psql -h postgres -d postgres -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname = '$$RENTAL_DB_NAME'" | grep -q 1; then
+          exit 0
+        fi
+        psql -h postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE $$RENTAL_DB_NAME"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cinema-services
+
   rental-service:
     build:
       context: ..
       dockerfile: services/rental-service/Dockerfile
     container_name: cinema-rental-service
     environment:
+      TZ: Asia/Ho_Chi_Minh
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Ho_Chi_Minh
       SERVER_PORT: 8086
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${RENTAL_DB_NAME:-cinema_rental_db}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
@@ -393,11 +422,12 @@ services:
       CATALOG_SERVICE_URL: http://catalog-service:8081
       SHOWTIME_SERVICE_URL: http://showtime-service:8082
       IDENTITY_SERVICE_URL: http://identity-service:80
+      NOTIFICATION_SERVICE_URL: http://notification-service:80
     ports:
       - "8086:8086"
     depends_on:
-      postgres:
-        condition: service_started
+      rental-db-init:
+        condition: service_completed_successfully
     networks:
       - cinema-services
 
