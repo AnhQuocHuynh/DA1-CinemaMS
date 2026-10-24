@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/authService';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeToggle } from './ThemeToggle';
+import { NotificationBell } from './NotificationBell';
 import genericPoster from '../resources/generic_movie_poster.png';
 
 interface SearchSuggestion {
@@ -168,6 +169,7 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
 
           <LanguageSwitcher />
           <ThemeToggle />
+          <NotificationBell />
 
           {user ? (
             <div className="relative">
