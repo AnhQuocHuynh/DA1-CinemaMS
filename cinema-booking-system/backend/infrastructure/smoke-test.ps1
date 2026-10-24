@@ -68,6 +68,9 @@ function Get-HttpStatus {
         if ($null -ne $response -and $null -ne $response.StatusCode) {
             return [int]$response.StatusCode
         }
+        if ($_.Exception.PSObject.Properties.Name -contains 'StatusCode' -and $null -ne $_.Exception.StatusCode) {
+            return [int]$_.Exception.StatusCode
+        }
 
         return 0
     }
@@ -76,10 +79,11 @@ function Get-HttpStatus {
 function Wait-Health {
     param(
         [string]$Name,
-        [string]$BaseUrl
+        [string]$BaseUrl,
+        [string]$Path = "/actuator/health"
     )
 
-    $uri = Join-ServiceUrl $BaseUrl "/actuator/health"
+    $uri = Join-ServiceUrl $BaseUrl $Path
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     $status = 0
 
@@ -217,7 +221,7 @@ try {
     }
 
     Wait-Health "catalog-service" $CatalogUrl
-    Wait-Health "facility-service compatibility dependency" $FacilityUrl
+    Wait-Health "facility-service compatibility dependency" $FacilityUrl "/health"
     Wait-Health "showtime-service" $ShowtimeUrl
     Wait-Health "booking-service" $BookingUrl
     if (-not $SkipAnalytics) {

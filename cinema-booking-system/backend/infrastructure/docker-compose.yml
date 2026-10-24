@@ -32,6 +32,11 @@ services:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - cinema-services
 
@@ -85,7 +90,7 @@ services:
       - ./keycloak-config:/opt/keycloak/data/import
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     networks:
@@ -153,8 +158,10 @@ services:
     ports:
       - "${IDENTITY_SERVICE_PORT:-5001}:80"
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - cinema-services
 
@@ -183,8 +190,10 @@ services:
     ports:
       - "${FACILITY_SERVICE_PORT:-5002}:80"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - cinema-services
 
@@ -419,8 +428,10 @@ services:
     ports:
       - "${PAYMENT_SERVICE_PORT:-5003}:80"
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - cinema-services
 
