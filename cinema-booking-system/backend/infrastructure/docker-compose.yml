@@ -480,6 +480,25 @@ services:
     networks:
       - cinema-services
 
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:${API_GATEWAY_PORT:-5000}/api
+        VITE_KEYCLOAK_URL: http://localhost:${KC_PORT:-8080}
+        VITE_KEYCLOAK_REALM: cinema-booking
+        VITE_KEYCLOAK_CLIENT_ID: cinema-frontend
+        NGINX_CONF: nginx.static.conf
+    container_name: cinema-frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - api-gateway
+      - keycloak
+    networks:
+      - cinema-services
+
 volumes:
   rabbitmq_data:
   postgres_data:

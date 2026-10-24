@@ -1,39 +1,74 @@
-# Frontend Re-Audit Report (Post-Dashboard Merge)
+# Frontend status against UseCase.md
 
-After reviewing the codebase and the latest `front-end-impl-api` merge against the 27 standard use cases defined in `UseCase.md`, here is the updated completion status of the frontend.
+Date: 2026-10-11. Branch: `refactor-compose-single-postgres` (`ebdfb9d`).
 
-> [!TIP]
-> **Overall Status**: The Admin and Staff dashboards (UC-20) have been successfully merged and integrated. We are very close to 100% completion! The remaining items are primarily bugs, UX refinements, and wiring up existing components.
+This pass read the pages, services, and gateway routes. It did not run the UI.
+"Completed" means the screen calls a real API that exists behind the gateway.
+It does not mean the flow was exercised in a browser.
 
-## 🟢 Completed (Fully Implemented)
-*Most use cases are fully implemented. Notable recent completions include:*
-- **UC-20 Báo cáo & thống kê**: Implemented via `AdminDashboard.tsx` and `StaffDashboard.tsx` with real API integrations.
-- **UC-10, UC-14 Quản lý & Hoàn vé**: `TicketInfo.tsx` and `UserDashboard.tsx` are fully functional.
-- **UC-18, UC-19, UC-21 -> UC-26 Quản lý hệ thống**: All admin CRUD modules (`RoomManagement.tsx`, `SeatConfigurator.tsx`, `PricingAndVouchers.tsx`, etc.) are implemented and wired.
+The SPA authenticates with Keycloak and sends requests to
+`VITE_API_BASE_URL` (default `http://localhost:5000/api`).
 
----
+## Completed
 
-## 🟡 Partially Completed / Needs Wiring
+| Use case | What the code does |
+|---|---|
+| UC-01 Đăng ký | `authService.register` redirects to the Keycloak register URL. |
+| UC-02 Đăng nhập | `authService.login` uses Keycloak Authorization Code. Token refresh is in `apiClient`. |
+| UC-03 Khôi phục mật khẩu | Keycloak `UPDATE_PASSWORD` action. |
+| UC-05 Chọn suất chiếu và rạp | Movie, event, theater, and showtime pages call catalog, facility, and showtime APIs. |
+| UC-06 Chọn ghế | `Booking.tsx` loads the seat map and holds seats through booking/showtime APIs. |
+| UC-07 Thanh toán | Checkout offers Stripe. Success page verifies Stripe and PayPal return URLs. Payment service also has cash confirm. |
+| UC-08 Đánh giá | `ReviewSection` is mounted on `MovieDetails.tsx` and `EventDetails.tsx`. |
+| UC-09 Tóm tắt bình luận | Same review section requests insight endpoints. |
+| UC-10 Quản lý vé | `UserDashboard.tsx` and `TicketInfo.tsx`. |
+| UC-13 Mã giảm giá | Checkout can validate a voucher. Admin can list, create, and delete vouchers. |
+| UC-14 Hoàn tiền | Ticket and order refund actions call the booking refund API. Payment has a refund endpoint. |
+| UC-15 Quét QR | `QRChecker.tsx` posts `/tickets/check-in` once, then stops the camera. |
+| UC-16 In vé | Ticket and checkout-success pages download a PDF. |
+| UC-17 Tra cứu vé | `TicketLookup.tsx` reads the ticket-by-code API. |
+| UC-18 Sơ đồ ghế | `SeatConfigurator.tsx` reads and writes facility seat templates. |
+| UC-20 Báo cáo | `AdminDashboard.tsx` calls analytics dashboard routes. Staff dashboard does not; see below. |
+| UC-23 Quản lý phim | Movie admin CRUD uses `/api/movies`. |
+| UC-24 Quản lý sự kiện | Event admin CRUD uses `/api/events`. |
+| UC-25 Quản lý rạp | Cinema CRUD uses `/api/cinemas`. |
+| UC-26 Quản lý phòng | Room CRUD uses `/api/cinemas/{id}/rooms`. |
+| UC-27 Đăng xuất | `authService.logout` clears the store and calls Keycloak logout. |
 
-| Use Case | Current State | What's Missing / Needed |
-| :--- | :--- | :--- |
-| **UC-08 & UC-09 Đánh giá & Tóm tắt bình luận** | Components like `ReviewForm.tsx`, `ReviewSection.tsx`, and `StarRating.tsx` have been built and reside in `src/components/Review/`. | **Missing Integration**: These components are NOT yet integrated into `MovieDetails.tsx` or `EventDetails.tsx`. They need to be wired to the backend and displayed on the detail pages. |
-| **UC-04 Tra cứu phim (Search Auto-complete)** | The search bar exists on the homepage (`Home.tsx` / `MovieSearch.tsx`). | **Needs Refinement**: The current auto-complete UX/logic is reported as "not good" and needs an overhaul for better usability and accuracy. |
-| **UC-11 Giữ ghế tạm thời (Seat Holding)** | The booking flow works and locks seats via the backend. | **Needs Refactoring**: The current strategy relies on basic polling or local state. It should be refactored to use **Server-Sent Events (SSE)** for real-time seat map synchronization across different clients. |
-| **UC-15 Quét mã QR** | `staff/QRChecker.tsx` is built and functional. | **Bug Fix Needed**: There is a known bug where scanning a ticket keeps sending redundant API requests even after the initial success, showing "invalid/checked-in" loops until the QR is removed from the camera. |
-| **UC-07 Thanh toán hóa đơn** | Checkout UI is complete (`Checkout.tsx`). | **Missing Gateway**: Currently uses a simulated payment flow. Needs integration with a real payment provider (VNPay/Momo) if going to production. |
+Also in the UI, outside the original 27 names: Vietnamese/English copy, light/dark theme, recommendation carousel, auto showtime publish, and profile settings through `/api/users/me`.
 
----
+## In progress
 
-## 🔴 Missing (Not Implemented in Frontend UI)
+| Use case | Current behavior | Gap |
+|---|---|---|
+| UC-04 Tra cứu | Keyword search calls `/api/catalog/search`. | Home still appends `movieData` mocks, including empty-search suggestions. |
+| UC-11 Giữ ghế | Redis hold, countdown, and a 5-second seat-map poll. | No server-sent events. Other clients appear only on the next poll. |
+| UC-19 Giá vé | Voucher list is real. | Base rate and tiers come from `getPricingOverview` mock data. |
+| UC-21 Phân quyền | User list and `PUT /api/users/{id}/role` are real. | `deleteUser` returns success and does not call the API. Permission-rule cards are mock data and are not rendered. |
+| UC-22 Quản lý voucher | Create and delete call the API. | Update is a frontend mock. Booking has no `PUT /api/vouchers/{id}`. |
+| UC-12 Thông báo | Backend can email after `order.paid` and `order.refunded`. | No bell or inbox. No SignalR client. Gateway has no notification route. SMS sender only logs. |
+| Staff dashboard and counter booking | Screens exist. | `staffService` calls `/api/staff/**`. The gateway has no such routes, and booking-service has no staff controller. QR check-in and ticket lookup are the staff calls that do hit a real API. |
 
-| Use Case | Status & Missing Elements |
-| :--- | :--- |
-| **UC-12 Nhận thông báo xác nhận** | **Missing UI**: While emails might be handled by the backend, the frontend lacks an in-app "Notification Bell" or "Inbox" UI to show users their booking confirmations or system alerts. |
+## Instructor roadmap
 
-## 🚀 Next Steps Recommendation
-Based on this audit and previous discussions, the immediate technical priorities should be:
-1. **Wire up the Reviews**: Integrate the `ReviewSection` into `MovieDetails.tsx`.
-2. **Fix the QR Scanner Bug**: Add a debounce or a strict success lock to the QR scanner in `QRChecker.tsx`.
-3. **Overhaul Homepage Search**: Improve the auto-complete logic and UI/UX.
-4. **Implement SSE for Seat Map**: Upgrade the `Booking.tsx` / `SeatMapGrid.tsx` to listen to real-time seat hold events.
+Not started in this frontend. The plan is `docs/ROADMAP.md`.
+
+- Content search: `MovieSearch.tsx` already calls catalog keyword search. It does not show a plot snippet, and Home still mixes mock titles into suggestions.
+- Room rental: no page. The API is on branch `feature/room-rental` only.
+- Supplementary-feature report: no admin report screen for rental.
+- Mobile: seat selection, checkout, the QR scanner, and the admin sidebar still need a 390px and 768px pass.
+
+## Not done
+
+- Membership. `Membership.tsx` is a static coming-soon page.
+- In-app notification inbox.
+- Real-time seat push.
+- Admin pricing rules backed by an API.
+- Voucher edit.
+- Keycloak user deletion.
+- Fine-grained permission rules beyond `ADMIN`, `STAFF`, and `CUSTOMER`.
+- Room rental. That work is on branch `feature/room-rental`, not in this frontend.
+
+## Notes carried forward
+
+`useAdminShowtimes` still calls the mock `getShowtimeSchedules`. The showtime admin page does not use that hook. It loads theaters and room showtimes from the API, and `AutoShowtimeCreator` publishes through `showtimeService`.
