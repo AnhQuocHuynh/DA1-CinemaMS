@@ -233,6 +233,13 @@ MATCH (node:Genre {name: '$($Evidence.GenreName)'}) WHERE NOT ()-[:IN_GENRE]->(n
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ComposeFile = Join-Path $ScriptDir "docker-compose.yml"
 $SmokeScript = Join-Path $ScriptDir "smoke-test.ps1"
+$EnvFile = Join-Path $ScriptDir ".env"
+$EnvExample = Join-Path $ScriptDir ".env.example"
+
+if (-not (Test-Path $EnvFile) -and (Test-Path $EnvExample)) {
+    Copy-Item $EnvExample $EnvFile
+    Write-Host "[INFO] Seeded infrastructure/.env from .env.example"
+}
 
 if ($ValidateOnly) {
     Write-Host "Event-flow smoke configuration is valid."

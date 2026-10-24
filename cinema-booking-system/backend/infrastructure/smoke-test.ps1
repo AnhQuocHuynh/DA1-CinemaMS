@@ -178,6 +178,13 @@ function Assert-RabbitTopology {
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ComposeFile = Join-Path $ScriptDir "docker-compose.yml"
+$EnvFile = Join-Path $ScriptDir ".env"
+$EnvExample = Join-Path $ScriptDir ".env.example"
+
+if (-not (Test-Path $EnvFile) -and (Test-Path $EnvExample)) {
+    Copy-Item $EnvExample $EnvFile
+    Write-Host "[INFO] Seeded infrastructure/.env from .env.example"
+}
 
 $InternalToken = Resolve-Default $InternalToken (Resolve-Default $env:INTERNAL_API_TOKEN "local-dev-internal-token")
 $CatalogUrl = Resolve-Default $CatalogUrl (Resolve-Default $env:CATALOG_SERVICE_URL "http://localhost:8081")
