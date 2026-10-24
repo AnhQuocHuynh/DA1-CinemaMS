@@ -84,7 +84,7 @@ public class NotificationRepository : INotificationRepository
 
     public async Task MarkAllAsReadAsync(long userId, CancellationToken cancellationToken = default)
     {
-        var filter = Builders<Notification>.Filter.Eq(n => n.UserId, userId) & Builders<Notification>.Filter.Eq(n => n.IsRead, false);
+        var filter = Builders<Notification>.Filter.Eq(n => n.UserId, userId) & Builders<Notification>.Filter.Ne(n => n.IsRead, true);
         var update = Builders<Notification>.Update
             .Set(n => n.IsRead, true)
             .Set(n => n.ReadAt, DateTime.UtcNow);
