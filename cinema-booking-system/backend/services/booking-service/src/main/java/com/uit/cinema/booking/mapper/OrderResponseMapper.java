@@ -16,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -58,6 +60,16 @@ public class OrderResponseMapper {
             .map(ticket -> toTicketResponse(ticket, seatMap.get(ticket.getShowtimeSeatId())))
             .toList();
 
+        boolean refundable = false;
+        int refundPercent = 0;
+        if (order.getStatus() == Order.OrderStatus.PAID && showtime.isPresent() && showtime.get().startTime() != null) {
+            boolean anyCheckedIn = tickets.stream().anyMatch(t -> t.getStatus() == Ticket.TicketStatus.CHECKED_IN);
+            if (!anyCheckedIn) {
+                refundPercent = calculateRefundPercent(showtime.get().startTime(), LocalDateTime.now());
+                refundable = refundPercent > 0;
+            }
+        }
+
         return OrderResponse.builder()
             .id(order.getId())
             .userId(order.getUserId())
@@ -89,10 +101,24 @@ public class OrderResponseMapper {
             .paymentMethod(order.getPaymentMethod())
             .paymentTransactionId(order.getPaymentTransactionId())
             .tickets(tickets)
+            .refundable(refundable)
+            .refundPercent(refundPercent)
             .createdAt(order.getCreatedAt())
             .updatedAt(order.getUpdatedAt())
             .build();
     }
+
+    private int calculateRefundPercent(LocalDateTime showtimeStart, LocalDateTime now) {
+        long hoursToShowtime = Duration.between(now, showtimeStart).toHours();
+        if (hoursToShowtime > 24) {
+            return 100;
+        }
+        if (hoursToShowtime >= 4) {
+            return 50;
+        }
+        return 0;
+    }
+
 
     private OrderResponse.OrderSeatResponse toSeatResponse(Long seatId) {
         Optional<ShowtimeSeatView> seat = seatReservationService.findSeat(seatId);

@@ -9,6 +9,7 @@ public interface ITemplateRepository
 {
     Task InsertAsync(NotificationTemplate template, CancellationToken cancellationToken = default);
     Task UpdateAsync(NotificationTemplate template, CancellationToken cancellationToken = default);
+    Task<NotificationTemplate?> GetByIdAsync(string id, CancellationToken cancellationToken = default);
     Task<NotificationTemplate?> GetByCodeAsync(string code, CancellationToken cancellationToken = default);
     Task<IEnumerable<NotificationTemplate>> GetAllAsync(CancellationToken cancellationToken = default);
 }

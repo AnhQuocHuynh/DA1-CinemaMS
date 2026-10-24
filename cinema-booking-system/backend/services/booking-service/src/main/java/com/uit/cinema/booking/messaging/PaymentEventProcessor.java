@@ -17,6 +17,7 @@ public class PaymentEventProcessor {
     static final String COMPLETED = "payment.completed";
     static final String FAILED = "payment.failed";
     static final String REFUNDED = "payment.refunded";
+    static final String EXPIRED = "order.expired";
 
     private final PaymentEventEnvelopeReader envelopeReader;
     private final ProcessedPaymentEventRepository processedPaymentEventRepository;
@@ -65,6 +66,7 @@ public class PaymentEventProcessor {
             case COMPLETED -> envelopeReader.completedPayload(envelope.payload()).orderId();
             case FAILED -> envelopeReader.failedPayload(envelope.payload()).orderId();
             case REFUNDED -> envelopeReader.refundedPayload(envelope.payload()).orderId();
+            case EXPIRED -> envelopeReader.expiredPayload(envelope.payload()).orderId();
             default -> throw PaymentEventEnvelopeReader.poison("Unsupported payment event type: " + envelope.eventType());
         };
         processedPaymentEventRepository.findById(envelope.eventId()).ifPresent(row -> {
@@ -99,6 +101,10 @@ public class PaymentEventProcessor {
                         payload.reason(),
                         payload.refundAmount()
                     );
+                }
+                case EXPIRED -> {
+                    PaymentExpiredPayload payload = envelopeReader.expiredPayload(envelope.payload());
+                    yield paymentService.applyExpiredPayment(payload.orderId(), payload.userId(), payload.reason());
                 }
                 default -> throw PaymentEventEnvelopeReader.poison("Unsupported payment event type: " + envelope.eventType());
             };

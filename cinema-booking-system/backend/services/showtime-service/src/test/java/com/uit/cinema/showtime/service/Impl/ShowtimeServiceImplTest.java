@@ -22,9 +22,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.RedisTemplate;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -213,6 +215,24 @@ class ShowtimeServiceImplTest {
         ShowtimeSeatResponse result = showtimeService.getSeatById(10L);
 
         assertNotNull(result);
+    }
+
+    @Test
+    void getSeatById_WhenRedisIsDown_UsesDatabaseHoldExpiry() {
+        ShowtimeSeat seat = seat();
+        seat.setStatus(ShowtimeSeat.SeatStatus.HELD);
+        seat.setHeldByUserId(4L);
+        seat.setHoldExpiresAt(Instant.now().plusSeconds(90));
+        ShowtimeSeatResponse mapped = new ShowtimeSeatResponse();
+        when(showtimeSeatRepository.findById(10L)).thenReturn(Optional.of(seat));
+        when(facilityReadService.findSeatTemplate(5L)).thenReturn(Optional.of(seatTemplate()));
+        when(showtimeMapper.toSeatResponse(any(ShowtimeSeat.class))).thenReturn(mapped);
+        when(redisTemplate.getExpire(anyString())).thenThrow(new RedisConnectionFailureException("redis down"));
+
+        ShowtimeSeatResponse result = showtimeService.getSeatById(10L);
+
+        assertEquals("holding", result.getStatus());
+        assertTrue(result.getHoldTtlSeconds() > 0);
     }
 
     @Test

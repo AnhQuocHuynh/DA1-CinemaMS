@@ -8,8 +8,16 @@ public record KeycloakPasswordResetPayload(string KeycloakId, string Email, stri
 
 public record OrderPaidPayload(
     long OrderId, long UserId, long ShowtimeId,
+    long? MovieId, long? EventId,
     decimal TotalAmount, decimal FinalAmount,
-    int TicketCount, string PaymentMethod, string TransactionId);
+    int TicketCount, string? PaymentMethod = null, string? TransactionId = null);
 
-public record OrderRefundedPayload(long OrderId, long UserId, decimal RefundAmount, string Reason);
-public record ShowtimeCreatedPayload(long ShowtimeId, long MovieId, string MovieTitle, DateTime StartTime);
+public record OrderRefundedPayload(
+    long OrderId, long UserId, long ShowtimeId,
+    decimal FinalAmount, int TicketCount);
+
+public record ReviewCreatedPayload(
+    long ReviewId, long UserId, long? MovieId, long? EventId,
+    int? Rating, string? Status, DateTime? CreatedAt);
+
+public record ShowtimeCreatedPayload(long ShowtimeId, long? MovieId, string? MovieTitle, DateTime? StartTime);

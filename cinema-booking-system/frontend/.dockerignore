@@ -4,3 +4,6 @@ dist/
 .git/
 .gitignore
 Dockerfile
+.env
+.env.*
+!.env.example

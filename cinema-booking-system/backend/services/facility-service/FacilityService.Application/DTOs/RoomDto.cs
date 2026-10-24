@@ -3,8 +3,11 @@ namespace FacilityService.Application.DTOs
     public class RoomDto
     {
         public long Id { get; set; }
+        public long RoomId => Id;
         public long CinemaId { get; set; }
         public string Name { get; set; } = string.Empty;
+        public string RoomName => Name;
+        public string? CinemaName { get; set; }
         public string? Type { get; set; }
         public int? TotalSeats { get; set; }
         public int? Rows { get; set; }

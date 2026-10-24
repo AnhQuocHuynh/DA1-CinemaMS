@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Entity
 @Table(name = "showtime_seats",
@@ -30,6 +31,12 @@ public class ShowtimeSeat {
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private SeatStatus status = SeatStatus.AVAILABLE;
+
+    @Column(name = "held_by_user_id")
+    private Long heldByUserId;
+
+    @Column(name = "hold_expires_at")
+    private Instant holdExpiresAt;
 
     public enum SeatStatus {
         AVAILABLE, HELD, BOOKED

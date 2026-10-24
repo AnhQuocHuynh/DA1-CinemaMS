@@ -1,5 +1,4 @@
-// TODO: Migrate to src/lib/apiClient.ts
-import apiClient from './authService';
+import apiClient from '../lib/apiClient';
 import {
   BackendOrder,
   BackendVoucher,
@@ -75,19 +74,21 @@ export const bookingService = {
   },
 
   /**
-   * POST /orders/{id}/pay — raw Order response
+   * GET /orders/{orderId} — fetch order details
    */
-  processPayment: async (
-    orderId: number,
-    paymentMethod: 'CREDIT_CARD' | 'DEBIT_CARD' | 'BANK_TRANSFER' | 'WALLET',
-    transactionId: string
-  ): Promise<BackendOrder> => {
-    const response = await apiClient.post<BackendOrder>(`/orders/${orderId}/pay`, {
-      paymentMethod,
-      transactionId,
-    });
+  getOrderById: async (orderId: number): Promise<BackendOrder> => {
+    const response = await apiClient.get<BackendOrder>(`/orders/${orderId}`);
     return response.data;
   },
+
+  /**
+   * GET /orders/users/{userId} — fetch all orders for a user
+   */
+  getUserOrders: async (userId: number): Promise<BackendOrder[]> => {
+    const response = await apiClient.get<BackendOrder[]>(`/orders/users/${userId}`);
+    return response.data ?? [];
+  },
+
 
   // ── Tickets ───────────────────────────────────────────────────────────────
 

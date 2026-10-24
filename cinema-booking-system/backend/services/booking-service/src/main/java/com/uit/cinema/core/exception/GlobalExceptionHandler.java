@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,6 +18,16 @@ import java.util.Map;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(DuplicatePendingOrderException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicatePendingOrder(DuplicatePendingOrderException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("code", "DUPLICATE_PENDING_ORDER");
+        body.put("errorCode", "DUPLICATE_PENDING_ORDER");
+        body.put("existingOrderId", ex.getExistingOrderId());
+        body.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
 
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ApiResponse<Object>> handleCustomException(CustomException ex) {
@@ -55,6 +66,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Object>> handleAccessDenied(AccessDeniedException ex) {
         ApiResponse<Object> response = ApiResponse.error(ErrorCode.FORBIDDEN);
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        log.warn("Parameter type mismatch: name={}, value={}", ex.getName(), ex.getValue());
+        ApiResponse<Object> response = ApiResponse.error(
+                ErrorCode.INVALID_INPUT,
+                "Tham số không hợp lệ: " + ex.getName(),
+                null
+        );
+        return ResponseEntity.badRequest().body(response);
     }
 
     @ExceptionHandler(Exception.class)

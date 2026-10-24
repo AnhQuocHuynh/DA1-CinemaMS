@@ -5,8 +5,10 @@ import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
 import { useAdminPermissions } from '../../hooks/useAdminPermissions';
 import { UserRoleModal } from '../../components/admin/modals/UserRoleModal';
+import { useTranslation } from 'react-i18next';
 
 export const PermissionManagement: React.FC = () => {
+  const { t } = useTranslation();
   const { users, isLoading, updateUserRole, deleteUser } = useAdminPermissions();
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -17,7 +19,7 @@ export const PermissionManagement: React.FC = () => {
   };
 
   const handleDeleteClick = async (id: string | number) => {
-    if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+    if (window.confirm(t('adminPermissions.deleteConfirm', 'Are you sure you want to delete this user? This action cannot be undone.'))) {
       await deleteUser(id);
     }
   };
@@ -35,18 +37,18 @@ export const PermissionManagement: React.FC = () => {
 
   return (
     <AdminLayout activeItemId="permissions">
-      <AdminTopBar title="Admin Console" searchPlaceholder="Search users, roles, or permissions..." />
+      <AdminTopBar title={t('adminPermissions.console', 'Admin Console')} searchPlaceholder={t('adminPermissions.search', 'Search users, roles, or permissions...')} />
       <main className="p-6 md:p-8 space-y-8">
         <AdminPageHeader
-          title="User Management"
-          subtitle="Configure user roles and granular access permissions across the global network."
+          title={t('adminPermissions.title', 'User Management')}
+          subtitle={t('adminPermissions.subtitle', 'Configure user roles and granular access permissions across the global network.')}
         // actions={
         //   <>
         //     <button className="px-4 py-2 text-sm font-semibold text-primary bg-surface-container hover:bg-surface-container-high transition-colors flex items-center gap-2">
         //       <FileDown className="w-4 h-4" />
         //       Export Data
         //     </button>
-        //     <button className="px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-blue-700 transition-colors flex items-center gap-2">
+        //     <button className="px-4 py-2 text-sm font-semibold text-white bg-primary hover:opacity-90 transition-colors flex items-center gap-2">
         //       <UserPlus className="w-4 h-4" />
         //       Invite User
         //     </button>
@@ -55,79 +57,79 @@ export const PermissionManagement: React.FC = () => {
         />
 
         {isLoading ? (
-          <div className="text-center py-10 text-on-surface-variant">Loading permissions...</div>
+          <div className="text-center py-10 text-on-surface-variant">{t('adminPermissions.loading', 'Loading permissions...')}</div>
         ) : (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="bg-surface-container-lowest p-6 flex flex-col justify-between h-32">
-                <span className="text-[0.7rem] uppercase tracking-widest font-semibold text-slate-400">Total Users</span>
-                <span className="text-4xl font-bold tracking-tight text-slate-900">{totalUsers}</span>
+                <span className="text-[0.7rem] uppercase tracking-widest font-semibold text-on-surface-variant">{t('adminPermissions.totalUsers', 'Total Users')}</span>
+                <span className="text-4xl font-bold tracking-tight text-on-surface">{totalUsers}</span>
               </div>
               <div className="bg-surface-container-low p-6 flex flex-col justify-between h-32 border-l-4 border-blue-600">
-                <span className="text-[0.7rem] uppercase tracking-widest font-semibold text-blue-600">Active Staff</span>
-                <span className="text-4xl font-bold tracking-tight text-slate-900">{activeStaff}</span>
+                <span className="text-[0.7rem] uppercase tracking-widest font-semibold text-primary">{t('adminPermissions.activeStaff', 'Active Staff')}</span>
+                <span className="text-4xl font-bold tracking-tight text-on-surface">{activeStaff}</span>
               </div>
               <div className="bg-surface-container-lowest p-6 flex flex-col justify-between h-32">
-                <span className="text-[0.7rem] uppercase tracking-widest font-semibold text-slate-400">Pending Invites</span>
-                <span className="text-4xl font-bold tracking-tight text-slate-900">{pendingInvites}</span>
+                <span className="text-[0.7rem] uppercase tracking-widest font-semibold text-on-surface-variant">{t('adminPermissions.pendingInvites', 'Pending Invites')}</span>
+                <span className="text-4xl font-bold tracking-tight text-on-surface">{pendingInvites}</span>
               </div>
               <div className="bg-surface-container-lowest p-6 flex flex-col justify-between h-32">
-                <span className="text-[0.7rem] uppercase tracking-widest font-semibold text-slate-400">Recent Logins (24h)</span>
-                <span className="text-4xl font-bold tracking-tight text-slate-900">{recentLogins}</span>
+                <span className="text-[0.7rem] uppercase tracking-widest font-semibold text-on-surface-variant">{t('adminPermissions.recentLogins', 'Recent Logins (24h)')}</span>
+                <span className="text-4xl font-bold tracking-tight text-on-surface">{recentLogins}</span>
               </div>
             </div>
 
             <section className="bg-surface-container-low p-1 rounded-lg">
-              <div className="bg-white overflow-hidden shadow-sm">
+              <div className="bg-surface-container-lowest overflow-hidden shadow-sm">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100">
-                      <th className="px-6 py-4 text-[0.7rem] uppercase tracking-wider font-bold text-slate-500">User Details</th>
-                      <th className="px-6 py-4 text-[0.7rem] uppercase tracking-wider font-bold text-slate-500">Access Level</th>
-                      <th className="px-6 py-4 text-[0.7rem] uppercase tracking-wider font-bold text-slate-500">Status</th>
-                      <th className="px-6 py-4 text-[0.7rem] uppercase tracking-wider font-bold text-slate-500">Last Activity</th>
+                    <tr className="bg-surface-container-low border-b border-outline-variant/30">
+                      <th className="px-6 py-4 text-[0.7rem] uppercase tracking-wider font-bold text-on-surface-variant">{t('adminPermissions.userDetails', 'User Details')}</th>
+                      <th className="px-6 py-4 text-[0.7rem] uppercase tracking-wider font-bold text-on-surface-variant">{t('adminPermissions.accessLevel', 'Access Level')}</th>
+                      <th className="px-6 py-4 text-[0.7rem] uppercase tracking-wider font-bold text-on-surface-variant">{t('adminPermissions.status', 'Status')}</th>
+                      <th className="px-6 py-4 text-[0.7rem] uppercase tracking-wider font-bold text-on-surface-variant">{t('adminPermissions.lastActivity', 'Last Activity')}</th>
                       <th className="px-6 py-4 text-right"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {users.map((user) => (
-                      <tr key={user.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <tr key={user.id} className="hover:bg-surface-container/50 transition-colors group">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-blue-100 text-blue-700 font-bold flex items-center justify-center rounded text-sm">
+                            <div className="w-10 h-10 bg-highlight text-primary font-bold flex items-center justify-center rounded text-sm">
                               {user.name
                                 .split(' ')
                                 .map((part) => part[0])
                                 .join('')}
                             </div>
                             <div>
-                              <p className="text-sm font-semibold text-slate-900">{user.name}</p>
-                              <p className="text-xs text-slate-500">{user.email}</p>
+                              <p className="text-sm font-semibold text-on-surface">{user.name}</p>
+                              <p className="text-xs text-on-surface-variant">{user.email}</p>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="px-3 py-1 bg-blue-50 text-blue-700 font-bold text-xs rounded-full uppercase tracking-wider">
-                            {user.roles.admin ? 'Admin' : user.roles.staff ? 'Staff' : 'Customer'}
+                          <span className="px-3 py-1 bg-highlight text-primary font-bold text-xs rounded-full uppercase tracking-wider">
+                            {user.roles.admin ? t('adminPermissions.roleAdmin', 'Admin') : user.roles.staff ? t('adminPermissions.roleStaff', 'Staff') : t('adminPermissions.roleCustomer', 'Customer')}
                           </span>
                         </td>
                         <td className="px-6 py-4">
                           <span
                             className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-tight ${user.status === 'active'
-                              ? 'bg-green-50 text-green-700'
+                              ? 'bg-success-container text-on-success-container'
                               : user.status === 'on-leave'
                                 ? 'bg-amber-50 text-amber-700'
-                                : 'bg-slate-100 text-slate-500'
+                                : 'bg-surface-container text-on-surface-variant'
                               }`}
                           >
                             {user.status.replace('-', ' ')}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-xs text-slate-500">{user.lastActivity}</td>
+                        <td className="px-6 py-4 text-xs text-on-surface-variant">{user.lastActivity}</td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center gap-2 justify-end">
-                            <button onClick={() => handleEditClick(user)} className="px-3 py-1 bg-surface-container-low text-primary text-[10px] uppercase font-bold tracking-widest rounded hover:bg-blue-50 transition-colors">Edit</button>
-                            <button onClick={() => handleDeleteClick(user.id)} className="px-3 py-1 text-slate-400 hover:text-error text-[10px] uppercase font-bold tracking-widest rounded transition-colors">Delete</button>
+                            <button onClick={() => handleEditClick(user)} className="px-3 py-1 bg-surface-container-low text-primary text-[10px] uppercase font-bold tracking-widest rounded hover:bg-primary-container transition-colors">{t('adminPermissions.edit', 'Edit')}</button>
+                            <button onClick={() => handleDeleteClick(user.id)} className="px-3 py-1 text-on-surface-variant hover:text-error text-[10px] uppercase font-bold tracking-widest rounded transition-colors">{t('adminPermissions.delete', 'Delete')}</button>
                           </div>
                         </td>
                       </tr>

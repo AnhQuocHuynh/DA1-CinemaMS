@@ -72,13 +72,13 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ isOpen, onClose, onS
         <div className="p-6">
           <form id="voucher-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Voucher Code <span className="text-error">*</span></label>
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Voucher Code <span className="text-error">*</span></label>
               <input required type="text" name="code" value={formData.code} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary uppercase" placeholder="SUMMER50" />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Discount Type</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Discount Type</label>
                 <select name="discountType" value={formData.discountType} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary">
                   <option value="PERCENTAGE">Percentage (%)</option>
                   <option value="FIXED_AMOUNT">Fixed Amount ($)</option>
@@ -86,42 +86,42 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ isOpen, onClose, onS
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Value <span className="text-error">*</span></label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Value <span className="text-error">*</span></label>
                 <input required type="number" step="0.01" name="discountValue" value={formData.discountValue} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" placeholder="e.g. 20 or 5.00" />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Max Discount Amount (Optional)</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Max Discount Amount (Optional)</label>
               <input type="number" step="0.01" name="maxDiscountAmount" value={formData.maxDiscountAmount} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" placeholder="Cap for percentage discounts" />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Valid From</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Valid From</label>
                 <input type="datetime-local" name="validFrom" value={formData.validFrom} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Valid Until</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Valid Until</label>
                 <input type="datetime-local" name="validUntil" value={formData.validUntil} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Usage Limit</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Usage Limit</label>
               <input type="number" name="usageLimit" value={formData.usageLimit} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" placeholder="Leave empty for unlimited" />
             </div>
 
             <div className="space-y-1 flex items-center gap-3 pt-2">
-              <input type="checkbox" id="activeVoucher" name="active" checked={formData.active} onChange={handleChange} className="w-4 h-4 text-primary rounded focus:ring-primary border-slate-300" />
-              <label htmlFor="activeVoucher" className="text-sm font-semibold text-slate-700 cursor-pointer">Voucher is Active</label>
+              <input type="checkbox" id="activeVoucher" name="active" checked={formData.active} onChange={handleChange} className="w-4 h-4 text-primary rounded focus:ring-primary border-outline" />
+              <label htmlFor="activeVoucher" className="text-sm font-semibold text-on-surface-variant cursor-pointer">Voucher is Active</label>
             </div>
           </form>
         </div>
         
         <div className="px-6 py-4 border-t border-surface-container bg-surface-container-lowest flex justify-end gap-3">
-          <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-100">Cancel</button>
-          <button type="submit" form="voucher-form" disabled={isSubmitting} className="px-6 py-2 rounded-lg font-bold text-sm bg-primary text-white hover:bg-blue-700">
+          <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 rounded-lg font-bold text-sm text-on-surface-variant hover:bg-surface-container">Cancel</button>
+          <button type="submit" form="voucher-form" disabled={isSubmitting} className="px-6 py-2 rounded-lg font-bold text-sm bg-primary text-on-primary hover:opacity-90">
             {isSubmitting ? 'Creating...' : 'Create Voucher'}
           </button>
         </div>

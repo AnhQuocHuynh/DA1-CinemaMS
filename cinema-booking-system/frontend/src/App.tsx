@@ -15,6 +15,7 @@ import { UserDashboard } from './pages/portal/UserDashboard';
 import { Booking } from './pages/portal/Booking';
 import { Checkout } from './pages/portal/Checkout';
 import { CheckoutSuccess } from './pages/portal/CheckoutSuccess';
+import { BookingFailed } from './pages/portal/BookingFailed';
 import { TicketInfo } from './pages/portal/TicketInfo';
 import { Settings } from './pages/portal/Settings';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -25,10 +26,12 @@ import { PricingAndVouchers } from './pages/admin/PricingAndVouchers';
 import { RoomManagement } from './pages/admin/RoomManagement';
 import { SeatConfigurator } from './pages/admin/SeatConfigurator';
 import { ShowtimeManagement } from './pages/admin/ShowtimeManagement';
+import { AdminSettings } from './pages/admin/AdminSettings';
 import { StaffDashboard } from './pages/staff/StaffDashboard';
 import { CounterBooking } from './pages/staff/CounterBooking';
 import { TicketLookup } from './pages/staff/TicketLookup';
 import { QRChecker } from './pages/staff/QRChecker';
+import { StaffSettings } from './pages/staff/StaffSettings';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
@@ -62,6 +65,8 @@ function App() {
       <Route path="/user/booking/:showtimeId" element={<ProtectedRoute requiredRole="USER"><Booking /></ProtectedRoute>} />
       <Route path="/user/checkout" element={<ProtectedRoute requiredRole="USER"><Checkout /></ProtectedRoute>} />
       <Route path="/user/checkout-success" element={<ProtectedRoute requiredRole="USER"><CheckoutSuccess /></ProtectedRoute>} />
+      <Route path="/user/booking-failed" element={<ProtectedRoute requiredRole="USER"><BookingFailed /></ProtectedRoute>} />
+      <Route path="/booking-failed" element={<Navigate to="/user/booking-failed" replace />} />
       <Route path="/user/tickets/:ticketId" element={<ProtectedRoute requiredRole="USER"><TicketInfo /></ProtectedRoute>} />
       <Route path="/user/settings" element={<ProtectedRoute requiredRole="USER"><Settings /></ProtectedRoute>} />
 
@@ -74,6 +79,7 @@ function App() {
           </ProtectedRoute>
         }
       />
+      <Route path="/admin/settings" element={<ProtectedRoute requiredRole="ADMIN"><AdminSettings /></ProtectedRoute>} />
       <Route path="/admin/movies" element={<ProtectedRoute requiredRole="ADMIN"><MovieManagement /></ProtectedRoute>} />
       <Route path="/admin/events" element={<ProtectedRoute requiredRole="ADMIN"><EventManagement /></ProtectedRoute>} />
       <Route path="/admin/permissions" element={<ProtectedRoute requiredRole="ADMIN"><PermissionManagement /></ProtectedRoute>} />
@@ -94,6 +100,7 @@ function App() {
       <Route path="/staff/ticket-lookup" element={<ProtectedRoute requiredRole="STAFF"><TicketLookup /></ProtectedRoute>} />
       <Route path="/staff/bookings/new" element={<ProtectedRoute requiredRole="STAFF"><CounterBooking /></ProtectedRoute>} />
       <Route path="/staff/qr-checker" element={<ProtectedRoute requiredRole="STAFF"><QRChecker /></ProtectedRoute>} />
+      <Route path="/staff/settings" element={<ProtectedRoute requiredRole="STAFF"><StaffSettings /></ProtectedRoute>} />
 
       {/* Catch-all redirect */}
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -17,6 +17,7 @@ namespace ApiGateway.Middleware
         private readonly IDistributedCache _cache;
         private readonly string _userProfileBaseUrl;
         private readonly string _resolveEndpoint;
+        private readonly string _internalToken;
 
         public KeycloakUserIdResolutionMiddleware(
             RequestDelegate next,
@@ -32,6 +33,7 @@ namespace ApiGateway.Middleware
             
             _userProfileBaseUrl = config["UserProfileService:BaseUrl"] ?? throw new InvalidOperationException("UserProfileService:BaseUrl is not configured");
             _resolveEndpoint = config["UserProfileService:ResolveEndpoint"] ?? "/internal/users/resolve";
+            _internalToken = config["INTERNAL_API_TOKEN"] ?? config["InternalApi:Token"] ?? "local-dev-internal-token";
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -84,7 +86,12 @@ namespace ApiGateway.Middleware
             {
                 var client = _httpClientFactory.CreateClient("UserProfileClient");
                 var url = $"{_userProfileBaseUrl}{_resolveEndpoint}?keycloakId={keycloakId}";
-                var response = await client.GetAsync(url);
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                if (!string.IsNullOrEmpty(_internalToken) && !client.DefaultRequestHeaders.Contains("X-Internal-Token"))
+                {
+                    request.Headers.Add("X-Internal-Token", _internalToken);
+                }
+                var response = await client.SendAsync(request);
 
                 if (response.IsSuccessStatusCode)
                 {

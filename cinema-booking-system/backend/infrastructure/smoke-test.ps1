@@ -68,6 +68,9 @@ function Get-HttpStatus {
         if ($null -ne $response -and $null -ne $response.StatusCode) {
             return [int]$response.StatusCode
         }
+        if ($_.Exception.PSObject.Properties.Name -contains 'StatusCode' -and $null -ne $_.Exception.StatusCode) {
+            return [int]$_.Exception.StatusCode
+        }
 
         return 0
     }
@@ -76,10 +79,11 @@ function Get-HttpStatus {
 function Wait-Health {
     param(
         [string]$Name,
-        [string]$BaseUrl
+        [string]$BaseUrl,
+        [string]$Path = "/actuator/health"
     )
 
-    $uri = Join-ServiceUrl $BaseUrl "/actuator/health"
+    $uri = Join-ServiceUrl $BaseUrl $Path
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     $status = 0
 
@@ -178,6 +182,13 @@ function Assert-RabbitTopology {
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ComposeFile = Join-Path $ScriptDir "docker-compose.yml"
+$EnvFile = Join-Path $ScriptDir ".env"
+$EnvExample = Join-Path $ScriptDir ".env.example"
+
+if (-not (Test-Path $EnvFile) -and (Test-Path $EnvExample)) {
+    Copy-Item $EnvExample $EnvFile
+    Write-Host "[INFO] Seeded infrastructure/.env from .env.example"
+}
 
 $InternalToken = Resolve-Default $InternalToken (Resolve-Default $env:INTERNAL_API_TOKEN "local-dev-internal-token")
 $CatalogUrl = Resolve-Default $CatalogUrl (Resolve-Default $env:CATALOG_SERVICE_URL "http://localhost:8081")
@@ -187,8 +198,8 @@ $BookingUrl = Resolve-Default $BookingUrl (Resolve-Default $env:BOOKING_SERVICE_
 $AnalyticsUrl = Resolve-Default $AnalyticsUrl (Resolve-Default $env:ANALYTICS_SERVICE_URL "http://localhost:8084")
 $RecommendationUrl = Resolve-Default $RecommendationUrl (Resolve-Default $env:RECOMMENDATION_SERVICE_URL "http://localhost:8085")
 $RabbitManagementUrl = Resolve-Default $RabbitManagementUrl (Resolve-Default $env:RABBITMQ_MANAGEMENT_URL "http://localhost:15672")
-$RabbitUsername = Resolve-Default $RabbitUsername (Resolve-Default $env:RABBITMQ_USERNAME "cinema")
-$RabbitPassword = Resolve-Default $RabbitPassword (Resolve-Default $env:RABBITMQ_PASSWORD "cinema-rabbitmq-dev")
+$RabbitUsername = Resolve-Default $RabbitUsername (Resolve-Default $env:RABBITMQ_DEFAULT_USER (Resolve-Default $env:RABBITMQ_USERNAME "guest"))
+$RabbitPassword = Resolve-Default $RabbitPassword (Resolve-Default $env:RABBITMQ_DEFAULT_PASS (Resolve-Default $env:RABBITMQ_PASSWORD "guest"))
 
 if ($ValidateOnly) {
     Write-Host "Smoke test script configuration is valid."
@@ -210,7 +221,7 @@ try {
     }
 
     Wait-Health "catalog-service" $CatalogUrl
-    Wait-Health "facility-service compatibility dependency" $FacilityUrl
+    Wait-Health "facility-service compatibility dependency" $FacilityUrl "/health"
     Wait-Health "showtime-service" $ShowtimeUrl
     Wait-Health "booking-service" $BookingUrl
     if (-not $SkipAnalytics) {
