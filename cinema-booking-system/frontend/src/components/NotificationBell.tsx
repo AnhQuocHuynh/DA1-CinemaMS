@@ -73,14 +73,14 @@ export const NotificationBell: React.FC = () => {
     switch (type) {
       case 'BOOKING_CONFIRMATION':
       case 'ORDER_CONFIRMED':
-        return <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />;
+        return <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />;
       case 'PAYMENT_FAILED':
       case 'BOOKING_CANCELLED':
-        return <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />;
+        return <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />;
       case 'ORDER_REFUNDED':
-        return <RefreshCw className="w-4 h-4 text-sky-400 shrink-0" />;
+        return <RefreshCw className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />;
       default:
-        return <Clock className="w-4 h-4 text-amber-400 shrink-0" />;
+        return <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />;
     }
   };
 
@@ -93,12 +93,13 @@ export const NotificationBell: React.FC = () => {
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-800/80 transition-all focus:outline-none"
+        className="relative flex items-center justify-center w-9 h-9 shrink-0 rounded-full bg-surface-container-high hover:bg-surface-container-highest transition-colors text-on-surface focus:outline-none"
+        title={t('notifications.title', 'Notifications')}
         aria-label={t('notifications.title', 'Notifications')}
       >
-        <Bell className="w-5 h-5" />
+        <Bell className="w-4 h-4" />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-rose-500 rounded-full ring-2 ring-zinc-900 animate-pulse">
+          <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-rose-500 rounded-full ring-2 ring-surface animate-pulse">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -106,13 +107,13 @@ export const NotificationBell: React.FC = () => {
 
       {/* Popover Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-surface-container-lowest/95 backdrop-blur-xl border border-outline-variant shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-outline-variant flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-white">{t('notifications.title', 'Notifications')}</h3>
+              <h3 className="text-sm font-semibold text-on-surface">{t('notifications.title', 'Notifications')}</h3>
               {unreadCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-300">
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/15 text-rose-600 dark:text-rose-400">
                   {unreadCount} {t('notifications.new', 'new')}
                 </span>
               )}
@@ -121,7 +122,7 @@ export const NotificationBell: React.FC = () => {
             {unreadCount > 0 && (
               <button
                 onClick={() => markAllAsRead()}
-                className="flex items-center gap-1 text-xs text-zinc-400 hover:text-amber-400 transition-colors"
+                className="flex items-center gap-1 text-xs text-on-surface-variant hover:text-primary transition-colors"
                 title={t('notifications.markAllRead', 'Mark all read')}
               >
                 <CheckCheck className="w-3.5 h-3.5" />
@@ -131,12 +132,12 @@ export const NotificationBell: React.FC = () => {
           </div>
 
           {/* List */}
-          <div className="max-h-[360px] overflow-y-auto divide-y divide-zinc-800/60 custom-scrollbar">
+          <div className="max-h-[360px] overflow-y-auto divide-y divide-outline-variant/60 custom-scrollbar">
             {isLoading && notifications.length === 0 ? (
-              <div className="py-8 text-center text-xs text-zinc-500">{t('notifications.loading', 'Loading...')}</div>
+              <div className="py-8 text-center text-xs text-on-surface-variant/70">{t('notifications.loading', 'Loading...')}</div>
             ) : notifications.length === 0 ? (
-              <div className="py-10 text-center flex flex-col items-center justify-center text-zinc-500 gap-2">
-                <Bell className="w-8 h-8 opacity-30 stroke-1" />
+              <div className="py-10 text-center flex flex-col items-center justify-center text-on-surface-variant/70 gap-2">
+                <Bell className="w-8 h-8 opacity-40 stroke-1 text-on-surface-variant" />
                 <span className="text-xs">{t('notifications.noNotifications', 'No notifications yet')}</span>
               </div>
             ) : (
@@ -146,8 +147,8 @@ export const NotificationBell: React.FC = () => {
                   onClick={() => handleNotificationClick(item)}
                   className={`p-3.5 flex gap-3 transition-colors cursor-pointer text-left ${
                     item.isRead
-                      ? 'bg-transparent hover:bg-zinc-800/40 opacity-75'
-                      : 'bg-zinc-800/30 hover:bg-zinc-800/60'
+                      ? 'bg-transparent hover:bg-surface-container-high/60 opacity-75'
+                      : 'bg-surface-container/60 hover:bg-surface-container'
                   }`}
                 >
                   <div className="mt-0.5">{getNotificationIcon(item.type)}</div>
@@ -155,21 +156,21 @@ export const NotificationBell: React.FC = () => {
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <p
                         className={`text-xs font-semibold truncate ${
-                          item.isRead ? 'text-zinc-300' : 'text-white'
+                          item.isRead ? 'text-on-surface-variant' : 'text-on-surface'
                         }`}
                       >
                         {item.title}
                       </p>
-                      <span className="text-[10px] text-zinc-500 whitespace-nowrap">
+                      <span className="text-[10px] text-on-surface-variant/70 whitespace-nowrap">
                         {formatTimestamp(item.createdAt)}
                       </span>
                     </div>
-                    <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
+                    <p className="text-[11px] text-on-surface-variant line-clamp-2 leading-relaxed">
                       {item.body}
                     </p>
                   </div>
                   {!item.isRead && (
-                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 self-center" />
+                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0 self-center" />
                   )}
                 </div>
               ))
