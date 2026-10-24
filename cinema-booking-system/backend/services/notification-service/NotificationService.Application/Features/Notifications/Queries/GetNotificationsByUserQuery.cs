@@ -36,7 +36,9 @@ public class GetNotificationsByUserQueryHandler : IRequestHandler<GetNotificatio
             RetryCount = n.RetryCount,
             SentAt = n.SentAt,
             FailedReason = n.FailedReason,
-            CreatedAt = n.CreatedAt
+            CreatedAt = n.CreatedAt,
+            IsRead = n.IsRead,
+            ReadAt = n.ReadAt
         });
     }
 }

@@ -30,7 +30,7 @@ public class UserRegisteredEventConsumer : RabbitMqConsumerBase<EventEnvelope<Ke
         _scopeFactory = scopeFactory;
     }
 
-    protected override async Task ProcessMessageAsync(EventEnvelope<KeycloakUserRegisteredPayload> message, CancellationToken cancellationToken)
+    protected internal override async Task ProcessMessageAsync(EventEnvelope<KeycloakUserRegisteredPayload> message, CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
 

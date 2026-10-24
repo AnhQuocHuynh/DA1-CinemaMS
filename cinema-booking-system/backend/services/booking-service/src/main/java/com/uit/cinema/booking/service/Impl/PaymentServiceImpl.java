@@ -191,6 +191,7 @@ public class PaymentServiceImpl implements PaymentService {
         );
         order.setStatus(Order.OrderStatus.CANCELLED);
         orderRepository.save(order);
+        bookingOutboxEventWriter.orderCancelled(order.getId(), order.getUserId(), reason);
         log.info("Order {} cancelled after payment.failed. Reason: {}", orderId, reason);
         return PaymentEventOutcome.APPLIED;
     }
@@ -266,6 +267,7 @@ public class PaymentServiceImpl implements PaymentService {
         );
         order.setStatus(Order.OrderStatus.CANCELLED);
         orderRepository.save(order);
+        bookingOutboxEventWriter.orderCancelled(order.getId(), order.getUserId(), reason);
         log.info("Order {} cancelled after order.expired. Reason: {}", orderId, reason);
         return PaymentEventOutcome.APPLIED;
     }

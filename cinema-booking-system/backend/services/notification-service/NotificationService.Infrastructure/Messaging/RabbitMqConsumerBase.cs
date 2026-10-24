@@ -166,7 +166,7 @@ public abstract class RabbitMqConsumerBase<TMessage> : BackgroundService
         }
     }
 
-    protected abstract Task ProcessMessageAsync(TMessage message, CancellationToken cancellationToken);
+    protected internal abstract Task ProcessMessageAsync(TMessage message, CancellationToken cancellationToken);
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {

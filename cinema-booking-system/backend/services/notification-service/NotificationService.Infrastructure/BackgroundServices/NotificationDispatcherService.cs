@@ -187,7 +187,14 @@ public class NotificationDispatcherService : BackgroundService
                 break;
                 
             case NotificationChannel.PUSH:
-                await pushSender.SendPushAsync(notification.UserId, notification.Title, notification.Body, cancellationToken);
+                await pushSender.SendPushAsync(
+                    notification.Id,
+                    notification.UserId,
+                    notification.Type,
+                    notification.Title,
+                    notification.Body,
+                    notification.Metadata,
+                    cancellationToken);
                 break;
                 
             default:

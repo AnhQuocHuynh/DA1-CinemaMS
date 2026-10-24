@@ -38,7 +38,9 @@ public class GetNotificationsQueryHandler : IRequestHandler<GetNotificationsQuer
                 RetryCount = n.RetryCount,
                 SentAt = n.SentAt,
                 FailedReason = n.FailedReason,
-                CreatedAt = n.CreatedAt
+                CreatedAt = n.CreatedAt,
+                IsRead = n.IsRead,
+                ReadAt = n.ReadAt
             }),
             TotalCount = (int)totalCount,
             Page = request.Page,
