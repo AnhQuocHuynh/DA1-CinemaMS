@@ -198,8 +198,8 @@ $BookingUrl = Resolve-Default $BookingUrl (Resolve-Default $env:BOOKING_SERVICE_
 $AnalyticsUrl = Resolve-Default $AnalyticsUrl (Resolve-Default $env:ANALYTICS_SERVICE_URL "http://localhost:8084")
 $RecommendationUrl = Resolve-Default $RecommendationUrl (Resolve-Default $env:RECOMMENDATION_SERVICE_URL "http://localhost:8085")
 $RabbitManagementUrl = Resolve-Default $RabbitManagementUrl (Resolve-Default $env:RABBITMQ_MANAGEMENT_URL "http://localhost:15672")
-$RabbitUsername = Resolve-Default $RabbitUsername (Resolve-Default $env:RABBITMQ_USERNAME "cinema")
-$RabbitPassword = Resolve-Default $RabbitPassword (Resolve-Default $env:RABBITMQ_PASSWORD "cinema-rabbitmq-dev")
+$RabbitUsername = Resolve-Default $RabbitUsername (Resolve-Default $env:RABBITMQ_DEFAULT_USER (Resolve-Default $env:RABBITMQ_USERNAME "guest"))
+$RabbitPassword = Resolve-Default $RabbitPassword (Resolve-Default $env:RABBITMQ_DEFAULT_PASS (Resolve-Default $env:RABBITMQ_PASSWORD "guest"))
 
 if ($ValidateOnly) {
     Write-Host "Smoke test script configuration is valid."
