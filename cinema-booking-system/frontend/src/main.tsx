@@ -33,7 +33,7 @@ keycloak.init({
   checkLoginIframe: false,
 }).then((authenticated) => {
   if (authenticated && keycloak.tokenParsed) {
-    const { sub, email, realm_access, preferred_username } = keycloak.tokenParsed;
+    const { sub, email, preferred_username } = keycloak.tokenParsed;
     useAuthStore.getState().setUser({
       id: sub!,
       keycloakId: sub!,

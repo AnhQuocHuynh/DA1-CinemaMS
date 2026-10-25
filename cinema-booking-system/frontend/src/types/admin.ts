@@ -94,6 +94,7 @@ export interface AdminUserPermission {
     staff: boolean;
     admin: boolean;
   };
+  cinemaId?: number | null;
 }
 
 export interface AdminPermissionRule {
@@ -115,6 +116,7 @@ export interface UserDto {
   active: boolean;
   /** Uppercase Keycloak realm roles, e.g. ["CUSTOMER"] or ["ADMIN"] */
   roles: string[];
+  cinemaId?: number | null;
 }
 
 /** Mirrors IdentityService.Application.DTOs.PagedResult<T> */
