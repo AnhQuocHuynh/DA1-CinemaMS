@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -157,6 +158,111 @@ public class PayPalGatewayTests
             new PayPalGateway(config, NullLogger<PayPalGateway>.Instance, httpClientFactory.Object));
         Assert.Null(exception);
     }
+
+    [Fact]
+    public async Task VerifyCallbackAsync_ShouldReturnSuccess_WhenCaptureFailsButOrderIsAlreadyCompleted()
+    {
+        var config = CreateConfig();
+        var handler = new DynamicHttpMessageHandler(req =>
+        {
+            if (req.RequestUri!.AbsolutePath.Contains("/oauth2/token"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"access_token\":\"test_tok\",\"expires_in\":3600}", Encoding.UTF8, "application/json")
+                };
+            }
+            if (req.Method == HttpMethod.Post && req.RequestUri!.AbsolutePath.Contains("/capture"))
+            {
+                // Simulate PayPal 422 MAX_NUMBER_OF_PAYMENT_ATTEMPTS_EXCEEDED
+                return new HttpResponseMessage(HttpStatusCode.UnprocessableEntity)
+                {
+                    Content = new StringContent("{\"name\":\"UNPROCESSABLE_ENTITY\",\"details\":[{\"issue\":\"MAX_NUMBER_OF_PAYMENT_ATTEMPTS_EXCEEDED\"}]}", Encoding.UTF8, "application/json")
+                };
+            }
+            if (req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath.Contains("/checkout/orders/"))
+            {
+                // GET order returns COMPLETED
+                var orderJson = @"{
+                    ""id"": ""PAYPAL_ORD_123"",
+                    ""status"": ""COMPLETED"",
+                    ""purchase_units"": [{
+                        ""reference_id"": ""999"",
+                        ""payments"": {
+                            ""captures"": [{
+                                ""id"": ""CAPTURE_123"",
+                                ""status"": ""COMPLETED""
+                            }]
+                        }
+                    }]
+                }";
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(orderJson, Encoding.UTF8, "application/json")
+                };
+            }
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var httpClient = new HttpClient(handler);
+        var factoryMock = new Mock<IHttpClientFactory>();
+        factoryMock.Setup(f => f.CreateClient("PayPal")).Returns(httpClient);
+
+        var gateway = new PayPalGateway(config, NullLogger<PayPalGateway>.Instance, factoryMock.Object);
+        var parameters = new Dictionary<string, string> { { "token", "PAYPAL_ORD_123" } };
+
+        var result = await gateway.VerifyCallbackAsync(parameters);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("CAPTURE_123", result.TransactionId);
+        Assert.Equal("999", parameters["paymentId"]);
+    }
+
+    [Fact]
+    public async Task VerifyCallbackAsync_ShouldReturnFailure_WhenCaptureFailsAndOrderNotCompleted()
+    {
+        var config = CreateConfig();
+        var handler = new DynamicHttpMessageHandler(req =>
+        {
+            if (req.RequestUri!.AbsolutePath.Contains("/oauth2/token"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"access_token\":\"test_tok\",\"expires_in\":3600}", Encoding.UTF8, "application/json")
+                };
+            }
+            if (req.Method == HttpMethod.Post && req.RequestUri!.AbsolutePath.Contains("/capture"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.UnprocessableEntity)
+                {
+                    Content = new StringContent("{\"name\":\"UNPROCESSABLE_ENTITY\",\"details\":[{\"issue\":\"PAYER_ACTION_REQUIRED\"}]}", Encoding.UTF8, "application/json")
+                };
+            }
+            if (req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath.Contains("/checkout/orders/"))
+            {
+                var orderJson = @"{
+                    ""id"": ""PAYPAL_ORD_123"",
+                    ""status"": ""CREATED""
+                }";
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(orderJson, Encoding.UTF8, "application/json")
+                };
+            }
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var httpClient = new HttpClient(handler);
+        var factoryMock = new Mock<IHttpClientFactory>();
+        factoryMock.Setup(f => f.CreateClient("PayPal")).Returns(httpClient);
+
+        var gateway = new PayPalGateway(config, NullLogger<PayPalGateway>.Instance, factoryMock.Object);
+        var parameters = new Dictionary<string, string> { { "token", "PAYPAL_ORD_123" } };
+
+        var result = await gateway.VerifyCallbackAsync(parameters);
+
+        Assert.False(result.IsSuccess);
+    }
 }
 
 /// <summary>
@@ -182,5 +288,22 @@ internal class FakeHttpMessageHandler : HttpMessageHandler
             Content = new StringContent(_responseBody, System.Text.Encoding.UTF8, "application/json")
         };
         return Task.FromResult(response);
+    }
+}
+
+internal class DynamicHttpMessageHandler : HttpMessageHandler
+{
+    private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;
+
+    public DynamicHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> handler)
+    {
+        _handler = handler;
+    }
+
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        System.Threading.CancellationToken cancellationToken)
+    {
+        return Task.FromResult(_handler(request));
     }
 }
