@@ -56,7 +56,7 @@ public class UsersControllerTests : BaseIntegrationTest
         _dbContext.Users.Add(admin);
         await _dbContext.SaveChangesAsync();
 
-        AuthenticateAsUser(adminKeycloakId, "admin");
+        AuthenticateAsUser(adminKeycloakId, "ADMIN");
 
         // Act
         var response = await _client.GetAsync("/api/Users?page=1&pageSize=10");
@@ -97,7 +97,7 @@ public class UsersControllerTests : BaseIntegrationTest
         _dbContext.Users.Add(admin);
         await _dbContext.SaveChangesAsync();
 
-        AuthenticateAsUser(adminKeycloakId, "admin");
+        AuthenticateAsUser(adminKeycloakId, "ADMIN");
 
         // Act
         var response = await _client.GetAsync($"/api/Users/{user.Id}");
@@ -138,7 +138,7 @@ public class UsersControllerTests : BaseIntegrationTest
         _dbContext.Users.Add(admin);
         await _dbContext.SaveChangesAsync();
 
-        AuthenticateAsUser(adminKeycloakId, "admin");
+        AuthenticateAsUser(adminKeycloakId, "ADMIN");
         
         var request = new { NewRole = "ADMIN" };
 

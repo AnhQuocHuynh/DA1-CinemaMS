@@ -29,6 +29,11 @@ namespace FacilityService.Infrastructure
             {
                 var baseUrl = configuration["ServiceUrls:ShowtimeService"] ?? throw new ArgumentNullException("ServiceUrls:ShowtimeService is missing");
                 client.BaseAddress = new Uri(baseUrl);
+                var internalToken = configuration["INTERNAL_API_TOKEN"] ?? configuration["InternalApi:Token"] ?? "local-dev-internal-token";
+                if (!string.IsNullOrEmpty(internalToken))
+                {
+                    client.DefaultRequestHeaders.Add("X-Internal-Token", internalToken);
+                }
             })
             .AddStandardResilienceHandler(options =>
             {

@@ -12,7 +12,7 @@ instead of relying on framework-specific defaults or trusting unsigned headers.
 
 Related artifacts:
 
-- `architecture_refactor.md` for the high-level target architecture.
+- `architecture.md` for the high-level target architecture.
 - `../backend/shared/contracts/*.openapi.yml` for public and internal HTTP paths.
 - `../backend/shared/events/README.md` for the cross-framework RabbitMQ envelope.
 

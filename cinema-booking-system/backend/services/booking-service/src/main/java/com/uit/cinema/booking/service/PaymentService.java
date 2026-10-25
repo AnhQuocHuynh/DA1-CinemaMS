@@ -25,4 +25,6 @@ public interface PaymentService {
         String reason,
         BigDecimal refundAmount
     );
+
+    PaymentEventOutcome applyExpiredPayment(Long orderId, Long userId, String reason);
 }

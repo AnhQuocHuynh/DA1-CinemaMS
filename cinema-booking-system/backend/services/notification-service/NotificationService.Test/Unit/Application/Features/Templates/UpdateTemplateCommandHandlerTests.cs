@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -27,11 +26,11 @@ public class UpdateTemplateCommandHandlerTests
     public async Task Handle_ShouldUpdateTemplate_WhenTemplateExists()
     {
         // Arrange
-        var command = new UpdateTemplateCommand("CODE1", NotificationChannel.SMS, "New Subject", "New Body");
+        var command = new UpdateTemplateCommand("template-id-1", NotificationChannel.SMS, "New Subject", "New Body");
         var template = new NotificationTemplate("CODE1", NotificationChannel.EMAIL, "Old Subject", "Old Body");
 
         _templateRepositoryMock
-            .Setup(x => x.GetByCodeAsync(command.Code, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetByIdAsync(command.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(template);
 
         // Act
@@ -52,7 +51,7 @@ public class UpdateTemplateCommandHandlerTests
         var command = new UpdateTemplateCommand("NON_EXISTENT", NotificationChannel.SMS, "New Subject", "New Body");
 
         _templateRepositoryMock
-            .Setup(x => x.GetByCodeAsync(command.Code, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetByIdAsync(command.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync((NotificationTemplate?)null);
 
         // Act

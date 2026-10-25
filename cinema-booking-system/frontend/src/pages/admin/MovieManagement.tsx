@@ -9,8 +9,10 @@ import { GenreManagementModal } from '../../components/admin/modals/GenreManagem
 import { RatingBadge } from '../../components/Review/RatingBadge';
 import { movieService } from '../../services/movieService';
 import { AdminDataState, AdminTableSkeleton } from '../../components/admin/AdminDataState';
+import { useTranslation } from 'react-i18next';
 
 export const MovieManagement: React.FC = () => {
+  const { t } = useTranslation();
   const { movies, isLoading, isRetrying, retry, addMovie, updateMovie, deleteMovie } = useAdminMovies();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGenreModalOpen, setIsGenreModalOpen] = useState(false);
@@ -35,7 +37,7 @@ export const MovieManagement: React.FC = () => {
   };
 
   const handleDeleteClick = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this movie?')) {
+    if (window.confirm(t('adminMovies.deleteConfirm', 'Are you sure you want to delete this movie?'))) {
       await deleteMovie(id);
     }
   };
@@ -50,20 +52,20 @@ export const MovieManagement: React.FC = () => {
 
   return (
     <AdminLayout activeItemId="movies">
-      <AdminTopBar title="Admin Console" searchPlaceholder="Search movies, tags, or status..." />
+      <AdminTopBar title={t('adminMovies.console', 'Admin Console')} searchPlaceholder={t('adminMovies.search', 'Search movies, tags, or status...')} />
       <main className="p-6 md:p-10 min-h-screen">
         <AdminPageHeader
-          eyebrow="Catalog Control"
-          title="Movie Management"
-          subtitle="Curate releases, adjust availability, and maintain the lineup."
+          eyebrow={t('adminMovies.eyebrow', 'Catalog Control')}
+          title={t('adminMovies.title', 'Movie Management')}
+          subtitle={t('adminMovies.subtitle', 'Curate releases, adjust availability, and maintain the lineup.')}
           actions={
             <div className="flex gap-3">
               <button onClick={() => setIsGenreModalOpen(true)} className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg font-semibold text-sm hover:bg-surface-container-highest flex items-center gap-2">
-                Manage Genres
+                {t('adminMovies.manageGenres', 'Manage Genres')}
               </button>
-              <button onClick={handleAddClick} className="px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-blue-700 flex items-center gap-2">
+              <button onClick={handleAddClick} className="px-4 py-2 bg-primary text-on-primary rounded-lg font-semibold text-sm hover:opacity-90 flex items-center gap-2">
                 <Plus className="w-4 h-4" />
-                Add Movie
+                {t('adminMovies.addMovie', 'Add Movie')}
               </button>
             </div>
           }
@@ -75,16 +77,16 @@ export const MovieManagement: React.FC = () => {
               <Search className="w-4 h-4 text-outline" />
               <input
                 className="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline"
-                placeholder="Search by title or status"
+                placeholder={t('adminMovies.searchTitle', 'Search by title or status')}
                 type="text"
               />
             </div>
-            <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
-              <span>Active</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-              <span>Draft</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-              <span>Archived</span>
+            <div className="flex items-center gap-3 text-xs font-semibold text-on-surface-variant">
+              <span>{t('adminMovies.active', 'Active')}</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
+              <span>{t('adminMovies.draft', 'Draft')}</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
+              <span>{t('adminMovies.archived', 'Archived')}</span>
             </div>
           </div>
 
@@ -93,17 +95,17 @@ export const MovieManagement: React.FC = () => {
             isEmpty={!isLoading && movies.length === 0}
             onRetry={retry}
             isRetrying={isRetrying}
-            emptyMessage="No movies found."
+            emptyMessage={t('adminMovies.empty', 'No movies found.')}
             skeleton={<AdminTableSkeleton rows={5} cols={5} />}
           >
             <table className="w-full text-left border-collapse">
               <thead className="bg-surface-container-low/50">
                 <tr>
-                  <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Title</th>
-                  <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Status</th>
-                  <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Bookings</th>
-                  <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">Rating</th>
-                  <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary text-right">Actions</th>
+                  <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">{t('adminMovies.colTitle', 'Title')}</th>
+                  <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">{t('adminMovies.colStatus', 'Status')}</th>
+                  <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">{t('adminMovies.colBookings', 'Bookings')}</th>
+                  <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary">{t('adminMovies.colRating', 'Rating')}</th>
+                  <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-secondary text-right">{t('adminMovies.colActions', 'Actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container">
@@ -114,10 +116,10 @@ export const MovieManagement: React.FC = () => {
                       <span
                         className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-tight ${
                           movie.status === 'active'
-                            ? 'bg-green-50 text-green-700'
+                            ? 'bg-success-container text-on-success-container'
                             : movie.status === 'draft'
                               ? 'bg-amber-50 text-amber-700'
-                              : 'bg-slate-100 text-slate-500'
+                              : 'bg-surface-container text-on-surface-variant'
                         }`}
                       >
                         {movie.status}
@@ -126,8 +128,8 @@ export const MovieManagement: React.FC = () => {
                     <td className="px-6 py-4 text-sm text-on-surface">{movie.bookings}</td>
                     <td className="px-6 py-4 text-sm text-on-surface"><RatingBadge type="movie" id={movie.id} /></td>
                     <td className="px-6 py-4 text-right space-x-2">
-                      <button onClick={() => handleEditClick(movie.id)} className="px-3 py-1 bg-primary text-white rounded text-xs hover:bg-blue-700">Edit</button>
-                      <button onClick={() => handleDeleteClick(movie.id)} className="px-3 py-1 bg-error text-white rounded text-xs hover:bg-red-700">Delete</button>
+                      <button onClick={() => handleEditClick(movie.id)} className="px-3 py-1 bg-primary text-on-primary rounded text-xs hover:opacity-90">{t('adminMovies.edit', 'Edit')}</button>
+                      <button onClick={() => handleDeleteClick(movie.id)} className="px-3 py-1 bg-error text-on-error rounded text-xs hover:opacity-90">{t('adminMovies.delete', 'Delete')}</button>
                     </td>
                   </tr>
                 ))}

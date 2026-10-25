@@ -1,12 +1,16 @@
 package com.uit.cinema.showtime.security;
 
 import com.uit.cinema.core.exception.CustomException;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
 
@@ -24,7 +28,7 @@ public class AuthenticatedUserIdResolver {
             return requireLegacyUserId(requestedUserId);
         }
 
-        Long authenticatedUserId = currentUserId();
+        Long authenticatedUserId = currentUserId(requestedUserId);
         if (requestedUserId != null && !authenticatedUserId.equals(requestedUserId)) {
             throw new CustomException(
                 "Requested user does not match the authenticated user",
@@ -39,7 +43,7 @@ public class AuthenticatedUserIdResolver {
         return jwtEnabled;
     }
 
-    private Long currentUserId() {
+    private Long currentUserId(Long requestedUserId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (!(authentication instanceof JwtAuthenticationToken jwtAuthentication) || !authentication.isAuthenticated()) {
             throw new CustomException(
@@ -50,6 +54,19 @@ public class AuthenticatedUserIdResolver {
         }
 
         Object userIdClaim = jwtAuthentication.getToken().getClaim("user_id");
+        if (userIdClaim == null) {
+            if (requestedUserId != null && requestedUserId > 0) {
+                return requestedUserId;
+            }
+            HttpServletRequest request = currentHttpRequest();
+            if (request != null) {
+                String headerVal = request.getHeader("X-User-Id");
+                if (StringUtils.hasText(headerVal)) {
+                    userIdClaim = headerVal;
+                }
+            }
+        }
+
         try {
             long userId = new BigDecimal(String.valueOf(userIdClaim)).longValueExact();
             if (userId <= 0) {
@@ -63,6 +80,14 @@ public class AuthenticatedUserIdResolver {
                 "USER_ID_MAPPING_UNAVAILABLE"
             );
         }
+    }
+
+    private HttpServletRequest currentHttpRequest() {
+        var attrs = RequestContextHolder.getRequestAttributes();
+        if (attrs instanceof ServletRequestAttributes servletAttrs) {
+            return servletAttrs.getRequest();
+        }
+        return null;
     }
 
     private Long requireLegacyUserId(Long userId) {

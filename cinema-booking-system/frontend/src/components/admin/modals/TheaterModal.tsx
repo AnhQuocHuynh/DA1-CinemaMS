@@ -68,35 +68,35 @@ export const TheaterModal: React.FC<TheaterModalProps> = ({ isOpen, onClose, onS
         <div className="p-6">
           <form id="theater-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Theater Name <span className="text-error">*</span></label>
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Theater Name <span className="text-error">*</span></label>
               <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" placeholder="Star Cinema HCMC" />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">City / Region <span className="text-error">*</span></label>
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">City / Region <span className="text-error">*</span></label>
               <input required type="text" name="city" value={formData.city} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" placeholder="HCMC" />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Address</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Address</label>
               <input type="text" name="address" value={formData.address} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" placeholder="123 Example St." />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Phone</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Phone</label>
               <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary" placeholder="0123456789" />
             </div>
 
             <div className="flex items-center gap-3 mt-4">
               <input type="checkbox" id="t-active" name="active" checked={formData.active} onChange={handleChange} className="w-4 h-4 text-primary rounded" />
-              <label htmlFor="t-active" className="text-sm font-semibold text-slate-700 cursor-pointer">Theater is active and operating</label>
+              <label htmlFor="t-active" className="text-sm font-semibold text-on-surface-variant cursor-pointer">Theater is active and operating</label>
             </div>
           </form>
         </div>
         
         <div className="px-6 py-4 border-t border-surface-container bg-surface-container-lowest flex justify-end gap-3">
-          <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-100">Cancel</button>
-          <button type="submit" form="theater-form" disabled={isSubmitting} className="px-6 py-2 rounded-lg font-bold text-sm bg-primary text-white hover:bg-blue-700">
+          <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 rounded-lg font-bold text-sm text-on-surface-variant hover:bg-surface-container">Cancel</button>
+          <button type="submit" form="theater-form" disabled={isSubmitting} className="px-6 py-2 rounded-lg font-bold text-sm bg-primary text-on-primary hover:opacity-90">
             {isSubmitting ? 'Saving...' : 'Save Theater'}
           </button>
         </div>

@@ -1,5 +1,4 @@
-// TODO: Migrate to src/lib/apiClient.ts
-import apiClient from './authService';
+import apiClient from '../lib/apiClient';
 import {
   StaffBookingListItem,
   StaffBookingValidation,
@@ -47,6 +46,20 @@ export const staffService = {
       payload
     );
     return response.data.data;
+  },
+
+  lookupMemberByPhone: async (
+    phone: string
+  ): Promise<{ id: number; fullName: string; phone: string; tier?: string; loyaltyPoints?: number } | null> => {
+    try {
+      const response = await apiClient.get<{
+        success: boolean;
+        data: { id: number; fullName: string; phone: string; tier?: string; loyaltyPoints?: number };
+      }>(`/users/lookup?phone=${encodeURIComponent(phone)}`);
+      return response.data.data ?? null;
+    } catch {
+      return null;
+    }
   },
 
   scanTicket: async (ticketCode: string): Promise<StaffScanResult> => {

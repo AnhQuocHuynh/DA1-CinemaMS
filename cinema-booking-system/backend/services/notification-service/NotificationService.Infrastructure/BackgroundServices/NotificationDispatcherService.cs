@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,6 +10,8 @@ using MongoDB.Driver;
 using NotificationService.Application.Contracts;
 using NotificationService.Domain.Entities;
 using NotificationService.Domain.Enums;
+using NotificationService.Domain.Interfaces;
+using NotificationService.Domain.ValueObjects;
 using NotificationService.Infrastructure.Data;
 
 namespace NotificationService.Infrastructure.BackgroundServices;
@@ -55,6 +59,8 @@ public class NotificationDispatcherService : BackgroundService
         var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
         var smsSender = scope.ServiceProvider.GetRequiredService<ISmsSender>();
         var pushSender = scope.ServiceProvider.GetRequiredService<IPushNotificationSender>();
+        var preferenceRepository = scope.ServiceProvider.GetRequiredService<IUserPreferenceRepository>();
+        var userResolver = scope.ServiceProvider.GetRequiredService<IKeycloakUserResolver>();
 
         // Find all pending notifications
         var filter = Builders<Notification>.Filter.Eq(n => n.Status, DeliveryStatus.PENDING) |
@@ -71,7 +77,7 @@ public class NotificationDispatcherService : BackgroundService
 
             try
             {
-                await DispatchNotificationAsync(notification, emailSender, smsSender, pushSender, cancellationToken);
+                await DispatchNotificationAsync(notification, emailSender, smsSender, pushSender, preferenceRepository, userResolver, cancellationToken);
                 
                 // Update to SENT
                 var update = Builders<Notification>.Update
@@ -115,20 +121,68 @@ public class NotificationDispatcherService : BackgroundService
         IEmailSender emailSender,
         ISmsSender smsSender,
         IPushNotificationSender pushSender,
+        IUserPreferenceRepository preferenceRepository,
+        IKeycloakUserResolver userResolver,
         CancellationToken cancellationToken)
     {
         switch (notification.Channel)
         {
             case NotificationChannel.EMAIL:
-                // We assume User's email is in metadata for this simplistic dispatcher
-                var email = notification.Metadata != null && notification.Metadata.TryGetValue("Email", out var e) ? e.ToString() : null;
-                if (string.IsNullOrEmpty(email)) throw new InvalidOperationException("Email address is missing in metadata.");
+                var email = GetMetadataValue(notification.Metadata, "Email", "email");
+                if (string.IsNullOrWhiteSpace(email))
+                {
+                    var pref = await preferenceRepository.GetByUserIdAsync(notification.UserId, cancellationToken);
+                    email = pref?.Contact?.Email;
+                    if (string.IsNullOrWhiteSpace(email))
+                    {
+                        var userContact = await userResolver.GetUserContactAsync(notification.UserId, cancellationToken);
+                        if (!string.IsNullOrWhiteSpace(userContact?.Email))
+                        {
+                            email = userContact.Email;
+                            if (pref == null)
+                            {
+                                var newPref = new UserPreference(
+                                    notification.UserId,
+                                    new ContactDetails(userContact.Email, userContact.Phone),
+                                    emailEnabled: true,
+                                    smsEnabled: true,
+                                    pushEnabled: true);
+                                await preferenceRepository.UpsertAsync(newPref, cancellationToken);
+                            }
+                            else
+                            {
+                                pref.UpdatePreferences(
+                                    new ContactDetails(userContact.Email, userContact.Phone ?? pref.Contact?.PhoneNumber),
+                                    pref.EmailEnabled,
+                                    pref.SmsEnabled,
+                                    pref.PushEnabled);
+                                await preferenceRepository.UpsertAsync(pref, cancellationToken);
+                            }
+                        }
+                    }
+                }
+                if (string.IsNullOrWhiteSpace(email))
+                    throw new InvalidOperationException($"Email address could not be resolved from metadata, user preferences, or identity service for user {notification.UserId}.");
                 await emailSender.SendEmailAsync(email, notification.Title, notification.Body, cancellationToken);
                 break;
                 
             case NotificationChannel.SMS:
-                var phone = notification.Metadata != null && notification.Metadata.TryGetValue("Phone", out var p) ? p.ToString() : null;
-                if (string.IsNullOrEmpty(phone)) throw new InvalidOperationException("Phone number is missing in metadata.");
+                var phone = GetMetadataValue(notification.Metadata, "Phone", "phone", "PhoneNumber", "phoneNumber");
+                if (string.IsNullOrWhiteSpace(phone))
+                {
+                    var pref = await preferenceRepository.GetByUserIdAsync(notification.UserId, cancellationToken);
+                    phone = pref?.Contact?.PhoneNumber;
+                    if (string.IsNullOrWhiteSpace(phone))
+                    {
+                        var userContact = await userResolver.GetUserContactAsync(notification.UserId, cancellationToken);
+                        if (!string.IsNullOrWhiteSpace(userContact?.Phone))
+                        {
+                            phone = userContact.Phone;
+                        }
+                    }
+                }
+                if (string.IsNullOrWhiteSpace(phone))
+                    throw new InvalidOperationException($"Phone number could not be resolved from metadata, user preferences, or identity service for user {notification.UserId}.");
                 await smsSender.SendSmsAsync(phone, notification.Body, cancellationToken);
                 break;
                 
@@ -139,6 +193,32 @@ public class NotificationDispatcherService : BackgroundService
             default:
                 throw new NotSupportedException($"Channel {notification.Channel} is not supported.");
         }
+    }
+
+    private static string? GetMetadataValue(Dictionary<string, object>? metadata, params string[] keys)
+    {
+        if (metadata == null) return null;
+
+        foreach (var key in keys)
+        {
+            foreach (var kvp in metadata)
+            {
+                if (string.Equals(kvp.Key, key, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (kvp.Value is JsonElement jsonElement)
+                    {
+                        return jsonElement.GetString();
+                    }
+                    var str = kvp.Value?.ToString();
+                    if (!string.IsNullOrWhiteSpace(str))
+                    {
+                        return str;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
     
     private async Task LogDeliveryAsync(MongoDbContext context, string notificationId, int attempt, DeliveryStatus status, string response, CancellationToken cancellationToken)

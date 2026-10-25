@@ -16,7 +16,7 @@ public class NotificationTemplate
 
     private NotificationTemplate()
     {
-        Id = string.Empty;
+        Id = Guid.NewGuid().ToString();
         Code = string.Empty;
         Subject = string.Empty;
         BodyTemplate = string.Empty;
@@ -28,7 +28,7 @@ public class NotificationTemplate
         if (string.IsNullOrWhiteSpace(subject)) throw new ArgumentException("Subject is required.", nameof(subject));
         if (string.IsNullOrWhiteSpace(bodyTemplate)) throw new ArgumentException("BodyTemplate is required.", nameof(bodyTemplate));
 
-        Id = string.Empty;
+        Id = Guid.NewGuid().ToString();
         Code = code;
         Channel = channel;
         Subject = subject;

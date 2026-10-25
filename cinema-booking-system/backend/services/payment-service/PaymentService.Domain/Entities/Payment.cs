@@ -14,8 +14,9 @@ public class Payment
     public string? TransactionId { get; private set; }
     public decimal Amount { get; private set; }
     public string Currency { get; private set; } = "VND";
-    public PaymentMethod PaymentMethod { get; private set; }
+    public PaymentMethod? PaymentMethod { get; private set; }
     public PaymentStatus Status { get; private set; } = PaymentStatus.PENDING;
+    public string? GatewaySessionId { get; private set; }
     public string? GatewayResponse { get; private set; }
     public DateTime? PaidAt { get; private set; }
     public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
@@ -25,6 +26,18 @@ public class Payment
     public IReadOnlyCollection<Refund> Refunds => _refunds.AsReadOnly();
 
     protected Payment() { } // EF Core
+
+    // Constructor for slot reserved from order.created event
+    public Payment(long orderId, long userId, decimal amount, string currency)
+    {
+        SagaId = Guid.NewGuid();
+        OrderId = orderId;
+        UserId = userId;
+        Amount = amount;
+        Currency = currency;
+        Status = PaymentStatus.CREATED;
+        CreatedAt = DateTime.UtcNow;
+    }
 
     public Payment(long orderId, long userId, decimal amount, string currency, PaymentMethod paymentMethod)
     {
@@ -36,6 +49,26 @@ public class Payment
         PaymentMethod = paymentMethod;
         Status = PaymentStatus.PENDING;
         CreatedAt = DateTime.UtcNow;
+    }
+
+    public void Initiate(PaymentMethod method, string? gatewaySessionId = null)
+    {
+        if (Status != PaymentStatus.CREATED && Status != PaymentStatus.FAILED)
+            throw new InvalidOperationException($"Cannot initiate payment in status {Status}");
+
+        PaymentMethod = method;
+        GatewaySessionId = gatewaySessionId;
+        Status = PaymentStatus.PENDING;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void Expire()
+    {
+        if (Status != PaymentStatus.CREATED)
+            throw new InvalidOperationException($"Cannot expire payment in status {Status}");
+
+        Status = PaymentStatus.EXPIRED;
+        UpdatedAt = DateTime.UtcNow;
     }
 
     public void Complete(string transactionId, string? gatewayResponse)

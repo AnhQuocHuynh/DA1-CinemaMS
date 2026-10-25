@@ -1,25 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lock, Tag, X, AlertCircle, ArrowLeft } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCheckoutSummary } from '../../hooks/useCheckoutSummary';
 import { HoldTimer } from '../../components/portal/HoldTimer';
 import { useBookingStore } from '../../store/bookingStore';
 import { useAuthStore } from '../../store/authStore';
 import { bookingService } from '../../services/bookingService';
+import { paymentService } from '../../services/paymentService';
 import { formatVND, formatShowtime } from '../../utils/formatters';
 
-type PaymentMethod = 'CREDIT_CARD' | 'DEBIT_CARD' | 'BANK_TRANSFER' | 'WALLET';
+type PaymentMethod = 'STRIPE' | 'PAYPAL';
 
-const PAYMENT_OPTIONS: { value: PaymentMethod; label: string }[] = [
-  { value: 'CREDIT_CARD', label: 'Thẻ tín dụng' },
-  { value: 'DEBIT_CARD', label: 'Thẻ ghi nợ' },
-  { value: 'BANK_TRANSFER', label: 'Chuyển khoản ngân hàng' },
-  { value: 'WALLET', label: 'Ví điện tử' },
+const getPaymentOptions = (t: (key: string) => string): { value: PaymentMethod; label: string }[] => [
+  { value: 'STRIPE', label: t('checkout.stripe') },
+  { value: 'PAYPAL', label: t('checkout.paypal') },
 ];
 
 export const Checkout: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const PAYMENT_OPTIONS = getPaymentOptions(t);
   const {
     summary,
     voucherCode,
@@ -35,23 +37,60 @@ export const Checkout: React.FC = () => {
     selectedSeats,
     showtimeData,
     holdExpiresAt,
+    pendingOrder,
     setPendingOrder,
     setCompletedOrder,
+    clearSelection,
   } = useBookingStore();
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CREDIT_CARD');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('STRIPE');
   const [isProcessing, setIsProcessing] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
 
-  const handleTimerExpired = () => navigate(-1);
+  const handleTimerExpired = () => {
+    clearSelection();
+    navigate('/user/booking-failed?reason=timeout');
+  };
+
+  useEffect(() => {
+    // 1. Direct access check: if no seats selected and no showtime
+    if (selectedSeats.length === 0 || !showtimeData) {
+      navigate('/', { replace: true });
+      return;
+    }
+
+    // 2. Hold timer check: if the hold already expired (e.g. while away on gateway)
+    if (holdExpiresAt && new Date(holdExpiresAt).getTime() <= Date.now()) {
+      clearSelection();
+      navigate('/user/booking-failed?reason=timeout', { replace: true });
+      return;
+    }
+
+    // 3. Status check: if an order exists, verify it wasn't already paid or cancelled
+    if (pendingOrder?.id) {
+      bookingService.getOrderById(pendingOrder.id)
+        .then((ord) => {
+          if (ord.status === 'PAID') {
+            setCompletedOrder(ord);
+            navigate(`/user/checkout-success?orderId=${ord.id}`, { replace: true });
+          } else if (ord.status === 'CANCELLED') {
+            clearSelection();
+            navigate(`/user/booking-failed?reason=cancelled&orderId=${ord.id}`, { replace: true });
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not verify pending order status:', err);
+        });
+    }
+  }, [selectedSeats.length, showtimeData, holdExpiresAt, pendingOrder?.id, navigate, clearSelection, setCompletedOrder]);
 
   const handlePay = async () => {
     if (!user || !showtimeData) {
-      setPayError('Phiên đăng nhập đã hết. Vui lòng đăng nhập lại.');
+      setPayError(t('checkout.sessionExpired'));
       return;
     }
     if (selectedSeats.length === 0) {
-      setPayError('Không có ghế nào được chọn.');
+      setPayError(t('checkout.noSeats'));
       return;
     }
 
@@ -62,30 +101,80 @@ export const Checkout: React.FC = () => {
       const seatIds = selectedSeats.map((s) => s.numericId);
       const userId = typeof user.id === 'number' ? user.id : parseInt(String(user.id), 10);
 
-      // 1. Create order
-      const order = await bookingService.createOrder({
-        userId,
-        showtimeId: showtimeData.id,
-        seatIds,
-        voucherCode: appliedVoucher?.code ?? null,
-      });
-      setPendingOrder(order);
+      // 1. Create order (or reuse existing pending order if 409 duplicate)
+      let orderId: number;
+      try {
+        const order = await bookingService.createOrder({
+          userId,
+          showtimeId: showtimeData.id,
+          seatIds,
+          voucherCode: appliedVoucher?.code ?? null,
+        });
+        setPendingOrder(order);
+        orderId = order.id;
+      } catch (orderErr: any) {
+        const errData = orderErr?.response?.data;
+        if (
+          orderErr?.response?.status === 409 &&
+          (errData?.code === 'DUPLICATE_PENDING_ORDER' || errData?.errorCode === 'DUPLICATE_PENDING_ORDER') &&
+          errData?.existingOrderId
+        ) {
+          orderId = errData.existingOrderId;
+        } else {
+          throw orderErr;
+        }
+      }
 
-      // 2. Process payment
-      const transactionId = `TXN-${crypto.randomUUID()}`;
-      const paidOrder = await bookingService.processPayment(order.id, paymentMethod, transactionId);
-      setCompletedOrder(paidOrder);
+      // Save context in sessionStorage before external redirect
+      try {
+        sessionStorage.setItem('pending_booking', JSON.stringify({
+          orderId,
+          showtimeData,
+          movieTitle: showtimeData?.displayTitle || showtimeData?.eventName || '',
+          selectedSeats,
+          holdExpiresAt: holdExpiresAt ? holdExpiresAt.toISOString() : null,
+          voucher: appliedVoucher ?? null,
+        }));
+      } catch (e) {
+        console.warn('Failed to save pending booking in sessionStorage', e);
+      }
 
-      navigate('/user/checkout-success');
+      const successUrl = paymentMethod === 'STRIPE'
+        ? `${window.location.origin}/user/checkout-success?orderId=${orderId}&session_id={CHECKOUT_SESSION_ID}`
+        : `${window.location.origin}/user/checkout-success?orderId=${orderId}`;
+
+      const paymentData = {
+        orderId,
+        paymentMethod: paymentMethod,
+        successUrl,
+        cancelUrl: `${window.location.origin}/user/booking-failed?reason=cancelled&orderId=${orderId}`
+      };
+      const paymentResponse = await paymentService.initiatePayment(paymentData);
+
+      if (paymentResponse.paymentUrl) {
+        window.location.href = paymentResponse.paymentUrl;
+        return;
+      }
+
+      setCompletedOrder({ id: orderId } as any);
+      navigate(`/user/checkout-success?orderId=${orderId}`);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setPayError(
-        axiosErr?.response?.data?.message || 'Thanh toán thất bại. Vui lòng thử lại.'
+        axiosErr?.response?.data?.message || t('checkout.paymentFailed')
       );
     } finally {
       setIsProcessing(false);
     }
   };
+
+  if (selectedSeats.length === 0 || !showtimeData) {
+    return (
+      <main className="min-h-screen bg-surface flex items-center justify-center px-6 py-20">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </main>
+    );
+  }
 
   const showtimeLabel = showtimeData ? formatShowtime(showtimeData.startTime) : '';
 
@@ -102,9 +191,9 @@ export const Checkout: React.FC = () => {
               <ArrowLeft className="w-4 h-4" />
             </Link>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-on-surface">Xác nhận đơn hàng</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-on-surface">{t('checkout.title')}</h1>
               <p className="text-sm text-on-surface-variant font-medium uppercase tracking-widest">
-                Bước 3 / 3: Thanh toán
+                {t('checkout.step3')}
               </p>
             </div>
           </div>
@@ -120,7 +209,7 @@ export const Checkout: React.FC = () => {
             <div className="flex justify-between items-start mb-8">
               <div className="space-y-1">
                 <span className="text-[10px] font-bold tracking-widest uppercase text-outline">
-                  Phim đã chọn
+                  {t('checkout.selectedMovie')}
                 </span>
                 <h2 className="text-2xl font-bold text-on-surface tracking-tight">
                   {summary.movieTitle || '—'}
@@ -135,7 +224,7 @@ export const Checkout: React.FC = () => {
               {/* Seats */}
               <div>
                 <p className="text-[10px] font-bold tracking-widest uppercase text-outline mb-3">
-                  Ghế đã chọn
+                  {t('checkout.selectedSeats')}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {summary.seats.map((s) => (
@@ -152,24 +241,24 @@ export const Checkout: React.FC = () => {
               {/* Pricing breakdown */}
               <div>
                 <p className="text-[10px] font-bold tracking-widest uppercase text-outline mb-4">
-                  Chi tiết giá
+                  {t('checkout.priceDetails')}
                 </p>
                 <div className="space-y-3">
                   {summary.seats.map((s) => (
                     <div key={s.id} className="flex justify-between items-center text-sm">
                       <span className="text-on-surface-variant">
-                        Ghế {s.label} ({s.type === 'vip' ? 'VIP' : s.type === 'couple' ? 'Couple' : 'Thường'})
+                        {t('checkout.seat')} {s.label} ({s.type === 'vip' ? t('booking.vip') : s.type === 'couple' ? t('booking.couple') : t('booking.regular')})
                       </span>
                       <span className="font-medium text-on-surface">{formatVND(s.price)}</span>
                     </div>
                   ))}
                   {summary.discount > 0 && (
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-green-600 flex items-center gap-1">
+                      <span className="text-success flex items-center gap-1">
                         <Tag className="w-3 h-3" />
-                        Giảm giá ({appliedVoucher?.code})
+                        {t('checkout.discount')} ({appliedVoucher?.code})
                       </span>
-                      <span className="font-medium text-green-600">- {formatVND(summary.discount)}</span>
+                      <span className="font-medium text-success">- {formatVND(summary.discount)}</span>
                     </div>
                   )}
                 </div>
@@ -180,13 +269,13 @@ export const Checkout: React.FC = () => {
           {/* Voucher section */}
           <section className="bg-surface-container-low rounded-lg p-6">
             <p className="text-[10px] font-bold tracking-widest uppercase text-outline block mb-3">
-              Mã khuyến mãi
+              {t('checkout.promoCodeTitle')}
             </p>
             {appliedVoucher ? (
-              <div className="flex items-center justify-between bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3">
+              <div className="flex items-center justify-between bg-success/10 border border-success/30 rounded-lg px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-green-600" />
-                  <span className="text-sm font-bold text-green-600">{appliedVoucher.code}</span>
+                  <Tag className="w-4 h-4 text-success" />
+                  <span className="text-sm font-bold text-success">{appliedVoucher.code}</span>
                   <span className="text-xs text-on-surface-variant">
                     — giảm {formatVND(summary.discount)}
                   </span>
@@ -199,7 +288,7 @@ export const Checkout: React.FC = () => {
               <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
                 <input
                   className="flex-1 w-full bg-surface-container-lowest border border-outline-variant/30 focus:border-primary focus:ring-1 focus:ring-primary text-sm font-bold tracking-widest uppercase h-12 px-4 rounded outline-none transition"
-                  placeholder="NHẬP MÃ"
+                  placeholder={t('checkout.enterCode')}
                   type="text"
                   value={voucherCode}
                   onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
@@ -210,7 +299,7 @@ export const Checkout: React.FC = () => {
                   onClick={applyVoucher}
                   disabled={voucherLoading || !voucherCode.trim()}
                 >
-                  {voucherLoading ? 'Đang kiểm tra...' : 'Áp dụng'}
+                  {voucherLoading ? t('checkout.checking') : t('checkout.apply')}
                 </button>
               </div>
             )}
@@ -227,18 +316,17 @@ export const Checkout: React.FC = () => {
           <div className="sticky top-12 space-y-6">
             <section className="bg-surface-container-lowest rounded-xl p-8 shadow-sm border-t-4 border-primary">
               <h3 className="text-[11px] font-bold tracking-widest uppercase text-outline mb-6 text-center">
-                Phương thức thanh toán
+                {t('checkout.paymentMethod')}
               </h3>
 
               <div className="space-y-3 mb-8">
                 {PAYMENT_OPTIONS.map((opt) => (
                   <label
                     key={opt.value}
-                    className={`group relative flex items-center p-4 border rounded-lg cursor-pointer hover:bg-surface-container-low transition-all ${
-                      paymentMethod === opt.value
+                    className={`group relative flex items-center p-4 border rounded-lg cursor-pointer hover:bg-surface-container-low transition-all ${paymentMethod === opt.value
                         ? 'border-primary bg-primary/5'
                         : 'border-outline-variant'
-                    }`}
+                      }`}
                   >
                     <input
                       className="sr-only"
@@ -249,14 +337,13 @@ export const Checkout: React.FC = () => {
                       onChange={() => setPaymentMethod(opt.value)}
                     />
                     <div
-                      className={`w-5 h-5 border-2 rounded-full flex items-center justify-center mr-4 transition-all ${
-                        paymentMethod === opt.value
+                      className={`w-5 h-5 border-2 rounded-full flex items-center justify-center mr-4 transition-all ${paymentMethod === opt.value
                           ? 'border-primary bg-primary'
                           : 'border-outline-variant bg-transparent'
-                      }`}
+                        }`}
                     >
                       {paymentMethod === opt.value && (
-                        <div className="w-2 h-2 bg-white rounded-full" />
+                        <div className="w-2 h-2 bg-surface-container-lowest rounded-full" />
                       )}
                     </div>
                     <span className="text-sm font-semibold text-on-surface">{opt.label}</span>
@@ -268,18 +355,18 @@ export const Checkout: React.FC = () => {
                 {/* Total breakdown */}
                 <div className="space-y-2 mb-6">
                   <div className="flex justify-between text-sm">
-                    <span className="text-on-surface-variant">Tạm tính</span>
+                    <span className="text-on-surface-variant">{t('checkout.subtotal')}</span>
                     <span className="font-medium">{formatVND(summary.subtotal)}</span>
                   </div>
                   {summary.discount > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-green-600">Giảm giá</span>
-                      <span className="text-green-600 font-medium">- {formatVND(summary.discount)}</span>
+                      <span className="text-success">{t('checkout.discount')}</span>
+                      <span className="text-success font-medium">- {formatVND(summary.discount)}</span>
                     </div>
                   )}
                   <div className="flex justify-between items-end pt-2 border-t border-outline-variant/20 mt-2">
                     <span className="text-[10px] font-bold tracking-widest uppercase text-outline">
-                      Tổng thanh toán
+                      {t('checkout.totalAmount')}
                     </span>
                     <span className="text-3xl font-extrabold text-on-surface tracking-tighter leading-none">
                       {formatVND(summary.total)}
@@ -295,17 +382,17 @@ export const Checkout: React.FC = () => {
                 )}
 
                 <button
-                  className="w-full bg-primary text-white py-5 rounded shadow-lg shadow-primary/20 hover:bg-surface-tint active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-primary text-on-primary py-5 rounded shadow-lg shadow-primary/20 hover:bg-surface-tint active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={handlePay}
                   disabled={isProcessing || selectedSeats.length === 0}
                 >
                   <span className="text-sm font-bold tracking-widest uppercase">
-                    {isProcessing ? 'Đang xử lý...' : 'Xác nhận & Thanh toán'}
+                    {isProcessing ? t('checkout.processing') : t('checkout.confirmAndPay')}
                   </span>
                   {!isProcessing && <Lock className="w-4 h-4" />}
                 </button>
                 <p className="text-center text-[10px] text-outline mt-4 flex items-center justify-center gap-2">
-                  GIAO DỊCH ĐƯỢC MÃ HÓA 256-BIT
+                  {t('checkout.encrypted')}
                 </p>
               </div>
             </section>

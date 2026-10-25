@@ -1,3 +1,4 @@
+using CinemaBooking.Shared.Hosting.Extensions;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Metrics;
@@ -20,94 +21,18 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 builder.Services.AddHealthChecks();
 
 // Add native Keycloak JWT Authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.Authority = builder.Configuration["Jwt:Authority"];
-        options.Audience = builder.Configuration["Jwt:Audience"];
-        options.RequireHttpsMetadata = builder.Configuration.GetValue<bool>("Jwt:RequireHttpsMetadata");
-        
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:ValidIssuer"] ?? builder.Configuration["Jwt:Authority"],
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            NameClaimType = "preferred_username",
-            RoleClaimType = ClaimTypes.Role
-        };
-        
-        options.Events = new JwtBearerEvents
-        {
-            OnTokenValidated = context =>
-            {
-                // Map Keycloak realm roles to standard Role claims
-                var realmAccess = context.Principal?.FindFirst("realm_access");
-                if (realmAccess != null)
-                {
-                    var parsed = JsonDocument.Parse(realmAccess.Value);
-                    if (parsed.RootElement.TryGetProperty("roles", out var roles))
-                    {
-                        var identity = context.Principal?.Identity as ClaimsIdentity;
-                        foreach (var role in roles.EnumerateArray())
-                        {
-                            identity?.AddClaim(new Claim(ClaimTypes.Role, role.GetString()!));
-                        }
-                    }
-                }
-
-                // Map X-User-Id header to an internal claim for business logic
-                if (context.HttpContext.Request.Headers.TryGetValue("X-User-Id", out var userIdValues))
-                {
-                    var internalId = userIdValues.ToString();
-                    if (!string.IsNullOrEmpty(internalId))
-                    {
-                        var identity = context.Principal?.Identity as ClaimsIdentity;
-                        identity?.AddClaim(new Claim("internal_user_id", internalId));
-                    }
-                }
-
-                return Task.CompletedTask;
-            }
-        };
-    });
+builder.Services.AddCinemaAuthentication(builder.Configuration);
 
 // OpenTelemetry Observability
-var otlpEndpoint = builder.Configuration["Observability:OtlpEndpoint"] ?? "http://localhost:4317";
-builder.Services.AddOpenTelemetry()
-    .ConfigureResource(r => r.AddService(builder.Environment.ApplicationName))
-    .WithTracing(t => t
-        .AddAspNetCoreInstrumentation(opts => 
-        {
-            opts.Filter = context => 
-            {
-                var path = context.Request.Path.Value;
-                return !string.IsNullOrEmpty(path) && !path.Contains("health");
-            };
-        })
-        .AddHttpClientInstrumentation(opts => 
-        {
-            opts.FilterHttpRequestMessage = req => 
-            {
-                var path = req.RequestUri?.AbsolutePath;
-                return path == null || !path.Contains("health");
-            };
-        })
-        .AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint)))
-    .WithMetrics(m => m
-        .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint)));
-
-builder.Logging.AddOpenTelemetry(logging => {
-    logging.IncludeScopes = true;
-    logging.AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint));
-});
+builder.AddCinemaObservability();
 
 var app = builder.Build();
 
@@ -117,7 +42,7 @@ await DatabaseMigration.ApplyMigrationAsync(app.Services);
 //app.UseHttpsRedirection();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
-app.UseMiddleware<InternalApiSecurityMiddleware>();
+app.UseInternalApiSecurity();
 
 app.UseAuthentication();
 app.UseAuthorization();

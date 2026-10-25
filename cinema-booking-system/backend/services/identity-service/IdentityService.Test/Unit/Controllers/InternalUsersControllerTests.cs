@@ -58,4 +58,19 @@ public class InternalUsersControllerTests
         result.Should().BeOfType<BadRequestObjectResult>();
         _mediatorMock.Verify(m => m.Send(It.IsAny<ResolveKeycloakIdQuery>(), It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    // ─── Normal: valid userId → returns user DTO ─────────────────────────────
+
+    [Fact]
+    public async Task GetUserById_ValidId_ReturnsOkWithUser()
+    {
+        var userDto = new IdentityService.Application.DTOs.UserDto(123L, "kc-123", "test@test.com", "Test User", null, null, null, true);
+        _mediatorMock.Setup(m => m.Send(It.Is<IdentityService.Application.Features.Users.Queries.GetUserByIdQuery>(q => q.Id == 123L), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userDto);
+
+        var result = await _controller.GetUserById(123L);
+
+        result.Should().BeOfType<OkObjectResult>();
+        ((OkObjectResult)result).Value.Should().Be(userDto);
+    }
 }
