@@ -13,6 +13,7 @@ public record UserDto(
     Gender? Gender,
     DateTime? DateOfBirth,
     bool Active,
-    IEnumerable<string>? Roles = null   // Keycloak realm roles, e.g. ["CUSTOMER"], ["ADMIN"]
+    IEnumerable<string>? Roles = null,   // Keycloak realm roles, e.g. ["CUSTOMER"], ["ADMIN"]
+    long? CinemaId = null
 );
 

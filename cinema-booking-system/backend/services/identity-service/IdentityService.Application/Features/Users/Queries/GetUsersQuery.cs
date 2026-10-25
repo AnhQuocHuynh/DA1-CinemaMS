@@ -42,7 +42,8 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, PagedResult<U
             user.Gender,
             user.DateOfBirth,
             user.Active,
-            allRoles[i].Select(r => r.Name.ToUpperInvariant())
+            allRoles[i].Select(r => r.Name.ToUpperInvariant()),
+            user.CinemaId
         ));
 
         return new PagedResult<UserDto>(dtos, totalCount, request.Page, request.PageSize);

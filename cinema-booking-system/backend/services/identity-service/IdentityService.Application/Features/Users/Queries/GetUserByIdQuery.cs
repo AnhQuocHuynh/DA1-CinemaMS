@@ -39,7 +39,8 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, UserDto
             user.Gender,
             user.DateOfBirth,
             user.Active,
-            roles.Select(r => r.Name.ToUpperInvariant())
+            roles.Select(r => r.Name.ToUpperInvariant()),
+            user.CinemaId
         );
     }
 }

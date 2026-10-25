@@ -41,6 +41,7 @@ namespace ApiGateway.Middleware
             context.Request.Headers.Remove("X-Keycloak-Id");
             context.Request.Headers.Remove("X-User-Roles");
             context.Request.Headers.Remove("X-User-Email");
+            context.Request.Headers.Remove("X-Cinema-Id");
 
             if (context.User.Identity?.IsAuthenticated == true)
             {
@@ -64,6 +65,12 @@ namespace ApiGateway.Middleware
                         await context.Response.WriteAsync("User resolution failed");
                         return;
                     }
+                }
+
+                var cinemaIdClaim = context.User.FindFirst("cinema_id")?.Value;
+                if (!string.IsNullOrEmpty(cinemaIdClaim))
+                {
+                    context.Request.Headers["X-Cinema-Id"] = cinemaIdClaim;
                 }
             }
 
