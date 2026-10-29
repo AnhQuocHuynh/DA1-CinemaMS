@@ -27,7 +27,7 @@ public class OrderPaidEventConsumer : RabbitMqConsumerBase<EventEnvelope<OrderPa
         _scopeFactory = scopeFactory;
     }
 
-    protected override async Task ProcessMessageAsync(EventEnvelope<OrderPaidPayload> message, CancellationToken cancellationToken)
+    protected internal override async Task ProcessMessageAsync(EventEnvelope<OrderPaidPayload> message, CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
         
@@ -45,7 +45,7 @@ public class OrderPaidEventConsumer : RabbitMqConsumerBase<EventEnvelope<OrderPa
         // 2. Send the Email Notification via MediatR
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
-        var command = new SendNotificationCommand(
+        var emailCommand = new SendNotificationCommand(
             message.Payload.UserId,
             NotificationType.PAYMENT_RECEIPT,
             NotificationChannel.EMAIL,
@@ -62,6 +62,26 @@ public class OrderPaidEventConsumer : RabbitMqConsumerBase<EventEnvelope<OrderPa
             }
         );
 
-        await mediator.Send(command, cancellationToken);
+        await mediator.Send(emailCommand, cancellationToken);
+
+        // 3. Send the Real-Time Push Notification via MediatR
+        var pushCommand = new SendNotificationCommand(
+            message.Payload.UserId,
+            NotificationType.BOOKING_CONFIRMATION,
+            NotificationChannel.PUSH,
+            $"Order #{message.Payload.OrderId} Confirmed!",
+            $"Your booking for {message.Payload.TicketCount} ticket(s) was successful.",
+            new Dictionary<string, object>
+            {
+                { "orderId", message.Payload.OrderId },
+                { "showtimeId", message.Payload.ShowtimeId },
+                { "finalAmount", message.Payload.FinalAmount },
+                { "ticketCount", message.Payload.TicketCount },
+                { "actionType", "ORDER_CONFIRMED" },
+                { "actionUrl", $"/user/checkout-success?orderId={message.Payload.OrderId}" }
+            }
+        );
+
+        await mediator.Send(pushCommand, cancellationToken);
     }
 }

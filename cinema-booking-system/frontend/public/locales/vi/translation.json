@@ -827,5 +827,42 @@
     "loading": "Đang tải bảng điều khiển...",
     "totalRevenue": "Tổng doanh thu",
     "noRevenueData": "Chưa có dữ liệu doanh thu"
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "subtitle": "Quản lý tùy chọn tài khoản và hồ sơ của bạn.",
+    "systemPreferences": "Tùy chọn hệ thống",
+    "language": "Ngôn ngữ",
+    "languageDesc": "Chọn ngôn ngữ hiển thị ưa thích của bạn.",
+    "theme": "Giao diện",
+    "themeDesc": "Chọn giữa chế độ sáng, tối hoặc theo hệ thống.",
+    "notificationPreferences": "Tùy chọn thông báo",
+    "notificationPreferencesDesc": "Chọn cách bạn muốn nhận thông báo về đặt vé, thanh toán và nhắc nhở.",
+    "pushNotifications": "Thông báo trực tiếp & Trình duyệt",
+    "pushNotificationsDesc": "Nhận cảnh báo thời gian thực về xác nhận đặt vé và hết hạn giữ ghế.",
+    "emailNotifications": "Thông báo qua Email",
+    "emailNotificationsDesc": "Nhận hóa đơn đặt vé, nhắc nhở phim và ưu đãi khuyến mãi.",
+    "smsNotifications": "Thông báo qua SMS",
+    "smsNotificationsDesc": "Nhận mã đặt vé tức thì và cảnh báo thay đổi lịch chiếu khẩn cấp."
+  },
+  "notifications": {
+    "title": "Thông báo",
+    "new": "mới",
+    "markAllRead": "Đánh dấu đã đọc",
+    "loading": "Đang tải...",
+    "noNotifications": "Chưa có thông báo nào",
+    "justNow": "Vừa xong",
+    "minutesAgo": "{{count}} phút trước",
+    "hoursAgo": "{{count}} giờ trước",
+    "permissionDenied": "Quyền gửi thông báo trình duyệt đã bị từ chối.",
+    "preferencesSaved": "Đã cập nhật tùy chọn thông báo.",
+    "preferencesError": "Không thể cập nhật tùy chọn thông báo.",
+    "bookingConfirmed": "Đặt vé thành công",
+    "paymentFailed": "Thanh toán thất bại",
+    "orderCancelled": "Hủy đặt vé",
+    "orderRefunded": "Hoàn tiền đơn hàng",
+    "viewTickets": "Xem vé",
+    "retry": "Thử lại",
+    "viewDetails": "Xem chi tiết"
   }
 }

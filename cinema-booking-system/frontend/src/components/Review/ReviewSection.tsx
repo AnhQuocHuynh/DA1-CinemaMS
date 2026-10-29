@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { MessageSquare, Star } from 'lucide-react';
+import { MessageSquare, Star, Info } from 'lucide-react';
 import { reviewService } from '../../services/reviewService';
 import { useAuthStore } from '../../store/authStore';
 import { StarRating } from './StarRating';
@@ -147,8 +147,9 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
 
       {/* Eligibility messages */}
       {user && eligibility && !eligibility.eligible && (
-        <div className="mb-8 p-4 rounded-lg bg-primary-container border border-blue-100">
-          <p className="text-sm text-primary">{eligibility.message || t('reviewSection.notEligible', 'Bạn không đủ điều kiện đánh giá.')}</p>
+        <div className="mb-8 p-3.5 rounded-lg bg-secondary/10 border border-secondary/20 flex items-center gap-2.5 text-secondary">
+          <Info size={16} className="text-secondary shrink-0" />
+          <p className="text-sm font-medium text-secondary">{eligibility.message || t('reviewSection.notEligible', 'Bạn không đủ điều kiện đánh giá.')}</p>
         </div>
       )}
 

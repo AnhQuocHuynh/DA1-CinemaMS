@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -79,5 +80,15 @@ public class NotificationRepository : INotificationRepository
         var result = await _context.Notifications.UpdateManyAsync(filter, update, cancellationToken: cancellationToken);
 
         return (int)result.ModifiedCount;
+    }
+
+    public async Task MarkAllAsReadAsync(long userId, CancellationToken cancellationToken = default)
+    {
+        var filter = Builders<Notification>.Filter.Eq(n => n.UserId, userId) & Builders<Notification>.Filter.Ne(n => n.IsRead, true);
+        var update = Builders<Notification>.Update
+            .Set(n => n.IsRead, true)
+            .Set(n => n.ReadAt, DateTime.UtcNow);
+
+        await _context.Notifications.UpdateManyAsync(filter, update, cancellationToken: cancellationToken);
     }
 }

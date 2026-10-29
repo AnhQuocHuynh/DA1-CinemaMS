@@ -25,7 +25,7 @@ public class UserProfileUpdatedEventConsumer : RabbitMqConsumerBase<EventEnvelop
         _scopeFactory = scopeFactory;
     }
 
-    protected override async Task ProcessMessageAsync(EventEnvelope<UserProfileUpdatedPayload> message, CancellationToken cancellationToken)
+    protected internal override async Task ProcessMessageAsync(EventEnvelope<UserProfileUpdatedPayload> message, CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
         var preferenceRepository = scope.ServiceProvider.GetRequiredService<IUserPreferenceRepository>();

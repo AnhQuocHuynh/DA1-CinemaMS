@@ -827,5 +827,42 @@
     "loading": "Loading dashboard...",
     "totalRevenue": "Total Revenue",
     "noRevenueData": "No revenue data yet"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your account preferences and profile.",
+    "systemPreferences": "System Preferences",
+    "language": "Language",
+    "languageDesc": "Choose your preferred language.",
+    "theme": "Theme",
+    "themeDesc": "Choose between light, dark, or system mode.",
+    "notificationPreferences": "Notification Preferences",
+    "notificationPreferencesDesc": "Choose how you want to be notified about bookings, payments, and reminders.",
+    "pushNotifications": "In-App & Browser Push",
+    "pushNotificationsDesc": "Receive real-time alerts for booking confirmation and seat expiration.",
+    "emailNotifications": "Email Notifications",
+    "emailNotificationsDesc": "Get booking receipts, movie reminders, and promotional offers.",
+    "smsNotifications": "SMS Notifications",
+    "smsNotificationsDesc": "Receive instant booking codes and urgent schedule change alerts."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "new": "new",
+    "markAllRead": "Mark all read",
+    "loading": "Loading...",
+    "noNotifications": "No notifications yet",
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "permissionDenied": "Browser push notification permission was denied.",
+    "preferencesSaved": "Notification preferences updated.",
+    "preferencesError": "Failed to update preferences.",
+    "bookingConfirmed": "Booking Confirmed",
+    "paymentFailed": "Payment Failed",
+    "orderCancelled": "Booking Cancelled",
+    "orderRefunded": "Order Refunded",
+    "viewTickets": "View Tickets",
+    "retry": "Retry",
+    "viewDetails": "View Details"
   }
 }

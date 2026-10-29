@@ -1,9 +1,11 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Moq;
+using NotificationService.Domain.Enums;
 using NotificationService.Presentation.Hubs;
 using Xunit;
 
@@ -34,12 +36,15 @@ public class SignalRPushSenderTests
     public async Task SendPushAsync_ShouldSendNotificationToUserGroup()
     {
         // Arrange
+        const string notifId = "notif-123";
         const long userId = 42;
+        const NotificationType type = NotificationType.BOOKING_CONFIRMATION;
         const string title = "Order Confirmed";
         const string body = "Your ticket has been booked.";
+        var metadata = new Dictionary<string, object> { { "orderId", 101L } };
 
         // Act
-        await _sut.SendPushAsync(userId, title, body, CancellationToken.None);
+        await _sut.SendPushAsync(notifId, userId, type, title, body, metadata, CancellationToken.None);
 
         // Assert
         _clientsMock.Verify(c => c.Group("42"), Times.Once);

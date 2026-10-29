@@ -191,4 +191,48 @@ public class SendNotificationCommandHandlerTests
             It.Is<UserPreference>(p => p.Contact != null && p.Contact.Email == "resolved@cinema.com"),
             It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task Handle_ShouldDispatchPushImmediately_WhenChannelIsPush()
+    {
+        // Arrange
+        var pushSenderMock = new Mock<IPushNotificationSender>();
+        var handlerWithPush = new SendNotificationCommandHandler(
+            _notifRepoMock.Object,
+            _prefRepoMock.Object,
+            _templateRepoMock.Object,
+            _templateRendererMock.Object,
+            userResolver: null,
+            pushSender: pushSenderMock.Object);
+
+        var pref = new UserPreference(123, pushEnabled: true);
+        _prefRepoMock.Setup(x => x.GetByUserIdAsync(123, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pref);
+
+        var command = new SendNotificationCommand(
+            123,
+            NotificationType.BOOKING_CONFIRMATION,
+            NotificationChannel.PUSH,
+            "Order Confirmed",
+            "Seats reserved successfully",
+            new Dictionary<string, object> { { "orderId", 999L } });
+
+        // Act
+        var result = await handlerWithPush.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNullOrEmpty();
+        pushSenderMock.Verify(x => x.SendPushAsync(
+            It.IsAny<string>(),
+            123,
+            NotificationType.BOOKING_CONFIRMATION,
+            "Order Confirmed",
+            "Seats reserved successfully",
+            It.IsAny<Dictionary<string, object>>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _notifRepoMock.Verify(x => x.InsertAsync(
+            It.Is<Notification>(n => n.Status == DeliveryStatus.SENT),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

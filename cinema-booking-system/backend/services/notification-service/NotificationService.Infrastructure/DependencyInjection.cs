@@ -60,6 +60,8 @@ public static class DependencyInjection
         services.AddHostedService<PasswordResetEventConsumer>();
         services.AddHostedService<OrderPaidEventConsumer>();
         services.AddHostedService<OrderRefundedEventConsumer>();
+        services.AddHostedService<PaymentFailedEventConsumer>();
+        services.AddHostedService<OrderCancelledEventConsumer>();
         services.AddHostedService<ReviewCreatedEventConsumer>();
         services.AddHostedService<ShowtimeCreatedEventConsumer>();
 

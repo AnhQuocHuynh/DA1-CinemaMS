@@ -39,19 +39,22 @@ public class SendNotificationCommandHandler : IRequestHandler<SendNotificationCo
     private readonly ITemplateRepository _templateRepository;
     private readonly ITemplateRenderer _templateRenderer;
     private readonly IKeycloakUserResolver? _userResolver;
+    private readonly IPushNotificationSender? _pushSender;
 
     public SendNotificationCommandHandler(
         INotificationRepository notificationRepository,
         IUserPreferenceRepository preferenceRepository,
         ITemplateRepository templateRepository,
         ITemplateRenderer templateRenderer,
-        IKeycloakUserResolver? userResolver = null)
+        IKeycloakUserResolver? userResolver = null,
+        IPushNotificationSender? pushSender = null)
     {
         _notificationRepository = notificationRepository;
         _preferenceRepository = preferenceRepository;
         _templateRepository = templateRepository;
         _templateRenderer = templateRenderer;
         _userResolver = userResolver;
+        _pushSender = pushSender;
     }
 
     public async Task<string> Handle(SendNotificationCommand request, CancellationToken cancellationToken)
@@ -147,6 +150,26 @@ public class SendNotificationCommandHandler : IRequestHandler<SendNotificationCo
             body,
             metadata
         );
+
+        if (request.Channel == NotificationChannel.PUSH && _pushSender != null)
+        {
+            try
+            {
+                await _pushSender.SendPushAsync(
+                    notification.Id,
+                    notification.UserId,
+                    notification.Type,
+                    title,
+                    body,
+                    metadata,
+                    cancellationToken);
+                notification.MarkAsSent();
+            }
+            catch
+            {
+                // Fall back to PENDING status; background dispatcher will retry
+            }
+        }
 
         await _notificationRepository.InsertAsync(notification, cancellationToken);
 

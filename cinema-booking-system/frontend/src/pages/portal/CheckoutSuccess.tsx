@@ -1,15 +1,15 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Download, Share2, Ticket } from 'lucide-react';
 import { useBookingStore } from '../../store/bookingStore';
 import { formatVND, formatShowtime } from '../../utils/formatters';
 import { downloadElementAsPDF } from '../../utils/pdfGenerator';
-import { useState } from 'react';
 import { PrintableTicket } from '../../components/PrintableTicket';
 import { TicketDetails } from '../../types/booking';
 import { paymentService } from '../../services/paymentService';
 import { bookingService } from '../../services/bookingService';
 import { useTranslation } from 'react-i18next';
+import { PushNotificationPayload } from '../../types/notification';
 
 export const CheckoutSuccess: React.FC = () => {
   const { t } = useTranslation();
@@ -29,6 +29,8 @@ export const CheckoutSuccess: React.FC = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isLoadingOrder, setIsLoadingOrder] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
+  const verifiedTokenRef = useRef<string | null>(null);
+  const fetchedOrderIdRef = useRef<number | null>(null);
 
   const handleDownloadPDF = async () => {
     if (!completedOrder) return;
@@ -76,6 +78,7 @@ export const CheckoutSuccess: React.FC = () => {
     const sessionId = searchParams.get('session_id') || searchParams.get('sessionId');
     const token = searchParams.get('token');
     const orderIdParam = searchParams.get('orderId');
+    const verificationKey = sessionId ? `stripe:${sessionId}` : token ? `paypal:${token}` : null;
 
     // Restore booking context from sessionStorage if store is empty
     try {
@@ -91,55 +94,83 @@ export const CheckoutSuccess: React.FC = () => {
 
     const orderId = orderIdParam ? parseInt(orderIdParam, 10) : completedOrder?.id;
 
-    if (sessionId || token || (!completedOrder && orderId)) {
+    const needsVerification = Boolean(verificationKey && verifiedTokenRef.current !== verificationKey);
+    const needsFetchOrder = Boolean(orderId && (!completedOrder || fetchedOrderIdRef.current !== orderId));
+
+    if (needsVerification || needsFetchOrder) {
       const verifyAndFetch = async () => {
-        setIsVerifying(true);
-        setVerificationError(null);
+        if (needsVerification && verificationKey) {
+          verifiedTokenRef.current = verificationKey;
+          setIsVerifying(true);
+          setVerificationError(null);
 
-        try {
-          if (sessionId) {
-            await paymentService.verifyStripeReturn(sessionId);
-          } else if (token) {
-            await paymentService.verifyPaymentReturn(searchParams, 'paypal');
+          try {
+            if (sessionId) {
+              await paymentService.verifyStripeReturn(sessionId);
+            } else if (token) {
+              await paymentService.verifyPaymentReturn(searchParams, 'paypal');
+            }
+          } catch (err) {
+            console.warn('Payment return verification error (may be handled by webhook):', err);
+          } finally {
+            setIsVerifying(false);
           }
-        } catch (err) {
-          console.warn('Payment return verification error (may be handled by webhook):', err);
         }
 
-        if (orderId) {
+        if (orderId && (!completedOrder || completedOrder.id !== orderId)) {
+          fetchedOrderIdRef.current = orderId;
           setIsLoadingOrder(true);
-          let attempts = 0;
-          const maxAttempts = 5;
-          while (attempts < maxAttempts) {
-            try {
-              const ord = await bookingService.getOrderById(orderId);
-              if (ord) {
-                setCompletedOrder(ord as any);
-                if (ord.status === 'PAID') {
-                  break;
-                }
-                if (ord.status === 'CANCELLED') {
-                  navigate(`/user/booking-failed?reason=cancelled&orderId=${orderId}`);
-                  return;
-                }
+          try {
+            const ord = await bookingService.getOrderById(orderId);
+            if (ord) {
+              setCompletedOrder(ord as any);
+              if (ord.status === 'CANCELLED') {
+                navigate(`/user/booking-failed?reason=cancelled&orderId=${orderId}`);
+                return;
               }
-            } catch (err) {
-              console.error('Failed to fetch order by ID:', err);
             }
-            attempts++;
-            if (attempts < maxAttempts) {
-              await new Promise((res) => setTimeout(res, 1200));
-            }
+          } catch (err) {
+            console.error('Failed to fetch order by ID:', err);
+          } finally {
+            setIsLoadingOrder(false);
           }
-          setIsLoadingOrder(false);
         }
-
-        setIsVerifying(false);
       };
 
       verifyAndFetch();
     }
-  }, [searchParams]);
+  }, [searchParams, navigate, setCompletedOrder]);
+
+  useEffect(() => {
+    const handlePush = async (e: Event) => {
+      const payload = (e as CustomEvent<PushNotificationPayload>).detail;
+      const orderIdParam = searchParams.get('orderId');
+      const targetOrderId = orderIdParam ? parseInt(orderIdParam, 10) : completedOrder?.id;
+
+      if (!payload || !targetOrderId) return;
+      const notifOrderId = payload.metadata?.orderId;
+      if (notifOrderId && Number(notifOrderId) !== Number(targetOrderId)) return;
+
+      if (payload.metadata?.actionType === 'ORDER_CONFIRMED' || payload.type === 'BOOKING_CONFIRMATION') {
+        try {
+          const ord = await bookingService.getOrderById(targetOrderId);
+          if (ord) {
+            setCompletedOrder(ord as any);
+            clearSelection();
+          }
+        } catch (err) {
+          console.error('Failed to refresh completed order on push:', err);
+        }
+      } else if (payload.metadata?.actionType === 'PAYMENT_FAILED' || payload.type === 'PAYMENT_FAILED') {
+        navigate(`/user/booking-failed?reason=payment_failed&orderId=${targetOrderId}`);
+      }
+    };
+
+    window.addEventListener('cinema-push-notification', handlePush);
+    return () => {
+      window.removeEventListener('cinema-push-notification', handlePush);
+    };
+  }, [searchParams, completedOrder?.id, setCompletedOrder, clearSelection, navigate]);
 
   if (isVerifying || isLoadingOrder) {
     return (

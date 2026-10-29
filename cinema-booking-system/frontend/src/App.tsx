@@ -27,14 +27,38 @@ import { RoomManagement } from './pages/admin/RoomManagement';
 import { SeatConfigurator } from './pages/admin/SeatConfigurator';
 import { ShowtimeManagement } from './pages/admin/ShowtimeManagement';
 import { AdminSettings } from './pages/admin/AdminSettings';
+import { useEffect } from 'react';
 import { StaffDashboard } from './pages/staff/StaffDashboard';
 import { CounterBooking } from './pages/staff/CounterBooking';
 import { TicketLookup } from './pages/staff/TicketLookup';
 import { QRChecker } from './pages/staff/QRChecker';
 import { StaffSettings } from './pages/staff/StaffSettings';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { useAuthStore } from './store/authStore';
+import { useNotificationStore } from './store/notificationStore';
+import { notificationHubService } from './services/notificationHubService';
 
 function App() {
+  const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    if (user) {
+      notificationHubService.startConnection();
+      useNotificationStore.getState().fetchNotifications();
+    } else {
+      notificationHubService.stopConnection();
+      useNotificationStore.getState().clearNotifications();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator && import.meta.env.PROD) {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.warn('SW registration failed:', err);
+      });
+    }
+  }, []);
+
   return (
     <Routes>
       {/* Public Routes */}
