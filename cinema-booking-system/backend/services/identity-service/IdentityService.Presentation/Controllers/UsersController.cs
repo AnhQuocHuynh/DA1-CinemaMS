@@ -13,6 +13,9 @@ namespace IdentityService.Presentation.Controllers;
 /// <summary>Request body for changing a user's role.</summary>
 public record ChangeUserRoleRequest(string NewRole);
 
+/// <summary>Request body for assigning a user's cinema.</summary>
+public record AssignCinemaRequest(long? CinemaId);
+
 [ApiController]
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
@@ -40,7 +43,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,ADMIN")]
     public async Task<IActionResult> GetUserById(long id)
     {
         var query = new GetUserByIdQuery(id);
@@ -49,7 +52,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,ADMIN")]
     public async Task<IActionResult> GetUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var query = new GetUsersQuery(page, pageSize);
@@ -58,10 +61,19 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("{id}/role")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,ADMIN")]
     public async Task<IActionResult> ChangeUserRole(long id, [FromBody] ChangeUserRoleRequest request)
     {
         var command = new ChangeUserRoleCommand(id, request.NewRole);
+        await _mediator.Send(command);
+        return NoContent();
+    }
+
+    [HttpPut("{id}/cinema")]
+    [Authorize(Roles = "admin,ADMIN")]
+    public async Task<IActionResult> AssignStaffCinema(long id, [FromBody] AssignCinemaRequest request)
+    {
+        var command = new AssignStaffCinemaCommand(id, request.CinemaId);
         await _mediator.Send(command);
         return NoContent();
     }

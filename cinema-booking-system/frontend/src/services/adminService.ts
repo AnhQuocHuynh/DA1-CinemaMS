@@ -274,6 +274,7 @@ export const adminService = {
         staff: u.roles?.includes('STAFF') ?? false,
         admin: u.roles?.includes('ADMIN') ?? false,
       },
+      cinemaId: u.cinemaId ?? null,
     }));
   },
 
@@ -286,6 +287,17 @@ export const adminService = {
   updateUserRole: async (id: string | number, newRole: string): Promise<void> => {
     console.log(`🧑‍💼 [ADMIN] Changing role of user ${id} to ${newRole}...`);
     await apiClient.put(`/users/${id}/role`, { newRole: newRole.toUpperCase() });
+  },
+
+  /**
+   * Assigns a staff member to a cinema branch.
+   * Calls PUT /api/users/{id}/cinema on the Identity Service.
+   * @param id       Internal user ID (Long)
+   * @param cinemaId Target CinemaId (Long or null to unassign)
+   */
+  assignStaffCinema: async (id: string | number, cinemaId: number | null): Promise<void> => {
+    console.log(`🎬 [ADMIN] Assigning cinema ${cinemaId} to user ${id}...`);
+    await apiClient.put(`/users/${id}/cinema`, { cinemaId });
   },
 
   /**

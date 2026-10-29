@@ -124,6 +124,23 @@ public class KeycloakAdminClient : IKeycloakAdminClient
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task SetUserAttributeAsync(string keycloakId, string attributeName, string attributeValue, CancellationToken ct = default)
+    {
+        var client = await AuthorizedClient(ct);
+        var url = $"{_opts.BaseUrl}/admin/realms/{_opts.Realm}/users/{keycloakId}";
+
+        var user = await client.GetFromJsonAsync<KeycloakUserDto>(url, ct)
+            ?? throw new InvalidOperationException($"User with Keycloak ID '{keycloakId}' was not found.");
+
+        user.Attributes ??= new Dictionary<string, List<string>>();
+        user.Attributes[attributeName] = string.IsNullOrEmpty(attributeValue)
+            ? []
+            : [attributeValue];
+
+        var response = await client.PutAsJsonAsync(url, user, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     // Private DTOs for JSON deserialization
     // ─────────────────────────────────────────────────────────────────────
@@ -137,4 +154,34 @@ public class KeycloakAdminClient : IKeycloakAdminClient
         [property: JsonPropertyName("id")]   string Id,
         [property: JsonPropertyName("name")] string Name
     );
+
+    private class KeycloakUserDto
+    {
+        [JsonPropertyName("id")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("username")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Username { get; set; }
+
+        [JsonPropertyName("email")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Email { get; set; }
+
+        [JsonPropertyName("firstName")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? FirstName { get; set; }
+
+        [JsonPropertyName("lastName")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? LastName { get; set; }
+
+        [JsonPropertyName("enabled")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? Enabled { get; set; }
+
+        [JsonPropertyName("attributes")]
+        public Dictionary<string, List<string>> Attributes { get; set; } = new();
+    }
 }
