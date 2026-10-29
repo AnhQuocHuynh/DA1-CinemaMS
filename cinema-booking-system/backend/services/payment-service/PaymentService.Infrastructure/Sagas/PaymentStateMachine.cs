@@ -1,3 +1,5 @@
+using System;
+using System.Threading.Tasks;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using PaymentService.Application.IntegrationEvents;
@@ -12,6 +14,7 @@ namespace PaymentService.Infrastructure.Sagas;
 ///
 /// State transitions:
 ///   Initial ──[PaymentInitiated]──► Pending
+///   Pending ──[PaymentInitiated (gateway switch)]──► Pending
 ///   Pending ──[GatewayCallbackReceived (success)]──► Completed
 ///   Pending ──[GatewayCallbackReceived (failure)]──► Failed
 ///   Pending ──[CashPaymentConfirmed]──────────────► Completed
@@ -128,13 +131,17 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
                         PaymentId = ctx.Saga.PaymentId,
                         OrderId = ctx.Saga.OrderId,
                         UserId = ctx.Saga.UserId,
-                        Reason = "Payment initiation timed out (15 minutes)"
+                        Reason = "Payment initiation timed out (10 minutes)"
                     }
                 }))
                 .Finalize());
 
-        // Pending → Completed (gateway success) or Failed (gateway failure)
+        // Pending → Completed (gateway success) or Failed (gateway failure) or Pending (gateway switch)
         During(Pending,
+            When(PaymentInitiatedEvent)
+                .Then(OnPaymentInitiated)
+                .TransitionTo(Pending),
+
             When(GatewayCallbackReceivedEvent, ctx => ctx.Message.IsSuccess)
                 .ThenAsync(OnPaymentSucceeded)
                 .PublishAsync(ctx => ctx.Init<EventEnvelope<PaymentCompleted>>(new EventEnvelope<PaymentCompleted>
@@ -236,9 +243,9 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
 
     private async Task OnPaymentExpired(BehaviorContext<PaymentSagaState, PaymentSlotExpired> ctx)
     {
-        var sp = ctx.GetPayload<IServiceProvider>();
-        var repository = sp.GetService(typeof(IPaymentRepository)) as IPaymentRepository;
-        var uow = sp.GetService(typeof(IUnitOfWork)) as IUnitOfWork;
+        ctx.TryGetPayload<IServiceProvider>(out var sp);
+        var repository = sp?.GetService(typeof(IPaymentRepository)) as IPaymentRepository;
+        var uow = sp?.GetService(typeof(IUnitOfWork)) as IUnitOfWork;
 
         if (repository != null)
         {
@@ -252,7 +259,7 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
         }
 
         _logger.LogWarning(
-            "Saga {CorrelationId}: Payment {PaymentId} for Order {OrderId} expired after 15 minutes",
+            "Saga {CorrelationId}: Payment {PaymentId} for Order {OrderId} expired after 10 minutes",
             ctx.Saga.CorrelationId, ctx.Saga.PaymentId, ctx.Saga.OrderId);
     }
 
