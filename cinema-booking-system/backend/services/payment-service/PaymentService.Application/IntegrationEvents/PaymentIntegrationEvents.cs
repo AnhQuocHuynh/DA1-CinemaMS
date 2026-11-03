@@ -1,3 +1,5 @@
+using System;
+
 namespace PaymentService.Application.IntegrationEvents;
 
 /// <summary>Published when a Payment record is created. Triggers the PaymentStateMachine into Pending state.</summary>
@@ -100,6 +102,14 @@ public record OrderCreated
     public decimal TotalAmount { get; init; }
     public decimal DiscountAmount { get; init; }
     public decimal FinalAmount { get; init; }
+}
+
+/// <summary>Inbound event from Booking Service (order.cancelled routing key).</summary>
+public record OrderCancelled
+{
+    public long OrderId { get; init; }
+    public long UserId { get; init; }
+    public string Reason { get; init; } = string.Empty;
 }
 
 /// <summary>Published when a payment slot is reserved by OrderCreatedConsumer. Initiates the saga into Created state.</summary>

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using MassTransit;
 using Microsoft.Extensions.Logging;
@@ -286,8 +287,8 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
         ctx.Saga.CompletedAt = DateTime.UtcNow;
 
         // Update domain Payment entity (via service locator — avoids constructor injection issues in saga)
-        var repository = ctx.GetPayload<IServiceProvider>()
-            .GetService(typeof(IPaymentRepository)) as IPaymentRepository;
+        ctx.TryGetPayload<IServiceProvider>(out var sp);
+        var repository = sp?.GetService(typeof(IPaymentRepository)) as IPaymentRepository;
 
         if (repository != null)
         {
@@ -307,8 +308,8 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
         ctx.Saga.FailureReason = msg.ErrorMessage;
         ctx.Saga.CompletedAt = DateTime.UtcNow;
 
-        var repository = ctx.GetPayload<IServiceProvider>()
-            .GetService(typeof(IPaymentRepository)) as IPaymentRepository;
+        ctx.TryGetPayload<IServiceProvider>(out var sp);
+        var repository = sp?.GetService(typeof(IPaymentRepository)) as IPaymentRepository;
 
         if (repository != null)
         {
@@ -329,8 +330,8 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
         ctx.Saga.TransactionId = cashTransactionId;
         ctx.Saga.CompletedAt = DateTime.UtcNow;
 
-        var repository = ctx.GetPayload<IServiceProvider>()
-            .GetService(typeof(IPaymentRepository)) as IPaymentRepository;
+        ctx.TryGetPayload<IServiceProvider>(out var sp);
+        var repository = sp?.GetService(typeof(IPaymentRepository)) as IPaymentRepository;
 
         if (repository != null)
         {
@@ -350,8 +351,8 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
         ctx.Saga.TransactionId = cashTransactionId;
         ctx.Saga.CompletedAt = DateTime.UtcNow;
 
-        var repository = ctx.GetPayload<IServiceProvider>()
-            .GetService(typeof(IPaymentRepository)) as IPaymentRepository;
+        ctx.TryGetPayload<IServiceProvider>(out var sp);
+        var repository = sp?.GetService(typeof(IPaymentRepository)) as IPaymentRepository;
 
         if (repository != null)
         {
@@ -367,14 +368,22 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
 
     private async Task OnRefundRequested(BehaviorContext<PaymentSagaState, RefundRequested> ctx)
     {
-        var repository = ctx.GetPayload<IServiceProvider>()
-            .GetService(typeof(IPaymentRepository)) as IPaymentRepository;
+        ctx.TryGetPayload<IServiceProvider>(out var sp);
+        var repository = sp?.GetService(typeof(IPaymentRepository)) as IPaymentRepository;
 
         if (repository != null)
         {
             var payment = await repository.GetByIdAsync(ctx.Saga.PaymentId);
-            if (payment != null)
-                payment.AddRefund(ctx.Message.Amount, ctx.Message.Reason);
+            if (payment != null && (payment.Status == PaymentStatus.COMPLETED || payment.Status == PaymentStatus.PARTIALLY_REFUNDED))
+            {
+                decimal totalRefunded = payment.Refunds
+                    .Where(r => r.Status == RefundStatus.APPROVED || r.Status == RefundStatus.PROCESSED)
+                    .Sum(r => r.Amount);
+                if (totalRefunded + ctx.Message.Amount <= payment.Amount)
+                {
+                    payment.AddRefund(ctx.Message.Amount, ctx.Message.Reason);
+                }
+            }
         }
 
         _logger.LogInformation(
