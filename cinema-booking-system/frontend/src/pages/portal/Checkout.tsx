@@ -150,7 +150,34 @@ export const Checkout: React.FC = () => {
           (errData?.code === 'DUPLICATE_PENDING_ORDER' || errData?.errorCode === 'DUPLICATE_PENDING_ORDER') &&
           errData?.existingOrderId
         ) {
-          orderId = errData.existingOrderId;
+          const existingId = Number(errData.existingOrderId);
+          // Verify that selected seats match the server's pending order seats before adopting existingOrderId
+          let existingOrder = pendingOrder?.id === existingId ? pendingOrder : null;
+          if (!existingOrder) {
+            try {
+              existingOrder = await bookingService.getOrderById(existingId);
+            } catch (fetchErr) {
+              console.warn('Failed to fetch existing pending order for seat verification:', fetchErr);
+            }
+          }
+
+          if (existingOrder && existingOrder.seatIds) {
+            const currentSeatIds = [...seatIds].sort((a, b) => a - b);
+            const existingSeatIds = [...existingOrder.seatIds].sort((a, b) => a - b);
+            const isMatch =
+              currentSeatIds.length === existingSeatIds.length &&
+              currentSeatIds.every((id, idx) => id === existingSeatIds[idx]);
+
+            if (!isMatch) {
+              setPendingOrder(null);
+              throw new Error(
+                'Existing pending order has different seat selection. Please go back to the seat map and try again.'
+              );
+            }
+          }
+
+          setPendingOrder(existingOrder || ({ id: existingId } as any));
+          orderId = existingId;
         } else {
           throw orderErr;
         }
