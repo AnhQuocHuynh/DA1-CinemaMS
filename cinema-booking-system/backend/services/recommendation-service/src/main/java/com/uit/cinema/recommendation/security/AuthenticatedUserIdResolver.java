@@ -38,6 +38,33 @@ public class AuthenticatedUserIdResolver {
         return resolveSelf(requestedUserId);
     }
 
+    public Long requireCurrentUserId() {
+        if (!jwtEnabled) {
+            Long headerUserId = readHeaderUserId();
+            if (headerUserId == null) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED");
+            }
+            return headerUserId;
+        }
+        return currentUserId();
+    }
+
+    private Long readHeaderUserId() {
+        HttpServletRequest request = currentHttpRequest();
+        if (request == null || !StringUtils.hasText(request.getHeader("X-User-Id"))) {
+            return null;
+        }
+        try {
+            long userId = new BigDecimal(request.getHeader("X-User-Id").trim()).longValueExact();
+            if (userId <= 0) {
+                throw new ArithmeticException("user_id must be positive");
+            }
+            return userId;
+        } catch (ArithmeticException | NumberFormatException exception) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED");
+        }
+    }
+
     private Long resolveSelf(Long requestedUserId) {
         Long authenticatedUserId = currentUserId();
         if (requestedUserId != null && !authenticatedUserId.equals(requestedUserId)) {

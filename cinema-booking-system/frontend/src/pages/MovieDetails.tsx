@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { ReviewSection } from '../components/Review/ReviewSection';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Play, Calendar, Clock, Globe } from 'lucide-react';
+import { ArrowLeft, Play, Calendar, Clock, Globe, Star } from 'lucide-react';
 import { movieService, MovieResponse } from '../services/movieService';
 import { showtimeService } from '../services/showtimeService';
+import { recommendationService } from '../services/recommendationService';
 import { ShowtimeResponse } from '../types/showtime';
+import { useAuthStore } from '../store/authStore';
 import { useBookingStore } from '../store/bookingStore';
 import { formatVND, parseVND, formatShowtime } from '../utils/formatters';
 import genericPoster from '../resources/generic_movie_poster.png';
@@ -19,6 +21,10 @@ export const MovieDetails: React.FC = () => {
   const [showtimes, setShowtimes] = useState<ShowtimeResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [myRating, setMyRating] = useState<number | null>(null);
+  const [ratingMessage, setRatingMessage] = useState<string | null>(null);
+  const [isSavingRating, setIsSavingRating] = useState(false);
+  const user = useAuthStore(state => state.user);
 
   const { setMovieTitle, setMoviePosterUrl } = useBookingStore();
 
@@ -36,6 +42,36 @@ export const MovieDetails: React.FC = () => {
       .catch(() => setError(t('movieDetails.error.loadFailed')))
       .finally(() => setIsLoading(false));
   }, [movieId, t]);
+
+  useEffect(() => {
+    if (!user || !movieId) {
+      setMyRating(null);
+      return;
+    }
+    const numericId = parseInt(movieId, 10);
+    recommendationService.getMyRatings()
+      .then((ratings) => {
+        const mine = ratings.find((rating) => rating.movieId === numericId);
+        setMyRating(mine ? mine.ratingValue : null);
+      })
+      .catch(() => setMyRating(null));
+  }, [user, movieId]);
+
+  const handleRate = async (value: number) => {
+    if (!movieId || isSavingRating) return;
+    setIsSavingRating(true);
+    setRatingMessage(null);
+    try {
+      const saved = await recommendationService.upsertMovieRating(parseInt(movieId, 10), value);
+      setMyRating(saved.ratingValue);
+      setRatingMessage(t('movieDetailsRating.saved', 'Rating saved'));
+    } catch {
+      setRatingMessage(t('movieDetailsRating.failed', 'Could not save rating'));
+    } finally {
+      setIsSavingRating(false);
+    }
+  };
+
   const handleBookNow = () => {
     navigate(`/movies/${movieId}/showtimes`);
   };
@@ -126,6 +162,34 @@ export const MovieDetails: React.FC = () => {
                 {movie.title}
               </h1>
               <p className="text-white/80 text-lg leading-relaxed">{movie.description}</p>
+
+              <div className="flex flex-wrap items-center gap-2 text-white">
+                {user ? (
+                  <>
+                    <span className="text-sm">{t('movieDetailsRating.prompt', 'Rate this movie')}</span>
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        disabled={isSavingRating}
+                        onClick={() => handleRate(value)}
+                        aria-label={`${value}`}
+                        className="p-1 disabled:opacity-50"
+                      >
+                        <Star
+                          size={22}
+                          className={myRating != null && value <= myRating ? 'fill-amber-400 text-amber-400' : 'text-white/70'}
+                        />
+                      </button>
+                    ))}
+                    {ratingMessage && <span className="text-sm text-white/80">{ratingMessage}</span>}
+                  </>
+                ) : (
+                  <Link to="/login" className="text-sm font-semibold text-amber-300 hover:underline">
+                    {t('movieDetailsRating.signIn', 'Sign in to rate this movie')}
+                  </Link>
+                )}
+              </div>
 
               <div className="flex flex-wrap gap-3">
                 {movie.trailerUrl && (

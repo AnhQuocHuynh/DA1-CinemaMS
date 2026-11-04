@@ -7,6 +7,7 @@ import { Home } from './pages/Home';
 import { MovieDetails } from './pages/MovieDetails';
 import { MovieShowtimes } from './pages/MovieShowtimes';
 import { MovieSearch } from './pages/MovieSearch';
+import { MyRatings } from './pages/MyRatings';
 import { EventDetails } from './pages/EventDetails';
 import { HealthCheck } from './pages/HealthCheck';
 import { Theaters } from './pages/Theaters';
@@ -69,6 +70,7 @@ function App() {
       <Route path="/booking-failed" element={<Navigate to="/user/booking-failed" replace />} />
       <Route path="/user/tickets/:ticketId" element={<ProtectedRoute requiredRole="USER"><TicketInfo /></ProtectedRoute>} />
       <Route path="/user/settings" element={<ProtectedRoute requiredRole="USER"><Settings /></ProtectedRoute>} />
+      <Route path="/my-ratings" element={<ProtectedRoute><MyRatings /></ProtectedRoute>} />
 
       {/* Protected Admin Routes */}
       <Route
