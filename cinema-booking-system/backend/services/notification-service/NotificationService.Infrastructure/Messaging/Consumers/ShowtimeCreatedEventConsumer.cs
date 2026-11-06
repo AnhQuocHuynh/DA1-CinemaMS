@@ -30,7 +30,7 @@ public class ShowtimeCreatedEventConsumer : RabbitMqConsumerBase<EventEnvelope<S
         _logger = logger;
     }
 
-    protected override async Task ProcessMessageAsync(EventEnvelope<ShowtimeCreatedPayload> message, CancellationToken cancellationToken)
+    protected internal override async Task ProcessMessageAsync(EventEnvelope<ShowtimeCreatedPayload> message, CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();

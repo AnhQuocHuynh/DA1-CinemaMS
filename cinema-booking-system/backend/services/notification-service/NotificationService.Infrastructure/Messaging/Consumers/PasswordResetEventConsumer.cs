@@ -27,7 +27,7 @@ public class PasswordResetEventConsumer : RabbitMqConsumerBase<EventEnvelope<Key
         _scopeFactory = scopeFactory;
     }
 
-    protected override async Task ProcessMessageAsync(EventEnvelope<KeycloakPasswordResetPayload> message, CancellationToken cancellationToken)
+    protected internal override async Task ProcessMessageAsync(EventEnvelope<KeycloakPasswordResetPayload> message, CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
 

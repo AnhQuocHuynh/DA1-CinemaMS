@@ -21,3 +21,6 @@ public record ReviewCreatedPayload(
     int? Rating, string? Status, DateTime? CreatedAt);
 
 public record ShowtimeCreatedPayload(long ShowtimeId, long? MovieId, string? MovieTitle, DateTime? StartTime);
+
+public record PaymentFailedPayload(string? CorrelationId, long? PaymentId, long OrderId, long UserId, string? Reason);
+public record OrderCancelledPayload(long OrderId, long UserId, string? Reason);

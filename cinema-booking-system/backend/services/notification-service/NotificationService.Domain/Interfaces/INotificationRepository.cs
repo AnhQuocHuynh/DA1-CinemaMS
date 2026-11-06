@@ -14,4 +14,5 @@ public interface INotificationRepository
     Task<IEnumerable<Notification>> GetByUserIdAsync(long userId, CancellationToken cancellationToken = default);
     Task<(IEnumerable<Notification> Items, long TotalCount)> GetPagedAsync(int page, int pageSize, CancellationToken cancellationToken = default);
     Task<int> ResetAllFailedToPendingAsync(CancellationToken cancellationToken = default);
+    Task MarkAllAsReadAsync(long userId, CancellationToken cancellationToken = default);
 }

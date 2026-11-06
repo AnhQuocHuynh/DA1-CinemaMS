@@ -109,6 +109,28 @@ public class BookingOutboxEventWriter {
         );
     }
 
+    public void orderCancelled(Long orderId, Long userId, String reason) {
+        transactionalOutbox.append(
+            SOURCE,
+            EXCHANGE,
+            "order.cancelled",
+            "order",
+            orderId,
+            new OrderCancelledPayload(
+                orderId,
+                userId,
+                reason
+            )
+        );
+    }
+
+    private record OrderCancelledPayload(
+        Long orderId,
+        Long userId,
+        String reason
+    ) {
+    }
+
     private record LoyaltyPointsEarnedPayload(
         Long userId,
         Long orderId,

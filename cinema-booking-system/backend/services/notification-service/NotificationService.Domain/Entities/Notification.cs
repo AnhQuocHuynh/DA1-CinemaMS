@@ -18,6 +18,8 @@ public class Notification
     public DateTime? SentAt { get; private set; }
     public string? FailedReason { get; private set; }
     public DateTime CreatedAt { get; private set; }
+    public bool IsRead { get; private set; }
+    public DateTime? ReadAt { get; private set; }
 
     private Notification()
     {
@@ -50,6 +52,12 @@ public class Notification
         Status = DeliveryStatus.SENT;
         SentAt = DateTime.UtcNow;
         FailedReason = null;
+    }
+
+    public void MarkAsRead()
+    {
+        IsRead = true;
+        ReadAt = DateTime.UtcNow;
     }
 
     public void MarkAsFailed(string reason)

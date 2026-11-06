@@ -9,6 +9,7 @@ import { useAuthStore } from '../../store/authStore';
 import { bookingService } from '../../services/bookingService';
 import { paymentService } from '../../services/paymentService';
 import { formatVND, formatShowtime } from '../../utils/formatters';
+import { PushNotificationPayload } from '../../types/notification';
 
 type PaymentMethod = 'STRIPE' | 'PAYPAL';
 
@@ -83,6 +84,36 @@ export const Checkout: React.FC = () => {
         });
     }
   }, [selectedSeats.length, showtimeData, holdExpiresAt, pendingOrder?.id, navigate, clearSelection, setCompletedOrder]);
+
+  useEffect(() => {
+    const handlePushNotification = (e: Event) => {
+      const payload = (e as CustomEvent<PushNotificationPayload>).detail;
+      if (!payload) return;
+
+      const orderId = payload.metadata?.orderId;
+      if (pendingOrder?.id && orderId && Number(orderId) !== Number(pendingOrder.id)) {
+        return;
+      }
+
+      const actionType = payload.metadata?.actionType;
+      if (actionType === 'ORDER_CONFIRMED' || payload.type === 'BOOKING_CONFIRMATION') {
+        setIsProcessing(false);
+        navigate(`/user/checkout-success?orderId=${orderId || pendingOrder?.id}`, { replace: true });
+      } else if (actionType === 'PAYMENT_FAILED' || payload.type === 'PAYMENT_FAILED') {
+        setIsProcessing(false);
+        setPayError(payload.body || (payload.metadata?.failureReason as string) || 'Payment failed. Please try another method.');
+      } else if (actionType === 'ORDER_CANCELLED' || payload.type === 'BOOKING_CANCELLED') {
+        setIsProcessing(false);
+        clearSelection();
+        navigate('/user/booking-failed?reason=timeout', { replace: true });
+      }
+    };
+
+    window.addEventListener('cinema-push-notification', handlePushNotification);
+    return () => {
+      window.removeEventListener('cinema-push-notification', handlePushNotification);
+    };
+  }, [pendingOrder?.id, navigate, clearSelection]);
 
   const handlePay = async () => {
     if (!user || !showtimeData) {

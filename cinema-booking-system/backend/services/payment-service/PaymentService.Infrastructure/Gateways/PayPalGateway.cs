@@ -173,15 +173,49 @@ public class PayPalGateway : IPaymentGateway
             var response = await _httpClient.SendAsync(captureRequest);
             var responseBody = await response.Content.ReadAsStringAsync();
 
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogError("PayPal capture failed. Status: {Status}, Body: {Body}",
-                    response.StatusCode, responseBody);
-                return new PaymentVerificationResult(false, null, responseBody, $"Capture failed: {response.StatusCode}");
-            }
+            JsonDocument doc;
+            string? status;
 
-            var doc = JsonDocument.Parse(responseBody);
-            var status = doc.RootElement.GetProperty("status").GetString();
+            if (response.IsSuccessStatusCode)
+            {
+                doc = JsonDocument.Parse(responseBody);
+                status = doc.RootElement.GetProperty("status").GetString();
+            }
+            else
+            {
+                _logger.LogWarning("PayPal capture returned {Status}. Checking if order {OrderId} is already completed...",
+                    response.StatusCode, paypalOrderId);
+
+                var orderRequest = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/v2/checkout/orders/{paypalOrderId}");
+                orderRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                var orderResponse = await _httpClient.SendAsync(orderRequest);
+                var orderResponseBody = await orderResponse.Content.ReadAsStringAsync();
+
+                if (orderResponse.IsSuccessStatusCode)
+                {
+                    var orderDoc = JsonDocument.Parse(orderResponseBody);
+                    var orderStatus = orderDoc.RootElement.TryGetProperty("status", out var s) ? s.GetString() : null;
+                    if (orderStatus == "COMPLETED")
+                    {
+                        _logger.LogInformation("PayPal order {OrderId} is already COMPLETED. Treating as successful verification.", paypalOrderId);
+                        doc = orderDoc;
+                        status = orderStatus;
+                        responseBody = orderResponseBody;
+                    }
+                    else
+                    {
+                        _logger.LogError("PayPal capture failed. Status: {Status}, Body: {Body}",
+                            response.StatusCode, responseBody);
+                        return new PaymentVerificationResult(false, null, responseBody, $"Capture failed: {response.StatusCode}");
+                    }
+                }
+                else
+                {
+                    _logger.LogError("PayPal capture failed. Status: {Status}, Body: {Body}",
+                        response.StatusCode, responseBody);
+                    return new PaymentVerificationResult(false, null, responseBody, $"Capture failed: {response.StatusCode}");
+                }
+            }
 
             if (status != "COMPLETED")
             {

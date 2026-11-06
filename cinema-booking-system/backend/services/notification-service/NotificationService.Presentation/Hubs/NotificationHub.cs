@@ -1,6 +1,8 @@
+using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
 
 namespace NotificationService.Presentation.Hubs;
 
@@ -13,8 +15,7 @@ public class NotificationHub : Hub
     /// </summary>
     public override async Task OnConnectedAsync()
     {
-        // X-User-Id is forwarded by the API Gateway as a header-based claim
-        var userId = Context.GetHttpContext()?.Request.Headers["X-User-Id"].ToString();
+        var userId = GetUserId();
 
         if (!string.IsNullOrEmpty(userId))
         {
@@ -24,9 +25,9 @@ public class NotificationHub : Hub
         await base.OnConnectedAsync();
     }
 
-    public override async Task OnDisconnectedAsync(System.Exception? exception)
+    public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        var userId = Context.GetHttpContext()?.Request.Headers["X-User-Id"].ToString();
+        var userId = GetUserId();
 
         if (!string.IsNullOrEmpty(userId))
         {
@@ -34,5 +35,18 @@ public class NotificationHub : Hub
         }
 
         await base.OnDisconnectedAsync(exception);
+    }
+
+    private string? GetUserId()
+    {
+        var header = Context.GetHttpContext()?.Request.Headers["X-User-Id"].ToString();
+        if (!string.IsNullOrWhiteSpace(header))
+        {
+            return header;
+        }
+
+        return Context.User?.FindFirst("userId")?.Value 
+            ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? Context.User?.FindFirst("sub")?.Value;
     }
 }

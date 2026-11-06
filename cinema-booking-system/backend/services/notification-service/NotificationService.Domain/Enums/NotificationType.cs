@@ -3,7 +3,10 @@ namespace NotificationService.Domain.Enums;
 public enum NotificationType
 {
     BOOKING_CONFIRMATION,
+    BOOKING_CANCELLED,
     PAYMENT_RECEIPT,
+    PAYMENT_FAILED,
+    ORDER_REFUNDED,
     PASSWORD_RESET,
     PROMOTIONAL,
     SHOWTIME_REMINDER,

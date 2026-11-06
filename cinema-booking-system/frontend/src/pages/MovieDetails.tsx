@@ -196,7 +196,7 @@ export const MovieDetails: React.FC = () => {
                     {movie.genres.map((g) => (
                       <span
                         key={g}
-                        className="px-2 py-1 bg-primary-container text-primary text-xs font-semibold rounded"
+                        className="px-2.5 py-1 bg-secondary/10 text-secondary border border-secondary/20 text-xs font-medium rounded-md"
                       >
                         {g}
                       </span>

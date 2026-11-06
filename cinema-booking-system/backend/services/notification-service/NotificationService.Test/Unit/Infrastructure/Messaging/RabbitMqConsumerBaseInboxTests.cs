@@ -33,7 +33,7 @@ public class TestConsumer : RabbitMqConsumerBase<EventEnvelope<TestPayload>>
     {
     }
 
-    protected override Task ProcessMessageAsync(EventEnvelope<TestPayload> message, CancellationToken cancellationToken)
+    protected internal override Task ProcessMessageAsync(EventEnvelope<TestPayload> message, CancellationToken cancellationToken)
     {
         ProcessCalled = true;
         LastReceivedEnvelope = message;
@@ -62,7 +62,7 @@ public class PlainPayloadTestConsumer : RabbitMqConsumerBase<TestPayload>
     {
     }
 
-    protected override Task ProcessMessageAsync(TestPayload message, CancellationToken cancellationToken)
+    protected internal override Task ProcessMessageAsync(TestPayload message, CancellationToken cancellationToken)
     {
         ProcessCalled = true;
         return Task.CompletedTask;
