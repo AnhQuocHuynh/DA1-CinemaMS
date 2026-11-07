@@ -53,15 +53,28 @@ export const UserRoleModal: React.FC<UserRoleModalProps> = ({ isOpen, onClose, o
         </div>
         
         <div className="p-6 text-center">
-          <div className="w-16 h-16 bg-blue-100 text-blue-700 font-bold flex items-center justify-center rounded-full text-xl mx-auto mb-4">
+          <div className="w-16 h-16 bg-primary-container text-primary font-bold flex items-center justify-center rounded-full text-xl mx-auto mb-4">
             {user.name.split(' ').map((p: string) => p[0]).join('')}
           </div>
           <h3 className="font-bold text-lg">{user.name}</h3>
-          <p className="text-sm text-slate-500 mb-6">{user.email}</p>
+          <p className="text-sm text-on-surface-variant mb-2">{user.email}</p>
+
+          <div className="grid grid-cols-2 gap-2 text-left bg-surface-container-low rounded-lg p-3 mb-6 text-sm">
+            <div className="text-on-surface-variant font-medium">Phone:</div>
+            <div className="text-on-surface">{user.phone || 'N/A'}</div>
+            
+            <div className="text-on-surface-variant font-medium">Gender:</div>
+            <div className="text-on-surface capitalize">{user.gender?.toLowerCase() || 'N/A'}</div>
+            
+            <div className="text-on-surface-variant font-medium">DOB:</div>
+            <div className="text-on-surface">
+              {user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : 'N/A'}
+            </div>
+          </div>
 
           <form id="role-form" onSubmit={handleSubmit} className="space-y-4 text-left">
             <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Access Level</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Access Level</label>
               <select 
                 value={activeRole} 
                 onChange={(e) => setActiveRole(e.target.value as any)}
@@ -76,8 +89,8 @@ export const UserRoleModal: React.FC<UserRoleModalProps> = ({ isOpen, onClose, o
         </div>
         
         <div className="px-6 py-4 border-t border-surface-container bg-surface-container-lowest flex justify-end gap-3">
-          <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-100">Cancel</button>
-          <button type="submit" form="role-form" disabled={isSubmitting} className="px-6 py-2 rounded-lg font-bold text-sm bg-primary text-white hover:bg-blue-700">
+          <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 rounded-lg font-bold text-sm text-on-surface-variant hover:bg-surface-container">Cancel</button>
+          <button type="submit" form="role-form" disabled={isSubmitting} className="px-6 py-2 rounded-lg font-bold text-sm bg-primary text-on-primary hover:opacity-90">
             {isSubmitting ? 'Saving...' : 'Save Roles'}
           </button>
         </div>

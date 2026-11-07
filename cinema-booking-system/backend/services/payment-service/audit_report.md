@@ -1,5 +1,11 @@
 # Payment Service Audit Report
 
+> Superseded in part on 2026-10-11. `IPaymentGateway.RefundAsync` now exists and
+> is implemented for Stripe, PayPal, and cash. `PaymentService.Test/Integration`
+> contains controller tests. Publish topology uses exchange `payment.events`.
+> The notes below are the 2026-08-20 audit and are not the current feature list.
+> Current progress is in `docs/CURRENT_STATE.md`.
+
 **Date:** 2026-08-20
 **Scope:** Payment Service (`c:\DoAn1\DA1-CinemaMS\cinema-booking-system\backend\services\payment-service`)
 

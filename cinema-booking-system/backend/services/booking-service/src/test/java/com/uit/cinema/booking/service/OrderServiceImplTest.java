@@ -2,10 +2,12 @@ package com.uit.cinema.booking.service;
 
 import com.uit.cinema.booking.entity.Order;
 import com.uit.cinema.booking.entity.Voucher;
+import com.uit.cinema.booking.outbox.BookingOutboxEventWriter;
 import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.VoucherRepository;
 import com.uit.cinema.booking.service.Impl.OrderServiceImpl;
 import com.uit.cinema.core.exception.CustomException;
+import com.uit.cinema.core.exception.DuplicatePendingOrderException;
 import com.uit.cinema.showtime.service.SeatReservationService;
 import com.uit.cinema.showtime.service.contract.SeatHoldValidationResult;
 import com.uit.cinema.showtime.service.contract.SeatView;
@@ -38,6 +40,8 @@ class OrderServiceImplTest {
     private VoucherRepository voucherRepository;
     @Mock
     private SeatReservationService seatReservationService;
+    @Mock
+    private BookingOutboxEventWriter bookingOutboxEventWriter;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -63,6 +67,25 @@ class OrderServiceImplTest {
         assertNull(result.getVoucherId());
         verify(seatReservationService).validateHeldSeats(any());
         verify(orderRepository).save(any(Order.class));
+        verify(bookingOutboxEventWriter).orderCreated(any(Order.class));
+    }
+
+    @Test
+    void createOrder_whenDuplicatePendingOrder_throwsDuplicatePendingOrderException() {
+        Order existing = Order.builder().id(777L).build();
+        when(orderRepository.existsByUserIdAndShowtimeIdAndStatus(10L, 100L, Order.OrderStatus.PENDING))
+            .thenReturn(true);
+        when(orderRepository.findByUserIdAndShowtimeIdAndStatus(10L, 100L, Order.OrderStatus.PENDING))
+            .thenReturn(Optional.of(existing));
+
+        DuplicatePendingOrderException ex = assertThrows(
+            DuplicatePendingOrderException.class,
+            () -> orderService.createOrder(10L, 100L, List.of(1L), null)
+        );
+
+        assertEquals(777L, ex.getExistingOrderId());
+        assertEquals("DUPLICATE_PENDING_ORDER", ex.getErrorCode());
+        verifyNoInteractions(seatReservationService);
     }
 
     @Test
@@ -116,5 +139,6 @@ class OrderServiceImplTest {
         assertEquals(new BigDecimal("170.00"), result.getFinalAmount());
         assertEquals(8L, result.getVoucherId());
         assertEquals(1, voucher.getUsedCount());
+        verify(bookingOutboxEventWriter).orderCreated(any(Order.class));
     }
 }

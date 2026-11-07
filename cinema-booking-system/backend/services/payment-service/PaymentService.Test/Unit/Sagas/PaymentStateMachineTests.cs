@@ -147,14 +147,15 @@ public class PaymentStateMachineTests : IAsyncLifetime
                  m.Context.Message.Payload.Reason == "insufficient_funds"));
     }
 
-    // ── Pending → Completed (cash confirmation) ───────────────────────────────
+    // ── Initial/Created → Completed (cash instant settlement) ────────────────
 
     [Fact]
-    public async Task CashPaymentConfirmed_ShouldTransitionToCompleted_AndPublishPaymentCompleted()
+    public async Task PaymentInitiated_Cash_ShouldTransitionDirectlyToCompleted_AndPublishPaymentCompleted()
     {
         // Arrange
         var correlationId = NewCorrelation();
 
+        // Act — staff initiates cash payment at counter
         await _harness.Bus.Publish(new PaymentInitiated
         {
             CorrelationId = correlationId,
@@ -163,26 +164,18 @@ public class PaymentStateMachineTests : IAsyncLifetime
             UserId = 42,
             Amount = 60000m,
             Currency = "VND",
-            PaymentMethod = "CASH"
+            PaymentMethod = "CASH",
+            TransactionId = "CASH-2004-20261010"
         });
 
-        await Task.Delay(50);
-
-        // Act — admin confirms cash collected
-        await _harness.Bus.Publish(new CashPaymentConfirmed
-        {
-            CorrelationId = correlationId,
-            PaymentId = 1004,
-            AdminUserId = 999
-        });
-
-        // Assert — state = Completed
+        // Assert — state transitions directly to Completed without waiting for manual confirmation
         await AssertSagaInState(correlationId, "Completed");
 
-        // Assert — PaymentCompleted was published
+        // Assert — PaymentCompleted was published immediately with preserved UserId and TransactionId
         Assert.True(await _harness.Published.Any<EventEnvelope<PaymentCompleted>>(
             m => m.Context.Message.Payload.CorrelationId == correlationId &&
-                 m.Context.Message.Payload.PaymentMethod == "CASH"));
+                 m.Context.Message.Payload.PaymentMethod == "CASH" &&
+                 m.Context.Message.Payload.TransactionId == "CASH-2004-20261010"));
     }
 
     // ── Completed → Refunded ──────────────────────────────────────────────────

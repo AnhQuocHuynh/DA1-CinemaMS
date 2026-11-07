@@ -1,4 +1,5 @@
 using IdentityService.Application.Features.Internal.Queries;
+using IdentityService.Application.Features.Users.Queries;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -29,5 +30,14 @@ public class InternalUsersController : ControllerBase
 
         var userId = await _mediator.Send(new ResolveKeycloakIdQuery(keycloakId));
         return Ok(userId);
+    }
+
+    [HttpGet("{id:long}")]
+    [AllowAnonymous]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<IActionResult> GetUserById([FromRoute] long id)
+    {
+        var user = await _mediator.Send(new GetUserByIdQuery(id));
+        return Ok(user);
     }
 }

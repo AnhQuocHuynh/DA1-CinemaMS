@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NotificationService.Application.Features.Preferences.Commands;
 using NotificationService.Application.Features.Preferences.Queries;
@@ -7,6 +8,7 @@ namespace NotificationService.Presentation.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class PreferencesController : ControllerBase
 {
     private readonly IMediator _mediator;

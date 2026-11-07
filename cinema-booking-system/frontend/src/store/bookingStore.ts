@@ -1,8 +1,9 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { Seat, BackendOrder, BackendVoucher } from '../types/booking';
 import { ShowtimeResponse } from '../types/showtime';
 
-interface BookingState {
+export interface BookingState {
   // Seat selection
   selectedSeats: Seat[];
   showtimeId: string | null;
@@ -23,6 +24,7 @@ interface BookingState {
   completedOrder: BackendOrder | null;
 
   // Actions
+  setSelectedSeats: (seats: Seat[]) => void;
   setShowtimeId: (showtimeId: string | null) => void;
   setHoldExpiresAt: (value: Date | null) => void;
   setShowtimeData: (data: ShowtimeResponse | null) => void;
@@ -35,50 +37,9 @@ interface BookingState {
   clearSelection: () => void;
 }
 
-export const useBookingStore = create<BookingState>((set, get) => ({
-  selectedSeats: [],
-  showtimeId: null,
-  holdExpiresAt: null,
-  showtimeData: null,
-  movieTitle: null,
-  moviePosterUrl: null,
-  voucher: null,
-  pendingOrder: null,
-  completedOrder: null,
-
-  setShowtimeId: (showtimeId) => set({ showtimeId }),
-  setHoldExpiresAt: (value) => set({ holdExpiresAt: value }),
-  setShowtimeData: (data) => set({ showtimeData: data }),
-  setMovieTitle: (title) => set({ movieTitle: title }),
-  setMoviePosterUrl: (url) => set({ moviePosterUrl: url }),
-  setVoucher: (voucher) => set({ voucher }),
-  setPendingOrder: (order) => set({ pendingOrder: order }),
-  setCompletedOrder: (order) => set({ completedOrder: order }),
-
-  toggleSeat: (seat) => {
-    const current = get().selectedSeats;
-    const exists = current.some((item) => item.id === seat.id);
-    
-    if (exists) {
-      set({ selectedSeats: current.filter((item) => item.id !== seat.id) });
-    } else {
-      const maxSeats = 6;
-      const currentPhysicalCount = current.reduce(
-        (total, s) => total + (s.type === 'couple' ? 2 : 1),
-        0
-      );
-      const addingPhysicalCount = seat.type === 'couple' ? 2 : 1;
-      
-      if (currentPhysicalCount + addingPhysicalCount > maxSeats) {
-        throw new Error(`Booking limit exceeded. You can select a maximum of ${maxSeats} physical seats.`);
-      }
-
-      set({ selectedSeats: [...current, { ...seat, status: 'selected' }] });
-    }
-  },
-
-  clearSelection: () =>
-    set({
+export const useBookingStore = create<BookingState>()(
+  persist(
+    (set, get) => ({
       selectedSeats: [],
       showtimeId: null,
       holdExpiresAt: null,
@@ -87,5 +48,73 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       moviePosterUrl: null,
       voucher: null,
       pendingOrder: null,
+      completedOrder: null,
+
+      setSelectedSeats: (seats) => set({ selectedSeats: seats }),
+      setShowtimeId: (showtimeId) => set({ showtimeId }),
+      setHoldExpiresAt: (value) => set({ holdExpiresAt: value }),
+      setShowtimeData: (data) => set({ showtimeData: data }),
+      setMovieTitle: (title) => set({ movieTitle: title }),
+      setMoviePosterUrl: (url) => set({ moviePosterUrl: url }),
+      setVoucher: (voucher) => set({ voucher }),
+      setPendingOrder: (order) => set({ pendingOrder: order }),
+      setCompletedOrder: (order) => set({ completedOrder: order }),
+
+      toggleSeat: (seat) => {
+        const current = get().selectedSeats;
+        const exists = current.some((item) => item.id === seat.id);
+        
+        if (exists) {
+          set({ selectedSeats: current.filter((item) => item.id !== seat.id) });
+        } else {
+          const maxSeats = 6;
+          const currentPhysicalCount = current.reduce(
+            (total, s) => total + (s.type === 'couple' ? 2 : 1),
+            0
+          );
+          const addingPhysicalCount = seat.type === 'couple' ? 2 : 1;
+          
+          if (currentPhysicalCount + addingPhysicalCount > maxSeats) {
+            throw new Error(`Booking limit exceeded. You can select a maximum of ${maxSeats} physical seats.`);
+          }
+
+          set({ selectedSeats: [...current, { ...seat, status: 'selected' }] });
+        }
+      },
+
+      clearSelection: () =>
+        set({
+          selectedSeats: [],
+          showtimeId: null,
+          holdExpiresAt: null,
+          showtimeData: null,
+          movieTitle: null,
+          moviePosterUrl: null,
+          voucher: null,
+          pendingOrder: null,
+          completedOrder: null,
+        }),
     }),
-}));
+    {
+      name: 'cinema_booking_storage',
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: (state) => ({
+        selectedSeats: state.selectedSeats,
+        showtimeId: state.showtimeId,
+        holdExpiresAt: state.holdExpiresAt,
+        showtimeData: state.showtimeData,
+        movieTitle: state.movieTitle,
+        moviePosterUrl: state.moviePosterUrl,
+        voucher: state.voucher,
+        pendingOrder: state.pendingOrder,
+        completedOrder: state.completedOrder,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state && state.holdExpiresAt) {
+          const d = new Date(state.holdExpiresAt);
+          state.holdExpiresAt = isNaN(d.getTime()) ? null : d;
+        }
+      },
+    }
+  )
+);

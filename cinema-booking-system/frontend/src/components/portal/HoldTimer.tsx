@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Timer } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface HoldTimerProps {
   expiresAt: Date | null;
@@ -11,6 +12,7 @@ interface HoldTimerProps {
  * Shows MM:SS and a progress bar. Calls onExpired when time runs out.
  */
 export const HoldTimer: React.FC<HoldTimerProps> = ({ expiresAt, onExpired }) => {
+  const { t } = useTranslation();
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
 
   useEffect(() => {
@@ -36,27 +38,27 @@ export const HoldTimer: React.FC<HoldTimerProps> = ({ expiresAt, onExpired }) =>
   if (!expiresAt) return null;
 
   return (
-    <div className={`rounded-xl p-5 ${isUrgent ? 'bg-error/90' : 'bg-inverse-surface'} text-white`}>
+    <div className={`rounded-xl p-5 border shadow-sm ${isUrgent ? 'bg-error/10 border-error/40 text-error' : 'bg-surface-container-low border-outline-variant/20 text-on-surface'}`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Timer className="w-4 h-4 opacity-70" />
-          <span className="text-[10px] font-bold tracking-widest uppercase opacity-70">
-            Giữ ghế hết hạn sau
+          <Timer className={`w-4 h-4 ${isUrgent ? 'text-error' : 'text-primary'}`} />
+          <span className={`text-[10px] font-bold tracking-widest uppercase ${isUrgent ? 'text-error' : 'text-on-surface-variant'}`}>
+            {t('holdTimer.expiresIn', 'Giữ ghế hết hạn sau')}
           </span>
         </div>
-        <span className="text-sm font-mono">{mm}:{ss}</span>
+        <span className={`text-sm font-mono font-semibold ${isUrgent ? 'text-error' : 'text-on-surface-variant'}`}>{mm}:{ss}</span>
       </div>
-      <div className="text-3xl font-black tracking-tighter tabular-nums mb-3">
+      <div className={`text-3xl font-black tracking-tighter tabular-nums mb-3 ${isUrgent ? 'text-error' : 'text-on-surface'}`}>
         {mm}:{ss}
       </div>
-      <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+      <div className="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all duration-1000 ${isUrgent ? 'bg-yellow-300' : 'bg-primary-container'}`}
+          className={`h-full rounded-full transition-all duration-1000 ${isUrgent ? 'bg-error' : 'bg-primary'}`}
           style={{ width: `${progress}%` }}
         />
       </div>
       {secondsLeft === 0 && (
-        <p className="text-xs mt-3 text-white/80">Ghế đã được giải phóng. Vui lòng chọn lại.</p>
+        <p className="text-xs mt-3 text-error font-medium">{t('holdTimer.expiredMsg', 'Ghế đã được giải phóng. Vui lòng chọn lại.')}</p>
       )}
     </div>
   );

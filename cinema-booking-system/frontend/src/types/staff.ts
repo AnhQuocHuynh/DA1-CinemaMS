@@ -43,6 +43,7 @@ export interface StaffCounterBookingRequest {
   customerPhone?: string;
   paymentMethod: 'CASH' | 'CARD' | 'BANK_TRANSFER';
   voucherCode?: string | null;
+  userId?: number;
 }
 
 export interface StaffCounterBookingResult {

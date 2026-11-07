@@ -34,6 +34,22 @@ public class OrderController {
         return ResponseEntity.ok(orderResponseMapper.toResponse(orderService.createOrder(userId, showtimeId, seatIds, voucherCode)));
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<OrderResponse> getOrderById(@PathVariable Long id) {
+        authorizationService.requireOrderAccess(id);
+        return ResponseEntity.ok(orderResponseMapper.toResponse(orderService.getOrderById(id)));
+    }
+
+    @GetMapping("/users/{userId}")
+    public ResponseEntity<List<OrderResponse>> getOrdersByUser(@PathVariable Long userId) {
+        Long authorizedUserId = userIdResolver.authorizeRequestedUser(userId);
+        return ResponseEntity.ok(
+            orderService.getOrdersByUserId(authorizedUserId).stream()
+                .map(orderResponseMapper::toResponse)
+                .toList()
+        );
+    }
+
     @PostMapping("/{id}/pay")
     public ResponseEntity<OrderResponse> payOrder(@PathVariable Long id, @RequestBody Map<String, String> request) {
         authorizationService.requireOrderAccess(id);

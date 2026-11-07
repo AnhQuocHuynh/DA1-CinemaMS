@@ -3,19 +3,21 @@ package com.uit.cinema.showtime.service.Impl;
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.showtime.entity.ShowtimeSeat;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
-import com.uit.cinema.showtime.service.SeatHoldPolicy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -42,13 +44,14 @@ class SeatLockingServiceImplTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.setIfAbsent(anyString(), eq("1"), any())).thenReturn(true);
 
-        ShowtimeSeat seat = new ShowtimeSeat();
-        seat.setStatus(ShowtimeSeat.SeatStatus.AVAILABLE);
-        when(showtimeSeatRepository.findById(10L)).thenReturn(Optional.of(seat));
+        ShowtimeSeat seat = availableSeat();
+        when(showtimeSeatRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(seat));
 
         seatLockingService.holdSeats(1L, List.of(10L), 1L);
 
         assertEquals(ShowtimeSeat.SeatStatus.HELD, seat.getStatus());
+        assertEquals(1L, seat.getHeldByUserId());
+        assertNotNull(seat.getHoldExpiresAt());
         verify(showtimeSeatRepository).save(seat);
     }
 
@@ -57,10 +60,17 @@ class SeatLockingServiceImplTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.setIfAbsent(anyString(), eq("1"), any())).thenReturn(false);
         when(valueOperations.get(anyString())).thenReturn("1");
+        ShowtimeSeat seat = availableSeat();
+        seat.setStatus(ShowtimeSeat.SeatStatus.HELD);
+        seat.setHeldByUserId(1L);
+        seat.setHoldExpiresAt(Instant.now().plusSeconds(30));
+        when(showtimeSeatRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(seat));
 
         seatLockingService.holdSeats(1L, List.of(10L), 1L);
 
         verify(redisTemplate).expire(anyString(), any());
+        assertEquals(1L, seat.getHeldByUserId());
+        verify(showtimeSeatRepository).save(seat);
     }
 
     @Test
@@ -74,13 +84,31 @@ class SeatLockingServiceImplTest {
     }
 
     @Test
+    void holdSeats_WhenRedisNamesAnotherUserAndDatabaseHasNoExpiry_DoesNotSteal() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent(anyString(), eq("1"), any())).thenReturn(false);
+        when(valueOperations.get(anyString())).thenReturn("2");
+        ShowtimeSeat seat = availableSeat();
+        seat.setStatus(ShowtimeSeat.SeatStatus.HELD);
+        when(showtimeSeatRepository.findById(10L)).thenReturn(Optional.of(seat));
+
+        CustomException exception = assertThrows(
+            CustomException.class,
+            () -> seatLockingService.holdSeats(1L, List.of(10L), 1L)
+        );
+
+        assertEquals("SEAT_ALREADY_HELD", exception.getErrorCode());
+        verify(redisTemplate, never()).delete(anyString());
+    }
+
+    @Test
     void holdSeats_WhenNotAvailableInDB_ThrowsExceptionAndReleasesLock() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.setIfAbsent(anyString(), eq("1"), any())).thenReturn(true);
 
-        ShowtimeSeat seat = new ShowtimeSeat();
-        seat.setStatus(ShowtimeSeat.SeatStatus.BOOKED); // Seat is sold!
-        when(showtimeSeatRepository.findById(10L)).thenReturn(Optional.of(seat));
+        ShowtimeSeat seat = availableSeat();
+        seat.setStatus(ShowtimeSeat.SeatStatus.BOOKED);
+        when(showtimeSeatRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(seat));
 
         CustomException ex = assertThrows(CustomException.class, () -> seatLockingService.holdSeats(1L, List.of(10L), 1L));
         
@@ -92,7 +120,7 @@ class SeatLockingServiceImplTest {
     void releaseHold_DeletesKeysAndUpdatesStatus() {
         ShowtimeSeat seat = new ShowtimeSeat();
         seat.setStatus(ShowtimeSeat.SeatStatus.HELD);
-        when(showtimeSeatRepository.findById(10L)).thenReturn(Optional.of(seat));
+        when(showtimeSeatRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(seat));
 
         seatLockingService.releaseHold(1L, 10L);
 
@@ -105,7 +133,7 @@ class SeatLockingServiceImplTest {
     void releaseHold_WithOwner_AtomicallyDeletesOwnedLock() {
         ShowtimeSeat seat = new ShowtimeSeat();
         seat.setStatus(ShowtimeSeat.SeatStatus.HELD);
-        when(showtimeSeatRepository.findById(10L)).thenReturn(Optional.of(seat));
+        when(showtimeSeatRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(seat));
         when(redisTemplate.execute(any(), anyList(), eq("1"))).thenReturn(1L);
 
         seatLockingService.releaseHold(1L, 10L, 1L);
@@ -127,5 +155,81 @@ class SeatLockingServiceImplTest {
 
         assertEquals("SEAT_HOLD_ACCESS_DENIED", exception.getErrorCode());
         verify(showtimeSeatRepository, never()).save(any());
+    }
+
+    @Test
+    void holdSeats_WhenRedisIsDown_FallsBackToDatabaseLock() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent(anyString(), eq("1"), any()))
+            .thenThrow(new RedisConnectionFailureException("redis down"));
+        ShowtimeSeat seat = availableSeat();
+        when(showtimeSeatRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(seat));
+
+        seatLockingService.holdSeats(1L, List.of(10L), 1L);
+
+        assertEquals(ShowtimeSeat.SeatStatus.HELD, seat.getStatus());
+        assertEquals(1L, seat.getHeldByUserId());
+        assertNotNull(seat.getHoldExpiresAt());
+        verify(showtimeSeatRepository).save(seat);
+    }
+
+    @Test
+    void holdSeats_WhenRedisIsDownAndAnotherUserHolds_ThrowsException() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent(anyString(), eq("1"), any()))
+            .thenThrow(new RedisConnectionFailureException("redis down"));
+        ShowtimeSeat seat = availableSeat();
+        seat.setStatus(ShowtimeSeat.SeatStatus.HELD);
+        seat.setHeldByUserId(2L);
+        seat.setHoldExpiresAt(Instant.now().plusSeconds(60));
+        when(showtimeSeatRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(seat));
+
+        CustomException exception = assertThrows(
+            CustomException.class,
+            () -> seatLockingService.holdSeats(1L, List.of(10L), 1L)
+        );
+
+        assertEquals("SEAT_ALREADY_HELD", exception.getErrorCode());
+        verify(showtimeSeatRepository, never()).save(any());
+    }
+
+    @Test
+    void holdSeats_WhenDatabaseHoldExpired_ReclaimsSeat() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent(anyString(), eq("1"), any())).thenReturn(true);
+        ShowtimeSeat seat = availableSeat();
+        seat.setStatus(ShowtimeSeat.SeatStatus.HELD);
+        seat.setHeldByUserId(2L);
+        seat.setHoldExpiresAt(Instant.now().minusSeconds(5));
+        when(showtimeSeatRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(seat));
+
+        seatLockingService.holdSeats(1L, List.of(10L), 1L);
+
+        assertEquals(1L, seat.getHeldByUserId());
+        assertEquals(ShowtimeSeat.SeatStatus.HELD, seat.getStatus());
+    }
+
+    @Test
+    void releaseHold_WhenRedisIsDown_ClearsOwnedDatabaseHold() {
+        when(redisTemplate.execute(any(), anyList(), eq("1")))
+            .thenThrow(new RedisConnectionFailureException("redis down"));
+        ShowtimeSeat seat = availableSeat();
+        seat.setStatus(ShowtimeSeat.SeatStatus.HELD);
+        seat.setHeldByUserId(1L);
+        seat.setHoldExpiresAt(Instant.now().plusSeconds(60));
+        when(showtimeSeatRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(seat));
+
+        seatLockingService.releaseHold(1L, 10L, 1L);
+
+        assertEquals(ShowtimeSeat.SeatStatus.AVAILABLE, seat.getStatus());
+        verify(showtimeSeatRepository).save(seat);
+    }
+
+    private ShowtimeSeat availableSeat() {
+        ShowtimeSeat seat = new ShowtimeSeat();
+        seat.setId(10L);
+        seat.setShowtimeId(1L);
+        seat.setStatus(ShowtimeSeat.SeatStatus.AVAILABLE);
+        return seat;
     }
 }

@@ -15,16 +15,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.verify;
@@ -95,6 +98,7 @@ class SeatReservationServiceImplTest {
     void confirmHeldSeats_Success() {
         SeatBookingRequest request = new SeatBookingRequest(1L, 1L, List.of(10L));
         ShowtimeSeat seat = heldSeat(10L);
+        seat.setHeldByUserId(1L);
 
         when(showtimeSeatRepository.findAllById(List.of(10L))).thenReturn(List.of(seat));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
@@ -104,6 +108,8 @@ class SeatReservationServiceImplTest {
 
         assertEquals(1, result.affectedRows());
         assertEquals(ShowtimeSeat.SeatStatus.BOOKED, seat.getStatus());
+        assertNull(seat.getHeldByUserId());
+        assertNull(seat.getHoldExpiresAt());
         assertEquals(1, result.seats().size());
         verify(showtimeSeatRepository).saveAll(anyList());
         verify(redisTemplate).delete(SeatHoldPolicy.holdKey(1L, 10L));
@@ -158,6 +164,38 @@ class SeatReservationServiceImplTest {
 
         assertEquals(ShowtimeSeat.SeatStatus.AVAILABLE, seat.getStatus());
         verify(showtimeSeatRepository).saveAll(anyList());
+    }
+
+    @Test
+    void validateHeldSeats_WhenRedisIsDown_AcceptsActiveDatabaseHold() {
+        SeatBookingRequest request = new SeatBookingRequest(1L, 1L, List.of(10L));
+        ShowtimeSeat seat = heldSeat(10L);
+        seat.setHeldByUserId(1L);
+        seat.setHoldExpiresAt(Instant.now().plusSeconds(60));
+        when(showtimeSeatRepository.findAllById(List.of(10L))).thenReturn(List.of(seat));
+
+        SeatHoldValidationResult result = seatReservationService.validateHeldSeats(request);
+
+        assertEquals(1, result.seats().size());
+    }
+
+    @Test
+    void validateHeldSeats_WhenDatabaseHoldExpiredAndRedisIsDown_ThrowsException() {
+        SeatBookingRequest request = new SeatBookingRequest(1L, 1L, List.of(10L));
+        ShowtimeSeat seat = heldSeat(10L);
+        seat.setHeldByUserId(1L);
+        seat.setHoldExpiresAt(Instant.now().minusSeconds(5));
+        when(showtimeSeatRepository.findAllById(List.of(10L))).thenReturn(List.of(seat));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(SeatHoldPolicy.holdKey(1L, 10L)))
+            .thenThrow(new RedisConnectionFailureException("redis down"));
+
+        CustomException exception = assertThrows(
+            CustomException.class,
+            () -> seatReservationService.validateHeldSeats(request)
+        );
+
+        assertEquals("SEAT_HOLD_INVALID", exception.getErrorCode());
     }
 
     @Test

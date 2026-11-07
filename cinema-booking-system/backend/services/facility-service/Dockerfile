@@ -3,25 +3,26 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 # Copy the .slnx file first to leverage Docker layer caching
-COPY *.slnx ./
+COPY ["services/facility-service/*.slnx", "services/facility-service/"]
 
 # Copy the csproj files for each project
-COPY ["FacilityService.Application/FacilityService.Application.csproj", "FacilityService.Application/"]
-COPY ["FacilityService.Domain/FacilityService.Domain.csproj", "FacilityService.Domain/"]
-COPY ["FacilityService.Infrastructure/FacilityService.Infrastructure.csproj", "FacilityService.Infrastructure/"]
-COPY ["FacilityService.Presentation/FacilityService.Presentation.csproj", "FacilityService.Presentation/"]
+COPY ["services/facility-service/FacilityService.Application/FacilityService.Application.csproj", "services/facility-service/FacilityService.Application/"]
+COPY ["services/facility-service/FacilityService.Domain/FacilityService.Domain.csproj", "services/facility-service/FacilityService.Domain/"]
+COPY ["services/facility-service/FacilityService.Infrastructure/FacilityService.Infrastructure.csproj", "services/facility-service/FacilityService.Infrastructure/"]
+COPY ["services/facility-service/FacilityService.Presentation/FacilityService.Presentation.csproj", "services/facility-service/FacilityService.Presentation/"]
 
 # Restore dependencies
-RUN dotnet restore "FacilityService.Presentation/FacilityService.Presentation.csproj" -nowarn:msb3202
+COPY ["shared/Shared.Hosting/CinemaBooking.Shared.Hosting.csproj", "shared/Shared.Hosting/"]
+RUN dotnet restore "services/facility-service/FacilityService.Presentation/FacilityService.Presentation.csproj" -nowarn:msb3202
 
 # Copy the rest of the source code
 COPY . .
 
 # Build the application
-RUN dotnet build "FacilityService.Presentation/FacilityService.Presentation.csproj" -c Release -o /app/build -v m
+RUN dotnet build "services/facility-service/FacilityService.Presentation/FacilityService.Presentation.csproj" -c Release -o /app/build -v m
 
 # Publish the application
-RUN dotnet publish "FacilityService.Presentation/FacilityService.Presentation.csproj" -c Release -o /app/publish /p:UseAppHost=false /p:BlazorWebAssemblyEnableLinking=false
+RUN dotnet publish "services/facility-service/FacilityService.Presentation/FacilityService.Presentation.csproj" -c Release -o /app/publish /p:UseAppHost=false /p:BlazorWebAssemblyEnableLinking=false
 
 # Use the ASP.NET Core runtime image for the final stage
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final

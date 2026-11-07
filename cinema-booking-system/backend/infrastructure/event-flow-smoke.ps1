@@ -5,14 +5,27 @@ param(
     [switch]$ValidateOnly,
     [switch]$KeepEvidence,
     [int]$TimeoutSeconds = 120,
-    [string]$RabbitManagementUrl = "http://localhost:15672",
-    [string]$RabbitUsername = "cinema",
-    [string]$RabbitPassword = "cinema-rabbitmq-dev",
-    [string]$RecommendationUrl = "http://localhost:8085",
-    [string]$Neo4jPassword = "cinema_graph_2026"
+    [string]$RabbitManagementUrl = "",
+    [string]$RabbitUsername = "",
+    [string]$RabbitPassword = "",
+    [string]$RecommendationUrl = "",
+    [string]$Neo4jPassword = ""
 )
 
 $ErrorActionPreference = "Stop"
+
+function Resolve-Default {
+    param(
+        [string]$Value,
+        [string]$Fallback
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return $Fallback
+    }
+
+    return $Value
+}
 
 function Invoke-Compose {
     param([string[]]$Arguments)
@@ -233,6 +246,19 @@ MATCH (node:Genre {name: '$($Evidence.GenreName)'}) WHERE NOT ()-[:IN_GENRE]->(n
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ComposeFile = Join-Path $ScriptDir "docker-compose.yml"
 $SmokeScript = Join-Path $ScriptDir "smoke-test.ps1"
+$EnvFile = Join-Path $ScriptDir ".env"
+$EnvExample = Join-Path $ScriptDir ".env.example"
+
+if (-not (Test-Path $EnvFile) -and (Test-Path $EnvExample)) {
+    Copy-Item $EnvExample $EnvFile
+    Write-Host "[INFO] Seeded infrastructure/.env from .env.example"
+}
+
+$RabbitManagementUrl = Resolve-Default $RabbitManagementUrl (Resolve-Default $env:RABBITMQ_MANAGEMENT_URL "http://localhost:15672")
+$RabbitUsername = Resolve-Default $RabbitUsername (Resolve-Default $env:RABBITMQ_DEFAULT_USER (Resolve-Default $env:RABBITMQ_USERNAME "guest"))
+$RabbitPassword = Resolve-Default $RabbitPassword (Resolve-Default $env:RABBITMQ_DEFAULT_PASS (Resolve-Default $env:RABBITMQ_PASSWORD "guest"))
+$RecommendationUrl = Resolve-Default $RecommendationUrl (Resolve-Default $env:RECOMMENDATION_SERVICE_URL "http://localhost:8085")
+$Neo4jPassword = Resolve-Default $Neo4jPassword (Resolve-Default $env:NEO4J_PASSWORD "cinema_graph_2026")
 
 if ($ValidateOnly) {
     Write-Host "Event-flow smoke configuration is valid."
@@ -244,9 +270,9 @@ if ($ValidateOnly) {
 $evidence = $null
 try {
     if ($StartCompose) {
-        & $SmokeScript -StartCompose -TimeoutSeconds $TimeoutSeconds
+        & $SmokeScript -StartCompose -TimeoutSeconds $TimeoutSeconds -RabbitManagementUrl $RabbitManagementUrl -RabbitUsername $RabbitUsername -RabbitPassword $RabbitPassword
     } else {
-        & $SmokeScript -TimeoutSeconds $TimeoutSeconds
+        & $SmokeScript -TimeoutSeconds $TimeoutSeconds -RabbitManagementUrl $RabbitManagementUrl -RabbitUsername $RabbitUsername -RabbitPassword $RabbitPassword
     }
 
     $baseId = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()

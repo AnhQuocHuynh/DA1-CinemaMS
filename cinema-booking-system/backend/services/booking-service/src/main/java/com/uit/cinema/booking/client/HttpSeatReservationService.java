@@ -9,25 +9,32 @@ import com.uit.cinema.showtime.service.contract.SeatHoldValidationResult;
 import com.uit.cinema.showtime.service.contract.SeatReleaseRequest;
 import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
 import com.uit.cinema.showtime.service.contract.ShowtimeSeatView;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.util.Optional;
 
+@Slf4j
 @Component
 public class HttpSeatReservationService implements SeatReservationService {
 
     private final RestClient restClient;
+    private final ObjectMapper objectMapper;
 
     public HttpSeatReservationService(
         RestClient.Builder builder,
+        ObjectMapper objectMapper,
         @Value("${services.showtime.url:http://localhost:8082}") String showtimeBaseUrl,
         @Value("${app.internal-token}") String internalToken
     ) {
+        this.objectMapper = objectMapper;
         this.restClient = builder
             .baseUrl(showtimeBaseUrl)
             .defaultHeader("X-Internal-Token", internalToken)
@@ -126,9 +133,37 @@ public class HttpSeatReservationService implements SeatReservationService {
                 .retrieve()
                 .body(responseType);
             return requireData(response);
+        } catch (RestClientResponseException ex) {
+            log.error("Showtime service returned {} on POST {}: body={}", ex.getStatusCode(), uri, ex.getResponseBodyAsString());
+            throw handleResponseException(ex);
         } catch (RestClientException ex) {
+            log.error("Failed to connect to showtime service on POST {}: {}", uri, ex.getMessage());
             throw unavailable();
         }
+    }
+
+    private CustomException handleResponseException(RestClientResponseException ex) {
+        if (ex.getStatusCode().is5xxServerError()) {
+            return unavailable();
+        }
+        try {
+            ApiResponse<?> err = objectMapper.readValue(ex.getResponseBodyAsString(), ApiResponse.class);
+            if (err != null && err.getMessage() != null && !err.getMessage().isBlank()) {
+                HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+                return new CustomException(
+                    err.getMessage(),
+                    status != null ? status : HttpStatus.BAD_REQUEST,
+                    err.getErrorCode() != null ? err.getErrorCode() : "SHOWTIME_ERROR"
+                );
+            }
+        } catch (Exception ignored) {
+        }
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+        return new CustomException(
+            "Showtime service error: " + ex.getStatusText(),
+            status != null ? status : HttpStatus.BAD_REQUEST,
+            "SHOWTIME_ERROR"
+        );
     }
 
     private <T> Optional<T> get(String uri, Object uriVariable, ParameterizedTypeReference<ApiResponse<T>> responseType) {
@@ -138,7 +173,11 @@ public class HttpSeatReservationService implements SeatReservationService {
                 .retrieve()
                 .body(responseType);
             return Optional.ofNullable(response).map(ApiResponse::getData);
+        } catch (RestClientResponseException ex) {
+            log.warn("Showtime service returned {} on GET {}: body={}", ex.getStatusCode(), uri, ex.getResponseBodyAsString());
+            return Optional.empty();
         } catch (RestClientException ex) {
+            log.warn("Failed to connect to showtime service on GET {}: {}", uri, ex.getMessage());
             return Optional.empty();
         }
     }

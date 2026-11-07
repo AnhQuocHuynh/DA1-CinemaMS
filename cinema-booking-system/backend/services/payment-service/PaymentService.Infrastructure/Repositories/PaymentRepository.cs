@@ -1,5 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PaymentService.Domain.Entities;
+using PaymentService.Domain.Enums;
 using PaymentService.Domain.Interfaces;
 using PaymentService.Infrastructure.Data;
 
@@ -58,5 +64,35 @@ public class PaymentRepository : IPaymentRepository
     public async Task AddAsync(Payment payment, CancellationToken cancellationToken = default)
     {
         await _context.Payments.AddAsync(payment, cancellationToken);
+    }
+
+    public async Task<List<(long Id, Guid SagaId)>> ClaimExpiredPaymentsAsync(
+        DateTime cutoff, int batchSize = 50, CancellationToken cancellationToken = default)
+    {
+        var candidates = await _context.Payments
+            .Where(p => p.Status == PaymentStatus.CREATED && p.CreatedAt <= cutoff)
+            .OrderBy(p => p.CreatedAt)
+            .Select(p => new { p.Id, p.SagaId })
+            .Take(batchSize)
+            .ToListAsync(cancellationToken);
+
+        var claimed = new List<(long Id, Guid SagaId)>();
+
+        foreach (var candidate in candidates)
+        {
+            var affected = await _context.Payments
+                .Where(p => p.Id == candidate.Id && p.Status == PaymentStatus.CREATED)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.Status, PaymentStatus.EXPIRED)
+                    .SetProperty(p => p.UpdatedAt, DateTime.UtcNow),
+                    cancellationToken);
+
+            if (affected > 0)
+            {
+                claimed.Add((candidate.Id, candidate.SagaId));
+            }
+        }
+
+        return claimed;
     }
 }

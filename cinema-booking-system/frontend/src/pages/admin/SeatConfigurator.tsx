@@ -8,8 +8,10 @@ import { SeatConfiguratorGrid } from '../../components/admin/SeatConfiguratorGri
 import { SeatConfiguratorSidebar } from '../../components/admin/SeatConfiguratorSidebar';
 import { useAdminRooms } from '../../hooks/useAdminRooms';
 import { useSeatConfigurator } from '../../hooks/useSeatConfigurator';
+import { useTranslation } from 'react-i18next';
 
 export const SeatConfigurator: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { roomId } = useParams();
   const { theaters } = useAdminRooms();
@@ -39,6 +41,7 @@ export const SeatConfigurator: React.FC = () => {
     clearGrid,
     loadGrid,
     saveGrid,
+    hasChanges,
   } = useSeatConfigurator(
     room?.theater.id?.toString(),
     roomId,
@@ -59,6 +62,7 @@ export const SeatConfigurator: React.FC = () => {
   );
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [showDiscardPopup, setShowDiscardPopup] = useState(false);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(String(event.active.id));
@@ -74,8 +78,8 @@ export const SeatConfigurator: React.FC = () => {
   return (
     <AdminLayout activeItemId="rooms">
       <AdminTopBar
-        title="Seat Configuration"
-        searchPlaceholder="Search halls or templates..."
+        title={t('adminSeats.console', 'Seat Configuration')}
+        searchPlaceholder={t('adminSeats.search', 'Search halls or templates...')}
         navLinks={[
           { label: 'Rooms', to: '/admin/rooms' },
           { label: 'Schedules', to: '/admin/showtimes' },
@@ -85,29 +89,35 @@ export const SeatConfigurator: React.FC = () => {
 
       <main className="p-6 md:p-10 bg-surface min-h-screen">
         <AdminPageHeader
-          eyebrow={room?.theater.name ?? 'Hall Template'}
+          eyebrow={room?.theater.name ?? t('adminSeats.eyebrow', 'Hall Template')}
           title={roomName}
-          subtitle="Drag a seat type onto the map or click to paint. Click the same seat to clear it."
+          subtitle={t('adminSeats.subtitle', 'Drag a seat type onto the map or click to paint. Click the same seat to clear it.')}
           actions={
             <>
               <button
                 className="bg-surface-container-low px-4 py-3 rounded-lg text-sm font-semibold"
-                onClick={() => navigate('/admin/rooms')}
+                onClick={() => {
+                  if (hasChanges) {
+                    setShowDiscardPopup(true);
+                  } else {
+                    navigate('/admin/rooms');
+                  }
+                }}
               >
-                Back to Rooms
+                {t('adminSeats.back', 'Back to Rooms')}
               </button>
               <button
                 className="bg-surface-container-low px-4 py-3 rounded-lg text-sm font-semibold"
                 onClick={clearGrid}
               >
-                Reset Grid
+                {t('adminSeats.reset', 'Reset Grid')}
               </button>
               <button 
                 onClick={saveGrid}
-                disabled={isSaving}
+                disabled={isSaving || !hasChanges}
                 className="bg-primary text-on-primary px-4 py-3 rounded-lg text-sm font-semibold disabled:opacity-50"
               >
-                {isSaving ? 'Saving...' : 'Save Configuration'}
+                {isSaving ? t('adminSeats.saving', 'Saving...') : t('adminSeats.save', 'Save Configuration')}
               </button>
             </>
           }
@@ -120,13 +130,13 @@ export const SeatConfigurator: React.FC = () => {
               <div className="w-full max-w-2xl bg-surface-container-highest/30 h-12 rounded-t-[100%] flex items-center justify-center relative">
                 <div className="absolute bottom-0 w-4/5 h-1 bg-gradient-to-r from-transparent via-primary to-transparent blur-[1px]"></div>
               </div>
-              <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-outline mt-4">Screen</span>
+              <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-outline mt-4">{t('adminSeats.screen', 'Screen')}</span>
             </div>
 
             <div className="perspective-container">
               <div className="perspective-map">
                 {isLoading ? (
-                  <div className="flex justify-center items-center h-64 text-outline">Loading seat map...</div>
+                  <div className="flex justify-center items-center h-64 text-outline">{t('adminSeats.loading', 'Loading seat map...')}</div>
                 ) : (
                   <>
                     <SeatConfiguratorGrid
@@ -142,19 +152,19 @@ export const SeatConfigurator: React.FC = () => {
 
             <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-surface-container-low p-4 rounded-xl">
-                <div className="text-[10px] uppercase tracking-widest text-outline">Standard Seats</div>
+                <div className="text-[10px] uppercase tracking-widest text-outline">{t('adminSeats.stdSeats', 'Standard Seats')}</div>
                 <div className="text-2xl font-bold text-on-surface mt-2">{seatCounts.standard}</div>
               </div>
               <div className="bg-surface-container-low p-4 rounded-xl">
-                <div className="text-[10px] uppercase tracking-widest text-outline">VIP Seats</div>
+                <div className="text-[10px] uppercase tracking-widest text-outline">{t('adminSeats.vipSeats', 'VIP Seats')}</div>
                 <div className="text-2xl font-bold text-on-surface mt-2">{seatCounts.vip}</div>
               </div>
               <div className="bg-surface-container-low p-4 rounded-xl">
-                <div className="text-[10px] uppercase tracking-widest text-outline">Couple Seats</div>
+                <div className="text-[10px] uppercase tracking-widest text-outline">{t('adminSeats.coupleSeats', 'Couple Seats')}</div>
                 <div className="text-2xl font-bold text-on-surface mt-2">{seatCounts.couple}</div>
               </div>
               <div className="bg-surface-container-low p-4 rounded-xl">
-                <div className="text-[10px] uppercase tracking-widest text-outline">Total Capacity</div>
+                <div className="text-[10px] uppercase tracking-widest text-outline">{t('adminSeats.totalCapacity', 'Total Capacity')}</div>
                 <div className="text-2xl font-bold text-on-surface mt-2">{seatCounts.total}</div>
               </div>
             </div>
@@ -174,11 +184,31 @@ export const SeatConfigurator: React.FC = () => {
             {activeId ? (
               <div className={`w-8 h-8 rounded-sm border-2 border-white shadow-lg ${
                 activeId === 'couple' ? 'bg-pink-500 aspect-[2/1] w-16' :
-                activeId === 'vip' ? 'bg-amber-400' : 'bg-green-500'
+                activeId === 'vip' ? 'bg-amber-400' : 'bg-success'
               }`} />
             ) : null}
           </DragOverlay>
         </DndContext>
+
+        {showDiscardPopup && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+              <div className="px-6 py-4 border-b border-surface-container flex items-center justify-between bg-surface-container-low/50">
+                <h2 className="text-xl font-bold text-on-surface">{t('adminSeats.unsavedTitle', 'Unsaved Changes')}</h2>
+                <button onClick={() => setShowDiscardPopup(false)} className="text-on-surface-variant hover:text-error p-1 rounded-md">✕</button>
+              </div>
+              <div className="p-6">
+                <p className="text-sm text-on-surface-variant font-semibold">{t('adminSeats.unsavedDesc', 'You have unsaved changes to the seat configuration. Are you sure you want to discard them and go back?')}</p>
+              </div>
+              <div className="px-6 py-4 border-t border-surface-container bg-surface-container-lowest flex justify-end gap-3">
+                <button onClick={() => setShowDiscardPopup(false)} className="px-4 py-2 rounded-lg font-bold text-sm text-on-surface-variant hover:bg-surface-container">{t('adminSeats.cancel', 'Cancel')}</button>
+                <button onClick={() => navigate('/admin/rooms')} className="px-6 py-2 rounded-lg font-bold text-sm bg-error text-on-error hover:opacity-90">
+                  {t('adminSeats.discard', 'Discard Changes')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </AdminLayout>
   );

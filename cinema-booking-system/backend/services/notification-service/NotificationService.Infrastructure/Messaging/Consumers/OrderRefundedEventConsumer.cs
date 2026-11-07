@@ -22,12 +22,12 @@ public class OrderRefundedEventConsumer : RabbitMqConsumerBase<EventEnvelope<Ord
     public OrderRefundedEventConsumer(
         IRabbitMqConnectionProvider connectionProvider,
         ILogger<OrderRefundedEventConsumer> logger,
-        IServiceScopeFactory scopeFactory) : base(connectionProvider, logger)
+        IServiceScopeFactory scopeFactory) : base(connectionProvider, logger, scopeFactory)
     {
         _scopeFactory = scopeFactory;
     }
 
-    protected override async Task ProcessMessageAsync(EventEnvelope<OrderRefundedPayload> message, CancellationToken cancellationToken)
+    protected internal override async Task ProcessMessageAsync(EventEnvelope<OrderRefundedPayload> message, CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
         
@@ -37,25 +37,49 @@ public class OrderRefundedEventConsumer : RabbitMqConsumerBase<EventEnvelope<Ord
         {
             type = "OrderRefunded",
             orderId = message.Payload.OrderId,
-            amount = message.Payload.RefundAmount,
-            reason = message.Payload.Reason
+            amount = message.Payload.FinalAmount,
+            ticketCount = message.Payload.TicketCount
         });
 
         // 2. Send the Email Notification via MediatR
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
-        var command = new SendNotificationCommand(
+        var emailCommand = new SendNotificationCommand(
             message.Payload.UserId,
-            NotificationType.PAYMENT_RECEIPT,
+            NotificationType.ORDER_REFUNDED,
             NotificationChannel.EMAIL,
             $"Refund processed for Order #{message.Payload.OrderId}",
-            $"A refund of {message.Payload.RefundAmount} has been processed. Reason: {message.Payload.Reason}",
+            $"A refund of {message.Payload.FinalAmount:N0} VND has been processed for {message.Payload.TicketCount} ticket(s).",
             new Dictionary<string, object>
             {
-                { "orderId", message.Payload.OrderId }
+                { "orderId", message.Payload.OrderId },
+                { "showtimeId", message.Payload.ShowtimeId },
+                { "finalAmount", message.Payload.FinalAmount },
+                { "ticketCount", message.Payload.TicketCount }
             }
         );
 
-        await mediator.Send(command, cancellationToken);
+        await mediator.Send(emailCommand, cancellationToken);
+
+        // 3. Send the Real-Time Push Notification via MediatR
+        var pushCommand = new SendNotificationCommand(
+            message.Payload.UserId,
+            NotificationType.ORDER_REFUNDED,
+            NotificationChannel.PUSH,
+            $"Order #{message.Payload.OrderId} Refunded",
+            $"A refund of {message.Payload.FinalAmount:N0} VND has been processed for {message.Payload.TicketCount} ticket(s).",
+            new Dictionary<string, object>
+            {
+                { "orderId", message.Payload.OrderId },
+                { "showtimeId", message.Payload.ShowtimeId },
+                { "finalAmount", message.Payload.FinalAmount },
+                { "ticketCount", message.Payload.TicketCount },
+                { "actionType", "ORDER_REFUNDED" },
+                { "actionUrl", "/my-tickets" }
+            }
+        );
+
+        await mediator.Send(pushCommand, cancellationToken);
     }
 }
+

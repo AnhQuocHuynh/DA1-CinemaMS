@@ -2,7 +2,16 @@ using System;
 
 namespace NotificationService.Application.Messages;
 
-public class EventEnvelope<T>
+public interface IEventEnvelope
+{
+    Guid EventId { get; }
+    string EventType { get; }
+    DateTime OccurredAt { get; }
+    int SchemaVersion { get; }
+    string Source { get; }
+}
+
+public class EventEnvelope<T> : IEventEnvelope
 {
     public Guid EventId { get; set; } = Guid.NewGuid();
     public string EventType { get; set; } = string.Empty;

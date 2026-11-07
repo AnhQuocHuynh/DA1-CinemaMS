@@ -14,7 +14,7 @@ public class DeliveryLog
 
     private DeliveryLog()
     {
-        Id = string.Empty;
+        Id = Guid.NewGuid().ToString();
         NotificationId = string.Empty;
     }
 
@@ -22,7 +22,7 @@ public class DeliveryLog
     {
         if (string.IsNullOrWhiteSpace(notificationId)) throw new ArgumentException("NotificationId is required.", nameof(notificationId));
 
-        Id = string.Empty;
+        Id = Guid.NewGuid().ToString();
         NotificationId = notificationId;
         Attempt = attempt;
         Status = status;

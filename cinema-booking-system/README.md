@@ -1,10 +1,10 @@
 # Cinema Booking System
 
-> Current runtime and migration handoff: `backend_legacy/` is the complete
-> monolith; `backend/` is the microservice target. Extracted Compose uses
-> PostgreSQL 18 on `localhost:5432` with logical service databases. Start from
-> `../docs/SESSION_BOOTSTRAP.md` and `backend/README.md`, not the Java 17
-> layout below.
+> Current handoff: `backend/` is the microservice stack (Spring Boot plus
+> ASP.NET Identity, Facility, Payment, Notification, and the YARP gateway).
+> `backend_legacy/` is the rollback monolith. Feature progress is in
+> `../docs/CURRENT_STATE.md`. Start from `../docs/SESSION_BOOTSTRAP.md` and
+> `backend/README.md`. The Java 17 layout below is historical.
 
 A **Movie and Event Ticket Booking System** built as a university project. The
 original deliverable was a **modular monolith**; the current orientation is

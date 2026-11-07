@@ -13,7 +13,7 @@ interface SeatConfiguratorSidebarProps {
 }
 
 const tools = [
-  { id: 'standard', label: 'Standard Seat', hint: 'Green tile', border: 'border-transparent', bg: 'bg-green-500' },
+  { id: 'standard', label: 'Standard Seat', hint: 'Green tile', border: 'border-transparent', bg: 'bg-success' },
   { id: 'vip', label: 'VIP Seat', hint: 'Gold tile', border: 'border-transparent', bg: 'bg-amber-400' },
   { id: 'couple', label: 'Couple Seat', hint: 'Pink tile, 2 cols', border: 'border-transparent', bg: 'bg-pink-500' },
 ] as const;
@@ -32,7 +32,7 @@ const DraggableTool: React.FC<{ tool: typeof tools[number]; activeTool: SeatType
       {...attributes}
       onClick={onClick}
       style={{ opacity: isDragging ? 0.5 : 1 }}
-      className={`w-full flex items-center justify-between p-4 rounded-xl border ${activeTool === tool.id ? 'border-primary bg-surface-container-low' : 'border-outline-variant/30 bg-white'} transition-colors cursor-grab active:cursor-grabbing`}
+      className={`w-full flex items-center justify-between p-4 rounded-xl border ${activeTool === tool.id ? 'border-primary bg-surface-container-low' : 'border-outline-variant/30 bg-surface-container-lowest'} transition-colors cursor-grab active:cursor-grabbing`}
     >
       <div className="flex items-center gap-3 pointer-events-none">
         <span className={`w-6 h-6 rounded-sm ${tool.bg} border-2 ${tool.border} shadow-sm`}></span>
@@ -104,8 +104,8 @@ export const SeatConfiguratorSidebar: React.FC<SeatConfiguratorSidebarProps> = (
       </section>
 
       <section className="bg-inverse-surface text-white rounded-2xl p-6">
-        <div className="text-[10px] uppercase tracking-widest text-slate-400">Seat Map Notes</div>
-        <p className="text-xs leading-relaxed text-slate-200 mt-3">
+        <div className="text-[10px] uppercase tracking-widest text-on-surface-variant">Seat Map Notes</div>
+        <p className="text-xs leading-relaxed text-inverse-on-surface mt-3">
           This layout mirrors the booking experience. Standard seats render in green, while VIP seats
           keep the amber outline for premium zones.
         </p>

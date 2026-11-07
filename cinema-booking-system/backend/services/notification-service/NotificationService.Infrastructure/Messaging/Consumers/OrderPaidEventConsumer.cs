@@ -22,12 +22,12 @@ public class OrderPaidEventConsumer : RabbitMqConsumerBase<EventEnvelope<OrderPa
     public OrderPaidEventConsumer(
         IRabbitMqConnectionProvider connectionProvider,
         ILogger<OrderPaidEventConsumer> logger,
-        IServiceScopeFactory scopeFactory) : base(connectionProvider, logger)
+        IServiceScopeFactory scopeFactory) : base(connectionProvider, logger, scopeFactory)
     {
         _scopeFactory = scopeFactory;
     }
 
-    protected override async Task ProcessMessageAsync(EventEnvelope<OrderPaidPayload> message, CancellationToken cancellationToken)
+    protected internal override async Task ProcessMessageAsync(EventEnvelope<OrderPaidPayload> message, CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
         
@@ -45,20 +45,43 @@ public class OrderPaidEventConsumer : RabbitMqConsumerBase<EventEnvelope<OrderPa
         // 2. Send the Email Notification via MediatR
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
-        var command = new SendNotificationCommand(
+        var emailCommand = new SendNotificationCommand(
             message.Payload.UserId,
             NotificationType.PAYMENT_RECEIPT,
             NotificationChannel.EMAIL,
             $"Order #{message.Payload.OrderId} Confirmed",
-            $"Your payment of {message.Payload.FinalAmount} was successful.",
+            $"Your payment of {message.Payload.FinalAmount:N0} VND was successful. Order #{message.Payload.OrderId} has been confirmed for {message.Payload.TicketCount} ticket(s).",
             new Dictionary<string, object>
             {
                 { "orderId", message.Payload.OrderId },
                 { "showtimeId", message.Payload.ShowtimeId },
-                { "transactionId", message.Payload.TransactionId }
+                { "transactionId", message.Payload.TransactionId ?? string.Empty },
+                { "amount", message.Payload.FinalAmount },
+                { "ticketCount", message.Payload.TicketCount },
+                { "paymentMethod", message.Payload.PaymentMethod ?? string.Empty }
             }
         );
 
-        await mediator.Send(command, cancellationToken);
+        await mediator.Send(emailCommand, cancellationToken);
+
+        // 3. Send the Real-Time Push Notification via MediatR
+        var pushCommand = new SendNotificationCommand(
+            message.Payload.UserId,
+            NotificationType.BOOKING_CONFIRMATION,
+            NotificationChannel.PUSH,
+            $"Order #{message.Payload.OrderId} Confirmed!",
+            $"Your booking for {message.Payload.TicketCount} ticket(s) was successful.",
+            new Dictionary<string, object>
+            {
+                { "orderId", message.Payload.OrderId },
+                { "showtimeId", message.Payload.ShowtimeId },
+                { "finalAmount", message.Payload.FinalAmount },
+                { "ticketCount", message.Payload.TicketCount },
+                { "actionType", "ORDER_CONFIRMED" },
+                { "actionUrl", $"/user/checkout-success?orderId={message.Payload.OrderId}" }
+            }
+        );
+
+        await mediator.Send(pushCommand, cancellationToken);
     }
 }

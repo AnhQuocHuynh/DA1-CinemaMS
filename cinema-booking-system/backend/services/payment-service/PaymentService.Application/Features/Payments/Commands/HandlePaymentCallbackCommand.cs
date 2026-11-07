@@ -55,7 +55,8 @@ public class HandlePaymentCallbackCommandHandler : IRequestHandler<HandlePayment
         // 2. Resolve payment entity to get its SagaId (saga correlation key)
         if (!request.Parameters.TryGetValue("paymentId", out var paymentIdStr) || !long.TryParse(paymentIdStr, out var paymentId))
         {
-            throw new PaymentGatewayException("Payment ID not found in callback parameters.");
+            // If paymentId is not present, it is an acknowledged ancillary event (e.g. payment_intent.created)
+            return true;
         }
 
         var payment = await _paymentRepository.GetByIdAsync(paymentId, cancellationToken);

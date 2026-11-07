@@ -1,4 +1,5 @@
 using FacilityService.Application.DTOs;
+using FacilityService.Application.Exceptions;
 using FacilityService.Domain.Interfaces;
 using MediatR;
 using System.Threading;
@@ -35,7 +36,7 @@ namespace FacilityService.Application.Features.SeatTemplates.Queries
             }
 
             var seat = await _unitOfWork.SeatTemplates.GetByIdAsync(request.Id);
-            if (seat == null) throw new System.Exception($"Seat template {request.Id} not found");
+            if (seat == null) throw new NotFoundException($"Seat template {request.Id} not found");
 
             var result = new SeatTemplateDto
             {
@@ -44,7 +45,9 @@ namespace FacilityService.Application.Features.SeatTemplates.Queries
                 ColumnNumber = seat.ColumnNumber,
                 SeatTypeCode = seat.SeatType?.Code.ToString(),
                 ColumnSpan = seat.ColumnSpan,
-                Active = seat.Active
+                Active = seat.Active,
+                Pathway = seat.Pathway,
+                PriceMultiplier = seat.SeatType?.PriceMultiplier ?? 1.0m
             };
 
             await _cache.SetStringAsync(

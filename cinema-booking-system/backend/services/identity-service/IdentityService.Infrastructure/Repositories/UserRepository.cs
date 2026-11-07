@@ -33,6 +33,11 @@ public class UserRepository : IUserRepository
         return await _context.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
     }
 
+    public async Task<User?> GetByPhoneAsync(string phone, CancellationToken ct = default)
+    {
+        return await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Phone == phone, ct);
+    }
+
     public void Add(User user)
     {
         _context.Users.Add(user);

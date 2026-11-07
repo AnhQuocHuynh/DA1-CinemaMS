@@ -15,9 +15,10 @@ Durable rules for agents working in this repository.
 - Main project directory: `cinema-booking-system/`.
 - Current branch at handoff: `refactor-compose-single-postgres` (compose and docs
   continue from `refactor-n-decoupling`).
-- Treat `cinema-booking-system/backend_legacy/` as the complete runnable backend unless the user explicitly asks to continue the microservice refactor under `cinema-booking-system/backend/`.
-- `cinema-booking-system/backend/` contains extracted Spring Boot `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, `analytics-service`, and `recommendation-service` slices. It is not yet a complete replacement for `backend_legacy`.
-- Per `cinema-booking-system/docs/architecture_refactor.md`, do not expand services assigned to ASP.NET in this Spring Boot workstream: `identity-service`, target `facility-service`, `payment-service`, `notification-service`, and `api-gateway`. The current Spring Boot `facility-service` is a compatibility slice from earlier extraction work; keep further changes minimal and contract-driven.
+- `cinema-booking-system/backend_legacy/` is the rollback monolith. Traffic has not been cut over.
+- `cinema-booking-system/backend/` is the microservice stack on `refactor-compose-single-postgres`. Spring Boot owns `catalog-service`, `showtime-service`, `booking-service`, `analytics-service`, and `recommendation-service`. ASP.NET owns `identity-service`, `facility-service`, `payment-service`, `notification-service`, and `api-gateway`. Keycloak is in Compose. This stack is not yet a proven replacement for `backend_legacy`.
+- `services/rental-service` has no source on this branch. Room rental is on `feature/room-rental` only.
+- Feature progress lives in `docs/CURRENT_STATE.md`. Migration gates live in `cinema-booking-system/backend/MIGRATION_STATUS.md`. Do not treat `architecture_refactor.md` as proof that a feature is done.
 
 ## Collaboration Rules
 - Do not commit unless the user explicitly asks.
@@ -49,6 +50,7 @@ Durable rules for agents working in this repository.
 - Backend run: `cd cinema-booking-system/backend_legacy; mvn spring-boot:run`.
 - Frontend install/build: `cd cinema-booking-system/frontend; npm ci; npm run build`.
 - Frontend dev: `cd cinema-booking-system/frontend; npm run dev`.
+- Frontend container: `cinema-booking-system/backend/infrastructure/docker-compose.yml` service `frontend`, host port `5173`. Do not run it together with `npm run dev`.
 - Full legacy app Docker compose file exists at `cinema-booking-system/docker-compose-app.yml` but references `./backend`, while the runnable backend is currently under `backend_legacy`; verify before using.
 - Extracted service compose: `cd cinema-booking-system/backend; docker compose -f infrastructure/docker-compose.yml config`.
 

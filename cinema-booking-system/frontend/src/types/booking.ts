@@ -48,7 +48,8 @@ export interface BackendTicket {
   ticketCode: string;
   qrCodeData: string;   // base64 PNG
   price: string;
-  status: 'VALID' | 'USED' | 'CANCELLED' | 'CHECKED_IN';
+  status: 'VALID' | 'USED' | 'CANCELLED' | 'CHECKED_IN' | 'REFUNDED';
+  seatLabel?: string;
   checkedInAt: string | null;
   createdAt: string;
 }
@@ -57,7 +58,15 @@ export interface BackendOrder {
   id: number;
   userId: number;
   showtimeId: number;
-  seatIdsSnapshot: string;
+  seatIds: number[];
+  movieTitle: string;
+  displayTitle: string;
+  cinemaName: string;
+  roomName: string;
+  startTime: string;
+  endTime: string;
+  seatLabels: string[];
+  salesChannel: string;
   voucherId: number | null;
   totalAmount: string;
   discountAmount: string;
@@ -66,9 +75,12 @@ export interface BackendOrder {
   paymentMethod: string | null;
   paymentTransactionId: string | null;
   tickets: BackendTicket[];
+  refundable?: boolean;
+  refundPercent?: number;
   createdAt: string;
   updatedAt: string;
 }
+
 
 export interface BackendVoucher {
   id: number;
@@ -99,5 +111,8 @@ export interface TicketDetails {
   qrCodeData: string;         // base64 PNG (render as data: URI)
   price: number;              // VND per ticket
   status: string;
+  refundable?: boolean;
+  refundPercent?: number;
+  displayTitle?: string;
   posterUrl: string;          // may be empty string if not available
 }

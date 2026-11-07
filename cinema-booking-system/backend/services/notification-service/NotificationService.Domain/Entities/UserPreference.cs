@@ -5,6 +5,7 @@ namespace NotificationService.Domain.Entities;
 
 public class UserPreference
 {
+    public string Id { get; private set; } = string.Empty;
     public long UserId { get; private set; }
     public ContactDetails? Contact { get; private set; }
     public bool EmailEnabled { get; private set; }
@@ -19,6 +20,7 @@ public class UserPreference
     {
         if (userId <= 0) throw new ArgumentException("UserId must be greater than zero.", nameof(userId));
 
+        Id = userId.ToString();
         UserId = userId;
         Contact = contact;
         EmailEnabled = emailEnabled;

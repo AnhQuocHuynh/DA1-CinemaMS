@@ -216,9 +216,9 @@ public class HandlePaymentCallbackCommandHandlerTests
     // ── Missing paymentId ─────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Handle_MissingPaymentId_ShouldThrowPaymentGatewayException()
+    public async Task Handle_MissingPaymentId_ShouldAcknowledgeAndReturnTrue()
     {
-        // Arrange — gateway says success but no paymentId in parameters
+        // Arrange — gateway says success but no paymentId in parameters (ancillary webhook event)
         var parameters = new Dictionary<string, string>
         {
             { "rawBody", "{}" },
@@ -235,8 +235,13 @@ public class HandlePaymentCallbackCommandHandlerTests
 
         var command = new HandlePaymentCallbackCommand(PaymentMethod.STRIPE, parameters);
 
-        // Act & Assert
-        await Assert.ThrowsAsync<PaymentGatewayException>(() =>
-            _handler.Handle(command, CancellationToken.None));
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result);
+        _publishEndpointMock.Verify(
+            e => e.Publish(It.IsAny<GatewayCallbackReceived>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }

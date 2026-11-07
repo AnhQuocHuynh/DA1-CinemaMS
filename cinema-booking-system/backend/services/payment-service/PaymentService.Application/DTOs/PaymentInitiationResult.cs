@@ -1,3 +1,8 @@
 namespace PaymentService.Application.DTOs;
 
-public record PaymentInitiationResult(bool IsSuccess, string? RedirectUrl, string? ErrorMessage);
+public record PaymentInitiationResult(
+    bool IsSuccess,
+    string? RedirectUrl,
+    string? ErrorMessage,
+    string? GatewaySessionId = null
+);

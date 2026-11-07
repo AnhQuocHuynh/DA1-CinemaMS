@@ -39,7 +39,7 @@ public class RecommendationSecurityConfig {
 
         if (!jwtEnabled) {
             return http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health", "/api/recommendations/**").permitAll()
+                .requestMatchers("/actuator/health", "/error", "/api/recommendations/**").permitAll()
                 .anyRequest().denyAll()
             )
             .build();
@@ -47,7 +47,7 @@ public class RecommendationSecurityConfig {
 
         return http
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health").permitAll()
+                .requestMatchers("/actuator/health", "/error").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/recommendations/movies/popular", "/api/recommendations/movies/*/similar").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/recommendations/movies", "/api/recommendations/users/*/taste-profile").authenticated()
                 .anyRequest().denyAll()

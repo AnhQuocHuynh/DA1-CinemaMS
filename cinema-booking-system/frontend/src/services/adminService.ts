@@ -1,5 +1,4 @@
-// TODO: Migrate to src/lib/apiClient.ts
-import apiClient from './authService';
+import apiClient from '../lib/apiClient';
 import {
   AdminDashboardOverview,
   AdminLiveSale,
@@ -108,7 +107,7 @@ export const adminService = {
 
   // ── Schedules (Skipped/Mocked) ─────────────────────────────────────────────
   getShowtimeSchedules: async () => {
-    console.log('🗓️ [ADMIN] Fetching showtime schedules (Mock)...');
+    console.warn('🗓️ [ADMIN] Fetching showtime schedules (Mock). BE endpoint missing. (See analytics/notification service for related data)');
     const mockSchedules = [
       {
         id: 'show-1',
@@ -198,7 +197,7 @@ export const adminService = {
 
   // ── Pricing (Skipped/Mocked) ───────────────────────────────────────────────
   getPricingOverview: async () => {
-    console.log('💳 [ADMIN] Fetching pricing overview (Mock)...');
+    console.warn('💳 [ADMIN] Fetching pricing overview (Mock). BE endpoint missing. (See analytics/notification service for related data)');
     const mockPricing = {
       baseRate: 14.5,
       tiers: [
@@ -237,7 +236,7 @@ export const adminService = {
   },
 
   updateVoucher: async (id: string | number, voucherData: any) => {
-    console.log(`🎟️ [ADMIN] Mock updating voucher ${id}...`, voucherData);
+    console.warn(`🎟️ [ADMIN] Mock updating voucher ${id}... Endpoint PUT /api/vouchers/{id} is missing in backend.`, voucherData);
     // Missing in backend; mock for now
     return { id, ...voucherData, status: 'active' };
   },
@@ -267,6 +266,9 @@ export const adminService = {
       id: String(u.id),
       name: u.fullName || u.email.split('@')[0],
       email: u.email,
+      phone: u.phone,
+      gender: u.gender,
+      dateOfBirth: u.dateOfBirth,
       status: u.active ? 'active' : 'deactivated',
       lastActivity: 'Unknown',
       roles: {
@@ -299,7 +301,7 @@ export const adminService = {
   },
 
   getPermissionRules: async (): Promise<AdminPermissionRule[]> => {
-    console.log('🧩 [ADMIN] Fetching permission rules (Mock)...');
+    console.warn('🧩 [ADMIN] Fetching permission rules (Mock). BE endpoint missing. (See analytics/notification service for related data)');
     const mockRules: AdminPermissionRule[] = [
       {
         id: 'rule-1',
