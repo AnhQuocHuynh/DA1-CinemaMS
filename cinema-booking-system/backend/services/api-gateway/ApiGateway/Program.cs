@@ -195,6 +195,24 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1)
             });
     });
+
+    options.AddPolicy("chatbot-rate-limit", context =>
+    {
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? context.Connection.RemoteIpAddress?.ToString()
+            ?? "unknown";
+        return RateLimitPartition.GetTokenBucketLimiter(
+            partitionKey: $"chatbot:{userId}",
+            factory: _ => new TokenBucketRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                TokenLimit = 20,
+                TokensPerPeriod = 20,
+                ReplenishmentPeriod = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            });
+    });
 });
 
 // Health Checks

@@ -2,7 +2,9 @@ name: cinema-backend-services
 
 services:
   postgres:
-    image: postgres:18-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
     container_name: cinema-postgres
     env_file:
       - .env
@@ -117,6 +119,7 @@ services:
       - ReverseProxy__Clusters__recommendation-cluster__Destinations__recommendation-1__Address=http://recommendation-service:8085
       - ReverseProxy__Clusters__payment-cluster__Destinations__payment-1__Address=http://payment-service:80
       - ReverseProxy__Clusters__notification-cluster__Destinations__notification-1__Address=http://notification-service:80
+      - ReverseProxy__Clusters__chatbot-cluster__Destinations__chatbot-1__Address=http://ai-chatbot-service:8000
       - Jwt__Authority=${KC_AUTHORITY_URL}
       - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
       - UserProfileService__BaseUrl=http://identity-service:80
@@ -488,6 +491,39 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cinema-services
+
+  ai-chatbot-service:
+    build:
+      context: ..
+      dockerfile: services/ai-chatbot-service/Dockerfile
+    container_name: cinema-ai-chatbot
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-123}@${POSTGRES_HOST:-postgres}:5432/ai_chatbot_db
+      - REDIS_URL=redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}/0
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-cinema}:${RABBITMQ_DEFAULT_PASS:-guest}@${RABBITMQ_HOST:-rabbitmq}:5672/
+      - AI_PROVIDER=${AI_PROVIDER:-Gemini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-004}
+      - CATALOG_SERVICE_URL=http://catalog-service:8081
+      - SHOWTIME_SERVICE_URL=http://showtime-service:8082
+      - FACILITY_SERVICE_URL=http://facility-service:80
+      - RECOMMENDATION_SERVICE_URL=http://recommendation-service:8085
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-local-dev-internal-token}
+    ports:
+      - "${AI_CHATBOT_PORT:-5005}:8000"
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
       rabbitmq:
         condition: service_healthy
     networks:
