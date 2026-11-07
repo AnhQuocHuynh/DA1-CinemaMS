@@ -87,7 +87,6 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
             case PaymentStatus.CREATED:
             case PaymentStatus.FAILED:
             {
-                PaymentInitiationResult result;
                 if (request.PaymentMethod == PaymentMethod.CASH)
                 {
                     var txnId = $"CASH-{payment.OrderId}-{DateTime.UtcNow:yyyyMMddHHmmss}";
@@ -117,34 +116,7 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
                 }
                 else
                 {
-                    var gateway = _gatewayFactory.GetGateway(request.PaymentMethod);
-                    var gatewayRequest = new PaymentRequest(payment.Id, payment.Amount, payment.Currency, request.CancelUrl, request.SuccessUrl);
-                    result = await gateway.InitiateAsync(gatewayRequest);
-
-                    if (!result.IsSuccess)
-                        return result;
-
-                    payment.Initiate(request.PaymentMethod, result.GatewaySessionId);
-
-                    await _transactionLogRepository.AddAsync(
-                        new TransactionLog(payment.Id, "INITIATE", request.ToString(), null, null),
-                        cancellationToken
-                    );
-
-                    await _publishEndpoint.Publish(new PaymentInitiated
-                    {
-                        CorrelationId = payment.SagaId,
-                        PaymentId = payment.Id,
-                        OrderId = payment.OrderId,
-                        UserId = payment.UserId,
-                        Amount = payment.Amount,
-                        Currency = payment.Currency,
-                        PaymentMethod = request.PaymentMethod.ToString()
-                    }, cancellationToken);
-
-                    await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-                    return result;
+                    return await InitiateGatewaySessionAsync(payment, request, cancellationToken);
                 }
             }
 
@@ -158,15 +130,26 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
                     return new PaymentInitiationResult(true, request.SuccessUrl, null, txnId);
                 }
 
-                // Idempotency: response was lost, user is retrying
-                if (payment.GatewaySessionId != null && payment.PaymentMethod.HasValue)
+                // Idempotency: response was lost, user is retrying with the same payment method
+                if (payment.GatewaySessionId != null && payment.PaymentMethod == request.PaymentMethod)
                 {
-                    var existingGateway = _gatewayFactory.GetGateway(payment.PaymentMethod.Value);
-                    var existingUrl = await existingGateway.GetExistingSessionUrlAsync(payment.GatewaySessionId, cancellationToken);
-                    return new PaymentInitiationResult(true, existingUrl, null, payment.GatewaySessionId);
+                    try
+                    {
+                        var existingGateway = _gatewayFactory.GetGateway(payment.PaymentMethod.Value);
+                        var existingUrl = await existingGateway.GetExistingSessionUrlAsync(payment.GatewaySessionId, cancellationToken);
+                        if (!string.IsNullOrWhiteSpace(existingUrl))
+                        {
+                            return new PaymentInitiationResult(true, existingUrl, null, payment.GatewaySessionId);
+                        }
+                    }
+                    catch
+                    {
+                        // Fall through to initiate a fresh session if fetching the existing session fails
+                    }
                 }
 
-                return new PaymentInitiationResult(true, request.SuccessUrl, null);
+                // User switched payment method (e.g. PayPal -> Stripe) or existing session URL was missing/expired
+                return await InitiateGatewaySessionAsync(payment, request, cancellationToken);
             }
 
             case PaymentStatus.COMPLETED:
@@ -180,6 +163,41 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
                 throw new InvalidPaymentStateException(
                     $"Unexpected payment status {payment.Status} for order {request.OrderId}.");
         }
+    }
+
+    private async Task<PaymentInitiationResult> InitiateGatewaySessionAsync(
+        Payment payment,
+        InitiatePaymentCommand request,
+        CancellationToken cancellationToken)
+    {
+        var gateway = _gatewayFactory.GetGateway(request.PaymentMethod);
+        var gatewayRequest = new PaymentRequest(payment.Id, payment.Amount, payment.Currency, request.CancelUrl, request.SuccessUrl);
+        var result = await gateway.InitiateAsync(gatewayRequest);
+
+        if (!result.IsSuccess)
+            return result;
+
+        payment.Initiate(request.PaymentMethod, result.GatewaySessionId);
+
+        await _transactionLogRepository.AddAsync(
+            new TransactionLog(payment.Id, "INITIATE", request.ToString(), null, null),
+            cancellationToken
+        );
+
+        await _publishEndpoint.Publish(new PaymentInitiated
+        {
+            CorrelationId = payment.SagaId,
+            PaymentId = payment.Id,
+            OrderId = payment.OrderId,
+            UserId = payment.UserId,
+            Amount = payment.Amount,
+            Currency = payment.Currency,
+            PaymentMethod = request.PaymentMethod.ToString()
+        }, cancellationToken);
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return result;
     }
 
     private async Task<Payment?> PollForPaymentSlotAsync(long orderId, CancellationToken ct)
