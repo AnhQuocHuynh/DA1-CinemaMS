@@ -81,22 +81,43 @@ public class SeatReservationServiceImpl implements SeatReservationService {
         List<ShowtimeSeat> seats = loadAndValidateSeats(request.showtimeId(), request.seatIds(), null, null, null);
         String requesterId = String.valueOf(request.userId());
 
-        // Paid seats are confirmed when the requester still owns the Redis hold. If the hold has expired
-        // (no Redis key) the seat is soft-locked for the requester and confirmed as a fallback, since the
-        // customer has already paid. A seat that is BOOKED or actively held by someone else is never taken.
+        // Paid seats are confirmed when the requester still owns the hold (Redis, or the database hold when
+        // Redis is unavailable). If no active hold exists the seat is soft-locked for the requester in Redis
+        // (when reachable) and confirmed as a fallback, since the customer has already paid.
+        // A seat that is BOOKED or actively held by someone else is never taken.
         List<ShowtimeSeat> expiredHoldSeats = new ArrayList<>();
+        boolean redisAvailable = true;
+        Instant now = Instant.now();
         for (ShowtimeSeat seat : seats) {
             if (seat.getStatus() == ShowtimeSeat.SeatStatus.BOOKED) {
                 throw seatAlreadyTaken(seat.getId());
             }
-            Object holder = redisTemplate.opsForValue().get(SeatHoldPolicy.holdKey(request.showtimeId(), seat.getId()));
-            if (holder == null) {
-                expiredHoldSeats.add(seat);
-            } else if (!requesterId.equals(String.valueOf(holder))) {
+            Object holder = null;
+            if (redisAvailable) {
+                try {
+                    holder = redisTemplate.opsForValue().get(SeatHoldPolicy.holdKey(request.showtimeId(), seat.getId()));
+                } catch (DataAccessException exception) {
+                    redisAvailable = false;
+                    log.warn("Redis unavailable while confirming seat {}. Using the database hold.", seat.getId());
+                }
+            }
+            if (holder != null) {
+                if (!requesterId.equals(String.valueOf(holder))) {
+                    throw seatAlreadyTaken(seat.getId());
+                }
+                continue;
+            }
+            if (SeatHoldPolicy.ownedActiveHold(seat, request.userId(), now)) {
+                continue;
+            }
+            if (SeatHoldPolicy.blocksNewHolder(seat, request.userId(), now)) {
                 throw seatAlreadyTaken(seat.getId());
             }
+            expiredHoldSeats.add(seat);
         }
-        softLockExpiredHolds(request, expiredHoldSeats, requesterId);
+        if (redisAvailable) {
+            softLockExpiredHolds(request, expiredHoldSeats, requesterId);
+        }
 
         for (ShowtimeSeat seat : seats) {
             seat.setStatus(ShowtimeSeat.SeatStatus.BOOKED);
@@ -303,7 +324,13 @@ public class SeatReservationServiceImpl implements SeatReservationService {
         List<Long> claimedSeatIds = new ArrayList<>();
         for (ShowtimeSeat seat : expiredHoldSeats) {
             String key = SeatHoldPolicy.holdKey(request.showtimeId(), seat.getId());
-            Boolean claimed = redisTemplate.opsForValue().setIfAbsent(key, requesterId, SeatHoldPolicy.HOLD_TTL);
+            Boolean claimed;
+            try {
+                claimed = redisTemplate.opsForValue().setIfAbsent(key, requesterId, SeatHoldPolicy.HOLD_TTL);
+            } catch (DataAccessException exception) {
+                log.warn("Redis unavailable while soft-locking seat {}. Confirming from the database row lock.", seat.getId());
+                return;
+            }
             if (!Boolean.TRUE.equals(claimed)) {
                 deleteHoldKeys(request.showtimeId(), claimedSeatIds);
                 throw seatAlreadyTaken(seat.getId());
