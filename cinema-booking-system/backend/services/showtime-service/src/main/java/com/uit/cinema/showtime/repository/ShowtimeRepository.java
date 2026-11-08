@@ -35,7 +35,7 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
     @Query("""
         SELECT s FROM Showtime s
         WHERE s.roomId = :roomId
-          AND s.status <> :cancelled
+          AND (s.status IS NULL OR s.status <> :cancelled)
           AND s.startTime < :rangeEnd
           AND s.endTime > :rangeStart
         ORDER BY s.startTime
@@ -50,7 +50,7 @@ public interface ShowtimeRepository extends JpaRepository<Showtime, Long> {
     @Query("""
         SELECT COUNT(s) FROM Showtime s
         WHERE s.roomId = :roomId
-          AND s.status <> :cancelled
+          AND (s.status IS NULL OR s.status <> :cancelled)
           AND s.startTime < :endTime
           AND s.endTime > :startTime
         """)
