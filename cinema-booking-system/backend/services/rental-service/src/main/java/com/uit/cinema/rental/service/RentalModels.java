@@ -17,10 +17,6 @@ public final class RentalModels {
             return "ADMIN".equals(realmRole);
         }
 
-        public boolean managerOf(Long cinemaId) {
-            return "MANAGER".equals(realmRole) && cinemaIds != null && cinemaIds.contains(cinemaId);
-        }
-
         public boolean staffOf(Long cinemaId) {
             return "STAFF".equals(realmRole) && cinemaIds != null && cinemaIds.contains(cinemaId);
         }

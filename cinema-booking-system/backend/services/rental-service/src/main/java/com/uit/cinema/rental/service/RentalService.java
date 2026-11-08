@@ -129,7 +129,7 @@ public class RentalService {
 
     @Transactional
     public RentalModels.Report report(RentalModels.Actor actor, LocalDateTime from, LocalDateTime to) {
-        if (actor == null || !(actor.admin() || "MANAGER".equals(actor.realmRole()))) {
+        if (actor == null || !(actor.admin() || ("STAFF".equals(actor.realmRole()) && actor.cinemaIds() != null && !actor.cinemaIds().isEmpty()))) {
             throw forbidden();
         }
         List<RoomRental> rows = filtered(actor, null, null, null, from, to);
@@ -176,7 +176,7 @@ public class RentalService {
     @Transactional
     public RentalModels.RentalView approve(Long id, RentalModels.Actor actor) {
         RoomRental rental = loadFresh(id);
-        requireManager(actor, rental.getCinemaId());
+        requireStaffOrAdmin(actor, rental.getCinemaId());
         requireStatus(rental, RentalStatus.PENDING_APPROVAL);
         requireShowtimeClear(rental);
         rental.setStatus(RentalStatus.AWAITING_PAYMENT);
@@ -192,7 +192,7 @@ public class RentalService {
             throw new CustomException("Rejection reason is required", HttpStatus.BAD_REQUEST, "REASON_REQUIRED");
         }
         RoomRental rental = loadFresh(id);
-        requireManager(actor, rental.getCinemaId());
+        requireStaffOrAdmin(actor, rental.getCinemaId());
         requireStatus(rental, RentalStatus.PENDING_APPROVAL);
         rental.setStatus(RentalStatus.REJECTED);
         rental.setDecisionReason(reason.trim());
@@ -205,13 +205,13 @@ public class RentalService {
     @Transactional
     public RentalModels.RentalView pay(Long id, String paymentMethod, RentalModels.Actor actor) {
         RoomRental rental = loadFresh(id);
-        if (actor == null || !(actor.userId().equals(rental.getUserId()) || actor.admin() || actor.managerOf(rental.getCinemaId()))) {
+        if (actor == null || !(actor.userId().equals(rental.getUserId()) || actor.admin() || actor.staffOf(rental.getCinemaId()))) {
             throw forbidden();
         }
         requireStatus(rental, RentalStatus.AWAITING_PAYMENT);
         String method = normalizeMethod(paymentMethod);
         if ("CASH".equals(method)) {
-            if (!(actor.admin() || actor.managerOf(rental.getCinemaId()))) {
+            if (!(actor.admin() || actor.staffOf(rental.getCinemaId()))) {
                 throw new CustomException(
                     "Cash payment can only be confirmed at the cinema counter",
                     HttpStatus.FORBIDDEN,
@@ -236,15 +236,32 @@ public class RentalService {
     }
 
     @Transactional
+    public RentalModels.RentalView confirmOnlinePayment(Long id, String paymentMethod, RentalModels.Actor actor) {
+        RoomRental rental = loadFresh(id);
+        if (actor == null || !(actor.userId().equals(rental.getUserId()) || actor.admin() || actor.staffOf(rental.getCinemaId()))) {
+            throw forbidden();
+        }
+        String method = normalizeMethod(paymentMethod != null && !paymentMethod.isBlank() ? paymentMethod : rental.getPaymentMethod());
+        if ("CASH".equals(method) && !(actor.admin() || actor.staffOf(rental.getCinemaId()))) {
+            throw new CustomException(
+                "Cash payment can only be confirmed at the cinema counter",
+                HttpStatus.FORBIDDEN,
+                "CASH_COUNTER_ONLY"
+            );
+        }
+        return confirmPayment(rental, method);
+    }
+
+    @Transactional
     public RentalModels.RentalView cancel(Long id, RentalModels.Actor actor) {
         RoomRental rental = loadFresh(id);
         if (actor == null) {
             throw forbidden();
         }
         boolean owner = actor.userId().equals(rental.getUserId());
-        boolean manager = actor.admin() || actor.managerOf(rental.getCinemaId());
+        boolean staffOrAdmin = actor.admin() || actor.staffOf(rental.getCinemaId());
         if (rental.getStatus() == RentalStatus.PENDING_APPROVAL || rental.getStatus() == RentalStatus.AWAITING_PAYMENT) {
-            if (!owner && !manager) {
+            if (!owner && !staffOrAdmin) {
                 throw forbidden();
             }
         } else if (rental.getStatus() == RentalStatus.CONFIRMED) {
@@ -255,7 +272,7 @@ public class RentalService {
                     "RENTAL_ALREADY_STARTED"
                 );
             }
-            if (manager) {
+            if (staffOrAdmin) {
                 markRefundPending(rental);
             } else if (owner) {
                 if (rental.getStartTime().isBefore(now().plusHours(rules.customerCancelHours()))) {
@@ -282,7 +299,7 @@ public class RentalService {
     @Transactional
     public RentalModels.RentalView completeRefund(Long id, RentalModels.Actor actor) {
         RoomRental rental = loadFresh(id);
-        requireManager(actor, rental.getCinemaId());
+        requireStaffOrAdmin(actor, rental.getCinemaId());
         if (rental.getStatus() != RentalStatus.CANCELLED || rental.getRefundStatus() != RefundStatus.PENDING) {
             throw new CustomException("Refund is not pending", HttpStatus.BAD_REQUEST, "REFUND_NOT_PENDING");
         }
@@ -487,7 +504,7 @@ public class RentalService {
     }
 
     private boolean inScope(RentalModels.Actor actor, Long cinemaId) {
-        return actor.admin() || actor.managerOf(cinemaId) || actor.staffOf(cinemaId);
+        return actor.admin() || actor.staffOf(cinemaId);
     }
 
     private boolean canRead(RentalModels.Actor actor, RoomRental rental) {
@@ -495,13 +512,13 @@ public class RentalService {
     }
 
     private void requireReader(RentalModels.Actor actor) {
-        if (actor == null || !(actor.admin() || "MANAGER".equals(actor.realmRole()) || "STAFF".equals(actor.realmRole()))) {
+        if (actor == null || !(actor.admin() || "STAFF".equals(actor.realmRole()))) {
             throw forbidden();
         }
     }
 
-    private void requireManager(RentalModels.Actor actor, Long cinemaId) {
-        if (actor == null || !(actor.admin() || actor.managerOf(cinemaId))) {
+    private void requireStaffOrAdmin(RentalModels.Actor actor, Long cinemaId) {
+        if (actor == null || !(actor.admin() || actor.staffOf(cinemaId))) {
             throw forbidden();
         }
     }

@@ -120,6 +120,17 @@ public class RentalController {
         return ResponseEntity.ok(ApiResponse.success(paid, message));
     }
 
+    @PostMapping("/{id}/pay/confirm")
+    public ResponseEntity<ApiResponse<RentalModels.RentalView>> confirmOnlinePayment(
+        @PathVariable Long id,
+        @RequestBody PaymentRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+            rentalService.confirmOnlinePayment(id, request.paymentMethod(), actors.actor(request.userId())),
+            "Đã xác nhận thanh toán"
+        ));
+    }
+
     @PostMapping("/{id}/cancel")
     public ResponseEntity<ApiResponse<RentalModels.RentalView>> cancel(
         @PathVariable Long id,

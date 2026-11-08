@@ -43,6 +43,8 @@ public class RentalSecurityConfig {
         }
         return http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health", "/internal/rentals/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/rentals/quote").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/rentals/rooms/*/availability").permitAll()
                 .requestMatchers(HttpMethod.PUT, "/api/rentals/rates/**").hasRole("ADMIN")
                 .requestMatchers("/api/rentals/**").authenticated()
                 .anyRequest().denyAll()

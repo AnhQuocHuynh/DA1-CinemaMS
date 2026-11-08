@@ -1,9 +1,14 @@
 using FluentAssertions;
+using IdentityService.Application.DTOs;
+using IdentityService.Application.Exceptions;
 using IdentityService.Application.Features.Internal.Queries;
+using IdentityService.Application.Features.Users.Queries;
 using IdentityService.Presentation.Controllers;
+using IdentityService.Presentation.Models;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -64,8 +69,8 @@ public class InternalUsersControllerTests
     [Fact]
     public async Task GetUserById_ValidId_ReturnsOkWithUser()
     {
-        var userDto = new IdentityService.Application.DTOs.UserDto(123L, "kc-123", "test@test.com", "Test User", null, null, null, true);
-        _mediatorMock.Setup(m => m.Send(It.Is<IdentityService.Application.Features.Users.Queries.GetUserByIdQuery>(q => q.Id == 123L), It.IsAny<CancellationToken>()))
+        var userDto = new UserDto(123L, "kc-123", "test@test.com", "Test User", null, null, null, true);
+        _mediatorMock.Setup(m => m.Send(It.Is<GetUserByIdQuery>(q => q.Id == 123L), It.IsAny<CancellationToken>()))
             .ReturnsAsync(userDto);
 
         var result = await _controller.GetUserById(123L);
@@ -73,4 +78,145 @@ public class InternalUsersControllerTests
         result.Should().BeOfType<OkObjectResult>();
         ((OkObjectResult)result).Value.Should().Be(userDto);
     }
+
+    // ─── GetUserCinemaScope: Normal Paths ────────────────────────────────────
+
+    [Fact]
+    public async Task GetUserCinemaScope_AdminUser_ReturnsAdminScopeWithEmptyCinemaIds()
+    {
+        // Arrange
+        var userDto = new UserDto(
+            1L, "kc-admin", "admin@test.com", "Admin User",
+            null, null, null, true,
+            new[] { "ADMIN" }, null);
+
+        _mediatorMock.Setup(m => m.Send(It.Is<GetUserByIdInternalQuery>(q => q.Id == 1L), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userDto);
+
+        // Act
+        var result = await _controller.GetUserCinemaScope(1L);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var apiResponse = okResult.Value.Should().BeOfType<ApiResponse<CinemaScopeDto>>().Subject;
+        apiResponse.Success.Should().BeTrue();
+        apiResponse.Data.Should().NotBeNull();
+        apiResponse.Data!.RealmRole.Should().Be("ADMIN");
+        apiResponse.Data.CinemaIds.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetUserCinemaScope_StaffUserWithCinema_ReturnsStaffScopeWithAssignedCinemaId()
+    {
+        // Arrange
+        var userDto = new UserDto(
+            4L, "kc-staff", "staff@test.com", "Staff User",
+            null, null, null, true,
+            new[] { "STAFF" }, 3L);
+
+        _mediatorMock.Setup(m => m.Send(It.Is<GetUserByIdInternalQuery>(q => q.Id == 4L), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userDto);
+
+        // Act
+        var result = await _controller.GetUserCinemaScope(4L);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var apiResponse = okResult.Value.Should().BeOfType<ApiResponse<CinemaScopeDto>>().Subject;
+        apiResponse.Success.Should().BeTrue();
+        apiResponse.Data.Should().NotBeNull();
+        apiResponse.Data!.RealmRole.Should().Be("STAFF");
+        apiResponse.Data.CinemaIds.Should().ContainSingle().Which.Should().Be(3L);
+    }
+
+    [Fact]
+    public async Task GetUserCinemaScope_CustomerUser_ReturnsCustomerScopeWithEmptyCinemaIds()
+    {
+        // Arrange
+        var userDto = new UserDto(
+            7L, "kc-customer", "customer@test.com", "Customer User",
+            null, null, null, true,
+            new[] { "CUSTOMER" }, null);
+
+        _mediatorMock.Setup(m => m.Send(It.Is<GetUserByIdInternalQuery>(q => q.Id == 7L), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userDto);
+
+        // Act
+        var result = await _controller.GetUserCinemaScope(7L);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var apiResponse = okResult.Value.Should().BeOfType<ApiResponse<CinemaScopeDto>>().Subject;
+        apiResponse.Success.Should().BeTrue();
+        apiResponse.Data.Should().NotBeNull();
+        apiResponse.Data!.RealmRole.Should().Be("CUSTOMER");
+        apiResponse.Data.CinemaIds.Should().BeEmpty();
+    }
+
+    // ─── GetUserCinemaScope: Abnormal Paths (Edge Cases) ─────────────────────
+
+    [Fact]
+    public async Task GetUserCinemaScope_NullRolesAndNullCinema_DefaultsToCustomerAndEmptyCinemaIds()
+    {
+        // Arrange
+        var userDto = new UserDto(
+            8L, "kc-null", "nullroles@test.com", "Null Roles User",
+            null, null, null, true,
+            null, null);
+
+        _mediatorMock.Setup(m => m.Send(It.Is<GetUserByIdInternalQuery>(q => q.Id == 8L), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userDto);
+
+        // Act
+        var result = await _controller.GetUserCinemaScope(8L);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var apiResponse = okResult.Value.Should().BeOfType<ApiResponse<CinemaScopeDto>>().Subject;
+        apiResponse.Success.Should().BeTrue();
+        apiResponse.Data.Should().NotBeNull();
+        apiResponse.Data!.RealmRole.Should().Be("CUSTOMER");
+        apiResponse.Data.CinemaIds.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetUserCinemaScope_MixedCaseCustomerAndStaffRoles_PrioritizesStaffRole()
+    {
+        // Arrange
+        var userDto = new UserDto(
+            9L, "kc-mixed", "mixed@test.com", "Mixed Roles User",
+            null, null, null, true,
+            new[] { "customer", "staff" }, 7L);
+
+        _mediatorMock.Setup(m => m.Send(It.Is<GetUserByIdInternalQuery>(q => q.Id == 9L), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userDto);
+
+        // Act
+        var result = await _controller.GetUserCinemaScope(9L);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var apiResponse = okResult.Value.Should().BeOfType<ApiResponse<CinemaScopeDto>>().Subject;
+        apiResponse.Success.Should().BeTrue();
+        apiResponse.Data.Should().NotBeNull();
+        apiResponse.Data!.RealmRole.Should().Be("STAFF");
+        apiResponse.Data.CinemaIds.Should().ContainSingle().Which.Should().Be(7L);
+    }
+
+    // ─── GetUserCinemaScope: Error Path ──────────────────────────────────────
+
+    [Fact]
+    public async Task GetUserCinemaScope_UserNotFound_ThrowsUserNotFoundException()
+    {
+        // Arrange
+        _mediatorMock.Setup(m => m.Send(It.Is<GetUserByIdInternalQuery>(q => q.Id == 404L), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new UserNotFoundException(404L));
+
+        // Act
+        Func<Task> act = () => _controller.GetUserCinemaScope(404L);
+
+        // Assert
+        await act.Should().ThrowAsync<UserNotFoundException>();
+    }
 }
+

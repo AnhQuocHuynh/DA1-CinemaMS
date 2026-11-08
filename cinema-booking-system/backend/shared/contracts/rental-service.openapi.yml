@@ -7,7 +7,7 @@ info:
     A blocking rental or showtime keeps a 15-minute gap on both sides.
     The hourly price is the active room rate, or the default rate when no room rate exists.
     Saturday and Sunday starts use the weekend multiplier. A window that overlaps 18:00-22:00 also uses the peak multiplier.
-    Cash confirms immediately only for an admin or the manager of that cinema.
+    Cash confirms immediately only for an admin or the staff assigned to that cinema.
     Other methods stay AWAITING_PAYMENT until POST /internal/rentals/{id}/payment-outcome succeeds.
     The customer can cancel a confirmed rental only when it starts at least 24 hours later. That cancellation records a pending refund.
 servers:
@@ -67,12 +67,12 @@ paths:
           description: Base hourly price and busy rental or showtime slots
   /api/rentals/report:
     get:
-      summary: Rental counts and confirmed revenue for a manager or admin
+      summary: Rental counts and confirmed revenue for cinema-assigned staff or admin
       responses:
         "200":
           description: Report
         "403":
-          description: Staff and customers cannot read revenue
+          description: Unassigned staff and customers cannot read revenue
   /api/rentals/{id}:
     get:
       summary: Read one rental when the caller owns it or works at that cinema
@@ -83,17 +83,17 @@ paths:
           description: RENTAL_NOT_FOUND
   /api/rentals/{id}/approve:
     post:
-      summary: Manager of the cinema, or admin, approves the request after a fresh showtime check
+      summary: Staff of the cinema, or admin, approves the request after a fresh showtime check
       responses:
         "200":
           description: Awaiting payment
         "403":
-          description: Staff, or a manager of another cinema
+          description: Customer, or staff of another cinema
         "409":
           description: SHOWTIME_OVERLAP
   /api/rentals/{id}/reject:
     post:
-      summary: Manager of the cinema, or admin, rejects a pending request
+      summary: Staff of the cinema, or admin, rejects a pending request
       responses:
         "200":
           description: Rejected
@@ -119,7 +119,7 @@ paths:
           description: CUSTOMER_CANCEL_WINDOW_CLOSED, RENTAL_ALREADY_STARTED, or INVALID_RENTAL_STATUS
   /api/rentals/{id}/refunds/complete:
     post:
-      summary: Manager or admin marks a pending refund completed
+      summary: Staff of the cinema or admin marks a pending refund completed
       responses:
         "200":
           description: refundStatus COMPLETED
