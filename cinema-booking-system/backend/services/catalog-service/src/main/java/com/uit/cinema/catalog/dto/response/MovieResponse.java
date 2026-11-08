@@ -17,6 +17,7 @@ public class MovieResponse {
     private Long id;
     private String title;
     private String description;
+    private String aiSummary;
     private Integer durationMinutes;
     private LocalDate releaseDate;
     private String ageRating;

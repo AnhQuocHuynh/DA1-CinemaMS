@@ -1,6 +1,7 @@
 import React from 'react';
 import { SiteTopNav } from '../../components/SiteTopNav';
 import { ProfileSettingsContent } from '../../components/profile/ProfileSettingsContent';
+import { NotificationPreferencesCard } from '../../components/profile/NotificationPreferencesCard';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { useTranslation } from 'react-i18next';
@@ -35,6 +36,8 @@ export const Settings: React.FC = () => {
             </div>
           </div>
         </div>
+
+        <NotificationPreferencesCard />
 
         <ProfileSettingsContent />
       </main>

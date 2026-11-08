@@ -53,9 +53,12 @@ public class MongoDbContext
             notificationIndexBuilder.Ascending(x => x.CreatedAt),
             new CreateIndexOptions { ExpireAfter = TimeSpan.FromDays(30) });
             
-        // Idempotency: unique index on Type + metadata.orderId (only if metadata.orderId exists)
+        // Idempotency: unique index on Type + Channel + metadata.orderId (only if metadata.orderId exists)
         var idempotencyIndex = new CreateIndexModel<Notification>(
-            notificationIndexBuilder.Ascending(x => x.Type).Ascending("Metadata.orderId"),
+            notificationIndexBuilder
+                .Ascending(x => x.Type)
+                .Ascending(x => x.Channel)
+                .Ascending("Metadata.orderId"),
             new CreateIndexOptions<Notification> 
             { 
                 Unique = true, 

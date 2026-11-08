@@ -26,7 +26,7 @@ public class ReviewCreatedEventConsumer : RabbitMqConsumerBase<EventEnvelope<Rev
         _scopeFactory = scopeFactory;
     }
 
-    protected override async Task ProcessMessageAsync(EventEnvelope<ReviewCreatedPayload> message, CancellationToken cancellationToken)
+    protected internal override async Task ProcessMessageAsync(EventEnvelope<ReviewCreatedPayload> message, CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();

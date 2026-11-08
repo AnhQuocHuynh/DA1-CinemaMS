@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ReviewSection } from '../components/Review/ReviewSection';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Play, Calendar, Clock, Globe, Star } from 'lucide-react';
+import { ArrowLeft, Play, Calendar, Clock, Globe, Star, Sparkles } from 'lucide-react';
 import { movieService, MovieResponse } from '../services/movieService';
 import { showtimeService } from '../services/showtimeService';
 import { recommendationService } from '../services/recommendationService';
@@ -218,10 +218,47 @@ export const MovieDetails: React.FC = () => {
         {/* Details */}
         <section className="max-w-7xl mx-auto px-6 py-14 grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-8 space-y-10">
-            <div>
-              <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-4">{t('movieDetails.plot')}</h2>
-              <p className="text-on-surface-variant leading-relaxed text-lg">{movie.description}</p>
-            </div>
+            {movie.aiSummary ? (
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-surface-container-high/90 via-surface-container/60 to-surface-container-lowest/90 border border-primary/30 p-6 sm:p-8 shadow-2xl backdrop-blur-md">
+                {/* Decorative ambient glow */}
+                <div className="absolute -top-16 -right-16 w-52 h-52 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-16 -left-16 w-52 h-52 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+
+                {/* Header with AI Badge & Title */}
+                <div className="relative flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b border-outline-variant/20">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-primary/15 text-primary border border-primary/25 shadow-sm">
+                      <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+                    </div>
+                    <h2 className="text-xl md:text-2xl font-black tracking-tight text-on-surface">
+                      {t('movieDetails.aiOverview', 'AI Overview')}
+                    </h2>
+                  </div>
+
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    AI-Generated Synopsis
+                  </span>
+                </div>
+
+                {/* Content */}
+                <div className="relative space-y-4">
+                  <p className="text-on-surface/95 text-base md:text-lg leading-relaxed font-normal">
+                    {movie.aiSummary}
+                  </p>
+                </div>
+
+                {/* Footer info */}
+                <div className="relative mt-6 pt-4 border-t border-outline-variant/15 flex justify-end text-xs text-on-surface-variant/60">
+                  <span>{movie.aiSummary.trim().split(/\s+/).length} words</span>
+                </div>
+              </div>
+            ) : movie.description ? (
+              <div className="rounded-2xl bg-surface-container-lowest border border-outline-variant/30 p-6 sm:p-8 space-y-4">
+                <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-4">{t('movieDetails.plot')}</h2>
+                <p className="text-on-surface-variant leading-relaxed text-lg">{movie.description}</p>
+              </div>
+            ) : null}
 
             {/* Reviews */}
             <ReviewSection type="movie" id={parseInt(movieId!, 10)} />
@@ -260,7 +297,7 @@ export const MovieDetails: React.FC = () => {
                     {movie.genres.map((g) => (
                       <span
                         key={g}
-                        className="px-2 py-1 bg-primary-container text-primary text-xs font-semibold rounded"
+                        className="px-2.5 py-1 bg-secondary/10 text-secondary border border-secondary/20 text-xs font-medium rounded-md"
                       >
                         {g}
                       </span>

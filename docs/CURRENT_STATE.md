@@ -21,6 +21,16 @@ Spring catalog and recommendation only. ASP.NET services were not changed. Neo4j
 - Recommendation stores `user_ratings` and `system_config` in PostgreSQL database `cinema_recommendation_db`. New routes under `/api/recommendations`: `top-k`, `predict`, `user-ratings`, and `max-dissimilarity/recalculate`. The signed-in home page calls top-k. A failed top-k call falls back to the existing Neo4j block. Guests still see Neo4j popular movies. Movie detail keeps booking-service reviews and adds a separate 1–5 rating. `/my-ratings` lists those ratings. Admin movie management can start an IMDb import and recalculate max dissimilarity.
 - `init-multiple-databases.sql` creates `cinema_recommendation_db`. A Postgres volume that already ran that script will not create the database. Create it once with `CREATE DATABASE cinema_recommendation_db;` before starting recommendation-service against that volume.
 - This session: `mvn -pl services/catalog-service test` passed 35 tests. `mvn -pl services/recommendation-service test` passed 30 tests. Frontend `npm run build` exited 0. Ports 5000, 5173, 8081, and 8085 were closed, so the home, star rating, my-ratings, search filters, and import button were not clicked in a browser.
+## Verification on 2026-11-08 (feat/movie-summary)
+
+E2E browser and integration verification for AI Movie Summary feature with Gemini client:
+- Catalog-service Maven tests: 49 tests passed (0 failures), including 7 Gemini client unit tests (`GeminiMovieSummaryClientTest`), 12 movie service unit tests (`MovieServiceImplTest`), and 6 integration tests (`MovieSummaryE2ETest`).
+- Frontend unit tests & build: `vitest run` 47/47 passed. `npm run build` cleanly compiled Vite bundle in 16.53s.
+- End-to-end browser execution (Puppeteer on real Chrome):
+  1. Admin login via Keycloak (`admintest` / `admin123`) -> opened `/admin/movies`.
+  2. Created movie ("Oppenheimer (AI Masterpiece Edition)") with description and genre -> `catalog-service` reached Gemini AI endpoint -> generated summary and persisted to PostgreSQL `cinema_catalog_db` (id 7).
+  3. Customer login via Keycloak (`user` / `user123`) in isolated session -> browsed to `/movies/7`.
+  4. Movie detail page rendered the "AI Summary" section with the generated text. DOM assertion and full-page screenshots verified.
 
 ## Verification on 2026-10-11
 
@@ -52,6 +62,7 @@ Customer:
 
 - Register, login, forgot-password, and logout go through Keycloak (`keycloak-js`, cinema theme, locale and theme query params).
 - Movie and event browse, detail, showtimes, and catalog keyword search. The search page can also filter movies by status and genre.
+- Creating or editing a movie description in catalog-service asks Gemini (`gemini-3.5-flash` on the Gemini Developer API) for a short summary when `CINEMA_AI_ENABLED=true` and `GEMINI_API_KEY` is set. The summary is stored on the movie and shown on the movie detail page. A failed or skipped call leaves `aiSummary` empty. The key stays in the environment.
 - Seat map, seat hold, hold countdown, order create, voucher validation, and checkout. The hold uses Redis. If Redis is unavailable, showtime-service locks the `showtime_seats` row and stores `held_by_user_id` plus `hold_expires_at`. A hold with no remaining time is shown as available again.
 - Stripe and PayPal redirect plus return verification, and cash confirmation on the payment service.
 - Reviews and rating summaries are rendered on movie and event detail pages.

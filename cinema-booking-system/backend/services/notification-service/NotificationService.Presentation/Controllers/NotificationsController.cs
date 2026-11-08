@@ -47,6 +47,26 @@ public class NotificationsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPut("{id}/read")]
+    public async Task<IActionResult> MarkAsRead(string id)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        await _mediator.Send(new MarkNotificationAsReadCommand(id, userId.Value));
+        return NoContent();
+    }
+
+    [HttpPut("read-all")]
+    public async Task<IActionResult> MarkAllAsRead()
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        await _mediator.Send(new MarkAllNotificationsAsReadCommand(userId.Value));
+        return NoContent();
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetNotificationById(string id)
     {
