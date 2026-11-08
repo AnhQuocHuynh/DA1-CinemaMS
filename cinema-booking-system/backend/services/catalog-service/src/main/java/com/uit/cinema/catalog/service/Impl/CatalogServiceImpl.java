@@ -10,6 +10,7 @@ import com.uit.cinema.catalog.mapper.EventMapper;
 import com.uit.cinema.catalog.repository.MovieRepository;
 import com.uit.cinema.catalog.repository.EventRepository;
 import com.uit.cinema.catalog.service.CatalogService;
+import com.uit.cinema.catalog.service.MovieAvailability;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -34,14 +35,16 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
-    public CatalogSearchResponse search(String keyword, Long genreId, LocalDate fromDate, LocalDate toDate, int page, int size) {
+    public CatalogSearchResponse search(String keyword, Long genreId, LocalDate fromDate, LocalDate toDate, String status, int page, int size) {
         // Chuẩn hóa từ khóa tìm kiếm
         String cleanKeyword = (keyword == null || keyword.trim().isEmpty()) ? null : keyword.trim();
+        String normalizedStatus = MovieAvailability.normalizeFilter(status);
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
 
         // Lọc Phim
-        Page<Movie> moviePage = movieRepository.searchMovies(cleanKeyword, genreId, fromDate, toDate, pageable);
+        Page<Movie> moviePage = movieRepository.searchMovies(
+                cleanKeyword, genreId, fromDate, toDate, normalizedStatus, LocalDate.now(), pageable);
         List<MovieResponse> movies = moviePage.getContent().stream()
                 .map(movieMapper::toResponse)
                 .collect(Collectors.toList());

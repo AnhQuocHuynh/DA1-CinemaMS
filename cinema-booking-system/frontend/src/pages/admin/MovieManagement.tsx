@@ -8,6 +8,8 @@ import { MovieModal } from '../../components/admin/modals/MovieModal';
 import { GenreManagementModal } from '../../components/admin/modals/GenreManagementModal';
 import { RatingBadge } from '../../components/Review/RatingBadge';
 import { movieService } from '../../services/movieService';
+import { recommendationService } from '../../services/recommendationService';
+import { ImdbImportModal } from '../../components/admin/modals/ImdbImportModal';
 import { AdminDataState, AdminTableSkeleton } from '../../components/admin/AdminDataState';
 import { useTranslation } from 'react-i18next';
 
@@ -16,7 +18,19 @@ export const MovieManagement: React.FC = () => {
   const { movies, isLoading, isRetrying, retry, addMovie, updateMovie, deleteMovie } = useAdminMovies();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGenreModalOpen, setIsGenreModalOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [recalculateMessage, setRecalculateMessage] = useState('');
   const [selectedMovie, setSelectedMovie] = useState<any>(null);
+
+  const handleRecalculate = async () => {
+    setRecalculateMessage('');
+    try {
+      await recommendationService.recalculateMaxDissimilarity();
+      setRecalculateMessage(t('adminMovies.recalculated', 'Similarity threshold updated.'));
+    } catch {
+      setRecalculateMessage(t('adminMovies.recalculateFailed', 'Could not recalculate similarity.'));
+    }
+  };
 
   const handleAddClick = () => {
     setSelectedMovie(null);
@@ -59,7 +73,13 @@ export const MovieManagement: React.FC = () => {
           title={t('adminMovies.title', 'Movie Management')}
           subtitle={t('adminMovies.subtitle', 'Curate releases, adjust availability, and maintain the lineup.')}
           actions={
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
+              <button onClick={() => setIsImportOpen(true)} className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg font-semibold text-sm hover:bg-surface-container-highest">
+                {t('adminMovies.importImdb', 'Import IMDb')}
+              </button>
+              <button onClick={handleRecalculate} className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg font-semibold text-sm hover:bg-surface-container-highest">
+                {t('adminMovies.recalculate', 'Recalculate similarity')}
+              </button>
               <button onClick={() => setIsGenreModalOpen(true)} className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg font-semibold text-sm hover:bg-surface-container-highest flex items-center gap-2">
                 {t('adminMovies.manageGenres', 'Manage Genres')}
               </button>
@@ -70,6 +90,9 @@ export const MovieManagement: React.FC = () => {
             </div>
           }
         />
+        {recalculateMessage && (
+          <p className="mt-4 text-sm text-on-surface-variant">{recalculateMessage}</p>
+        )}
 
         <section className="mt-10 bg-surface-container-lowest rounded-xl overflow-hidden border border-outline-variant/20">
           <div className="px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container-low/40">
@@ -150,6 +173,8 @@ export const MovieManagement: React.FC = () => {
         isOpen={isGenreModalOpen}
         onClose={() => setIsGenreModalOpen(false)}
       />
+
+      <ImdbImportModal isOpen={isImportOpen} onClose={() => setIsImportOpen(false)} />
     </AdminLayout>
   );
 };

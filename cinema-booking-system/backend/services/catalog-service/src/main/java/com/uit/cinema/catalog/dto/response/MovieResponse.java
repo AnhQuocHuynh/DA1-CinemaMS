@@ -17,12 +17,18 @@ public class MovieResponse {
     private Long id;
     private String title;
     private String description;
+    private String aiSummary;
     private Integer durationMinutes;
     private LocalDate releaseDate;
     private String ageRating;
     private String posterUrl;
     private String trailerUrl;
     private String language;
+    private String imdbId;
+    private Double imdbRating;
+    private String region;
+    private String director;
+    private String actors;
     private boolean active;
     private List<String> genres;
     private LocalDateTime createdAt;

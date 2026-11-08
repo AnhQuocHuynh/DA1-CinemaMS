@@ -50,6 +50,9 @@ public class RecommendationSecurityConfig {
                 .requestMatchers("/actuator/health", "/error").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/recommendations/movies/popular", "/api/recommendations/movies/*/similar").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/recommendations/movies", "/api/recommendations/users/*/taste-profile").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/recommendations/max-dissimilarity/recalculate").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/recommendations/top-k", "/api/recommendations/predict").authenticated()
+                .requestMatchers("/api/recommendations/user-ratings", "/api/recommendations/user-ratings/**").authenticated()
                 .anyRequest().denyAll()
             )
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt ->
