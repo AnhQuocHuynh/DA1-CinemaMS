@@ -796,7 +796,10 @@
     "title": "Đánh giá & Nhận xét",
     "reviewsCount": "đánh giá",
     "noReviews": "Chưa có đánh giá nào. Hãy là người đầu tiên!",
-    "notEligible": "Bạn không đủ điều kiện đánh giá."
+    "notEligible": "Bạn không đủ điều kiện đánh giá.",
+    "aiSummaryTitle": "Tóm tắt đánh giá bởi AI",
+    "aiGenerated": "Tổng hợp bởi AI",
+    "keywords": "Từ khóa nổi bật:"
   },
   "printableTicket": {
     "movieTicket": "Vé Xem Phim",

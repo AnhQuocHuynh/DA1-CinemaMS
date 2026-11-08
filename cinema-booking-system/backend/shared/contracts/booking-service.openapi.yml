@@ -165,7 +165,11 @@ paths:
         - $ref: "#/components/parameters/MovieId"
       responses:
         "200":
-          description: Movie review insight.
+          description: Star counts plus an optional Gemini summary of written comments.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewInsight"
   /api/reviews/events/{eventId}/insight:
     get:
       summary: Get event review insight
@@ -173,7 +177,11 @@ paths:
         - $ref: "#/components/parameters/EventId"
       responses:
         "200":
-          description: Event review insight.
+          description: Star counts plus an optional Gemini summary of written comments.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewInsight"
   /api/reviews/movies/{movieId}/eligibility:
     get:
       summary: Check movie review eligibility
@@ -267,3 +275,44 @@ components:
       properties:
         ticketCode:
           type: string
+    ReviewInsight:
+      type: object
+      properties:
+        movieId:
+          type: integer
+          format: int64
+          nullable: true
+        eventId:
+          type: integer
+          format: int64
+          nullable: true
+        totalReviews:
+          type: integer
+          format: int64
+        averageRating:
+          type: number
+          format: double
+        oneStarCount:
+          type: integer
+          format: int64
+        twoStarCount:
+          type: integer
+          format: int64
+        threeStarCount:
+          type: integer
+          format: int64
+        fourStarCount:
+          type: integer
+          format: int64
+        fiveStarCount:
+          type: integer
+          format: int64
+        aiSummary:
+          type: string
+          nullable: true
+          description: Gemini summary of written comments. Null when AI is off, no comment exists, or the call fails.
+        keywords:
+          type: array
+          items:
+            type: string
+          description: Short phrases from the same summary call. Empty when aiSummary is null.

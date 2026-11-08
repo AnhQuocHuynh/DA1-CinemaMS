@@ -10,6 +10,7 @@ import com.uit.cinema.booking.mapper.ReviewMapper;
 import com.uit.cinema.booking.outbox.BookingOutboxEventWriter;
 import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.ReviewRepository;
+import com.uit.cinema.booking.service.ReviewAiSummaryView;
 import com.uit.cinema.catalog.service.CatalogReadService;
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.showtime.service.SeatReservationService;
@@ -24,9 +25,14 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -48,6 +54,8 @@ class ReviewServiceImplTest {
     private CatalogReadService catalogReadService;
     @Mock
     private BookingOutboxEventWriter bookingOutboxEventWriter;
+    @Mock
+    private ReviewSummaryService reviewSummaryService;
 
     @InjectMocks
     private ReviewServiceImpl reviewService;
@@ -172,6 +180,7 @@ class ReviewServiceImplTest {
 
         when(reviewRepository.findByMovieIdAndStatusOrderByCreatedAtDesc(1L, Review.ReviewStatus.VISIBLE))
             .thenReturn(List.of(r1, r2, r3));
+        when(reviewSummaryService.summarize(eq(1L), isNull(), anyList())).thenReturn(ReviewAiSummaryView.empty());
 
         ReviewInsightResponse insight = reviewService.getMovieInsight(1L);
 
@@ -180,6 +189,24 @@ class ReviewServiceImplTest {
         assertEquals(2, insight.getFiveStarCount());
         assertEquals(1, insight.getTwoStarCount());
         assertEquals(0, insight.getOneStarCount());
+        assertNull(insight.getAiSummary());
+        assertTrue(insight.getKeywords().isEmpty());
+    }
+
+    @Test
+    void getMovieInsight_IncludesAiSummary() {
+        Review review = new Review();
+        review.setRating(5);
+        review.setComment("Diễn xuất rất tốt");
+        when(reviewRepository.findByMovieIdAndStatusOrderByCreatedAtDesc(1L, Review.ReviewStatus.VISIBLE))
+            .thenReturn(List.of(review));
+        when(reviewSummaryService.summarize(eq(1L), isNull(), anyList()))
+            .thenReturn(new ReviewAiSummaryView("Khán giả khen diễn xuất.", List.of("diễn xuất")));
+
+        ReviewInsightResponse insight = reviewService.getMovieInsight(1L);
+
+        assertEquals("Khán giả khen diễn xuất.", insight.getAiSummary());
+        assertEquals(List.of("diễn xuất"), insight.getKeywords());
     }
 
     private ShowtimeScheduleView scheduleForMovie(Long movieId, LocalDateTime endTime, String status) {
