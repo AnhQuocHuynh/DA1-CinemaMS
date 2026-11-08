@@ -56,7 +56,7 @@ namespace FacilityService.Application.Features.Cinemas.Commands
 
             await _cache.RemoveAsync("facility:cinemas:all", cancellationToken);
 
-            return new CinemaDto { Id = cinema.Id, Name = cinema.Name, Address = cinema.Address, City = cinema.City, Phone = cinema.Phone };
+            return new CinemaDto { Id = cinema.Id, Name = cinema.Name, Address = cinema.Address, City = cinema.City, Phone = cinema.Phone, Active = cinema.Active };
         }
     }
 }
