@@ -14,6 +14,7 @@ import java.util.Optional;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
@@ -46,6 +47,7 @@ class GeminiMovieSummaryClientTest {
         server.expect(requestTo(containsString("/models/gemini-3.5-flash:generateContent")))
             .andExpect(header("x-goog-api-key", "test-key"))
             .andExpect(content().string(containsString("A thief enters dreams.")))
+            .andExpect(content().string(containsString("same language")))
             .andExpect(content().string(containsString("thinkingLevel")))
             .andRespond(withSuccess("""
                 {
@@ -53,7 +55,7 @@ class GeminiMovieSummaryClientTest {
                     "content": {
                       "parts": [
                         {"text": "hidden reasoning", "thought": true},
-                        {"text": "A short summary."}
+                        {"text": "Inception follows a thief into layered dreams."}
                       ]
                     }
                   }]
@@ -62,8 +64,75 @@ class GeminiMovieSummaryClientTest {
 
         Optional<String> result = client.summarize("Inception", "A thief enters dreams.", List.of("Sci-Fi"));
 
-        assertEquals(Optional.of("A short summary."), result);
+        assertEquals(Optional.of("Inception follows a thief into layered dreams."), result);
         server.verify();
+    }
+
+    @Test
+    void retriesWhenSummaryIgnoresTheFilm() {
+        String generic = "Set against an expansive cinematic canvas, this compelling story chronicles an extraordinary journey.";
+        server.expect(requestTo(containsString(":generateContent")))
+            .andRespond(withSuccess(geminiText(generic), MediaType.APPLICATION_JSON));
+        server.expect(requestTo(containsString(":generateContent")))
+            .andExpect(content().string(containsString("rejected")))
+            .andExpect(content().string(containsString("Doraemon")))
+            .andRespond(withSuccess(
+                geminiText("Doraemon cùng Nobita khám phá lâu đài dưới đáy biển."),
+                MediaType.APPLICATION_JSON
+            ));
+
+        Optional<String> result = client.summarize(
+            "Doraemon Lâu đài dưới đáy biển",
+            "Doraemon movie 45: Tân - Lâu đài dưới đáy biển",
+            List.of("Animation")
+        );
+
+        assertEquals(Optional.of("Doraemon cùng Nobita khám phá lâu đài dưới đáy biển."), result);
+        server.verify();
+    }
+
+    @Test
+    void returnsEmptyWhenBothSummariesIgnoreTheFilm() {
+        String generic = "This compelling story chronicles an extraordinary journey and the resilient human spirit.";
+        server.expect(requestTo(containsString(":generateContent")))
+            .andRespond(withSuccess(geminiText(generic), MediaType.APPLICATION_JSON));
+        server.expect(requestTo(containsString(":generateContent")))
+            .andRespond(withSuccess(geminiText(generic), MediaType.APPLICATION_JSON));
+
+        Optional<String> result = client.summarize(
+            "Doraemon Lâu đài dưới đáy biển",
+            "Doraemon movie 45: Tân - Lâu đài dưới đáy biển",
+            List.of()
+        );
+
+        assertEquals(Optional.empty(), result);
+        server.verify();
+    }
+
+    @Test
+    void mentionsSourceAcceptsTheFilmAndRejectsGenericFiller() {
+        String title = "Doraemon Lâu đài dưới đáy biển";
+        String description = "Doraemon movie 45: Tân - Lâu đài dưới đáy biển";
+        String generic = "Set against an expansive cinematic canvas, this compelling story chronicles an extraordinary journey filled with tremendous stakes.";
+
+        assertTrue(GeminiMovieSummaryClient.mentionsSource(
+            "Doraemon cùng Nobita tìm lâu đài dưới đáy biển.",
+            title,
+            description
+        ));
+        assertFalse(GeminiMovieSummaryClient.mentionsSource(generic, title, description));
+    }
+
+    private static String geminiText(String text) {
+        return """
+            {
+              "candidates": [{
+                "content": {
+                  "parts": [{ "text": "%s" }]
+                }
+              }]
+            }
+            """.formatted(text);
     }
 
     @Test
