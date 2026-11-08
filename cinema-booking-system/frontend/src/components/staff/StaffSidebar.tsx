@@ -1,15 +1,15 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Calendar, LayoutGrid, Settings, TicketCheck, TrendingUp, Users } from 'lucide-react';
+import { Calendar, DoorOpen, LayoutGrid, TicketCheck, TrendingUp, Users } from 'lucide-react';
 
 const getNavItems = (t: (key: string) => string) => [
   { id: 'dashboard', label: t('staffSidebar.dashboard'), to: '/staff/dashboard', icon: TrendingUp },
   { id: 'counter-booking', label: t('staffSidebar.counterBooking'), to: '/staff/bookings/new', icon: TicketCheck },
+  { id: 'rentals', label: t('staffSidebar.rentals'), to: '/staff/rentals', icon: DoorOpen },
   { id: 'schedules', label: t('staffSidebar.schedules'), to: '/staff/schedules', icon: Calendar },
   { id: 'seat-maps', label: t('staffSidebar.seatMaps'), to: '/staff/seat-maps', icon: LayoutGrid },
-  { id: 'validation', label: t('staffSidebar.staff'), to: '/staff/ticket-lookup', icon: Users },
-  { id: 'settings', label: t('staffSidebar.settings'), to: '/staff/settings', icon: Settings },
+  { id: 'validation', label: t('staffSidebar.staff'), to: '/staff/ticket-lookup', icon: Users }
 ];
 
 interface StaffSidebarProps {
@@ -35,10 +35,9 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({ activeItemId }) => {
               key={item.id}
               to={item.to}
               className={({ isActive: navActive }) =>
-                `flex items-center gap-3 px-4 py-3 text-sm transition-colors duration-200 ${
-                  navActive || isActive
-                    ? 'text-accent font-semibold bg-highlight/50 border-r-4 border-accent'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                `flex items-center gap-3 px-4 py-3 text-sm transition-colors duration-200 ${navActive || isActive
+                  ? 'text-accent font-semibold bg-highlight/50 border-r-4 border-accent'
+                  : 'text-on-surface-variant hover:text-on-surface'
                 }`
               }
             >
