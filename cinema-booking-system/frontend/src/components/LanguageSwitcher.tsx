@@ -45,7 +45,7 @@ export const LanguageSwitcher: React.FC = () => {
         <div className="absolute right-0 mt-2 w-40 rounded-lg bg-surface-container-lowest shadow-lg border border-outline-variant overflow-hidden z-50">
           <button
             onClick={() => changeLanguage('vi')}
-            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors ${isVi ? 'bg-primary-container text-primary font-bold' : 'text-on-surface hover:bg-surface-container-high'
+            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors ${isVi ? 'bg-primary-container text-on-primary-container font-bold' : 'text-on-surface hover:bg-surface-container-high'
               }`}
           >
             <span className="flex items-center justify-center w-5">
@@ -55,7 +55,7 @@ export const LanguageSwitcher: React.FC = () => {
           </button>
           <button
             onClick={() => changeLanguage('en')}
-            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors ${!isVi ? 'bg-primary-container text-primary font-bold' : 'text-on-surface hover:bg-surface-container-high'
+            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors ${!isVi ? 'bg-primary-container text-on-primary-container font-bold' : 'text-on-surface hover:bg-surface-container-high'
               }`}
           >
             <span className="text-lg flex items-center justify-center w-5"><Globe size={16} /></span>
