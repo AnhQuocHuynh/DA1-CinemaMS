@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Threading;
@@ -9,11 +10,13 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
+using StackExchange.Redis;
 using Testcontainers.PostgreSql;
 using Testcontainers.Redis;
 using Xunit;
@@ -33,18 +36,43 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
         .WithImage("redis:7-alpine")
         .Build();
 
+    private IConnectionMultiplexer? _multiplexer;
+
     public async Task InitializeAsync()
     {
         await Task.WhenAll(_dbContainer.StartAsync(), _redisContainer.StartAsync());
+
+        Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", _dbContainer.GetConnectionString());
+        Environment.SetEnvironmentVariable("ConnectionStrings__RedisConnection", _redisContainer.GetConnectionString());
     }
 
     public new async Task DisposeAsync()
     {
+        Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", null);
+        Environment.SetEnvironmentVariable("ConnectionStrings__RedisConnection", null);
+
+        if (_multiplexer != null)
+        {
+            await _multiplexer.DisposeAsync();
+        }
+
         await Task.WhenAll(_dbContainer.DisposeAsync().AsTask(), _redisContainer.DisposeAsync().AsTask());
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseSetting("ConnectionStrings:DefaultConnection", _dbContainer.GetConnectionString());
+        builder.UseSetting("ConnectionStrings:RedisConnection", _redisContainer.GetConnectionString());
+
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                { "ConnectionStrings:DefaultConnection", _dbContainer.GetConnectionString() },
+                { "ConnectionStrings:RedisConnection", _redisContainer.GetConnectionString() }
+            });
+        });
+
         builder.ConfigureServices(services =>
         {
             // Remove the existing DbContext registration
@@ -56,10 +84,15 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
                 options.UseNpgsql(_dbContainer.GetConnectionString());
             });
 
-            // Update Redis connection string
+            // Override IConnectionMultiplexer and RedisCacheOptions with the Testcontainer connection
+            services.RemoveAll(typeof(IConnectionMultiplexer));
+            _multiplexer = ConnectionMultiplexer.Connect(_redisContainer.GetConnectionString());
+            services.AddSingleton<IConnectionMultiplexer>(_multiplexer);
+
             services.PostConfigure<Microsoft.Extensions.Caching.StackExchangeRedis.RedisCacheOptions>(options =>
             {
                 options.Configuration = _redisContainer.GetConnectionString();
+                options.ConnectionMultiplexerFactory = () => Task.FromResult<IConnectionMultiplexer>(_multiplexer);
             });
             
             // Mock Showtime Service Client

@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Threading;
+using System.Threading.Tasks;
 using IdentityService.Application.Contracts;
 using IdentityService.Infrastructure.Data;
 using MassTransit;
@@ -9,6 +11,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -31,15 +34,37 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
     public async Task InitializeAsync()
     {
         await _dbContainer.StartAsync();
+
+        Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", _dbContainer.GetConnectionString());
+        Environment.SetEnvironmentVariable("InternalApi__Token", "local-dev-internal-token");
+        Environment.SetEnvironmentVariable("INTERNAL_API_TOKEN", "local-dev-internal-token");
     }
 
     public new async Task DisposeAsync()
     {
+        Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", null);
+        Environment.SetEnvironmentVariable("InternalApi__Token", null);
+        Environment.SetEnvironmentVariable("INTERNAL_API_TOKEN", null);
+
         await _dbContainer.DisposeAsync();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseSetting("ConnectionStrings:DefaultConnection", _dbContainer.GetConnectionString());
+        builder.UseSetting("InternalApi:Token", "local-dev-internal-token");
+        builder.UseSetting("INTERNAL_API_TOKEN", "local-dev-internal-token");
+
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                { "ConnectionStrings:DefaultConnection", _dbContainer.GetConnectionString() },
+                { "InternalApi:Token", "local-dev-internal-token" },
+                { "INTERNAL_API_TOKEN", "local-dev-internal-token" }
+            });
+        });
+
         builder.ConfigureServices(services =>
         {
             // Remove the existing DbContext registration
@@ -97,11 +122,38 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
             var userId = parts[0];
             var role = parts.Length > 1 ? parts[1] : "user";
 
-            var claims = new[]
+            var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, userId),
                 new Claim(ClaimTypes.Role, role),
             };
+
+            // If X-User-Id header was provided, respect it as the internal user id
+            if (Request.Headers.TryGetValue("X-User-Id", out var xUserId) && !string.IsNullOrWhiteSpace(xUserId))
+            {
+                claims.Add(new Claim("internal_user_id", xUserId.ToString()));
+                claims.Add(new Claim(ClaimTypes.NameIdentifier, xUserId.ToString()));
+            }
+            else if (long.TryParse(userId, out var numericId) && numericId > 0)
+            {
+                claims.Add(new Claim("internal_user_id", userId));
+                claims.Add(new Claim(ClaimTypes.NameIdentifier, userId));
+            }
+            else
+            {
+                // userId is a Keycloak UUID string. Set sub/NameIdentifier, and resolve internal long ID from DB if present
+                claims.Add(new Claim(ClaimTypes.NameIdentifier, userId));
+                claims.Add(new Claim("sub", userId));
+
+                var db = Context.RequestServices.GetService<UserProfileDbContext>();
+                if (db != null)
+                {
+                    var user = db.Users.AsNoTracking().FirstOrDefault(u => u.KeycloakId == userId);
+                    if (user != null)
+                    {
+                        claims.Add(new Claim("internal_user_id", user.Id.ToString()));
+                    }
+                }
+            }
 
             var identity = new ClaimsIdentity(claims, "Test");
             var principal = new ClaimsPrincipal(identity);

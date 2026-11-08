@@ -13,6 +13,12 @@ file record ApiResponseWrapper<T>(bool Success, string Message, T? Data);
 [Collection("IntegrationTests")]
 public class UsersControllerTests : BaseIntegrationTest
 {
+    private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+    };
+
     public UsersControllerTests(CustomWebApplicationFactory factory) : base(factory)
     {
     }
@@ -34,7 +40,7 @@ public class UsersControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<UserDto>>();
+        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<UserDto>>(JsonOptions);
         wrapper.Should().NotBeNull();
         wrapper!.Success.Should().BeTrue();
         wrapper.Data.Should().NotBeNull();
@@ -63,7 +69,7 @@ public class UsersControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<PagedResult<UserDto>>>();
+        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<PagedResult<UserDto>>>(JsonOptions);
         wrapper.Should().NotBeNull();
         wrapper!.Success.Should().BeTrue();
         wrapper.Data.Should().NotBeNull();
@@ -104,7 +110,7 @@ public class UsersControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<UserDto>>();
+        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<UserDto>>(JsonOptions);
         wrapper.Should().NotBeNull();
         wrapper!.Success.Should().BeTrue();
         wrapper.Data.Should().NotBeNull();
@@ -202,7 +208,7 @@ public class UsersControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<CinemaScopeDto>>();
+        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<CinemaScopeDto>>(JsonOptions);
         wrapper.Should().NotBeNull();
         wrapper!.Success.Should().BeTrue();
         wrapper.Data.Should().NotBeNull();
