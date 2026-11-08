@@ -19,6 +19,7 @@ export const useSeatSelection = (showtimeId: string) => {
     setShowtimeId,
     setShowtimeData,
     setHoldExpiresAt,
+    setPendingOrder,
   } = useBookingStore();
 
   const fetchSeatMap = useCallback(async () => {
@@ -89,6 +90,7 @@ export const useSeatSelection = (showtimeId: string) => {
         if (isCurrentlySelected) {
           await bookingService.releaseHeldSeats(showtimeId, [seat.numericId]);
           toggleSeat(seat);
+          setPendingOrder(null);
           if (selectedSeats.length === 1) {
             setHoldExpiresAt(null);
           }
@@ -106,6 +108,7 @@ export const useSeatSelection = (showtimeId: string) => {
 
           await bookingService.holdSeats(showtimeId, [seat.numericId]);
           toggleSeat(seat);
+          setPendingOrder(null);
           setHoldExpiresAt(new Date(Date.now() + 10 * 60 * 1000));
         }
       } catch (err: any) {
@@ -118,7 +121,7 @@ export const useSeatSelection = (showtimeId: string) => {
         fetchSeatMap();
       }
     },
-    [selectedSeats, showtimeId, toggleSeat, setHoldExpiresAt, addToast, fetchSeatMap]
+    [selectedSeats, showtimeId, toggleSeat, setHoldExpiresAt, setPendingOrder, addToast, fetchSeatMap]
   );
 
   /** Call POST /showtimes/{id}/hold for all currently selected seats */

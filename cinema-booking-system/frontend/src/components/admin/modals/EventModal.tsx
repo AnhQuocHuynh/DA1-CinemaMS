@@ -5,6 +5,10 @@ import { AdminTheater } from '../../../types/admin';
 import { useToast } from '../../../contexts/ToastContext';
 import { uploadImageToCloudinary } from '../../../utils/cloudinary';
 
+const pad = (n: number) => String(n).padStart(2, '0');
+const toLocalIso = (d: Date) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
 interface EventModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -101,14 +105,25 @@ export const EventModal: React.FC<EventModalProps> = ({
     const endDt = new Date(startDt.getTime() + (duration.hours * 60 * 60 * 1000) + (duration.minutes * 60 * 1000));
     
     
-    await onSubmit({
-      ...formData,
-      roomId: Number(formData.roomId),
-      basePrice: Number(formData.basePrice),
-      startTime: startDt.toISOString(),
-      endTime: endDt.toISOString(),
-    });
-    onClose();
+    try {
+      await onSubmit({
+        ...formData,
+        roomId: Number(formData.roomId),
+        basePrice: Number(formData.basePrice),
+        // Backend uses LocalDateTime (no zone): send local wall-clock time, not UTC ("Z").
+        startTime: toLocalIso(startDt),
+        endTime: toLocalIso(endDt),
+      });
+      onClose();
+    } catch (err: any) {
+      const code = err?.response?.data?.code ?? err?.response?.data?.errorCode;
+      const message =
+        err?.response?.data?.message ||
+        (code === 'EVENT_SHOWTIME_SYNC_FAILED'
+          ? 'The room is not available for this time (conflicts with another showtime or rental).'
+          : 'Failed to create event.');
+      addToast(message, 'error');
+    }
   };
 
   return (

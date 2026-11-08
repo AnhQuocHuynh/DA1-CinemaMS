@@ -8,6 +8,7 @@ on:
     paths:
       - 'cinema-booking-system/frontend/**'
       - 'cinema-booking-system/backend_legacy/**'
+      - 'cinema-booking-system/backend/**'
   pull_request:
     branches:
       - main
@@ -15,6 +16,7 @@ on:
     paths:
       - 'cinema-booking-system/frontend/**'
       - 'cinema-booking-system/backend_legacy/**'
+      - 'cinema-booking-system/backend/**'
   workflow_dispatch:
 
 jobs:
@@ -59,3 +61,60 @@ jobs:
       - name: Build backend
         working-directory: cinema-booking-system/backend_legacy
         run: mvn clean package -DskipTests
+
+  build-spring-services:
+    name: Build Spring Service (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - catalog-service
+          - showtime-service
+          - booking-service
+          - analytics-service
+          - recommendation-service
+          - rental-service
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build Spring service
+        working-directory: cinema-booking-system/backend
+        run: mvn clean package -pl services/${{ matrix.service }} -am -DskipTests
+
+  build-dotnet-services:
+    name: Build .NET Service (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api-gateway
+            path: cinema-booking-system/backend/services/api-gateway/ApiGateway/ApiGateway.csproj
+          - service: facility-service
+            path: cinema-booking-system/backend/services/facility-service/FacilityService.Presentation/FacilityService.Presentation.csproj
+          - service: identity-service
+            path: cinema-booking-system/backend/services/identity-service/IdentityService.Presentation/IdentityService.Presentation.csproj
+          - service: notification-service
+            path: cinema-booking-system/backend/services/notification-service/NotificationService.Presentation/NotificationService.Presentation.csproj
+          - service: payment-service
+            path: cinema-booking-system/backend/services/payment-service/PaymentService.Presentation/PaymentService.Presentation.csproj
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build .NET service
+        run: dotnet build ${{ matrix.path }} -c Release

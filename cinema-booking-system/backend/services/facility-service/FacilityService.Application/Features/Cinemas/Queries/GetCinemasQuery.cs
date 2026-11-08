@@ -42,7 +42,8 @@ namespace FacilityService.Application.Features.Cinemas.Queries
                 Name = c.Name, 
                 Address = c.Address, 
                 City = c.City, 
-                Phone = c.Phone 
+                Phone = c.Phone,
+                Active = c.Active
             }).ToList();
 
             await _cache.SetStringAsync(

@@ -48,7 +48,7 @@ public class PaymentSlotExpirationWorkerTests
         var configValues = new Dictionary<string, string?>
         {
             { "Payment:ExpirationCheckIntervalSeconds", "30" },
-            { "Payment:SlotTimeoutMinutes", "15" }
+            { "Payment:SlotTimeoutMinutes", "10" }
         };
         _configuration = new ConfigurationBuilder().AddInMemoryCollection(configValues).Build();
     }
@@ -111,7 +111,7 @@ public class PaymentSlotExpirationWorkerTests
     }
 
     [Fact]
-    public async Task ProcessExpiredSlotsAsync_ShouldUseCutoff15MinutesAgo()
+    public async Task ProcessExpiredSlotsAsync_ShouldUseCutoff10MinutesAgo()
     {
         // Arrange
         DateTime capturedCutoff = DateTime.MinValue;
@@ -128,8 +128,34 @@ public class PaymentSlotExpirationWorkerTests
         await worker.ProcessExpiredSlotsAsync(CancellationToken.None);
         var afterCall = DateTime.UtcNow;
 
-        // Assert — captured cutoff should be within [beforeCall - 15m, afterCall - 15m]
-        capturedCutoff.Should().BeOnOrAfter(beforeCall.AddMinutes(-15).AddSeconds(-1));
-        capturedCutoff.Should().BeOnOrBefore(afterCall.AddMinutes(-15).AddSeconds(1));
+        // Assert — captured cutoff should be within [beforeCall - 10m, afterCall - 10m]
+        capturedCutoff.Should().BeOnOrAfter(beforeCall.AddMinutes(-10).AddSeconds(-1));
+        capturedCutoff.Should().BeOnOrBefore(afterCall.AddMinutes(-10).AddSeconds(1));
+    }
+
+    [Fact]
+    public async Task ProcessExpiredSlotsAsync_WhenConfigMissing_ShouldDefaultTo10MinutesCutoff()
+    {
+        // Arrange
+        DateTime capturedCutoff = DateTime.MinValue;
+        var emptyConfig = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>())
+            .Build();
+
+        _paymentRepositoryMock
+            .Setup(r => r.ClaimExpiredPaymentsAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<DateTime, int, CancellationToken>((cutoff, _, _) => capturedCutoff = cutoff)
+            .ReturnsAsync(new List<(long Id, Guid SagaId)>());
+
+        var worker = new PaymentSlotExpirationWorker(_scopeFactoryMock.Object, _loggerMock.Object, emptyConfig);
+
+        // Act
+        var beforeCall = DateTime.UtcNow;
+        await worker.ProcessExpiredSlotsAsync(CancellationToken.None);
+        var afterCall = DateTime.UtcNow;
+
+        // Assert — default fallback should also be 10 minutes
+        capturedCutoff.Should().BeOnOrAfter(beforeCall.AddMinutes(-10).AddSeconds(-1));
+        capturedCutoff.Should().BeOnOrBefore(afterCall.AddMinutes(-10).AddSeconds(1));
     }
 }

@@ -38,6 +38,7 @@ export function AuthCallback() {
               useAuthStore.getState().setUser({
                 ...currentUser,
                 id: String(profile.id),
+                cinemaId: profile.cinemaId ? Number(profile.cinemaId) : null,
               });
             }
           }

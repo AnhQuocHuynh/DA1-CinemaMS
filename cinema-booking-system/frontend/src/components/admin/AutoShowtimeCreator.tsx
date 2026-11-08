@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
   Calendar,
@@ -33,12 +34,15 @@ import {
 import { MovieResponse, movieService } from '../../services/movieService';
 import { showtimeService } from '../../services/showtimeService';
 import { adminService } from '../../services/adminService';
+import { rentalService } from '../../services/rentalService';
 import { useAutoShowtime } from '../../hooks/useAutoShowtime';
 import { useScheduleStorage } from '../../hooks/useScheduleStorage';
 import dayjs from 'dayjs';
 import { COLOUR_CLASSES, getOperatingRange, toHHMM, toMinutes } from '../../utils/scheduleUtils';
+import { rentalBusySlotToBlock } from '../../utils/rentalUtils';
 import { CachedMoviePriority, ScheduledMovie, ShowtimeBlock } from '../../types/schedule';
 import { ShowtimeResponse } from '../../types/showtime';
+import { BusySlot } from '../../types/rental';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -101,10 +105,13 @@ const DraggableBlock: React.FC<DraggableBlockProps> = ({
     data: { block },
   });
 
+  const isRental = block.id.startsWith('rental-') || block.colorClass === 'bg-amber-600';
   const baseClass = block.isConflict
     ? 'bg-error border-2 border-red-700'
     : block.isLocked
-      ? 'bg-slate-400 border border-slate-500'
+      ? isRental
+        ? 'bg-amber-600 border border-amber-700'
+        : 'bg-slate-400 border border-slate-500'
       : `${block.colorClass} border border-white/20`;
 
   return (
@@ -334,6 +341,7 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
   const [availableMovies, setAvailableMovies] = useState<MovieResponse[]>([]);
   const [theaters, setTheaters] = useState<{ id: string; name: string; rooms: { id: string; name: string }[] }[]>([]);
   const [rawRoomShowtimes, setRawRoomShowtimes] = useState<ShowtimeResponse[]>([]);
+  const [rawRoomRentals, setRawRoomRentals] = useState<BusySlot[]>([]);
   const [isLoadingMovies, setIsLoadingMovies] = useState(false);
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
@@ -425,10 +433,54 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
       .finally(() => setIsLoadingExisting(false));
   }, [selectedRoomId]);
 
+  // Fetch room rentals for selected room
+  const fetchRoomRentals = useCallback(
+    async (roomId: number, rangeStartDate: string, rangeEndDate: string) => {
+      try {
+        const start = dayjs(rangeStartDate);
+        const end = dayjs(rangeEndDate);
+        const allBusy: BusySlot[] = [];
+
+        let currentStart = start;
+        while (!currentStart.isAfter(end)) {
+          let currentEnd = currentStart.add(59, 'day');
+          if (currentEnd.isAfter(end)) {
+            currentEnd = end;
+          }
+          const fromISO = `${currentStart.format('YYYY-MM-DD')}T00:00:00`;
+          const toISO = `${currentEnd.add(1, 'day').format('YYYY-MM-DD')}T23:59:59`;
+          const res = await rentalService.getRoomAvailability(roomId, fromISO, toISO);
+          if (res?.busy) {
+            allBusy.push(...res.busy.filter((slot) => slot.source === 'RENTAL'));
+          }
+          currentStart = currentEnd.add(1, 'day');
+        }
+
+        const unique = Array.from(
+          new Map(allBusy.map((s) => [`${s.startTime}_${s.endTime}`, s])).values()
+        );
+        setRawRoomRentals(unique);
+      } catch (err) {
+        console.warn('Failed to fetch room rentals:', err);
+        setRawRoomRentals([]);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!selectedRoomId) {
+      setRawRoomRentals([]);
+      return;
+    }
+    const refEndDate = dateMode === 'range' ? endDate : startDate;
+    fetchRoomRentals(selectedRoomId, startDate, refEndDate);
+  }, [selectedRoomId, dateMode, startDate, endDate, fetchRoomRentals]);
+
   // Map existing blocks grouped by date
   const existingByDate = useMemo(() => {
     const map: Record<string, ShowtimeBlock[]> = {};
-    if (!selectedRoomId || rawRoomShowtimes.length === 0) return map;
+    if (!selectedRoomId || (rawRoomShowtimes.length === 0 && rawRoomRentals.length === 0)) return map;
 
     const { close } = getOperatingRange(constraints.openTime, constraints.closeTime);
 
@@ -439,12 +491,18 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
         : d;
       const closeISO = `${closeDate}T${constraints.closeTime}:00`;
 
-      map[d] = rawRoomShowtimes
+      const showtimeBlocks = rawRoomShowtimes
         .filter((st) => st.status !== 'CANCELLED' && st.startTime < closeISO && st.endTime > openISO)
         .map((st) => existingToBlock(st, openISO, movieMap));
+
+      const rentalBlocks = rawRoomRentals
+        .filter((slot) => slot.source === 'RENTAL' && slot.startTime < closeISO && slot.endTime > openISO)
+        .map((slot, idx) => rentalBusySlotToBlock(slot, openISO, idx, closeISO));
+
+      map[d] = [...showtimeBlocks, ...rentalBlocks].sort((a, b) => a.offsetMinutes - b.offsetMinutes);
     }
     return map;
-  }, [selectedRoomId, rawRoomShowtimes, dateList, constraints.openTime, constraints.closeTime, movieMap]);
+  }, [selectedRoomId, rawRoomShowtimes, rawRoomRentals, dateList, constraints.openTime, constraints.closeTime, movieMap]);
 
   const existingBlocks = existingByDate[selectedDate] || [];
 
@@ -664,6 +722,8 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
       showtimeService.getShowtimesByRoom(selectedRoomId)
         .then(setRawRoomShowtimes)
         .catch(console.error);
+      const refEndDate = dateMode === 'range' ? endDate : startDate;
+      fetchRoomRentals(selectedRoomId, startDate, refEndDate);
     }
   };
 
@@ -717,6 +777,8 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
       showtimeService.getShowtimesByRoom(selectedRoomId)
         .then(setRawRoomShowtimes)
         .catch(console.error);
+      const refEndDate = dateMode === 'range' ? endDate : startDate;
+      fetchRoomRentals(selectedRoomId, startDate, refEndDate);
     }
   };
 
@@ -744,8 +806,8 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-inverse-surface/70 backdrop-blur-sm overflow-y-auto py-6 px-4">
-      <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-7xl min-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-inverse-surface/70 backdrop-blur-sm p-4 sm:p-6 overflow-hidden">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-7xl h-[92vh] max-h-[92vh] flex flex-col overflow-hidden relative">
 
         {/* Header */}
         <header className="px-8 py-5 border-b border-outline-variant flex items-center justify-between flex-shrink-0">
@@ -766,10 +828,11 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
         <div className="flex flex-1 min-h-0">
 
           {/* ── Sidebar ───────────────────────────────────────────────── */}
-          <aside className="w-84 flex-shrink-0 border-r border-outline-variant flex flex-col overflow-y-auto">
+          <aside className="w-84 flex-shrink-0 border-r border-outline-variant flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto min-h-0">
 
-            {/* Context */}
-            <section className="p-6 border-b border-outline-variant/30">
+              {/* Context */}
+              <section className="p-6 border-b border-outline-variant/30">
               <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant mb-4">{t('autoShowtime.context', 'Context')}</h3>
               {/* Mode Switcher */}
               <div className="flex bg-surface-container rounded-lg p-0.5 mb-3">
@@ -994,7 +1057,7 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
             </section>
 
             {/* Movie pool */}
-            <section className="p-6 flex-1 overflow-y-auto">
+            <section className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">{t('autoShowtime.moviePool', 'Movie Pool')}</h3>
                 {selectedMovies.length > 0 && (
@@ -1031,9 +1094,10 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
                 </div>
               )}
             </section>
+          </div>
 
-            {/* Actions */}
-            <footer className="p-6 border-t border-outline-variant space-y-2.5">
+          {/* Actions */}
+          <footer className="p-5 border-t border-outline-variant space-y-2 flex-shrink-0 bg-surface-container-lowest">
               {dateMode === 'range' ? (
                 <>
                   <button
@@ -1143,6 +1207,7 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
                 </h3>
                 <div className="flex items-center gap-3 text-xs text-on-surface-variant">
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-slate-400 inline-block" /> {t('autoShowtime.existing', 'Existing')}</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-600 inline-block" /> {t('autoShowtime.roomRental', 'Room Rental')}</span>
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-primary inline-block" /> {t('autoShowtime.generated', 'Generated')}</span>
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-error inline-block" /> {t('autoShowtime.conflict', 'Conflict')}</span>
                 </div>
@@ -1363,7 +1428,7 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
       </div>
 
       {/* Schedule Set Success Popup Modal */}
-      {successInfo && (
+      {successInfo && createPortal(
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-2xl p-6 sm:p-8 max-w-md w-full relative overflow-hidden flex flex-col items-center text-center">
             {/* Top Close Button (X) */}
@@ -1433,7 +1498,8 @@ export const AutoShowtimeCreator: React.FC<AutoShowtimeCreatorProps> = ({ onClos
               {t('autoShowtime.viewSchedule', 'Done · View in Schedule')}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

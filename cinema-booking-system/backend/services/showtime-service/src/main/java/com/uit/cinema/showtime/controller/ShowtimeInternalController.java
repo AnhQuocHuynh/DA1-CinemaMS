@@ -17,9 +17,14 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/internal/showtimes")
@@ -32,6 +37,24 @@ public class ShowtimeInternalController {
     @GetMapping("/rooms/{roomId}/future-exists")
     public ResponseEntity<ApiResponse<Boolean>> hasFutureShowtimesForRoom(@PathVariable Long roomId) {
         return ResponseEntity.ok(ApiResponse.success(showtimeService.hasFutureShowtimesForRoom(roomId)));
+    }
+
+    @GetMapping("/rooms/{roomId}/overlaps")
+    public ResponseEntity<ApiResponse<Boolean>> overlaps(
+        @PathVariable Long roomId,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(showtimeService.hasOverlappingShowtime(roomId, start, end)));
+    }
+
+    @GetMapping("/rooms/{roomId}/schedule")
+    public ResponseEntity<ApiResponse<List<ShowtimeScheduleView>>> schedule(
+        @PathVariable Long roomId,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(showtimeService.findActiveSchedule(roomId, from, to)));
     }
 
     @PostMapping("/rooms/future-exists")

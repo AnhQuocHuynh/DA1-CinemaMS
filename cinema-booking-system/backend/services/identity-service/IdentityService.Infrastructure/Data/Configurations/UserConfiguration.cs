@@ -59,5 +59,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.UpdatedAt)
             .HasColumnName("updated_at")
             .HasColumnType("timestamp with time zone");
+
+        builder.Property(x => x.CinemaId)
+            .HasColumnName("cinema_id");
     }
 }

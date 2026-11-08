@@ -77,6 +77,7 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
     { id: 'Movies', label: t('common.movies'), to: '/' },
     { id: 'Theaters', label: t('common.theaters'), to: '/theaters' },
     { id: 'Membership', label: t('common.membership'), to: '/membership' },
+    { id: 'Room Rental', label: t('common.roomRental', 'Room Rental'), to: '/room-rental' },
     ...(user ? [
       { id: 'My Tickets', label: t('common.myTickets'), to: '/my-tickets' },
       { id: 'My Ratings', label: t('common.myRatings', 'My ratings'), to: '/my-ratings' },
@@ -90,7 +91,7 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
           <span className="text-xl font-bold tracking-tight">CinemaArchitect</span>
           <nav className="hidden md:flex items-center text-sm font-medium">
             {navItems.map((item) => (
-              <div key={item.id} className="w-[110px] flex justify-center">
+              <div key={item.id} className="min-w-[100px] px-3 flex justify-center whitespace-nowrap">
                 <Link
                   to={item.to}
                   className={

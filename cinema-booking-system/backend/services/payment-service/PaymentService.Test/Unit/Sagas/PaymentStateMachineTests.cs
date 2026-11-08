@@ -1,3 +1,6 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 using MassTransit;
 using MassTransit.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using PaymentService.Application.IntegrationEvents;
 using PaymentService.Application.Contracts;
 using PaymentService.Infrastructure.Sagas;
+using Xunit;
 
 namespace PaymentService.Test.Unit.Sagas;
 
@@ -66,6 +70,82 @@ public class PaymentStateMachineTests : IAsyncLifetime
 
         // Assert — saga instance exists and is in Pending state
         await AssertSagaInState(correlationId, "Pending");
+    }
+
+    // ── Pending → Pending (gateway switch) ────────────────────────────────────
+
+    [Fact]
+    public async Task PaymentInitiated_WhenAlreadyInPending_ShouldUpdatePaymentMethodAndRemainPending()
+    {
+        // Arrange — initial initiation with PAYPAL
+        var correlationId = NewCorrelation();
+
+        await _harness.Bus.Publish(new PaymentInitiated
+        {
+            CorrelationId = correlationId,
+            PaymentId = 1007,
+            OrderId = 2007,
+            UserId = 42,
+            Amount = 180000m,
+            Currency = "VND",
+            PaymentMethod = "PAYPAL"
+        });
+
+        await AssertSagaInState(correlationId, "Pending");
+
+        // Act — user switches payment method to STRIPE
+        await _harness.Bus.Publish(new PaymentInitiated
+        {
+            CorrelationId = correlationId,
+            PaymentId = 1007,
+            OrderId = 2007,
+            UserId = 42,
+            Amount = 180000m,
+            Currency = "VND",
+            PaymentMethod = "STRIPE"
+        });
+
+        await Task.Delay(50);
+
+        // Assert — saga stays in Pending and updates PaymentMethod to STRIPE
+        await AssertSagaInState(correlationId, "Pending");
+        var sagaInstance = _sagaHarness.Sagas.Contains(correlationId);
+        Assert.NotNull(sagaInstance);
+        Assert.Equal("STRIPE", sagaInstance.PaymentMethod);
+    }
+
+    // ── Created → Finalized (10-minute expiration) ────────────────────────────
+
+    [Fact]
+    public async Task PaymentSlotExpired_WhenCreated_ShouldPublishOrderExpiredWith10MinuteReason()
+    {
+        // Arrange
+        var correlationId = NewCorrelation();
+
+        await _harness.Bus.Publish(new OrderSlotReserved
+        {
+            CorrelationId = correlationId,
+            PaymentId = 1008,
+            OrderId = 2008,
+            UserId = 42,
+            Amount = 120000m,
+            Currency = "VND"
+        });
+
+        await AssertSagaInState(correlationId, "Created");
+        await Task.Delay(50);
+
+        // Act
+        await _harness.Bus.Publish(new PaymentSlotExpired
+        {
+            CorrelationId = correlationId
+        });
+
+        // Assert — OrderExpired published with 10-minute timeout reason
+        await Task.Delay(50);
+        Assert.True(await _harness.Published.Any<EventEnvelope<OrderExpired>>(
+            m => m.Context.Message.Payload.CorrelationId == correlationId &&
+                 m.Context.Message.Payload.Reason == "Payment initiation timed out (10 minutes)"));
     }
 
     // ── Pending → Completed (success callback) ────────────────────────────────

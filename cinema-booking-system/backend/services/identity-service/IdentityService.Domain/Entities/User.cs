@@ -12,6 +12,7 @@ public class User
     public string? Phone { get; private set; }
     public Gender? Gender { get; private set; }
     public DateTime? DateOfBirth { get; private set; }
+    public long? CinemaId { get; private set; }
     public bool Active { get; private set; } = true;
     public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; private set; }
@@ -76,5 +77,11 @@ public class User
             Active = true;
             UpdatedAt = DateTime.UtcNow;
         }
+    }
+
+    public void AssignCinema(long? cinemaId)
+    {
+        CinemaId = cinemaId;
+        UpdatedAt = DateTime.UtcNow;
     }
 }

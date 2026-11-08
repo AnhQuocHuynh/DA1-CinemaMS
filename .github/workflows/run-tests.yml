@@ -18,6 +18,7 @@ on:
       - 'cinema-booking-system/backend_legacy/**'
       - 'cinema-booking-system/backend/**'
   workflow_dispatch:
+
 jobs:
   changes:
     name: Detect File Changes
@@ -59,8 +60,8 @@ jobs:
         working-directory: cinema-booking-system/backend_legacy
         run: mvn test
 
-  backend-tests:
-    name: Spring backend verification
+  spring-reactor-and-infra-validation:
+    name: Spring Reactor & Infrastructure Validation
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
@@ -75,9 +76,9 @@ jobs:
           distribution: "temurin"
           cache: "maven"
 
-      - name: Verify Spring service reactor
+      - name: Verify and package Spring reactor
         working-directory: cinema-booking-system/backend
-        run: mvn --batch-mode clean verify
+        run: mvn --batch-mode clean package -DskipTests
 
       - name: Validate runtime and migration scripts
         shell: pwsh
@@ -115,7 +116,7 @@ jobs:
     name: Spring event-flow integration
     needs:
       - changes
-      - backend-tests
+      - spring-reactor-and-infra-validation
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -147,3 +148,91 @@ jobs:
         if: always()
         working-directory: cinema-booking-system/backend
         run: docker compose -f infrastructure/docker-compose.yml down --remove-orphans
+
+  spring-unit-tests:
+    name: Spring Unit Tests (${{ matrix.service }})
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - catalog-service
+          - showtime-service
+          - booking-service
+          - analytics-service
+          - recommendation-service
+          - rental-service
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run Spring unit tests
+        working-directory: cinema-booking-system/backend
+        run: mvn test -pl services/${{ matrix.service }} -am
+
+  dotnet-unit-tests:
+    name: .NET Unit Tests (${{ matrix.service }})
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: facility-service
+            project: FacilityService.Test
+          - service: identity-service
+            project: IdentityService.Test
+          - service: notification-service
+            project: NotificationService.Test
+          - service: payment-service
+            project: PaymentService.Test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Run .NET unit tests
+        run: dotnet test cinema-booking-system/backend/services/${{ matrix.service }}/${{ matrix.project }}/${{ matrix.project }}.csproj --filter "FullyQualifiedName~Unit" -c Release
+
+  dotnet-integration-tests:
+    name: .NET Integration Tests (${{ matrix.service }})
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: facility-service
+            project: FacilityService.Test
+          - service: identity-service
+            project: IdentityService.Test
+          - service: notification-service
+            project: NotificationService.Test
+          - service: payment-service
+            project: PaymentService.Test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Run .NET integration tests
+        run: dotnet test cinema-booking-system/backend/services/${{ matrix.service }}/${{ matrix.project }}/${{ matrix.project }}.csproj --filter "FullyQualifiedName~Integration" -c Release
