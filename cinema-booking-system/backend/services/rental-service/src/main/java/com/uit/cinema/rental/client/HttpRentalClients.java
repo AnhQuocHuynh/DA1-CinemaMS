@@ -147,6 +147,7 @@ public class HttpRentalClients implements
         }
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     private static final class FacilityRoomPayload {
         public Long id;
         public Long cinemaId;
@@ -155,20 +156,50 @@ public class HttpRentalClients implements
         public boolean underMaintenance;
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     private static final class MoviePayload {
         public Long id;
         public Integer durationMinutes;
         public boolean active;
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     private static final class ScopePayload {
         public String realmRole;
         public List<Long> cinemaIds;
     }
 
-    private static final class ShowtimePayload {
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class ShowtimePayload {
         public LocalDateTime startTime;
         public LocalDateTime endTime;
         public String status;
+
+        public ShowtimePayload() {
+        }
+
+        public LocalDateTime getStartTime() {
+            return startTime;
+        }
+
+        public void setStartTime(LocalDateTime startTime) {
+            this.startTime = startTime;
+        }
+
+        public LocalDateTime getEndTime() {
+            return endTime;
+        }
+
+        public void setEndTime(LocalDateTime endTime) {
+            this.endTime = endTime;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
 }
