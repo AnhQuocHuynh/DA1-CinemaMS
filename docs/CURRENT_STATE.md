@@ -13,6 +13,17 @@ gates are maintained in
 - `backend/` now contains the microservice stack, not placeholder folders: Spring Boot Catalog, Showtime, Booking, Analytics, and Recommendation, plus ASP.NET Identity, Facility, Payment, Notification, and the YARP API Gateway. Keycloak is in Compose.
 - The August 2026 verification numbers in `MIGRATION_STATUS.md` still stand as historical evidence. They do not cover the later frontend, payment, notification, gateway, and facility merges.
 
+## Verification on 2026-11-08 (feat/movie-summary)
+
+E2E browser and integration verification for AI Movie Summary feature with Gemini client:
+- Catalog-service Maven tests: 49 tests passed (0 failures), including 7 Gemini client unit tests (`GeminiMovieSummaryClientTest`), 12 movie service unit tests (`MovieServiceImplTest`), and 6 integration tests (`MovieSummaryE2ETest`).
+- Frontend unit tests & build: `vitest run` 47/47 passed. `npm run build` cleanly compiled Vite bundle in 16.53s.
+- End-to-end browser execution (Puppeteer on real Chrome):
+  1. Admin login via Keycloak (`admintest` / `admin123`) -> opened `/admin/movies`.
+  2. Created movie ("Oppenheimer (AI Masterpiece Edition)") with description and genre -> `catalog-service` reached Gemini AI endpoint -> generated summary and persisted to PostgreSQL `cinema_catalog_db` (id 7).
+  3. Customer login via Keycloak (`user` / `user123`) in isolated session -> browsed to `/movies/7`.
+  4. Movie detail page rendered the "AI Summary" section with the generated text. DOM assertion and full-page screenshots verified.
+
 ## Verification on 2026-10-11
 
 Local run on this machine. This is not a cutover and not an event-flow smoke. The stack was left running.
@@ -43,6 +54,7 @@ Customer:
 
 - Register, login, forgot-password, and logout go through Keycloak (`keycloak-js`, cinema theme, locale and theme query params).
 - Movie and event browse, detail, showtimes, and catalog keyword search.
+- Creating or editing a movie description in catalog-service asks Gemini (`gemini-3.5-flash` on the Gemini Developer API) for a short summary when `CINEMA_AI_ENABLED=true` and `GEMINI_API_KEY` is set. The summary is stored on the movie and shown on the movie detail page. A failed or skipped call leaves `aiSummary` empty. The key stays in the environment.
 - Seat map, seat hold, hold countdown, order create, voucher validation, and checkout. The hold uses Redis. If Redis is unavailable, showtime-service locks the `showtime_seats` row and stores `held_by_user_id` plus `hold_expires_at`. A hold with no remaining time is shown as available again.
 - Stripe and PayPal redirect plus return verification, and cash confirmation on the payment service.
 - Reviews and rating summaries are rendered on movie and event detail pages.

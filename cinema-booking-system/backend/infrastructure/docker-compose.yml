@@ -213,6 +213,11 @@ services:
       KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
       KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-cinema-api}
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-}
+      CINEMA_AI_ENABLED: ${CINEMA_AI_ENABLED:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta}
+      GEMINI_TIMEOUT: ${GEMINI_TIMEOUT:-30s}
       SHOWTIME_SERVICE_URL: http://showtime-service:8082
       OUTBOX_DISPATCHER_ENABLED: "true"
       SPRING_RABBITMQ_HOST: rabbitmq

@@ -27,6 +27,9 @@ public class Movie {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(columnDefinition = "TEXT")
+    private String aiSummary;
+
     private Integer durationMinutes;
 
     private LocalDate releaseDate;

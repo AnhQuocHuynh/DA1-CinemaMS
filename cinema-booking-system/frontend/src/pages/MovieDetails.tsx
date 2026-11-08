@@ -154,10 +154,17 @@ export const MovieDetails: React.FC = () => {
         {/* Details */}
         <section className="max-w-7xl mx-auto px-6 py-14 grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-8 space-y-10">
-            <div>
-              <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-4">{t('movieDetails.plot')}</h2>
-              <p className="text-on-surface-variant leading-relaxed text-lg">{movie.description}</p>
-            </div>
+            {movie.aiSummary ? (
+              <div>
+                <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-4">{t('movieDetails.aiSummary')}</h2>
+                <p className="text-on-surface leading-relaxed text-lg">{movie.aiSummary}</p>
+              </div>
+            ) : movie.description ? (
+              <div>
+                <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-4">{t('movieDetails.plot')}</h2>
+                <p className="text-on-surface-variant leading-relaxed text-lg">{movie.description}</p>
+              </div>
+            ) : null}
 
             {/* Reviews */}
             <ReviewSection type="movie" id={parseInt(movieId!, 10)} />

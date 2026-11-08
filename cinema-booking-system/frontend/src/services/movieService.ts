@@ -4,6 +4,7 @@ export interface MovieResponse {
   id: number;
   title: string;
   description: string;
+  aiSummary?: string | null;
   durationMinutes: number;
   releaseDate: string;
   ageRating: string;
