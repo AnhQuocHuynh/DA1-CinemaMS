@@ -88,7 +88,10 @@ describe('notificationService', () => {
 
     const result = await notificationService.updatePreferences(42, payload);
 
-    expect(apiClient.put).toHaveBeenCalledWith('/preferences/42', payload);
+    expect(apiClient.put).toHaveBeenCalledWith('/preferences/42', {
+      userId: 42,
+      ...payload,
+    });
     expect(result).toEqual(mockResponse);
   });
 });

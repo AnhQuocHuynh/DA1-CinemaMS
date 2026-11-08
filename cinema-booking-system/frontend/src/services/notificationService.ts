@@ -24,7 +24,10 @@ export const notificationService = {
     userId: number,
     payload: { emailEnabled: boolean; smsEnabled: boolean; pushEnabled: boolean }
   ): Promise<UserPreference> => {
-    const res = await apiClient.put<UserPreference>(`/preferences/${userId}`, payload);
+    const res = await apiClient.put<UserPreference>(`/preferences/${userId}`, {
+      userId,
+      ...payload,
+    });
     return res.data;
   },
 };
