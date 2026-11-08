@@ -796,7 +796,10 @@
     "title": "Reviews & Ratings",
     "reviewsCount": "reviews",
     "noReviews": "No reviews yet. Be the first!",
-    "notEligible": "You are not eligible to review this."
+    "notEligible": "You are not eligible to review this.",
+    "aiSummaryTitle": "AI Review Summary",
+    "aiGenerated": "AI Summary",
+    "keywords": "Highlighted keywords:"
   },
   "printableTicket": {
     "movieTicket": "Movie Ticket",

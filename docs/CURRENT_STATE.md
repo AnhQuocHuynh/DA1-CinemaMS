@@ -63,6 +63,7 @@ Customer:
 - Register, login, forgot-password, and logout go through Keycloak (`keycloak-js`, cinema theme, locale and theme query params).
 - Movie and event browse, detail, showtimes, and catalog keyword search. The search page can also filter movies by status and genre.
 - Creating or editing a movie description in catalog-service asks Gemini (`gemini-3.5-flash` on the Gemini Developer API) for a short summary when `CINEMA_AI_ENABLED=true` and `GEMINI_API_KEY` is set. The summary is stored on the movie and shown on the movie detail page. A failed or skipped call leaves `aiSummary` empty. The key stays in the environment.
+- Movie and event review insight adds `aiSummary` and `keywords`. booking-service asks the same Gemini configuration when at least one visible review has a comment. The text is cached in `review_ai_summaries` and regenerated when those comments change. A failed or skipped call leaves `aiSummary` null and `keywords` empty. The detail page still renders star counts only.
 - Seat map, seat hold, hold countdown, order create, voucher validation, and checkout. The hold uses Redis. If Redis is unavailable, showtime-service locks the `showtime_seats` row and stores `held_by_user_id` plus `hold_expires_at`. A hold with no remaining time is shown as available again.
 - Stripe and PayPal redirect plus return verification, and cash confirmation on the payment service.
 - Reviews and rating summaries are rendered on movie and event detail pages.
