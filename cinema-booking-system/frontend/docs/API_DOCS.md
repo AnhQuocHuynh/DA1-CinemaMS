@@ -337,6 +337,7 @@ Get all active movies.
       "id": 1,
       "title": "Inception",
       "description": "A mind-bending thriller about dreams within dreams.",
+      "aiSummary": "A thief steals secrets by entering dreams.",
       "durationMinutes": 148,
       "releaseDate": "2024-01-10",
       "ageRating": "PG-13",
@@ -1168,7 +1169,9 @@ Create a new movie (Admin only).
 }
 ```
 
-**Response** (200 OK): ApiResponse with created `MovieResponse`
+**Response** (200 OK): ApiResponse with created `MovieResponse`.
+
+After the movie is saved, catalog asks Gemini for a short summary and returns it as `aiSummary`. A failed, rate-limited, or skipped call still creates the movie and leaves `aiSummary` null. Clients cannot send this field.
 
 ---
 
