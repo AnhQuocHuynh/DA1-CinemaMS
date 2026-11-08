@@ -13,6 +13,14 @@ gates are maintained in
 - `backend/` now contains the microservice stack, not placeholder folders: Spring Boot Catalog, Showtime, Booking, Analytics, and Recommendation, plus ASP.NET Identity, Facility, Payment, Notification, and the YARP API Gateway. Keycloak is in Compose.
 - The August 2026 verification numbers in `MIGRATION_STATUS.md` still stand as historical evidence. They do not cover the later frontend, payment, notification, gateway, and facility merges.
 
+## Uncertainty ratings (2026-10-25)
+
+Spring catalog and recommendation only. ASP.NET services were not changed. Neo4j popular, similar, and personalized routes stay in place.
+
+- Catalog movies can store `imdb_id`, `imdb_rating`, `region`, `director`, and `actors`. `GET /api/catalog/search` accepts `status` `SHOWING`, `UPCOMING`, or `ALL`. Admin routes: `POST /api/movies/imdb-sync/{imdbId}` and `POST /api/movies/bulk-import`. Internal feature reads: `GET /internal/catalog/movies/features` and `GET /internal/catalog/movies/{movieId}/feature`.
+- Recommendation stores `user_ratings` and `system_config` in PostgreSQL database `cinema_recommendation_db`. New routes under `/api/recommendations`: `top-k`, `predict`, `user-ratings`, and `max-dissimilarity/recalculate`. The signed-in home page calls top-k. A failed top-k call falls back to the existing Neo4j block. Guests still see Neo4j popular movies. Movie detail keeps booking-service reviews and adds a separate 1–5 rating. `/my-ratings` lists those ratings. Admin movie management can start an IMDb import and recalculate max dissimilarity.
+- `init-multiple-databases.sql` creates `cinema_recommendation_db`. A Postgres volume that already ran that script will not create the database. Create it once with `CREATE DATABASE cinema_recommendation_db;` before starting recommendation-service against that volume.
+- This session: `mvn -pl services/catalog-service test` passed 35 tests. `mvn -pl services/recommendation-service test` passed 30 tests. Frontend `npm run build` exited 0. Ports 5000, 5173, 8081, and 8085 were closed, so the home, star rating, my-ratings, search filters, and import button were not clicked in a browser.
 ## Verification on 2026-11-08 (feat/movie-summary)
 
 E2E browser and integration verification for AI Movie Summary feature with Gemini client:
@@ -42,7 +50,7 @@ Local run on this machine. This is not a cutover and not an event-flow smoke. Th
 - Spring services: `catalog-service`, `showtime-service`, `booking-service`, `analytics-service`, `recommendation-service`.
 - ASP.NET services: `identity-service`, `facility-service`, `payment-service`, `notification-service`, `api-gateway`.
 - `rental-service` has compiled output only. Room rental is on branch `feature/room-rental`, not here.
-- `backend/infrastructure/docker-compose.yml` runs the services above against one PostgreSQL 18 container on host port `5432`. Logical databases from `init-multiple-databases.sql`: `cinema_catalog_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, `keycloak_db`, `user_profile_db`, `payment_db`, `facility_db`. Notification uses MongoDB. Showtime Redis, shared Redis, RabbitMQ, and Neo4j are separate containers. The same file starts `cinema-frontend` (Nginx) on host port `5173`.
+- `backend/infrastructure/docker-compose.yml` runs the services above against one PostgreSQL 18 container on host port `5432`. Logical databases from `init-multiple-databases.sql`: `cinema_catalog_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, `cinema_recommendation_db`, `keycloak_db`, `user_profile_db`, `payment_db`, `facility_db`. An existing volume needs a one-off `CREATE DATABASE cinema_recommendation_db;`. Notification uses MongoDB. Showtime Redis, shared Redis, RabbitMQ, and Neo4j are separate containers. The same file starts `cinema-frontend` (Nginx) on host port `5173`.
 
 ## Feature Progress
 
@@ -53,20 +61,20 @@ Status means the feature is present in this branch's source. The 2026-10-11 test
 Customer:
 
 - Register, login, forgot-password, and logout go through Keycloak (`keycloak-js`, cinema theme, locale and theme query params).
-- Movie and event browse, detail, showtimes, and catalog keyword search.
+- Movie and event browse, detail, showtimes, and catalog keyword search. The search page can also filter movies by status and genre.
 - Creating or editing a movie description in catalog-service asks Gemini (`gemini-3.5-flash` on the Gemini Developer API) for a short summary when `CINEMA_AI_ENABLED=true` and `GEMINI_API_KEY` is set. The summary is stored on the movie and shown on the movie detail page. A failed or skipped call leaves `aiSummary` empty. The key stays in the environment.
 - Seat map, seat hold, hold countdown, order create, voucher validation, and checkout. The hold uses Redis. If Redis is unavailable, showtime-service locks the `showtime_seats` row and stores `held_by_user_id` plus `hold_expires_at`. A hold with no remaining time is shown as available again.
 - Stripe and PayPal redirect plus return verification, and cash confirmation on the payment service.
 - Reviews and rating summaries are rendered on movie and event detail pages.
 - My tickets, ticket detail, and PDF download.
-- Personalized and popular recommendations on the home page.
+- Personalized and popular Neo4j recommendations on the home page. A signed-in user first sees uncertainty top-k from movies they rated in recommendation-service.
 - Vietnamese/English UI and light/dark theme.
 
 Staff and admin:
 
 - QR check-in calls `POST /api/tickets/check-in` and stops the camera after one decode (`processingRef`).
 - Ticket lookup uses the ticket-by-code API. Ticket PDF download exists.
-- Admin movies, events, cinemas, rooms, and seat maps call the real catalog and facility APIs.
+- Admin movies, events, cinemas, rooms, and seat maps call the real catalog and facility APIs. Movie management can start an IMDb genre import and ask recommendation-service to recalculate max dissimilarity.
 - Admin showtimes list and delete real showtimes. Auto showtime creator publishes generated blocks through `showtimeService`.
 - Admin dashboard reads analytics endpoints.
 - Voucher list, create, and delete call booking-service. Role changes call `PUT /api/users/{id}/role`.
@@ -121,7 +129,7 @@ Platform:
 - Standalone Showtime reads Catalog/Facility through HTTP clients and exposes internal command, guard, and seat-reservation endpoints for future service extraction.
 - Standalone Booking calls Showtime internal seat-reservation endpoints and uses Catalog/Facility internal projections for response enrichment.
 - Standalone Analytics exposes admin dashboard route compatibility and maintains its PostgreSQL read model through durable, idempotent RabbitMQ consumers for Catalog and Booking events.
-- Standalone Recommendation serves popular, similar, personalized, and hybrid recommendations from Neo4j, with safe fallback responses when graph mode is disabled.
+- Standalone Recommendation serves popular, similar, personalized, and hybrid recommendations from Neo4j, with safe fallback responses when graph mode is disabled. It also stores per-user movie ratings in `cinema_recommendation_db` and serves uncertainty top-k from catalog movie features.
 - Catalog records movie-created, movie-updated, and movie-deleted envelopes in a transactional outbox.
 - Booking records order-paid, order-refunded, and review-created envelopes in a transactional outbox; paid events are enriched with the owning Showtime content identifier.
 - Shared event contracts define the envelope, RabbitMQ exchanges, routing keys, and idempotent consumer rule before any broker is enabled.
@@ -214,8 +222,8 @@ npm audit --omit=dev
 
 - Shared PostgreSQL 18: `localhost:5432`. Logical databases:
   `cinema_catalog_db`, `cinema_showtime_db`, `cinema_booking_db`,
-  `cinema_analytics_db`, `keycloak_db`, `user_profile_db`, `payment_db`,
-  `facility_db`.
+  `cinema_analytics_db`, `cinema_recommendation_db`, `keycloak_db`,
+  `user_profile_db`, `payment_db`, `facility_db`.
 - Legacy backend DB (when `backend_legacy` or a local `my-postgres` is used
   instead of extracted Compose): `localhost:5432/cinema_db`. Do not run both
   stacks on `5432` at the same time.

@@ -11,6 +11,7 @@ import { useAuthStore } from '../store/authStore';
 import { eventService, EventResponse } from '../services/eventService';
 import { MovieResponse } from '../services/movieService';
 import { catalogService } from '../services/catalogService';
+import { recommendationService, TopKRecommendation } from '../services/recommendationService';
 import { Movie } from '../types/movie';
 import genericPoster from '../resources/generic_movie_poster.png';
 
@@ -82,6 +83,30 @@ export const Home: React.FC = () => {
   const { backendMovies, isLoading: isLoadingBackend } = useMovies();
   const { recommendations, isLoading: isLoadingRecs } = useRecommendations(4);
   const user = useAuthStore(state => state.user);
+  const [topK, setTopK] = useState<TopKRecommendation[]>([]);
+  const [topKState, setTopKState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+
+  useEffect(() => {
+    if (!user) {
+      setTopK([]);
+      setTopKState('idle');
+      return;
+    }
+    let cancelled = false;
+    setTopKState('loading');
+    recommendationService.getTopK(5)
+      .then((items) => {
+        if (cancelled) return;
+        setTopK(items);
+        setTopKState('ready');
+      })
+      .catch(() => {
+        if (!cancelled) setTopKState('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     eventService.getEvents().then(setEvents).catch(console.error);
@@ -290,8 +315,79 @@ export const Home: React.FC = () => {
           </div>
         </section>
 
-        {/* ── Recommended For You ─────────────────────────────────────── */}
-        {(recommendations.length > 0 || isLoadingRecs) && (
+        {/* ── Uncertainty top-k for a signed-in user ─────────────────── */}
+        {user && topKState !== 'error' && topKState !== 'idle' && (
+          <section id="recommended" className="max-w-[1280px] mx-auto px-6 pt-12">
+            <div className="flex items-end justify-between gap-4 mb-8">
+              <div>
+                <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                  <Sparkles className="text-amber-500" size={28} />
+                  {t('home.recommendedForYou', 'Recommended for You')}
+                </h2>
+                <p className="text-on-surface-variant mt-1">
+                  {t('home.recommendedDesc', 'Picks from movies you rated, with a confidence score.')}
+                </p>
+              </div>
+              <Link to="/my-ratings" className="text-sm font-semibold text-primary hover:underline">
+                {t('home.myRatings', 'Movies I rated')}
+              </Link>
+            </div>
+
+            {topKState === 'loading' && (
+              <p className="text-sm text-on-surface-variant mb-8">{t('home.topKLoading', 'Loading your picks...')}</p>
+            )}
+
+            {topKState === 'ready' && topK.length === 0 && (
+              <p className="text-sm text-on-surface-variant mb-8">{t('home.topKEmpty', 'No showing movies to recommend yet.')}</p>
+            )}
+
+            {topKState === 'ready' && topK.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7 mb-12">
+                {topK.map((rec) => {
+                  const match = Math.round(Math.min(100, Math.max(0, rec.predictedRating * 20)));
+                  const confidence = Math.round(Math.min(100, Math.max(0, 100 - rec.uncertaintyScore)));
+                  return (
+                    <article key={rec.movieId} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow">
+                      <Link to={`/movies/${rec.movieId}`}>
+                        <div className="relative aspect-[2/3] overflow-hidden">
+                          <img
+                            src={rec.posterUrl || genericPoster}
+                            alt={rec.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.onerror = null;
+                              target.src = genericPoster;
+                            }}
+                          />
+                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-amber-400 text-xs font-bold border border-white/10">
+                            {t('home.match', 'Match')} {match}%
+                          </div>
+                        </div>
+                      </Link>
+                      <div className="p-4 space-y-2">
+                        <Link to={`/movies/${rec.movieId}`} className="font-bold leading-tight hover:opacity-90 line-clamp-1">
+                          {rec.title}
+                        </Link>
+                        <p className="text-xs text-on-surface-variant">
+                          {t('home.confidence', 'Confidence')} {confidence}%
+                        </p>
+                        {rec.nearestMovieId != null && rec.nearestMovieTitle && (
+                          <Link to={`/movies/${rec.nearestMovieId}`} className="text-xs text-primary hover:underline line-clamp-2">
+                            {t('home.becauseRated', { title: rec.nearestMovieTitle })}
+                          </Link>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Neo4j recommendations: guests, or signed-in fallback ──── */}
+        {(!user || topKState === 'error') && (recommendations.length > 0 || isLoadingRecs) && (
           <section id="recommended" className="max-w-[1280px] mx-auto px-6 pt-12">
             <div className="flex items-end justify-between gap-4 mb-8">
               <div>
@@ -309,8 +405,13 @@ export const Home: React.FC = () => {
                   )}
                 </h2>
                 <p className="text-on-surface-variant mt-1">
-                  {user ? t('home.recommendedDesc', 'Handpicked selections based on your watch history.') : t('home.popularDesc', 'Trending movies everyone is watching.')}
+                  {user ? t('home.recommendedDesc', 'Picks from movies you rated, with a confidence score.') : t('home.popularDesc', 'Trending movies everyone is watching.')}
                 </p>
+                {!user && (
+                  <Link to="/login" className="inline-block text-sm font-semibold text-primary mt-2 hover:underline">
+                    {t('home.loginForPersonal', 'Sign in to see picks based on your ratings.')}
+                  </Link>
+                )}
               </div>
             </div>
 

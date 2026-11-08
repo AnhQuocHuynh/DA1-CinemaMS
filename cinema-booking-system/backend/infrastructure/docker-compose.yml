@@ -394,6 +394,11 @@ services:
       SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
       SPRING_NEO4J_AUTHENTICATION_PASSWORD: ${NEO4J_PASSWORD:-cinema_graph_2026}
       RECOMMENDATION_MESSAGING_ENABLED: "true"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${RECOMMENDATION_DB_NAME:-cinema_recommendation_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-123}
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-local-dev-internal-token}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
@@ -401,6 +406,10 @@ services:
     ports:
       - "8085:8085"
     depends_on:
+      postgres:
+        condition: service_healthy
+      catalog-service:
+        condition: service_started
       neo4j:
         condition: service_healthy
       rabbitmq:

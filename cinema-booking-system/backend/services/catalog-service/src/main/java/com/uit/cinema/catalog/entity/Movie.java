@@ -46,6 +46,20 @@ public class Movie {
     @Column(length = 50)
     private String language;
 
+    @Column(length = 32, unique = true)
+    private String imdbId;
+
+    private Double imdbRating;
+
+    @Column(length = 255)
+    private String region;
+
+    @Column(length = 200)
+    private String director;
+
+    @Column(columnDefinition = "TEXT")
+    private String actors;
+
     @Builder.Default
     private boolean active = true;
 

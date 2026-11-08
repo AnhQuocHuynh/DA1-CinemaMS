@@ -4,6 +4,15 @@ server:
 spring:
   application:
     name: recommendation-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/cinema_recommendation_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:123}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
@@ -43,6 +52,13 @@ recommendation:
       username: ${RECOMMENDATION_BACKFILL_SOURCE_USERNAME:postgres}
       password: ${RECOMMENDATION_BACKFILL_SOURCE_PASSWORD:}
     fetch-size: ${RECOMMENDATION_BACKFILL_FETCH_SIZE:500}
+
+services:
+  catalog:
+    url: ${CATALOG_SERVICE_URL:http://localhost:8081}
+
+app:
+  internal-token: ${INTERNAL_API_TOKEN:local-dev-internal-token}
 
 cinema:
   security:

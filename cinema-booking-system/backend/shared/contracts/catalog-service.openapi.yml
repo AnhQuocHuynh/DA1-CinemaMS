@@ -35,6 +35,11 @@ paths:
           schema:
             type: string
             format: date
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [SHOWING, UPCOMING, ALL]
         - name: page
           in: query
           schema:
@@ -52,6 +57,77 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CatalogSearchApiResponse"
+  /internal/catalog/movies/features:
+    get:
+      summary: Movie features used by the uncertainty recommendation algorithm.
+      security:
+        - internalToken: []
+      responses:
+        "200":
+          description: Feature rows for every movie.
+  /internal/catalog/movies/{movieId}/feature:
+    get:
+      summary: One movie feature row.
+      security:
+        - internalToken: []
+      parameters:
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Feature row.
+  /api/movies/imdb/titles:
+    get:
+      summary: Search IMDb titles without writing the catalog.
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: IMDb title list.
+  /api/movies/imdb-sync/{imdbId}:
+    post:
+      summary: Upsert one movie from IMDb.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: imdbId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Upserted movie.
+  /api/movies/bulk-import:
+    post:
+      summary: Start a background IMDb import for one genre.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: genre
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "202":
+          description: Import accepted.
   /internal/catalog/movies/{movieId}:
     get:
       summary: Internal movie projection for Showtime
@@ -298,6 +374,16 @@ components:
         trailerUrl:
           type: string
         language:
+          type: string
+        imdbId:
+          type: string
+        imdbRating:
+          type: number
+        region:
+          type: string
+        director:
+          type: string
+        actors:
           type: string
         active:
           type: boolean
