@@ -18,6 +18,7 @@ export interface AuthUser {
   firstName?: string;
   lastName?: string;
   role: 'ADMIN' | 'STAFF' | 'USER';
+  cinemaId?: number | null;
   token: string;
   refreshToken: string;
 }

@@ -12,6 +12,7 @@ import { HealthCheck } from './pages/HealthCheck';
 import { Theaters } from './pages/Theaters';
 import { Membership } from './pages/Membership';
 import { UserDashboard } from './pages/portal/UserDashboard';
+import { RoomRentalBooking } from './pages/portal/RoomRentalBooking';
 import { Booking } from './pages/portal/Booking';
 import { Checkout } from './pages/portal/Checkout';
 import { CheckoutSuccess } from './pages/portal/CheckoutSuccess';
@@ -27,12 +28,14 @@ import { RoomManagement } from './pages/admin/RoomManagement';
 import { SeatConfigurator } from './pages/admin/SeatConfigurator';
 import { ShowtimeManagement } from './pages/admin/ShowtimeManagement';
 import { AdminSettings } from './pages/admin/AdminSettings';
+import { AdminRentalManagement } from './pages/admin/AdminRentalManagement';
 import { useEffect } from 'react';
 import { StaffDashboard } from './pages/staff/StaffDashboard';
 import { CounterBooking } from './pages/staff/CounterBooking';
 import { TicketLookup } from './pages/staff/TicketLookup';
 import { QRChecker } from './pages/staff/QRChecker';
 import { StaffSettings } from './pages/staff/StaffSettings';
+import { StaffRentalManagement } from './pages/staff/StaffRentalManagement';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuthStore } from './store/authStore';
 import { useNotificationStore } from './store/notificationStore';
@@ -65,6 +68,8 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/theaters" element={<Theaters />} />
       <Route path="/membership" element={<Membership />} />
+      <Route path="/room-rental" element={<RoomRentalBooking />} />
+      <Route path="/user/room-rental" element={<Navigate to="/room-rental" replace />} />
       <Route path="/movies/:movieId" element={<MovieDetails />} />
       <Route path="/movies/:movieId/showtimes" element={<MovieShowtimes />} />
       <Route path="/events/:eventId" element={<EventDetails />} />
@@ -111,6 +116,7 @@ function App() {
       <Route path="/admin/rooms" element={<ProtectedRoute requiredRole="ADMIN"><RoomManagement /></ProtectedRoute>} />
       <Route path="/admin/rooms/:roomId/seats" element={<ProtectedRoute requiredRole="ADMIN"><SeatConfigurator /></ProtectedRoute>} />
       <Route path="/admin/showtimes" element={<ProtectedRoute requiredRole="ADMIN"><ShowtimeManagement /></ProtectedRoute>} />
+      <Route path="/admin/rentals" element={<ProtectedRoute requiredRole="ADMIN"><AdminRentalManagement /></ProtectedRoute>} />
 
       {/* Protected Staff Routes */}
       <Route
@@ -123,6 +129,7 @@ function App() {
       />
       <Route path="/staff/ticket-lookup" element={<ProtectedRoute requiredRole="STAFF"><TicketLookup /></ProtectedRoute>} />
       <Route path="/staff/bookings/new" element={<ProtectedRoute requiredRole="STAFF"><CounterBooking /></ProtectedRoute>} />
+      <Route path="/staff/rentals" element={<ProtectedRoute requiredRole="STAFF"><StaffRentalManagement /></ProtectedRoute>} />
       <Route path="/staff/qr-checker" element={<ProtectedRoute requiredRole="STAFF"><QRChecker /></ProtectedRoute>} />
       <Route path="/staff/settings" element={<ProtectedRoute requiredRole="STAFF"><StaffSettings /></ProtectedRoute>} />
 

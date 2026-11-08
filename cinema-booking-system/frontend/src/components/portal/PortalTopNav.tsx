@@ -26,6 +26,7 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
     { label: t('portalTopNav.movies', 'Movies'), to: '/', rawLabel: 'Movies' },
     { label: t('portalTopNav.theaters', 'Theaters'), to: '/theaters', rawLabel: 'Theaters' },
     { label: t('portalTopNav.membership', 'Membership'), to: '/membership', rawLabel: 'Membership' },
+    { label: t('portalTopNav.roomRental', 'Room Rental'), to: '/room-rental', rawLabel: 'Room Rental' },
     ...(user ? [{ label: t('portalTopNav.myTickets', 'My Tickets'), to: '/my-tickets', rawLabel: 'My Tickets' }] : []),
   ];
 
@@ -37,12 +38,14 @@ export const PortalTopNav: React.FC<PortalTopNavProps> = ({ activeLabel }) => {
           <div className="hidden md:flex gap-6 items-center text-sm font-medium">
             {navItems.map((item) => (
               <NavLink
-                key={item.label}
+                key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  isActive || item.rawLabel === activeLabel
-                    ? 'text-primary border-b-2 border-blue-600 pb-1'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                  `whitespace-nowrap ${
+                    isActive || item.rawLabel === activeLabel
+                      ? 'text-primary border-b-2 border-blue-600 pb-1'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`
                 }
               >
                 {item.label}
