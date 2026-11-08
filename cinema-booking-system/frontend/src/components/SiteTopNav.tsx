@@ -78,7 +78,10 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
     { id: 'Theaters', label: t('common.theaters'), to: '/theaters' },
     { id: 'Membership', label: t('common.membership'), to: '/membership' },
     { id: 'Room Rental', label: t('common.roomRental', 'Room Rental'), to: '/room-rental' },
-    ...(user ? [{ id: 'My Tickets', label: t('common.myTickets'), to: '/my-tickets' }] : []),
+    ...(user ? [
+      { id: 'My Tickets', label: t('common.myTickets'), to: '/my-tickets' },
+      { id: 'My Ratings', label: t('common.myRatings', 'My ratings'), to: '/my-ratings' },
+    ] : []),
   ];
 
   return (

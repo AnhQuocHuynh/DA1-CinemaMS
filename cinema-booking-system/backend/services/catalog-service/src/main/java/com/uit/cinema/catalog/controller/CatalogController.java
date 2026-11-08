@@ -23,10 +23,11 @@ public class CatalogController {
             @RequestParam(required = false) Long genreId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        CatalogSearchResponse response = catalogService.search(keyword, genreId, fromDate, toDate, page, size);
+        CatalogSearchResponse response = catalogService.search(keyword, genreId, fromDate, toDate, status, page, size);
         return ResponseEntity.ok(ApiResponse.success(response, "Tìm kiếm danh mục thành công"));
     }
 }

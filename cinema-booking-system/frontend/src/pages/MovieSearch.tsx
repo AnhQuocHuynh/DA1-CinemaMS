@@ -4,6 +4,7 @@ import { ArrowLeft, Film, Search, Calendar, MapPin } from 'lucide-react';
 import { RatingBadge } from '../components/Review/RatingBadge';
 import { formatDuration } from '../utils/movieData';
 import { catalogService, CatalogSearchResponse } from '../services/catalogService';
+import { movieService } from '../services/movieService';
 import genericPoster from '../resources/generic_movie_poster.png'
 import { useTranslation, Trans } from 'react-i18next';
 
@@ -14,12 +15,24 @@ export const MovieSearch: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(true);
   const [results, setResults] = useState<CatalogSearchResponse | null>(null);
+  const [status, setStatus] = useState<'ALL' | 'SHOWING' | 'UPCOMING'>('ALL');
+  const [genreId, setGenreId] = useState<number | ''>('');
+  const [genres, setGenres] = useState<{ id: number; name: string }[]>([]);
+
+  useEffect(() => {
+    movieService.getGenres().then(setGenres).catch(() => setGenres([]));
+  }, []);
 
   useEffect(() => {
     const fetchSearch = async () => {
       setIsLoading(true);
       try {
-        const data = await catalogService.search({ keyword: query, size: 20 });
+        const data = await catalogService.search({
+          keyword: query,
+          size: 20,
+          status: status === 'ALL' ? undefined : status,
+          genreId: genreId === '' ? undefined : genreId,
+        });
         setResults(data);
       } catch (error) {
         console.error('Error searching catalog:', error);
@@ -28,7 +41,7 @@ export const MovieSearch: React.FC = () => {
       }
     };
     fetchSearch();
-  }, [query]);
+  }, [query, status, genreId]);
 
   const backendMovies = results?.movies || [];
   const backendEvents = results?.events || [];
@@ -54,6 +67,33 @@ export const MovieSearch: React.FC = () => {
                 Showing {{count: totalCount}} results for <span className="font-semibold text-primary">"{query || t('movieSearch.allCatalogs', 'all catalogs')}"</span>
               </Trans>
             </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <label className="text-sm text-on-surface-variant flex flex-col gap-1">
+              {t('movieSearch.status', 'Status')}
+              <select
+                value={status}
+                onChange={(event) => setStatus(event.target.value as 'ALL' | 'SHOWING' | 'UPCOMING')}
+                className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-on-surface"
+              >
+                <option value="ALL">{t('movieSearch.statusAll', 'All statuses')}</option>
+                <option value="SHOWING">{t('movieSearch.showing', 'Now showing')}</option>
+                <option value="UPCOMING">{t('movieSearch.upcoming', 'Coming soon')}</option>
+              </select>
+            </label>
+            <label className="text-sm text-on-surface-variant flex flex-col gap-1">
+              {t('movieSearch.genre', 'Genre')}
+              <select
+                value={genreId}
+                onChange={(event) => setGenreId(event.target.value === '' ? '' : Number(event.target.value))}
+                className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-on-surface"
+              >
+                <option value="">{t('movieSearch.genreAll', 'All genres')}</option>
+                {genres.map((genre) => (
+                  <option key={genre.id} value={genre.id}>{genre.name}</option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
 

@@ -63,3 +63,76 @@ paths:
       responses:
         "200":
           description: User taste profile.
+  /api/recommendations/top-k:
+    get:
+      summary: Uncertainty nearest-neighbor top-k for the current user.
+      parameters:
+        - name: k
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Personalized top-k list.
+  /api/recommendations/predict:
+    get:
+      summary: Predict the current user's rating for one movie.
+      parameters:
+        - name: targetMovieId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Prediction with uncertainty.
+  /api/recommendations/user-ratings/me:
+    get:
+      summary: List the current user's movie ratings.
+      responses:
+        "200":
+          description: Ratings.
+  /api/recommendations/user-ratings/me/list:
+    get:
+      summary: Page the current user's movie ratings.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Rating page.
+  /api/recommendations/user-ratings:
+    post:
+      summary: Create or update the current user's rating for a movie.
+      responses:
+        "201":
+          description: Saved rating.
+  /api/recommendations/user-ratings/{movieId}:
+    delete:
+      summary: Delete the current user's rating for a movie.
+      parameters:
+        - name: movieId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "204":
+          description: Rating deleted.
+  /api/recommendations/max-dissimilarity/recalculate:
+    post:
+      summary: Recompute the catalog-wide max movie dissimilarity.
+      responses:
+        "200":
+          description: Recalculated.

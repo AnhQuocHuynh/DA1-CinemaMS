@@ -4,6 +4,7 @@ export interface MovieResponse {
   id: number;
   title: string;
   description: string;
+  aiSummary?: string | null;
   durationMinutes: number;
   releaseDate: string;
   ageRating: string;
@@ -45,5 +46,10 @@ export const movieService = {
   /** DELETE /genres/{id} */
   deleteGenre: async (id: number): Promise<void> => {
     await apiClient.delete(`/genres/${id}`);
+  },
+
+  /** POST /movies/bulk-import — returns 202 while the import continues in the background */
+  massImportByGenre: async (genre: string, limit = 20): Promise<void> => {
+    await apiClient.post('/movies/bulk-import', null, { params: { genre, limit } });
   },
 };
