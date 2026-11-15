@@ -20,12 +20,14 @@ public interface MovieMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "genres", ignore = true)
+    @Mapping(target = "aiSummary", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     Movie toEntity(MovieRequest request);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "genres", ignore = true)
+    @Mapping(target = "aiSummary", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntity(@MappingTarget Movie movie, MovieRequest request);

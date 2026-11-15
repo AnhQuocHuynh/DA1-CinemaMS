@@ -8,6 +8,7 @@ CREATE DATABASE cinema_catalog_db;
 CREATE DATABASE cinema_showtime_db;
 CREATE DATABASE cinema_booking_db;
 CREATE DATABASE cinema_analytics_db;
+CREATE DATABASE cinema_recommendation_db;
 
 -- ASP.NET & Keycloak Microservice Databases
 CREATE DATABASE keycloak_db;

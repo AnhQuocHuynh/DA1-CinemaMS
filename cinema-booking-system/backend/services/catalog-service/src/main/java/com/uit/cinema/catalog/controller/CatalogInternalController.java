@@ -1,6 +1,8 @@
 package com.uit.cinema.catalog.controller;
 
+import com.uit.cinema.catalog.dto.response.MovieFeatureResponse;
 import com.uit.cinema.catalog.service.CatalogReadService;
+import com.uit.cinema.catalog.service.Impl.MovieFeatureService;
 import com.uit.cinema.catalog.service.contract.CatalogContentView;
 import com.uit.cinema.core.dto.response.ApiResponse;
 import com.uit.cinema.core.exception.CustomException;
@@ -12,12 +14,25 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/internal/catalog")
 @RequiredArgsConstructor
 public class CatalogInternalController {
 
     private final CatalogReadService catalogReadService;
+    private final MovieFeatureService movieFeatureService;
+
+    @GetMapping("/movies/features")
+    public ResponseEntity<ApiResponse<List<MovieFeatureResponse>>> listFeatures() {
+        return ResponseEntity.ok(ApiResponse.success(movieFeatureService.listFeatures()));
+    }
+
+    @GetMapping("/movies/{movieId}/feature")
+    public ResponseEntity<ApiResponse<MovieFeatureResponse>> getFeature(@PathVariable Long movieId) {
+        return ResponseEntity.ok(ApiResponse.success(movieFeatureService.getFeature(movieId)));
+    }
 
     @GetMapping("/movies/{movieId}")
     public ResponseEntity<ApiResponse<CatalogContentView>> getMovie(@PathVariable Long movieId) {

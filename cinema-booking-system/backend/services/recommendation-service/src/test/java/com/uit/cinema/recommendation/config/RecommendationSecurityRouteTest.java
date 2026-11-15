@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(
@@ -41,6 +42,13 @@ class RecommendationSecurityRouteTest {
         mockMvc.perform(get("/api/recommendations/movies").with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
             .andExpect(status().isOk());
         mockMvc.perform(get("/api/recommendations/users/1/taste-profile")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/recommendations/top-k")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/recommendations/top-k").with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+            .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/recommendations/max-dissimilarity/recalculate")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/recommendations/max-dissimilarity/recalculate")
+            .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+            .andExpect(status().isForbidden());
     }
 
     @RestController

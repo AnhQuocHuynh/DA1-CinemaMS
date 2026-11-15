@@ -13,12 +13,13 @@ export interface CatalogSearchResponse {
 
 export const catalogService = {
   /** GET /catalog/search */
-  search: async (params?: { keyword?: string; genreId?: number; fromDate?: string; toDate?: string; page?: number; size?: number }): Promise<CatalogSearchResponse> => {
+  search: async (params?: { keyword?: string; genreId?: number; fromDate?: string; toDate?: string; status?: string; page?: number; size?: number }): Promise<CatalogSearchResponse> => {
     const searchParams = new URLSearchParams();
     if (params?.keyword) searchParams.append('keyword', params.keyword);
     if (params?.genreId) searchParams.append('genreId', params.genreId.toString());
     if (params?.fromDate) searchParams.append('fromDate', params.fromDate);
     if (params?.toDate) searchParams.append('toDate', params.toDate);
+    if (params?.status) searchParams.append('status', params.status);
     if (params?.page !== undefined) searchParams.append('page', params.page.toString());
     if (params?.size !== undefined) searchParams.append('size', params.size.toString());
 

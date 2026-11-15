@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { ReviewSection } from '../components/Review/ReviewSection';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Play, Calendar, Clock, Globe } from 'lucide-react';
+import { ArrowLeft, Play, Calendar, Clock, Globe, Star, Sparkles } from 'lucide-react';
 import { movieService, MovieResponse } from '../services/movieService';
 import { showtimeService } from '../services/showtimeService';
+import { recommendationService } from '../services/recommendationService';
 import { ShowtimeResponse } from '../types/showtime';
+import { useAuthStore } from '../store/authStore';
 import { useBookingStore } from '../store/bookingStore';
 import { formatVND, parseVND, formatShowtime } from '../utils/formatters';
 import genericPoster from '../resources/generic_movie_poster.png';
@@ -19,6 +21,10 @@ export const MovieDetails: React.FC = () => {
   const [showtimes, setShowtimes] = useState<ShowtimeResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [myRating, setMyRating] = useState<number | null>(null);
+  const [ratingMessage, setRatingMessage] = useState<string | null>(null);
+  const [isSavingRating, setIsSavingRating] = useState(false);
+  const user = useAuthStore(state => state.user);
 
   const { setMovieTitle, setMoviePosterUrl } = useBookingStore();
 
@@ -36,6 +42,36 @@ export const MovieDetails: React.FC = () => {
       .catch(() => setError(t('movieDetails.error.loadFailed')))
       .finally(() => setIsLoading(false));
   }, [movieId, t]);
+
+  useEffect(() => {
+    if (!user || !movieId) {
+      setMyRating(null);
+      return;
+    }
+    const numericId = parseInt(movieId, 10);
+    recommendationService.getMyRatings()
+      .then((ratings) => {
+        const mine = ratings.find((rating) => rating.movieId === numericId);
+        setMyRating(mine ? mine.ratingValue : null);
+      })
+      .catch(() => setMyRating(null));
+  }, [user, movieId]);
+
+  const handleRate = async (value: number) => {
+    if (!movieId || isSavingRating) return;
+    setIsSavingRating(true);
+    setRatingMessage(null);
+    try {
+      const saved = await recommendationService.upsertMovieRating(parseInt(movieId, 10), value);
+      setMyRating(saved.ratingValue);
+      setRatingMessage(t('movieDetailsRating.saved', 'Rating saved'));
+    } catch {
+      setRatingMessage(t('movieDetailsRating.failed', 'Could not save rating'));
+    } finally {
+      setIsSavingRating(false);
+    }
+  };
+
   const handleBookNow = () => {
     navigate(`/movies/${movieId}/showtimes`);
   };
@@ -127,6 +163,34 @@ export const MovieDetails: React.FC = () => {
               </h1>
               <p className="text-white/80 text-lg leading-relaxed">{movie.description}</p>
 
+              <div className="flex flex-wrap items-center gap-2 text-white">
+                {user ? (
+                  <>
+                    <span className="text-sm">{t('movieDetailsRating.prompt', 'Rate this movie')}</span>
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        disabled={isSavingRating}
+                        onClick={() => handleRate(value)}
+                        aria-label={`${value}`}
+                        className="p-1 disabled:opacity-50"
+                      >
+                        <Star
+                          size={22}
+                          className={myRating != null && value <= myRating ? 'fill-amber-400 text-amber-400' : 'text-white/70'}
+                        />
+                      </button>
+                    ))}
+                    {ratingMessage && <span className="text-sm text-white/80">{ratingMessage}</span>}
+                  </>
+                ) : (
+                  <Link to="/login" className="text-sm font-semibold text-amber-300 hover:underline">
+                    {t('movieDetailsRating.signIn', 'Sign in to rate this movie')}
+                  </Link>
+                )}
+              </div>
+
               <div className="flex flex-wrap gap-3">
                 {movie.trailerUrl && (
                   <a
@@ -154,10 +218,47 @@ export const MovieDetails: React.FC = () => {
         {/* Details */}
         <section className="max-w-7xl mx-auto px-6 py-14 grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-8 space-y-10">
-            <div>
-              <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-4">{t('movieDetails.plot')}</h2>
-              <p className="text-on-surface-variant leading-relaxed text-lg">{movie.description}</p>
-            </div>
+            {movie.aiSummary ? (
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-surface-container-high/90 via-surface-container/60 to-surface-container-lowest/90 border border-primary/30 p-6 sm:p-8 shadow-2xl backdrop-blur-md">
+                {/* Decorative ambient glow */}
+                <div className="absolute -top-16 -right-16 w-52 h-52 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-16 -left-16 w-52 h-52 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+
+                {/* Header with AI Badge & Title */}
+                <div className="relative flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b border-outline-variant/20">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-primary/15 text-primary border border-primary/25 shadow-sm">
+                      <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+                    </div>
+                    <h2 className="text-xl md:text-2xl font-black tracking-tight text-on-surface">
+                      {t('movieDetails.aiOverview', 'AI Overview')}
+                    </h2>
+                  </div>
+
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    AI-Generated Synopsis
+                  </span>
+                </div>
+
+                {/* Content */}
+                <div className="relative space-y-4">
+                  <p className="text-on-surface/95 text-base md:text-lg leading-relaxed font-normal">
+                    {movie.aiSummary}
+                  </p>
+                </div>
+
+                {/* Footer info */}
+                <div className="relative mt-6 pt-4 border-t border-outline-variant/15 flex justify-end text-xs text-on-surface-variant/60">
+                  <span>{movie.aiSummary.trim().split(/\s+/).length} words</span>
+                </div>
+              </div>
+            ) : movie.description ? (
+              <div className="rounded-2xl bg-surface-container-lowest border border-outline-variant/30 p-6 sm:p-8 space-y-4">
+                <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-4">{t('movieDetails.plot')}</h2>
+                <p className="text-on-surface-variant leading-relaxed text-lg">{movie.description}</p>
+              </div>
+            ) : null}
 
             {/* Reviews */}
             <ReviewSection type="movie" id={parseInt(movieId!, 10)} />

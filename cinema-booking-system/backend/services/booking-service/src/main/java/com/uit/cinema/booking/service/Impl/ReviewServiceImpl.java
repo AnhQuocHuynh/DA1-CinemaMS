@@ -10,6 +10,7 @@ import com.uit.cinema.booking.mapper.ReviewMapper;
 import com.uit.cinema.booking.outbox.BookingOutboxEventWriter;
 import com.uit.cinema.booking.repository.OrderRepository;
 import com.uit.cinema.booking.repository.ReviewRepository;
+import com.uit.cinema.booking.service.ReviewAiSummaryView;
 import com.uit.cinema.booking.service.ReviewService;
 import com.uit.cinema.catalog.service.CatalogReadService;
 import com.uit.cinema.core.exception.CustomException;
@@ -34,6 +35,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final SeatReservationService seatReservationService;
     private final CatalogReadService catalogReadService;
     private final BookingOutboxEventWriter bookingOutboxEventWriter;
+    private final ReviewSummaryService reviewSummaryService;
 
     @Override
     @Transactional
@@ -175,6 +177,10 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     private ReviewInsightResponse buildInsight(Long movieId, Long eventId, List<Review> reviews, double avg) {
+        ReviewAiSummaryView ai = reviewSummaryService.summarize(movieId, eventId, reviews);
+        if (ai == null) {
+            ai = ReviewAiSummaryView.empty();
+        }
         return ReviewInsightResponse.builder()
             .movieId(movieId)
             .eventId(eventId)
@@ -185,6 +191,8 @@ public class ReviewServiceImpl implements ReviewService {
             .threeStarCount(reviews.stream().filter(r -> r.getRating() == 3).count())
             .fourStarCount(reviews.stream().filter(r -> r.getRating() == 4).count())
             .fiveStarCount(reviews.stream().filter(r -> r.getRating() == 5).count())
+            .aiSummary(ai.summary())
+            .keywords(ai.keywords())
             .build();
     }
 }

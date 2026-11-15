@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { MessageSquare, Star, Info } from 'lucide-react';
+import { MessageSquare, Star, Info, Sparkles } from 'lucide-react';
 import { reviewService } from '../../services/reviewService';
 import { useAuthStore } from '../../store/authStore';
 import { StarRating } from './StarRating';
@@ -42,11 +42,13 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
 
       if (user?.id) {
         const userId = typeof user.id === 'string' ? parseInt(user.id, 10) : user.id;
-        const eligibilityData =
-          type === 'movie'
-            ? await reviewService.checkMovieEligibility(id, userId)
-            : await reviewService.checkEventEligibility(id, userId);
-        setEligibility(eligibilityData);
+        if (!isNaN(userId)) {
+          const eligibilityData =
+            type === 'movie'
+              ? await reviewService.checkMovieEligibility(id, userId)
+              : await reviewService.checkEventEligibility(id, userId);
+          setEligibility(eligibilityData);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch reviews:', err);
@@ -129,6 +131,46 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* AI Review Summary */}
+      {insight && insight.aiSummary && (
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-surface-container-high/90 via-surface-container/60 to-surface-container-lowest/90 border border-primary/30 p-6 mb-8 shadow-lg backdrop-blur-md">
+          <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-outline-variant/20">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-primary/15 text-primary border border-primary/25">
+                <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+              </div>
+              <h3 className="text-base font-bold text-on-surface">
+                {t('reviewSection.aiSummaryTitle', 'Tóm tắt đánh giá bởi AI')}
+              </h3>
+            </div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {t('reviewSection.aiGenerated', 'AI Summary')}
+            </span>
+          </div>
+
+          <p className="text-sm md:text-base text-on-surface/90 leading-relaxed font-normal mb-4">
+            {insight.aiSummary}
+          </p>
+
+          {insight.keywords && insight.keywords.length > 0 && (
+            <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-outline-variant/15">
+              <span className="text-xs font-semibold text-on-surface-variant">
+                {t('reviewSection.keywords', 'Từ khóa nổi bật:')}
+              </span>
+              {insight.keywords.map((kw, i) => (
+                <span
+                  key={i}
+                  className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20"
+                >
+                  #{kw}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

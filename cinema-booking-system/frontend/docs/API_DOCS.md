@@ -337,6 +337,7 @@ Get all active movies.
       "id": 1,
       "title": "Inception",
       "description": "A mind-bending thriller about dreams within dreams.",
+      "aiSummary": "A thief steals secrets by entering dreams.",
       "durationMinutes": 148,
       "releaseDate": "2024-01-10",
       "ageRating": "PG-13",
@@ -1095,6 +1096,8 @@ Get reviews for an event.
 
 Get review insights for a movie.
 
+When at least one visible review has a comment, booking-service asks Gemini and returns `aiSummary` plus `keywords`. The result is cached until the written comments change. A failed, rate-limited, or skipped call still returns the star counts and leaves `aiSummary` null.
+
 **Response** (200 OK) (raw `ReviewInsightResponse`):
 ```json
 {
@@ -1106,7 +1109,9 @@ Get review insights for a movie.
   "twoStarCount": 5,
   "threeStarCount": 18,
   "fourStarCount": 40,
-  "fiveStarCount": 55
+  "fiveStarCount": 55,
+  "aiSummary": "Phần lớn khán giả khen diễn xuất và chê âm thanh nhỏ.",
+  "keywords": ["diễn xuất", "âm thanh"]
 }
 ```
 
@@ -1168,7 +1173,9 @@ Create a new movie (Admin only).
 }
 ```
 
-**Response** (200 OK): ApiResponse with created `MovieResponse`
+**Response** (200 OK): ApiResponse with created `MovieResponse`.
+
+After the movie is saved, catalog asks Gemini for a short summary and returns it as `aiSummary`. A failed, rate-limited, or skipped call still creates the movie and leaves `aiSummary` null. Clients cannot send this field.
 
 ---
 

@@ -21,6 +21,13 @@ class RecommendationOpenApiContractTest {
         assertContains(contract, "/api/recommendations/movies/popular:");
         assertContains(contract, "/api/recommendations/movies/{movieId}/similar:");
         assertContains(contract, "/api/recommendations/users/{userId}/taste-profile:");
+        assertContains(contract, "/api/recommendations/top-k:");
+        assertContains(contract, "/api/recommendations/predict:");
+        assertContains(contract, "/api/recommendations/user-ratings:");
+        assertContains(contract, "/api/recommendations/user-ratings/me:");
+        assertContains(contract, "/api/recommendations/user-ratings/me/list:");
+        assertContains(contract, "/api/recommendations/user-ratings/{movieId}:");
+        assertContains(contract, "/api/recommendations/max-dissimilarity/recalculate:");
     }
 
     private void assertContains(String contract, String expected) {

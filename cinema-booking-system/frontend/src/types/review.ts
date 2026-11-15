@@ -27,6 +27,8 @@ export interface ReviewInsightResponse {
   threeStarCount: number;
   fourStarCount: number;
   fiveStarCount: number;
+  aiSummary?: string | null;
+  keywords?: string[];
 }
 
 export interface ReviewEligibilityResponse {
