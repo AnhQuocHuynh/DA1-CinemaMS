@@ -422,6 +422,49 @@ services:
     networks:
       - cinema-services
 
+  chatbot-service:
+    build:
+      context: ..
+      dockerfile: services/chatbot-service/Dockerfile
+    container_name: cinema-chatbot-service
+    environment:
+      SERVER_PORT: 8086
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${CHATBOT_DB_NAME:-cinema_chatbot_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-123}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-local-dev-internal-token}
+      CINEMA_SECURITY_JWT_ENABLED: ${CINEMA_SECURITY_JWT_ENABLED:-false}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-cinema-api}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-}
+      CINEMA_AI_ENABLED: ${CINEMA_AI_ENABLED:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta}
+      GEMINI_TIMEOUT: ${GEMINI_TIMEOUT:-30s}
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      SHOWTIME_SERVICE_URL: http://showtime-service:8082
+      BOOKING_SERVICE_URL: http://booking-service:8083
+      RECOMMENDATION_SERVICE_URL: http://recommendation-service:8085
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
+    ports:
+      - "8086:8086"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      catalog-service:
+        condition: service_started
+      showtime-service:
+        condition: service_started
+      booking-service:
+        condition: service_started
+      recommendation-service:
+        condition: service_started
+    networks:
+      - cinema-services
+
   payment-service:
     build:
       context: ..

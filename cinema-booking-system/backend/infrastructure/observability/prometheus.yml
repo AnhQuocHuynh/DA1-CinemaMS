@@ -19,3 +19,4 @@ scrape_configs:
         - 'booking-service:8083'
         - 'analytics-service:8084'
         - 'recommendation-service:8085'
+        - 'chatbot-service:8086'

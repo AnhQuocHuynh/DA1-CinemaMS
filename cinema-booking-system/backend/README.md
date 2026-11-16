@@ -92,7 +92,14 @@ Recommendation API:
 - Service: `http://localhost:8085`
 - Health: `http://localhost:8085/actuator/health`
 
-The microservices share a single PostgreSQL 18 container on host port `5432`. `init-multiple-databases.sql` creates `cinema_catalog_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, `keycloak_db`, `user_profile_db`, `payment_db`, and `facility_db`. Notification uses MongoDB. Showtime Redis uses host port `6380`. Shared Redis is on `6379`. Gateway is `http://localhost:5000`. Identity is `5001`, Payment `5003`, Notification `5004`, Keycloak `8080`.
+Chatbot API:
+
+- Service: `http://localhost:8086`
+- Health: `http://localhost:8086/actuator/health`
+- Database: `localhost:5432/cinema_chatbot_db`
+- Customer routes under `/api/chatbot/conversations`. Answers use catalog text plus live showtime, booking, and recommendation reads. The YARP gateway has no chatbot route. The dev UI calls `VITE_CHATBOT_URL` (default `http://localhost:8086`) directly. Reindex is `POST /internal/chatbot/reindex` with `X-Internal-Token`. An existing Postgres volume does not rerun `init-multiple-databases.sql`; create `cinema_chatbot_db` once before the first start. Set `CINEMA_AI_ENABLED=true` and `GEMINI_API_KEY` to call Gemini. Without them the assistant replies `Trợ lý đang tắt.`
+
+The microservices share a single PostgreSQL 18 container on host port `5432`. `init-multiple-databases.sql` creates `cinema_catalog_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, `cinema_recommendation_db`, `cinema_chatbot_db`, `keycloak_db`, `user_profile_db`, `payment_db`, and `facility_db`. Notification uses MongoDB. Showtime Redis uses host port `6380`. Shared Redis is on `6379`. Gateway is `http://localhost:5000`. Identity is `5001`, Payment `5003`, Notification `5004`, Keycloak `8080`.
 
 Internal service-to-service endpoints under `/internal/**` require `X-Internal-Token`. For local Docker, set `INTERNAL_API_TOKEN` or use the documented dev default `local-dev-internal-token`.
 

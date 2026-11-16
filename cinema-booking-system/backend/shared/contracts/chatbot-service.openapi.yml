@@ -1,0 +1,160 @@
+openapi: 3.0.3
+info:
+  title: chatbot-service
+  version: 0.1.0
+  description: |
+    Customer assistant for the cinema. REST responses use the ApiResponse envelope.
+    The stream endpoint is Server-Sent Events and is not wrapped.
+    The gateway does not route this service. Call it directly.
+servers:
+  - url: http://localhost:8086
+paths:
+  /api/chatbot/conversations:
+    get:
+      summary: List conversations for the current actor
+      responses:
+        '200':
+          description: Conversations, newest activity first
+    post:
+      summary: Create a conversation
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConversationRequest'
+      responses:
+        '200':
+          description: Created conversation
+  /api/chatbot/conversations/{id}:
+    patch:
+      summary: Rename a conversation owned by the actor
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameConversationRequest'
+      responses:
+        '200':
+          description: Updated conversation
+        '404':
+          description: Missing conversation, including one owned by someone else
+    delete:
+      summary: Delete a conversation and its messages
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Missing conversation
+  /api/chatbot/conversations/{id}/messages:
+    get:
+      summary: List messages in time order
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      responses:
+        '200':
+          description: Messages
+        '404':
+          description: Missing conversation
+    post:
+      summary: Ask a question and wait for the assistant message
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostMessageRequest'
+      responses:
+        '200':
+          description: Assistant message, including citations when the answer is grounded
+        '400':
+          description: Blank message or message longer than 1000 characters
+        '502':
+          description: Model or embedding call failed. The user message is kept.
+  /api/chatbot/conversations/{id}/stream:
+    post:
+      summary: Ask a question and stream Gemini tokens
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostMessageRequest'
+      responses:
+        '200':
+          description: |
+            SSE events named message, citations, done, and error.
+            message data is a text chunk. citations data is a JSON array.
+            done data is [DONE]. error data is a short message.
+  /internal/chatbot/reindex:
+    post:
+      summary: Rebuild catalog and guide passages
+      parameters:
+        - name: X-Internal-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Reindex counts
+        '401':
+          description: Missing or wrong internal token
+        '502':
+          description: Gemini is disabled or has no API key
+components:
+  parameters:
+    ConversationId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    CreateConversationRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+    RenameConversationRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+    PostMessageRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    Citation:
+      type: object
+      properties:
+        passageId:
+          type: string
+          format: uuid
+        sourceId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        locator:
+          type: string
+        text:
+          type: string

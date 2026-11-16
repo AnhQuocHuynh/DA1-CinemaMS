@@ -47,10 +47,10 @@ Local run on this machine. This is not a cutover and not an event-flow smoke. Th
 ## Exact Repository State
 
 - Customer, staff, and admin UI live in `cinema-booking-system/frontend/` and call `VITE_API_BASE_URL` (default `http://localhost:5000/api`) with a Keycloak bearer token.
-- Spring services: `catalog-service`, `showtime-service`, `booking-service`, `analytics-service`, `recommendation-service`.
+- Spring services: `catalog-service`, `showtime-service`, `booking-service`, `analytics-service`, `recommendation-service`, `chatbot-service` (port 8086, database `cinema_chatbot_db`).
 - ASP.NET services: `identity-service`, `facility-service`, `payment-service`, `notification-service`, `api-gateway`.
 - `rental-service` has compiled output only. Room rental is on branch `feature/room-rental`, not here.
-- `backend/infrastructure/docker-compose.yml` runs the services above against one PostgreSQL 18 container on host port `5432`. Logical databases from `init-multiple-databases.sql`: `cinema_catalog_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, `cinema_recommendation_db`, `keycloak_db`, `user_profile_db`, `payment_db`, `facility_db`. An existing volume needs a one-off `CREATE DATABASE cinema_recommendation_db;`. Notification uses MongoDB. Showtime Redis, shared Redis, RabbitMQ, and Neo4j are separate containers. The same file starts `cinema-frontend` (Nginx) on host port `5173`.
+- `backend/infrastructure/docker-compose.yml` runs the services above against one PostgreSQL 18 container on host port `5432`. Logical databases from `init-multiple-databases.sql`: `cinema_catalog_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, `cinema_recommendation_db`, `cinema_chatbot_db`, `keycloak_db`, `user_profile_db`, `payment_db`, `facility_db`. An existing volume needs a one-off `CREATE DATABASE` for any of those names the script did not create on first boot, including `cinema_chatbot_db`. Notification uses MongoDB. Showtime Redis, shared Redis, RabbitMQ, and Neo4j are separate containers. The same file starts `cinema-frontend` (Nginx) on host port `5173`.
 
 ## Feature Progress
 
@@ -63,6 +63,7 @@ Customer:
 - Register, login, forgot-password, and logout go through Keycloak (`keycloak-js`, cinema theme, locale and theme query params).
 - Movie and event browse, detail, showtimes, and catalog keyword search. The search page can also filter movies by status and genre.
 - Creating or editing a movie description in catalog-service asks Gemini (`gemini-3.5-flash` on the Gemini Developer API) for a short summary when `CINEMA_AI_ENABLED=true` and `GEMINI_API_KEY` is set. The summary is stored on the movie and shown on the movie detail page. A failed or skipped call leaves `aiSummary` empty. The key stays in the environment.
+- `chatbot-service` answers customer questions from catalog passages and live showtime, booking, and recommendation reads. Gemini runs only when `CINEMA_AI_ENABLED=true` and `GEMINI_API_KEY` is set. The customer UI calls `VITE_CHATBOT_URL` (default `http://localhost:8086`). The ASP.NET gateway is unchanged and has no chatbot route.
 - Movie and event review insight adds `aiSummary` and `keywords`. booking-service asks the same Gemini configuration when at least one visible review has a comment. The text is cached in `review_ai_summaries` and regenerated when those comments change. A failed or skipped call leaves `aiSummary` null and `keywords` empty. The detail page still renders star counts only.
 - Seat map, seat hold, hold countdown, order create, voucher validation, and checkout. The hold uses Redis. If Redis is unavailable, showtime-service locks the `showtime_seats` row and stores `held_by_user_id` plus `hold_expires_at`. A hold with no remaining time is shown as available again.
 - Stripe and PayPal redirect plus return verification, and cash confirmation on the payment service.
