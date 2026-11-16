@@ -46,6 +46,61 @@ public class OrderCancelledEventConsumerTests
     }
 
     [Fact]
+    public async Task ProcessMessageAsync_WhenSeatsUnavailableAfterPayment_ShouldSendRefundNotification()
+    {
+        // Arrange
+        var envelope = new EventEnvelope<OrderCancelledPayload>
+        {
+            EventId = Guid.NewGuid(),
+            EventType = "order.cancelled",
+            Source = "booking-service",
+            OccurredAt = DateTime.UtcNow,
+            SchemaVersion = 1,
+            Payload = new OrderCancelledPayload(505L, 88L, "SEATS_UNAVAILABLE_AFTER_PAYMENT")
+        };
+
+        // Act
+        await _consumer.ProcessMessageAsync(envelope, CancellationToken.None);
+
+        // Assert
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<SendNotificationCommand>(cmd =>
+                cmd.UserId == 88L &&
+                cmd.Type == NotificationType.BOOKING_CANCELLED &&
+                cmd.Title.Contains("Refunded") &&
+                cmd.Body.Contains("refund") &&
+                (string)cmd.Metadata["actionType"] == "ORDER_REFUNDED_SEATS_UNAVAILABLE" &&
+                (long)cmd.Metadata["orderId"] == 505L),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessMessageAsync_WhenReasonMissing_ShouldFallBackToDefaultExpiryMessage()
+    {
+        // Arrange
+        var envelope = new EventEnvelope<OrderCancelledPayload>
+        {
+            EventId = Guid.NewGuid(),
+            EventType = "order.cancelled",
+            Source = "booking-service",
+            OccurredAt = DateTime.UtcNow,
+            SchemaVersion = 1,
+            Payload = new OrderCancelledPayload(606L, 99L, null)
+        };
+
+        // Act
+        await _consumer.ProcessMessageAsync(envelope, CancellationToken.None);
+
+        // Assert
+        _mediatorMock.Verify(m => m.Send(
+            It.Is<SendNotificationCommand>(cmd =>
+                cmd.UserId == 99L &&
+                cmd.Body.Contains("expired") &&
+                (string)cmd.Metadata["actionType"] == "ORDER_CANCELLED"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task ProcessMessageAsync_ShouldDispatchPushNotificationForCancelledOrder()
     {
         // Arrange

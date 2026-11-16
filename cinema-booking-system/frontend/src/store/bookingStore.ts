@@ -50,7 +50,7 @@ export const useBookingStore = create<BookingState>()(
       pendingOrder: null,
       completedOrder: null,
 
-      setSelectedSeats: (seats) => set({ selectedSeats: seats }),
+      setSelectedSeats: (seats) => set({ selectedSeats: seats, pendingOrder: null }),
       setShowtimeId: (showtimeId) => set({ showtimeId }),
       setHoldExpiresAt: (value) => set({ holdExpiresAt: value }),
       setShowtimeData: (data) => set({ showtimeData: data }),
@@ -65,7 +65,7 @@ export const useBookingStore = create<BookingState>()(
         const exists = current.some((item) => item.id === seat.id);
         
         if (exists) {
-          set({ selectedSeats: current.filter((item) => item.id !== seat.id) });
+          set({ selectedSeats: current.filter((item) => item.id !== seat.id), pendingOrder: null });
         } else {
           const maxSeats = 6;
           const currentPhysicalCount = current.reduce(
@@ -78,7 +78,7 @@ export const useBookingStore = create<BookingState>()(
             throw new Error(`Booking limit exceeded. You can select a maximum of ${maxSeats} physical seats.`);
           }
 
-          set({ selectedSeats: [...current, { ...seat, status: 'selected' }] });
+          set({ selectedSeats: [...current, { ...seat, status: 'selected' }], pendingOrder: null });
         }
       },
 

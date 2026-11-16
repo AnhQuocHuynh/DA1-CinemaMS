@@ -1,3 +1,4 @@
+using System;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -54,6 +55,7 @@ public static class DependencyInjection
             // ── Consumers ──────────────────────────────────────────────────────
             x.AddConsumer<OrderPaidConsumer>();
             x.AddConsumer<OrderCreatedConsumer>();
+            x.AddConsumer<OrderCancelledConsumer>();
 
             // ── Saga (state machine + EF Core persistence) ─────────────────────
             x.AddSagaStateMachine<PaymentStateMachine, PaymentSagaState>()

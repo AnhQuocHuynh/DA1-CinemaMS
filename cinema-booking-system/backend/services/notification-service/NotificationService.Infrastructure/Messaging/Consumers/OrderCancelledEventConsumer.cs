@@ -13,6 +13,8 @@ namespace NotificationService.Infrastructure.Messaging.Consumers;
 
 public class OrderCancelledEventConsumer : RabbitMqConsumerBase<EventEnvelope<OrderCancelledPayload>>
 {
+    internal const string SeatsUnavailableAfterPaymentReason = "SEATS_UNAVAILABLE_AFTER_PAYMENT";
+
     private readonly IServiceScopeFactory _scopeFactory;
 
     protected override string ExchangeName => "booking.events";
@@ -32,22 +34,40 @@ public class OrderCancelledEventConsumer : RabbitMqConsumerBase<EventEnvelope<Or
         using var scope = _scopeFactory.CreateScope();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
-        var reason = !string.IsNullOrWhiteSpace(message.Payload.Reason)
-            ? message.Payload.Reason
-            : "Your seat reservation session has expired. The held seats have been released.";
+        var payload = message.Payload;
+        var isRefundedCompensation = payload.Reason == SeatsUnavailableAfterPaymentReason;
+
+        string title;
+        string body;
+        string actionUrl;
+        if (isRefundedCompensation)
+        {
+            title = $"Payment Refunded for Order #{payload.OrderId}";
+            body = "Your payment was received, but the seats were taken after your hold timed out. " +
+                   "A full refund is being returned to your original payment method.";
+            actionUrl = $"/user/booking-failed?reason=cancelled&orderId={payload.OrderId}";
+        }
+        else
+        {
+            title = $"Reservation Cancelled for Order #{payload.OrderId}";
+            body = !string.IsNullOrWhiteSpace(payload.Reason)
+                ? payload.Reason
+                : "Your seat reservation session has expired. The held seats have been released.";
+            actionUrl = "/user/booking-failed?reason=timeout";
+        }
 
         var pushCommand = new SendNotificationCommand(
-            message.Payload.UserId,
+            payload.UserId,
             NotificationType.BOOKING_CANCELLED,
             NotificationChannel.PUSH,
-            $"Reservation Cancelled for Order #{message.Payload.OrderId}",
-            reason,
+            title,
+            body,
             new Dictionary<string, object>
             {
-                { "orderId", message.Payload.OrderId },
-                { "failureReason", reason },
-                { "actionType", "ORDER_CANCELLED" },
-                { "actionUrl", "/user/booking-failed?reason=timeout" }
+                { "orderId", payload.OrderId },
+                { "failureReason", body },
+                { "actionType", isRefundedCompensation ? "ORDER_REFUNDED_SEATS_UNAVAILABLE" : "ORDER_CANCELLED" },
+                { "actionUrl", actionUrl }
             }
         );
 

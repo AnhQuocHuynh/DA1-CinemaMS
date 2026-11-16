@@ -79,7 +79,7 @@ export const ThemeToggle: React.FC = () => {
               }}
               className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${
                 theme === opt.value
-                  ? 'bg-primary-container text-primary font-bold'
+                  ? 'bg-primary-container text-on-primary-container font-bold'
                   : 'text-on-surface hover:bg-surface-container-high'
               }`}
             >

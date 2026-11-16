@@ -38,6 +38,8 @@ export const Booking: React.FC = () => {
     showtimeData,
     movieTitle,
     holdExpiresAt,
+    pendingOrder,
+    setPendingOrder,
     setMovieTitle,
     setMoviePosterUrl,
   } = useBookingStore();
@@ -91,7 +93,23 @@ export const Booking: React.FC = () => {
   const preProgress = (preSeconds / PRE_HOLD_DURATION) * 100;
   const preIsUrgent = preSeconds > 0 && preSeconds <= 60;
 
-  // Fetch movie title when showtimeData arrives
+  // Invalidate stale pending order if seat selection does not match current selection
+  useEffect(() => {
+    if (!pendingOrder) return;
+
+    const currentSeatIds = selectedSeats.map((s) => s.numericId).sort((a, b) => a - b);
+    const pendingSeatIds = [...(pendingOrder.seatIds || [])].sort((a, b) => a - b);
+    const matchesShowtime = String(pendingOrder.showtimeId) === String(showtimeId);
+    const matchesSeats =
+      currentSeatIds.length === pendingSeatIds.length &&
+      currentSeatIds.every((id, idx) => id === pendingSeatIds[idx]);
+
+    if (!matchesShowtime || !matchesSeats) {
+      setPendingOrder(null);
+    }
+  }, [pendingOrder, selectedSeats, showtimeId, setPendingOrder]);
+
+    // Fetch movie title when showtimeData arrives
   useEffect(() => {
     if (!showtimeData?.movieId || movieTitle) return;
     movieService.getMovieById(showtimeData.movieId).then((m) => {

@@ -2,297 +2,185 @@
 
 ## 1. Overview & Scope
 
-This document provides a comprehensive handover summary of all modifications, additions, and architecture changes made to the Spring Boot microservices ecosystem—primarily **`booking-service`**—as well as associated infrastructure and event choreography contracts.
+This document provides a complete handover summary of all modifications, additions, and architectural improvements made to the Spring Boot microservices (**`booking-service`** and **`showtime-service`**), explaining **what changed**, **how the flow behaved before the change**, and **how the cross-service Saga behaves now**.
 
 ### Services Affected
-- **`booking-service`** (Java 21, Spring Boot 3.3.x): Core booking domain, outbox dispatching, payment integration, and RabbitMQ event handling.
-- **`infrastructure/docker-compose.yml`**: Added inter-service discovery configuration for `payment-service`.
+- **`booking-service`** (Java 21, Spring Boot 3.3.x): Order creation seat diffing, post-payment async Saga compensation, dynamic customer refund tiers, staff counter booking, outbox event dispatching, and RabbitMQ payment consumers.
+- **`showtime-service`** (Java 21, Spring Boot 3.3.x): Fallback soft-lock seat confirmation when payment completes after Redis hold TTL expiration.
+- **`infrastructure/docker-compose.yml`**: Inter-service discovery configuration (`PAYMENT_SERVICE_URL`).
 
 ---
 
-## 2. Key Features & Architectural Changes
+## 2. Latest Saga, Seat Retry & Compensation Changes (Before vs. After Impact)
 
-### A. Dynamic Refund Calculation & Synchronous Gateway Refund
-- **Showtime-Aware Refund Tiers**:
+### A. Post-Payment Seat Conflict Compensation (`booking-service` — [`PaymentServiceImpl.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/PaymentServiceImpl.java))
+
+#### Flow Impact **Before** the Change:
+1. **Uncompensated DLQ Drop (Original Behavior)**:
+   - When `payment.completed` arrived from RabbitMQ after a user's seat hold expired and another customer took the seat (`SEAT_ALREADY_TAKEN`), `applyCompletedPayment` rethrew the `CustomException`.
+   - `PaymentEventProcessor` treated `409 Conflict` as a non-retryable poison message, rolling back the transaction and routing `payment.completed` to `booking.payment.completed.v1.dlq`.
+   - **Consequence**: The customer's card/PayPal was charged, no tickets were issued, the order remained stuck in `PENDING`, and no refund was ever triggered.
+2. **Mixed Sync-HTTP + Async-Outbox Collision (Intermediate Behavior)**:
+   - Calling `httpPaymentService.executeOrderRefund(...)` synchronously *while also* emitting `bookingOutboxEventWriter.orderCancelled(...)` inside `compensateSeatsUnavailableAfterPayment` (which runs inside a `@Transactional` RabbitMQ listener) caused three problems:
+     - Held a PostgreSQL transaction open in `booking-service` across an HTTP call to `payment-service` and an external HTTPS refund call to Stripe/PayPal.
+     - Because `order.cancelled` is written to the transactional outbox, the synchronous HTTP refund **always reached `payment-service` first** (before `booking-service` committed and flushed the outbox). Once `payment-service` also listened to `order.cancelled`, the async event arrived second and either triggered a duplicate refund or failed with `InvalidPaymentStateException` (`409 Conflict`).
+     - If the gateway refund succeeded in `payment-service` (`Payment.Status = REFUNDED`) but the HTTP response timed out before reaching `booking-service`, `booking-service` rolled back `Order.status = CANCELLED` and retried `payment.completed`. On retry, the synchronous HTTP refund returned `409 Conflict`, which `PaymentEventProcessor` treated as a poison message—rolling back the cancellation and dropping the message into the DLQ even though the refund had succeeded.
+
+#### Flow Impact **After** the Change (100% Async Outbox + Saga):
+- In [`PaymentServiceImpl.applyCompletedPayment`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/PaymentServiceImpl.java#L151-L194):
+  - When `processPayment` throws `CustomException` with `errorCode == "SEAT_ALREADY_TAKEN"`, [`compensateSeatsUnavailableAfterPayment(Order order)`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/PaymentServiceImpl.java#L188-L194):
+    1. Marks `order.setStatus(Order.OrderStatus.CANCELLED)` and saves the order.
+    2. Appends `order.cancelled` (`reason = "SEATS_UNAVAILABLE_AFTER_PAYMENT"`) to the local transactional outbox via [`bookingOutboxEventWriter.orderCancelled(...)`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/outbox/BookingOutboxEventWriter.java#L112-L125).
+    3. Commits immediately and returns `PaymentEventOutcome.APPLIED` (**no synchronous HTTP call inside the consumer**).
+- Downstream in `payment-service`:
+  - `OrderCancelledConsumer` receives `order.cancelled` from the `booking.events` exchange, checks if `Payment.Status == COMPLETED` (ignoring unpaid/expired cancellations or already-refunded payments idempotently), executes the Stripe/PayPal refund via `ExecuteOrderRefundCommand`, transitions `PaymentStateMachine` from `Completed -> Refunded`, and emits `payment.refunded`.
+- Follow-up in `booking-service`:
+  - When `payment.refunded` arrives back at [`PaymentServiceImpl.applyRefundedPayment`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/PaymentServiceImpl.java#L229-L248), `order.getStatus()` is already `CANCELLED`, so `applyRefundedPayment` safely logs and returns `PaymentEventOutcome.IGNORED_STALE` without touching tickets or releasing seats owned by another customer.
+- *(Note: Synchronous `httpPaymentService.executeOrderRefund(...)` is preserved exclusively in [`PaymentServiceImpl.refund`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/PaymentServiceImpl.java#L106-L147) for user-initiated REST refunds on `PAID` orders where the caller awaits an immediate HTTP response before booked seats are released.)*
+
+---
+
+### B. Fallback Seat Confirmation After Hold Expiration (`showtime-service` — [`SeatReservationServiceImpl.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/showtime-service/src/main/java/com/uit/cinema/showtime/service/SeatReservationServiceImpl.java))
+
+#### Flow Impact **Before** the Change:
+- `confirmHeldSeats` strictly required `seat.getStatus() == ShowtimeSeat.SeatStatus.HELD` and an active Redis hold key owned by `request.userId()`.
+- If a payment gateway webhook was delayed slightly past the 10-minute Redis seat hold TTL—**even when the seats were still completely free (`AVAILABLE` / untouched by anyone else)**—`confirmHeldSeats` rejected the confirmation with `SEAT_NOT_HELD` / `SEAT_HOLD_EXPIRED`.
+
+#### Flow Impact **After** the Change:
+- In [`SeatReservationServiceImpl.confirmHeldSeats`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/showtime-service/src/main/java/com/uit/cinema/showtime/service/SeatReservationServiceImpl.java#L74-L107):
+  - If a seat is already `BOOKED` in DB or actively held in Redis by a different user (`!requesterId.equals(String.valueOf(holder))`), it immediately throws `409 Conflict` with error code `SEAT_ALREADY_TAKEN` ([`seatAlreadyTaken`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/showtime-service/src/main/java/com/uit/cinema/showtime/service/SeatReservationServiceImpl.java#L289-L291)).
+  - If the Redis hold key has expired (`holder == null`) and the seat is not `BOOKED`, [`softLockExpiredHolds`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/showtime-service/src/main/java/com/uit/cinema/showtime/service/SeatReservationServiceImpl.java#L275-L287) atomically re-claims the Redis key via `setIfAbsent(key, requesterId, SeatHoldPolicy.HOLD_TTL)` and confirms the seat as `BOOKED`.
+  - If another user grabs any of the expired seats concurrently (`setIfAbsent` returns `false`), all temporary claims made during `softLockExpiredHolds` are rolled back and `SEAT_ALREADY_TAKEN` is thrown, triggering the async refund compensation in `booking-service`.
+
+---
+
+### C. Seat Selection Diffing & Superseding Stale Pending Orders (`booking-service` — [`OrderServiceImpl.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/OrderServiceImpl.java))
+
+#### Flow Impact **Before** the Change:
+- `OrderServiceImpl.createOrder` checked `existsByUserIdAndShowtimeIdAndStatus(userId, showtimeId, PENDING)` without inspecting which seats were in the existing pending order.
+- If a user selected seats `A1, A2`, reached Checkout (creating Pending Order `#100`), clicked "Back" to the seat map, changed their selection to `B5, B6`, and clicked "Pay" again:
+  - `booking-service` threw HTTP `409 DUPLICATE_PENDING_ORDER` returning `existingOrderId = 100`.
+  - The frontend adopted Order `#100`, causing the user to pay for the old seats (`A1, A2`) instead of `B5, B6`.
+
+#### Flow Impact **After** the Change:
+- In [`OrderServiceImpl.createOrder`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/OrderServiceImpl.java#L44-L93):
+  - Looks up `existingPending = orderRepository.findByUserIdAndShowtimeIdAndStatus(userId, showtimeId, PENDING)`.
+  - **Same Seats (`hasSameSeats == true`)**: Throws `DuplicatePendingOrderException(existingPending.get().getId())` so a true retry resumes the existing order.
+  - **Different Seats (`hasSameSeats == false`)**:
+    1. First validates that the newly requested `seatIds` are validly held by the user (`seatReservationService.validateHeldSeats`). If validation fails, the existing pending order is left untouched.
+    2. Once new seats are validated, [`cancelSupersededOrder`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/OrderServiceImpl.java#L158-L172) marks the old order `CANCELLED`, decrements any voucher `usedCount` ([`restoreVoucherUsage`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/OrderServiceImpl.java#L174-L180)), emits `order.cancelled` (`reason = "SEATS_CHANGED"`), and best-effort releases any deselected seats still held by the user ([`releaseSeatIfStillHeldByUser`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/OrderServiceImpl.java#L186-L194)).
+    3. Creates and saves the new `PENDING` order for the new seats and emits `order.created`.
+
+---
+
+## 3. Earlier Features & Architectural Additions
+
+### D. Dynamic Refund Calculation & Synchronous Customer-Initiated Gateway Refund
+- **Showtime-Aware Refund Tiers** ([`PaymentServiceImpl.refund`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/PaymentServiceImpl.java#L106-L147)):
   - `> 24 hours` before showtime: **100% refund**.
   - `4 hours to 24 hours` before showtime: **50% refund**.
-  - `< 4 hours` before showtime: **0% (Non-refundable)**.
-  - If any ticket is already marked `CHECKED_IN`, refund is disallowed.
-- **REST Client Integration (`HttpPaymentService`)**:
-  - Synchronously invokes the .NET `payment-service` endpoint:
-    `POST /api/payments/order/{orderId}/refund`
-  - Passes payload `{"amount": <refundAmount>, "reason": <reason>}` with `X-Internal-Token` header.
-  - **Fail-Safe Design**: Payment refund must succeed *before* ticket and order status are flipped to `REFUNDED` and seats released. If the gateway fails, a `CustomException` is raised, rolling back the database transaction.
-- **Real-Time Refund Metadata in `OrderResponse`**:
-  - `refundable` (boolean) and `refundPercent` (int) computed dynamically in `OrderResponseMapper` whenever order status is `PAID`.
+  - `< 4 hours` before showtime: **0% (Non-refundable, throws `REFUND_WINDOW_CLOSED`)**.
+  - Disallowed if any ticket is marked `CHECKED_IN` (`TICKET_ALREADY_CHECKED_IN`).
+- **REST Client Integration ([`HttpPaymentService.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/client/HttpPaymentService.java))**:
+  - Synchronously invokes `POST /api/payments/order/{orderId}/refund` on `payment-service` during customer-initiated refunds (`PaymentServiceImpl.refund`) *before* marking tickets `REFUNDED` and releasing booked seats.
+- **Real-Time Refund Metadata in [`OrderResponse`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/dto/response/OrderResponse.java)**:
+  - `refundable` (`boolean`) and `refundPercent` (`int`) computed dynamically in [`OrderResponseMapper.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/mapper/OrderResponseMapper.java) whenever order status is `PAID`.
 
-### B. Duplicate Pending Order Prevention (Idempotency Guard)
-- **Constraint**: A user cannot create a second pending order for the same showtime if an unexpired `PENDING` order already exists.
-- **Domain Exception**: `DuplicatePendingOrderException` returns HTTP `409 CONFLICT` with payload:
-  ```json
-  {
-    "code": "DUPLICATE_PENDING_ORDER",
-    "errorCode": "DUPLICATE_PENDING_ORDER",
-    "existingOrderId": 12345,
-    "message": "A pending order already exists for this showtime"
-  }
-  ```
-- Allows frontend to automatically redirect the user back to checkout for their existing reservation rather than failing unpredictably.
+### E. Outbox Event Publication on Order Creation (`order.created`) & Loyalty Points (`loyalty.points.earned`)
+- [`BookingOutboxEventWriter.orderCreated(Order order)`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/outbox/BookingOutboxEventWriter.java#L22-L37): Emits `order.created` to `booking.events` so `payment-service` pre-reserves a payment slot and initializes `PaymentSagaState` in `Created`.
+- [`BookingOutboxEventWriter.emitLoyaltyPointsEarned(...)`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/outbox/BookingOutboxEventWriter.java#L97-L110): Emits `loyalty.points.earned` when an order is marked `PAID` for authenticated members (`userId > 0L`).
 
-### C. Outbox Event Publication on Order Creation (`order.created`)
-- Added `BookingOutboxEventWriter.orderCreated(Order order)` to write an outbox record on order creation.
-- Emits routing key `order.created` with payload:
-  ```json
-  {
-    "orderId": 123,
-    "userId": 456,
-    "totalAmount": 200000.00,
-    "discountAmount": 0.00,
-    "finalAmount": 200000.00
-  }
-  ```
-- Consumed by `payment-service` to initialize payment sagas and reserve payment slots asynchronously.
+### F. Expired Order Event Handling (`order.expired`)
+- Configured queue `booking.payment.expired.v1` (and DLQ `booking.payment.expired.v1.dlq`) bound to `order.expired` in [`PaymentAmqpConfiguration.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/messaging/PaymentAmqpConfiguration.java).
+- [`PaymentServiceImpl.applyExpiredPayment`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/PaymentServiceImpl.java#L276-L301) releases held seats, sets `Order.status = CANCELLED`, and emits `order.cancelled`.
 
-### D. Expired Order Event Handling (`order.expired`)
-- Configured RabbitMQ consumer queue `booking.payment.expired.v1` bound to topic exchange on routing key `order.expired`.
-- In `PaymentServiceImpl.applyExpiredPayment(...)`:
-  - Validates order state (`PENDING`).
-  - Releases held seats in Redis / Showtime via `SeatReservationService.releaseHeldSeats(...)`.
-  - Sets order status to `CANCELLED`.
-  - Handles idempotency (returns `ALREADY_APPLIED` if order was already cancelled).
+### G. Staff Counter Booking, Anonymous Walk-In Support & Operational Dashboard
+- **Anonymous Walk-In Support**: Added `Order.ANONYMOUS_USER_ID = 0L` and bypassed `assertUserMatches` in [`PaymentServiceImpl.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/PaymentServiceImpl.java#L303-L316) when `salesChannel == COUNTER` and `userId == 0L`.
+- **Dedicated Staff API Surface ([`StaffBookingController.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/controller/StaffBookingController.java) & [`StaffBookingServiceImpl.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/StaffBookingServiceImpl.java))**:
+  - `POST /api/staff/bookings`: Direct counter booking with compensating `releaseBookedSeats` rollback if order/ticket persistence fails.
+  - `GET /api/staff/dashboard/summary`, `/bookings/today`, `/validation/stats`, and `/validation/bookings`.
 
-### E. User Order History Endpoint
-- Added endpoint `GET /api/orders/users/{userId}` to retrieve user's order history ordered by creation date descending (`createdAt DESC`).
-- Enforces user authorization via `AuthenticatedUserIdResolver.authorizeRequestedUser(userId)`.
-
-### F. Staff Counter Booking Cash Settlement & Anonymous Order User Matching
-- **Anonymous Walk-In Support**: Added `Order.ANONYMOUS_USER_ID = 0L` to support anonymous customers purchasing tickets at the counter without a user account.
-- **User Mismatch Bypass**:
-  - In `PaymentServiceImpl.assertUserMatches(order, userId)`:
-    - Bypasses userId check when `order.getSalesChannel() == Order.SalesChannel.COUNTER` and `order.getUserId() == Order.ANONYMOUS_USER_ID`.
-    - Fixes the bug where counter cash orders failed with `"Payment userId does not match order owner"`.
-- **Immediate Cash Settlement**:
-  - `payment-service` now completes CASH payments immediately upon staff initiation and emits `payment.completed` (`paymentMethod = "CASH"`).
-  - `booking-service` receives `payment.completed`, marks the order as `PAID`, confirms seats, and generates tickets instantly.
-
-### G. Loyalty Points Outbox Emission (`loyalty.points.earned`)
-- Added `BookingOutboxEventWriter.emitLoyaltyPointsEarned(userId, orderId, finalAmount)` to emit `loyalty.points.earned` events whenever an order is marked `PAID`.
-- Automatically skipped for anonymous walk-in counter orders (`userId == 0L`), ensuring loyalty points are only awarded to authenticated members.
-
-### H. Staff Counter Booking, Admission & Operational Aggregations
-- **Dedicated Staff API Surface (`StaffBookingController`)**:
-  - Guarded by `@PreAuthorize("hasRole('STAFF') or hasRole('ADMIN')")` under route prefix `/api/staff/**`.
-  - Matched by YARP API Gateway policy `admin-or-staff` and Spring Security filter rule `.requestMatchers("/api/staff/**").hasAnyRole("STAFF", "ADMIN")`.
-- **Counter Booking Workflow (`POST /api/staff/bookings`)**:
-  - Allows staff to book tickets directly for walk-in customers (`userId = 0L`) or registered members.
-  - Supports instant Cash settlement, immediately marking the order as `PAID` and generating tickets.
-- **Saga Compensation Pattern for Inter-Service Consistency**:
-  - In `StaffBookingServiceImpl.createCounterBooking()`:
-    1. Synchronously calls `SeatReservationService.bookAvailableSeats(...)` in `showtime-service`.
-    2. Encloses subsequent order persistence, ticket creation, and outbox event dispatch in a `try-catch(RuntimeException ex)` block.
-    3. **Automated Compensating Action**: If order saving or ticket generation throws any exception, it immediately calls `seatReservationService.releaseBookedSeats(...)` to release the booked seats back to `AVAILABLE`. This guarantees no orphaned booked seats remain stuck in `showtime-service`.
-- **Operational Dashboard Aggregations (CQRS Read Projections)**:
-  - `GET /api/staff/dashboard/summary`: Aggregates today's total bookings, tickets sold, and peak sales hour.
-  - `GET /api/staff/dashboard/bookings/today`: Chronological stream of today's paid orders for the counter ledger.
-  - `GET /api/staff/dashboard/validation/stats`: Total validated vs pending check-ins for the active operational window.
-  - `GET /api/staff/dashboard/validation/bookings`: Validation list returning `#BK-{orderId}` identifiers with dynamic status (`"pending"` if any tickets remain unvalidated, `"validated"` once all tickets are checked in).
-
-### I. Downstream Error Propagation & Anti-Masking (`HttpSeatReservationService`)
-- **Problem**: Previously, `HttpSeatReservationService` caught all `RestClientException` errors and blindly masked them as `503 SERVICE_UNAVAILABLE` ("Showtime reservation service is unavailable"). This hid real business validation errors (e.g., HTTP `409 Conflict` when a seat was already held or booked).
-- **Solution**:
-  - Distinguishes between HTTP 5xx / connection failures (which throw 503 `SHOWTIME_RESERVATION_UNAVAILABLE`) and HTTP 4xx client errors (e.g. 409 `SEAT_NOT_AVAILABLE`, 400 `INVALID_INPUT`).
-  - Reads downstream error JSON payloads via Jackson `ObjectMapper` and preserves the original HTTP status, error code, and localized message in a `CustomException`.
-  - Prevents false-alarm service outages on the frontend.
-
-### J. Global Exception Handling: Argument Type Mismatch Protection
-- Added `@ExceptionHandler(MethodArgumentTypeMismatchException.class)` in `GlobalExceptionHandler.java`.
-- Catches invalid path variable or parameter conversions (such as `/api/tickets/orders/NaN`) and returns structured **HTTP 400 Bad Request** (`INVALID_INPUT`) instead of cascading into an unhandled **HTTP 500 Internal Server Error**.
+### H. Downstream Error Propagation (`HttpSeatReservationService`) & Argument Type Mismatch Handling
+- [`HttpSeatReservationService.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/client/HttpSeatReservationService.java): Preserves downstream 4xx status codes and error codes (such as `409 Conflict` / `SEAT_ALREADY_TAKEN`) instead of masking them as `503 SERVICE_UNAVAILABLE`.
+- [`GlobalExceptionHandler.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/core/exception/GlobalExceptionHandler.java): Handles `DuplicatePendingOrderException` (`409 Conflict`) and `MethodArgumentTypeMismatchException` (`400 Bad Request`).
 
 ---
 
-## 3. Comprehensive File Inventory
+## 4. End-to-End Flow Diagrams (Before vs. After)
 
-### New Files Created
+### Flow 1: Post-Payment Seat Conflict Compensation (Before vs. After)
 
-| File Path | Description |
-| :--- | :--- |
-| [`StaffBookingController.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/controller/StaffBookingController.java) | REST controller handling counter booking and staff operational dashboard endpoints under `/api/staff/**`. |
-| [`StaffBookingService.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/StaffBookingService.java) | Service contract for staff counter booking and validation reporting. |
-| [`StaffBookingServiceImpl.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/StaffBookingServiceImpl.java) | Implementation orchestrating counter booking, compensating seat releases, and dashboard queries. |
-| [`StaffCounterBookingRequest.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/dto/request/StaffCounterBookingRequest.java) | DTO for counter booking creation (showtimeId, seatIds, customer info, payment method). |
-| [`StaffBookingListItemResponse.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/dto/response/StaffBookingListItemResponse.java) | DTO representing a booking row in staff today's bookings ledger. |
-| [`StaffBookingValidationResponse.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/dto/response/StaffBookingValidationResponse.java) | DTO representing an order validation entry (`#BK-{orderId}`) on the ticket lookup dashboard. |
-| [`StaffDashboardSummaryResponse.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/dto/response/StaffDashboardSummaryResponse.java) | DTO for staff summary statistics (todayBookings, totalTicketsSold, peakHour). |
-| [`StaffValidationStatsResponse.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/dto/response/StaffValidationStatsResponse.java) | DTO for validation statistics (totalValidated, pendingCheckIns, totalBookings). |
-| [`StaffBookingServiceImplTest.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/test/java/com/uit/cinema/booking/service/Impl/StaffBookingServiceImplTest.java) | Unit test suite covering counter bookings, compensation rollback on save failure, and `#BK-` formatting. |
-| [`HttpPaymentService.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/client/HttpPaymentService.java) | Spring `RestClient` wrapper to communicate synchronously with `payment-service` (`POST /api/payments/order/{orderId}/refund`). Injects `services.payment.url` and `app.internal-token`. |
-| [`PaymentExpiredPayload.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/messaging/PaymentExpiredPayload.java) | Record representing the JSON payload of `order.expired` events (`correlationId`, `paymentId`, `orderId`, `userId`, `reason`). |
-| [`DuplicatePendingOrderException.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/core/exception/DuplicatePendingOrderException.java) | Domain exception carrying `existingOrderId`, mapping to HTTP `409 Conflict`. |
-
----
-
-### Modified Files & Detailed Changes
-
-#### 1. Controller & DTO Layer
-- **[`OrderController.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/controller/OrderController.java)**
-  - Added `GET /api/orders/users/{userId}` endpoint.
-  - Authorized with `userIdResolver.authorizeRequestedUser(userId)`.
-- **[`OrderResponse.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/dto/response/OrderResponse.java)**
-  - Added fields: `boolean refundable` and `int refundPercent`.
-- **[`OrderResponseMapper.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/mapper/OrderResponseMapper.java)**
-  - Implemented `calculateRefundPercent(LocalDateTime showtimeStart, LocalDateTime now)` logic.
-  - Computes `refundable` and `refundPercent` during response projection.
-- **[`GlobalExceptionHandler.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/core/exception/GlobalExceptionHandler.java)**
-  - Added `@ExceptionHandler(DuplicatePendingOrderException.class)` returning structured `409 Conflict` JSON response.
-
-#### 2. Domain & Service Layer
-- **[`Order.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/entity/Order.java)**
-  - Added `public static final Long ANONYMOUS_USER_ID = 0L;` constant.
-- **[`OrderRepository.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/repository/OrderRepository.java)**
-  - Added `boolean existsByUserIdAndShowtimeIdAndStatus(Long userId, Long showtimeId, Order.OrderStatus status);`
-  - Added `Optional<Order> findByUserIdAndShowtimeIdAndStatus(Long userId, Long showtimeId, Order.OrderStatus status);`
-- **[`OrderService.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/OrderService.java)** & **[`OrderServiceImpl.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/OrderServiceImpl.java)**
-  - Check for existing pending order before order creation; throw `DuplicatePendingOrderException` if found.
-  - Published `bookingOutboxEventWriter.orderCreated(saved)` within order transaction.
-  - Implemented `getOrdersByUserId(Long userId)`.
-- **[`PaymentService.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/PaymentService.java)** & **[`PaymentServiceImpl.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/PaymentServiceImpl.java)**
-  - Injected `HttpPaymentService`.
-  - In `refundOrder(...)`: Computes proportional refund amount (`finalAmount * refundPercent / 100`), calls `httpPaymentService.executeOrderRefund(orderId, refundAmount, reason)` *before* releasing tickets and seats.
-  - Implemented `applyExpiredPayment(Long orderId, Long userId, String reason)`: Releases held seats and cancels expired pending orders.
-  - In `applyCompletedPayment(...)`: Bypasses `assertUserMatches` for counter anonymous orders (`Order.ANONYMOUS_USER_ID`), and calls `bookingOutboxEventWriter.emitLoyaltyPointsEarned` when `userId > 0L`.
-
-#### 3. Messaging & Outbox Layer
-- **[`BookingOutboxEventWriter.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/outbox/BookingOutboxEventWriter.java)**
-  - Added `public void orderCreated(Order order)` writing `order.created` outbox events.
-  - Added `public void emitLoyaltyPointsEarned(Long userId, Long orderId, BigDecimal amount)` writing `loyalty.points.earned` outbox events.
-- **[`PaymentAmqpConfiguration.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/messaging/PaymentAmqpConfiguration.java)**
-  - Declared queue `bookingPaymentExpiredQueue` (`booking.payment.expired.v1`).
-  - Declared queue `bookingPaymentExpiredDeadLetterQueue` (`booking.payment.expired.v1.dlq`).
-  - Added bindings to exchange with routing key `order.expired`.
-- **[`PaymentEventEnvelopeReader.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/messaging/PaymentEventEnvelopeReader.java)**
-  - Added `expiredPayload(JsonNode payload)` parser method.
-- **[`PaymentEventMessageHandler.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/messaging/PaymentEventMessageHandler.java)**
-  - Added `@RabbitListener(queues = "${booking.messaging.payment-events.expired-queue:booking.payment.expired.v1}")` consuming `consumeExpired`.
-- **[`PaymentEventProcessor.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/messaging/PaymentEventProcessor.java)**
-  - Added constant `EXPIRED = "order.expired"`.
-  - Handled `EXPIRED` in idempotency check and switch-statement delegation to `paymentService.applyExpiredPayment(...)`.
-
-#### 4. Configuration & Deployment
-- **[`application.yml`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/resources/application.yml)**
-  - Added `services.payment.url: ${PAYMENT_SERVICE_URL:http://localhost:5003}`.
-  - Adjusted `outbox.dispatcher.fixed-delay-ms: ${OUTBOX_DISPATCHER_FIXED_DELAY_MS:500}` for lower event publish latency.
-  - Added `booking.messaging.payment-events.expired-queue: ${BOOKING_PAYMENT_EXPIRED_QUEUE:booking.payment.expired.v1}`.
-- **[`infrastructure/docker-compose.yml`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/infrastructure/docker-compose.yml)**
-  - Injected `PAYMENT_SERVICE_URL: http://payment-service:80` environment variable into the `booking-service` container definition.
-
-#### 5. Unit & Integration Test Updates
-- **[`OrderServiceImplTest.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/test/java/com/uit/cinema/booking/service/OrderServiceImplTest.java)**
-  - Added mock verification for `bookingOutboxEventWriter.orderCreated(...)`.
-  - Added test `createOrder_whenDuplicatePendingOrder_throwsDuplicatePendingOrderException()`.
-- **[`PaymentServiceImplTest.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/test/java/com/uit/cinema/booking/service/Impl/PaymentServiceImplTest.java)** & **[`service/PaymentServiceImplTest.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/test/java/com/uit/cinema/booking/service/PaymentServiceImplTest.java)**
-  - Mocked `HttpPaymentService`.
-  - Verified `httpPaymentService.executeOrderRefund(...)` calls with correct calculated amounts (100% vs 50%).
-  - Added test `applyCompletedPayment_counterOrderAnonymous_bypassesUserMismatch()` verifying anonymous counter orders bypass user validation.
-
----
-
-## 4. Inter-Service Communication Flow Diagrams
-
-### Flow 1: Order Refund Flow
-```
-User / Portal                  Booking-Service                       Payment-Service
-      │                              │                                      │
-      │  POST /api/orders/{id}/refund│                                      │
-      ├─────────────────────────────►│                                      │
-      │                              │ Calculate refund % (e.g. 50%)        │
-      │                              │ Calculate refundAmount               │
-      │                              │                                      │
-      │                              │ POST /api/payments/order/{id}/refund │
-      │                              ├─────────────────────────────────────►│
-      │                              │ (X-Internal-Token header)            │ Execute Stripe/VNPay refund
-      │                              │◄─────────────────────────────────────┤ 200 OK
-      │                              │                                      │
-      │                              │ Set Tickets -> REFUNDED              │
-      │                              │ Release Seats                        │
-      │                              │ Set Order -> REFUNDED                │
-      │                              │ Publish outbox: order.refunded       │
-      │◄─────────────────────────────┤                                      │
-      │   200 OK (Refunded Order)    │                                      │
+#### ❌ Before (Mixed Sync HTTP + Async Outbox inside `@Transactional` Consumer):
+```text
+Payment-Service               RabbitMQ                Booking-Service (@Transactional)
+       │                         │                                  │
+       │ 1. payment.completed    │                                  │
+       ├────────────────────────►├─────────────────────────────────►│
+       │                         │                                  │ confirmHeldSeats() -> SEAT_ALREADY_TAKEN
+       │                         │                                  │ Order.status = CANCELLED
+       │                         │                                  │ Outbox.append(order.cancelled) [Not yet committed]
+       │                         │                                  │
+       │      2. Sync HTTP POST /api/payments/order/{id}/refund     │
+       │◄───────────────────────────────────────────────────────────┤ (DB transaction held open during Stripe/PayPal call)
+       │ Payment.Status = REFUNDED                                  │
+       │ (Saga still stuck in Completed!)                           │
+       ├───────────────────────────────────────────────────────────►│ 200 OK (or if timeout -> retry -> 409 Conflict -> DLQ!)
+       │                         │                                  │ Commit DB & flush Outbox
+       │                         │ 3. Publish order.cancelled       │
+       │                         │◄─────────────────────────────────┤
+       │◄────────────────────────┤                                  │
+       │ 4. Receives order.cancelled after HTTP refund already ran! │
+       │    -> Risk of double refund or 409 InvalidPaymentState     │
 ```
 
-### Flow 2: Duplicate Pending Order Rejection
-```
-User / Portal                  Booking-Service                       Database
-      │                              │                                   │
-      │  POST /api/orders            │                                   │
-      ├─────────────────────────────►│ existsByUserIdAndShowtimeId...    │
-      │                              ├──────────────────────────────────►│
-      │                              │◄──────────────────────────────────┤ Returns true (Order #777)
-      │                              │                                   │
-      │◄─────────────────────────────┤ Throws DuplicatePendingOrderException
-      │   409 Conflict               │
-      │   existingOrderId: 777       │
-```
-
-### Flow 3: Order Expiration via RabbitMQ
-```
-Payment-Service (Cron/Saga)          RabbitMQ                  Booking-Service
-            │                           │                             │
-            │ order.expired             │                             │
-            ├──────────────────────────►│                             │
-            │                           │ Deliver to                  │
-            │                           │ booking.payment.expired.v1  │
-            │                           ├────────────────────────────►│
-            │                           │                             │ PaymentEventProcessor
-            │                           │                             │ ├─ Check idempotency
-            │                           │                             │ ├─ Release held seats
-            │                           │                             │ └─ Set Order -> CANCELLED
-            │                           │◄────────────────────────────┤ ACK message
-```
-
-### Flow 4: Staff Counter Cash Payment Settlement & Loyalty Points Flow
-```
-Staff Counter POS              Payment-Service (Saga)          RabbitMQ                  Booking-Service
-      │                              │                            │                             │
-      │ POST /api/payments/initiate  │                            │                             │
-      │ (method=CASH, role=STAFF)    │                            │                             │
-      ├─────────────────────────────►│                            │                             │
-      │                              │ 1. Complete immediately    │                             │
-      │                              │ 2. Generate CASH-TxnId     │                             │
-      │                              │ 3. Transition -> Completed │                             │
-      │                              │ 4. Emit payment.completed  │                             │
-      │                              ├───────────────────────────►│                             │
-      │◄─────────────────────────────┤                            │                             │
-      │ 200 OK (CASH completed)      │                            │ Deliver to                  │
-      │                              │                            │ booking.payment.completed.v1│
-      │                              │                            ├────────────────────────────►│
-      │                              │                            │                             │ 1. Bypass user match (if anonymous)
-      │                              │                            │                             │ 2. Set Order -> PAID
-      │                              │                            │                             │ 3. Generate tickets
-      │                              │                            │                             │ 4. Outbox: loyalty.points.earned (if member)
-      │                              │                            │◄────────────────────────────┤ ACK message
+#### ✅ After (100% Async Outbox + Saga Compensation):
+```text
+Payment-Service (Saga)        RabbitMQ                Booking-Service (@Transactional)
+       │                         │                                  │
+       │ 1. payment.completed    │                                  │
+       ├────────────────────────►├─────────────────────────────────►│
+       │                         │                                  │ confirmHeldSeats() -> SEAT_ALREADY_TAKEN
+       │                         │                                  │ Order.status = CANCELLED
+       │                         │                                  │ Outbox.append(order.cancelled,
+       │                         │                                  │   reason="SEATS_UNAVAILABLE_AFTER_PAYMENT")
+       │                         │                                  │ Commit DB immediately & ACK
+       │                         │ 2. Publish order.cancelled       │
+       │                         │◄─────────────────────────────────┤
+       │◄────────────────────────┤                                  │
+       │ 3. OrderCancelledConsumer                                  │
+       │    ├─ Check Payment.Status == COMPLETED (idempotent guard) │
+       │    ├─ Execute Stripe/PayPal Refund                         │
+       │    ├─ Payment.MarkAsRefunded()                             │
+       │    └─ Publish RefundRequested -> Saga: Completed -> Refunded│
+       │ 4. Emit payment.refunded│                                  │
+       ├────────────────────────►├─────────────────────────────────►│
+       │                         │                                  │ applyRefundedPayment()
+       │                         │                                  │ └─ Order is CANCELLED -> IGNORED_STALE (safe no-op)
 ```
 
 ---
 
-## 5. Verification & Test Run Results
+## 5. Summary of Modified & Added Files in Spring Boot Services
 
-The Spring Boot test suite was executed and fully verified:
+| Service | File Path | Summary of Change |
+| :--- | :--- | :--- |
+| `booking-service` | [`PaymentServiceImpl.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/PaymentServiceImpl.java) | Removed sync `httpPaymentService.executeOrderRefund` from `compensateSeatsUnavailableAfterPayment`; relies strictly on atomic `Order.status = CANCELLED` + outbox `order.cancelled` (`SEATS_UNAVAILABLE_AFTER_PAYMENT`). |
+| `booking-service` | [`OrderServiceImpl.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/service/Impl/OrderServiceImpl.java) | Added seat diffing (`hasSameSeats`) in `createOrder`: throws `DuplicatePendingOrderException` if seats match, or supersedes the old pending order (`cancelSupersededOrder`, voucher restore, `order.cancelled` with `SEATS_CHANGED`, seat release) if seats changed. |
+| `booking-service` | [`BookingOutboxEventWriter.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/main/java/com/uit/cinema/booking/outbox/BookingOutboxEventWriter.java) | Publishes `order.created`, `order.paid`, `order.refunded`, `order.cancelled`, and `loyalty.points.earned` to `booking.events`. |
+| `booking-service` | [`PaymentServiceImplTest.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/test/java/com/uit/cinema/booking/service/PaymentServiceImplTest.java) | Updated & expanded unit tests for async `SEAT_ALREADY_TAKEN` compensation, stale `payment.completed` / `payment.refunded` idempotency on `CANCELLED` orders, and anonymous counter compensation. |
+| `booking-service` | [`BookingOutboxEventWriterTest.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/test/java/com/uit/cinema/booking/outbox/BookingOutboxEventWriterTest.java) | Added unit test suite verifying `order.cancelled` JSON envelope contract (`orderId`, `userId`, `reason`) and outbox persistence. |
+| `booking-service` | [`OrderServiceImplTest.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/booking-service/src/test/java/com/uit/cinema/booking/service/OrderServiceImplTest.java) | Unit tests covering same-seat `DuplicatePendingOrderException` vs. different-seat order superseding and voucher restoration. |
+| `showtime-service` | [`SeatReservationServiceImpl.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/showtime-service/src/main/java/com/uit/cinema/showtime/service/SeatReservationServiceImpl.java) | Updated `confirmHeldSeats` with `softLockExpiredHolds` fallback confirmation when Redis hold expires but seat is still available, and `SEAT_ALREADY_TAKEN` when taken by another user. |
+| `showtime-service` | [`SeatReservationServiceImplTest.java`](file:///c:/DoAn1/DA1-CinemaMS/cinema-booking-system/backend/services/showtime-service/src/test/java/com/uit/cinema/showtime/service/SeatReservationServiceImplTest.java) | Unit tests verifying normal hold confirmation, fallback confirmation after Redis TTL expiry, and `SEAT_ALREADY_TAKEN` rollback on conflict. |
+
+---
+
+## 6. Verification & Test Run Results
+
 ```bash
-cd cinema-booking-system/backend/services/booking-service
-mvn test
+mvn -f cinema-booking-system/backend/pom.xml -pl services/booking-service -Dtest="PaymentServiceImplTest,BookingOutboxEventWriterTest,PaymentEventProcessorTest,PaymentEventMessageHandlerTest,TransactionalOutboxTest,OutboxDispatcherTest" test
 ```
 
-### Test Execution Summary:
-- **Total Tests Run**: 76
-- **Failures**: 0
-- **Errors**: 0
-- **Skipped**: 0
-- **Build Status**: `BUILD SUCCESS` (Total time: ~26s)
-
----
-
-## 6. Recommendations for Spring Boot Maintainer
-1. **Circuit Breaker / Timeout**: Consider wrapping `HttpPaymentService.executeOrderRefund` in a Resilience4j circuit breaker or retry mechanism with appropriate HTTP timeouts (currently defaults to standard RestClient timeouts).
-2. **Database Migration**: Ensure the database indices support querying `(user_id, showtime_id, status)` if order volume grows significantly.
-3. **Queue Topology**: Ensure RabbitMQ has the exchange `cinema.events` (or configured exchange) created in test environments before starting the services.
+- **Tests Run**: 42 (across `PaymentServiceImplTest`, `BookingOutboxEventWriterTest`, `PaymentEventProcessorTest`, `PaymentEventMessageHandlerTest`, `TransactionalOutboxTest`, `OutboxDispatcherTest`)
+- **Failures / Errors**: 0
+- **Build Status**: `BUILD SUCCESS`

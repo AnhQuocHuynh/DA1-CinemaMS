@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using PaymentService.Application.Contracts;
@@ -35,34 +38,7 @@ public class StripeGateway : IPaymentGateway
     {
         try
         {
-            var options = new SessionCreateOptions
-            {
-                PaymentMethodTypes = new List<string> { "card" },
-                LineItems = new List<SessionLineItemOptions>
-                {
-                    new SessionLineItemOptions
-                    {
-                        PriceData = new SessionLineItemPriceDataOptions
-                        {
-                            Currency = request.Currency.ToLower(),
-                            UnitAmount = ConvertToSmallestUnit(request.Amount, request.Currency),
-                            ProductData = new SessionLineItemPriceDataProductDataOptions
-                            {
-                                Name = "Cinema Ticket Booking",
-                                Description = $"Payment for booking order"
-                            }
-                        },
-                        Quantity = 1
-                    }
-                },
-                Mode = "payment",
-                SuccessUrl = request.SuccessUrl,
-                CancelUrl = request.CancelUrl,
-                Metadata = new Dictionary<string, string>
-                {
-                    { PAYMENT_ID_METADATA_KEY, request.PaymentId.ToString() }
-                }
-            };
+            var options = BuildSessionCreateOptions(request);
 
             var service = new SessionService();
             var session = await service.CreateAsync(options);
@@ -82,6 +58,39 @@ public class StripeGateway : IPaymentGateway
             _logger.LogError(ex, "Unexpected error initiating Stripe payment {PaymentId}", request.PaymentId);
             return new PaymentInitiationResult(false, null, ex.Message);
         }
+    }
+
+    public static SessionCreateOptions BuildSessionCreateOptions(PaymentRequest request)
+    {
+        return new SessionCreateOptions
+        {
+            PaymentMethodTypes = new List<string> { "card" },
+            LineItems = new List<SessionLineItemOptions>
+            {
+                new SessionLineItemOptions
+                {
+                    PriceData = new SessionLineItemPriceDataOptions
+                    {
+                        Currency = request.Currency.ToLower(),
+                        UnitAmount = ConvertToSmallestUnit(request.Amount, request.Currency),
+                        ProductData = new SessionLineItemPriceDataProductDataOptions
+                        {
+                            Name = "Cinema Ticket Booking",
+                            Description = "Payment for booking order"
+                        }
+                    },
+                    Quantity = 1
+                }
+            },
+            Mode = "payment",
+            ExpiresAt = DateTime.UtcNow.AddMinutes(30),
+            SuccessUrl = request.SuccessUrl,
+            CancelUrl = request.CancelUrl,
+            Metadata = new Dictionary<string, string>
+            {
+                { PAYMENT_ID_METADATA_KEY, request.PaymentId.ToString() }
+            }
+        };
     }
 
     public async Task<string> GetExistingSessionUrlAsync(string gatewaySessionId, CancellationToken ct = default)

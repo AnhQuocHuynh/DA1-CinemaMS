@@ -1,10 +1,12 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MassTransit;
 using Moq;
 using PaymentService.Application.Contracts;
 using PaymentService.Application.Exceptions;
 using PaymentService.Application.Features.Refunds.Commands;
+using PaymentService.Application.IntegrationEvents;
 using PaymentService.Domain.Entities;
 using PaymentService.Domain.Enums;
 using PaymentService.Domain.Interfaces;
@@ -18,6 +20,7 @@ public class ExecuteOrderRefundCommandHandlerTests
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IPaymentGatewayFactory> _gatewayFactoryMock;
     private readonly Mock<IPaymentGateway> _gatewayMock;
+    private readonly Mock<IPublishEndpoint> _publishEndpointMock;
     private readonly ExecuteOrderRefundCommandHandler _handler;
 
     public ExecuteOrderRefundCommandHandlerTests()
@@ -26,6 +29,7 @@ public class ExecuteOrderRefundCommandHandlerTests
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _gatewayFactoryMock = new Mock<IPaymentGatewayFactory>();
         _gatewayMock = new Mock<IPaymentGateway>();
+        _publishEndpointMock = new Mock<IPublishEndpoint>();
 
         _gatewayFactoryMock
             .Setup(f => f.GetGateway(It.IsAny<PaymentMethod>()))
@@ -34,7 +38,8 @@ public class ExecuteOrderRefundCommandHandlerTests
         _handler = new ExecuteOrderRefundCommandHandler(
             _paymentRepoMock.Object,
             _unitOfWorkMock.Object,
-            _gatewayFactoryMock.Object);
+            _gatewayFactoryMock.Object,
+            _publishEndpointMock.Object);
     }
 
     [Fact]
@@ -69,7 +74,35 @@ public class ExecuteOrderRefundCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_StripePayment_GatewaySuccess_ShouldMarkRefundedAndSave()
+    public async Task Handle_AlreadyRefunded_ShouldReturnIdempotentlyWithoutCallingGateway()
+    {
+        // Arrange
+        var command = new ExecuteOrderRefundCommand(100, 150000m, "SEATS_UNAVAILABLE_AFTER_PAYMENT");
+        var payment = new Payment(100, 42, 150000m, "VND", PaymentMethod.STRIPE);
+        payment.Complete("pi_stripe_123", "{}");
+        var refund = payment.AddRefund(150000m, "SEATS_UNAVAILABLE_AFTER_PAYMENT");
+        refund.Approve();
+        refund.Process();
+        payment.MarkAsRefunded();
+
+        _paymentRepoMock
+            .Setup(r => r.GetByOrderIdAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(payment);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(150000m, result.Amount);
+        Assert.Equal(RefundStatus.PROCESSED, result.Status);
+        _gatewayMock.Verify(g => g.RefundAsync(It.IsAny<string>(), It.IsAny<decimal>(), It.IsAny<string>()), Times.Never);
+        _publishEndpointMock.Verify(p => p.Publish(It.IsAny<RefundRequested>(), It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_StripePayment_GatewaySuccess_ShouldMarkRefundedPublishSagaEventAndSave()
     {
         // Arrange
         var command = new ExecuteOrderRefundCommand(100, 150000m, "Customer cancelled");
@@ -95,6 +128,13 @@ public class ExecuteOrderRefundCommandHandlerTests
         Assert.Equal(PaymentStatus.REFUNDED, payment.Status);
 
         _gatewayMock.Verify(g => g.RefundAsync("pi_stripe_123", 150000m, "VND"), Times.Once);
+        _publishEndpointMock.Verify(p => p.Publish(
+            It.Is<RefundRequested>(r =>
+                r.CorrelationId == payment.SagaId &&
+                r.PaymentId == payment.Id &&
+                r.Amount == 150000m &&
+                r.Reason == "Customer cancelled"),
+            It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -120,6 +160,7 @@ public class ExecuteOrderRefundCommandHandlerTests
         Assert.Equal(PaymentStatus.REFUNDED, payment.Status);
 
         _gatewayMock.Verify(g => g.RefundAsync(It.IsAny<string>(), It.IsAny<decimal>(), It.IsAny<string>()), Times.Never);
+        _publishEndpointMock.Verify(p => p.Publish(It.IsAny<RefundRequested>(), It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
