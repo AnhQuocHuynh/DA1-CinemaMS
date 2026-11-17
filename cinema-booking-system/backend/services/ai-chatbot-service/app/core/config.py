@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     SEMANTIC_CACHE_TTL_DAYS: int = 7
     SEMANTIC_CACHE_THRESHOLD: float = 0.94
     FAQ_SIMILARITY_THRESHOLD: float = 0.80
+    FAQ_RELATIVE_MARGIN: float = 0.08
+    MOVIE_RELATIVE_MARGIN: float = 0.08
+    REINDEX_ON_STARTUP: bool = True
+    REINDEX_MAX_MOVIES: int = 500
 
 
 @lru_cache
