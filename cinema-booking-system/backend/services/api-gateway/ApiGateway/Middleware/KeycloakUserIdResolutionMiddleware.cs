@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Linq;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -52,6 +53,16 @@ namespace ApiGateway.Middleware
                 if (!string.IsNullOrEmpty(keycloakId))
                 {
                     context.Request.Headers["X-Keycloak-Id"] = keycloakId;
+
+                    var roles = context.User.FindAll(ClaimTypes.Role)
+                        .Select(c => c.Value)
+                        .Where(v => !string.IsNullOrWhiteSpace(v))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    if (roles.Count > 0)
+                    {
+                        context.Request.Headers["X-User-Roles"] = string.Join(",", roles);
+                    }
 
                     // Resolve Keycloak UUID to internal Long ID
                     var internalId = await ResolveInternalUserIdAsync(keycloakId);

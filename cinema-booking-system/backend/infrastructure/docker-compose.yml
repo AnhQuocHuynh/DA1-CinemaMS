@@ -122,6 +122,8 @@ services:
       - ReverseProxy__Clusters__chatbot-cluster__Destinations__chatbot-1__Address=http://ai-chatbot-service:8000
       - Jwt__Authority=${KC_AUTHORITY_URL}
       - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
+      - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
+      - Jwt__RequireHttpsMetadata=false
       - UserProfileService__BaseUrl=http://identity-service:80
       - Redis__ConnectionString=${REDIS_CONNECTION_STRING}
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
@@ -533,18 +535,32 @@ services:
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-004}
       - CATALOG_SERVICE_URL=http://catalog-service:8081
       - SHOWTIME_SERVICE_URL=http://showtime-service:8082
+      - BOOKING_SERVICE_URL=http://booking-service:8083
       - FACILITY_SERVICE_URL=http://facility-service:80
       - RECOMMENDATION_SERVICE_URL=http://recommendation-service:8085
+      - IDENTITY_SERVICE_URL=http://identity-service:80
       - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-local-dev-internal-token}
+      - CINEMA_SECURITY_JWT_ENABLED=${CINEMA_SECURITY_JWT_ENABLED:-false}
+      - KEYCLOAK_ISSUER_URI=${KEYCLOAK_ISSUER_URI:-}
+      - KEYCLOAK_AUDIENCE=${KEYCLOAK_AUDIENCE:-cinema-api}
+      - KEYCLOAK_JWK_SET_URI=${KEYCLOAK_JWK_SET_URI:-}
     ports:
       - "${AI_CHATBOT_PORT:-5005}:8000"
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      catalog-service:
+        condition: service_started
+      showtime-service:
+        condition: service_started
+      booking-service:
+        condition: service_started
+      recommendation-service:
+        condition: service_started
     networks:
       - cinema-services
 
