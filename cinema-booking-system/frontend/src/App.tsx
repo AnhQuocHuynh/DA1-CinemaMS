@@ -35,6 +35,7 @@ import { TicketLookup } from './pages/staff/TicketLookup';
 import { QRChecker } from './pages/staff/QRChecker';
 import { StaffSettings } from './pages/staff/StaffSettings';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { CinemaAssistant } from './components/CinemaAssistant';
 import { useAuthStore } from './store/authStore';
 import { useNotificationStore } from './store/notificationStore';
 import { notificationHubService } from './services/notificationHubService';
@@ -61,6 +62,7 @@ function App() {
   }, []);
 
   return (
+    <>
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<Home />} />
@@ -131,6 +133,8 @@ function App() {
       {/* Catch-all redirect */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    <CinemaAssistant />
+    </>
   );
 }
 
