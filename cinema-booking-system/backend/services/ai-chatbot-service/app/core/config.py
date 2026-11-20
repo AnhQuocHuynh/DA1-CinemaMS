@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,9 +19,24 @@ class Settings(BaseSettings):
 
     CATALOG_SERVICE_URL: str = "http://localhost:8081"
     SHOWTIME_SERVICE_URL: str = "http://localhost:8082"
+    BOOKING_SERVICE_URL: str = "http://localhost:8083"
     FACILITY_SERVICE_URL: str = "http://localhost:80"
     RECOMMENDATION_SERVICE_URL: str = "http://localhost:8085"
+    IDENTITY_SERVICE_URL: str = "http://localhost:5001"
     INTERNAL_API_TOKEN: str = "local-dev-internal-token"
+
+    CINEMA_SECURITY_JWT_ENABLED: bool = False
+    KEYCLOAK_ISSUER_URI: str = ""
+    KEYCLOAK_AUDIENCE: str = "cinema-api"
+    KEYCLOAK_JWK_SET_URI: str = ""
+    DEV_ACTOR_ID: int | None = None
+
+    @field_validator("DEV_ACTOR_ID", mode="before")
+    @classmethod
+    def _empty_str_to_none(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     MAX_MESSAGE_LENGTH: int = 500
     HISTORY_WINDOW_TURNS: int = 4
@@ -32,6 +48,15 @@ class Settings(BaseSettings):
     MOVIE_RELATIVE_MARGIN: float = 0.08
     REINDEX_ON_STARTUP: bool = True
     REINDEX_MAX_MOVIES: int = 500
+
+    DOWNSTREAM_TIMEOUT_SECONDS: float = 3.0
+    DOWNSTREAM_MAX_RETRIES: int = 2
+    DOWNSTREAM_RETRY_BASE_DELAY: float = 0.15
+    DOWNSTREAM_RETRY_MAX_DELAY: float = 1.5
+    CIRCUIT_BREAKER_FAILURE_THRESHOLD: int = 5
+    CIRCUIT_BREAKER_RECOVERY_SECONDS: float = 30.0
+    LLM_MAX_RETRIES: int = 1
+    LLM_RETRY_BASE_DELAY: float = 0.25
 
 
 @lru_cache

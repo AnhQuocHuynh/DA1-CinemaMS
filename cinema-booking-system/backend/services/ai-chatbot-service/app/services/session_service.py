@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import logging
 from typing import Any
 from uuid import UUID, uuid4
@@ -25,10 +26,25 @@ def _owns_session(row: Any, user: UserContext) -> bool:
     row_user_id = row.get("user_id")
     if row_user_id is not None:
         return user.user_id is not None and int(row_user_id) == int(user.user_id)
+    row_keycloak_id = row.get("keycloak_id")
+    if row_keycloak_id is not None:
+        return bool(user.keycloak_id and str(row_keycloak_id) == str(user.keycloak_id))
     row_token = row.get("session_token")
     if row_token:
         return bool(user.session_token and row_token == user.session_token)
     return False
+
+
+def normalize_title(title: str | None, allow_blank: bool = False) -> str:
+    """Validate and normalize a conversation session title."""
+    if title is None or not title.strip():
+        if allow_blank:
+            return "New Conversation"
+        raise HTTPException(status_code=400, detail="Session title cannot be blank")
+    trimmed = title.strip()
+    if len(trimmed) > 255:
+        raise HTTPException(status_code=400, detail="Session title exceeds 255 characters")
+    return trimmed
 
 
 async def ensure_session(
@@ -44,7 +60,7 @@ async def ensure_session(
 
     if session_id is not None:
         lookup_stmt = sql_text(
-            "SELECT id, user_id, session_token FROM chat_sessions WHERE id = CAST(:id AS uuid)"
+            "SELECT id, user_id, session_token, keycloak_id FROM chat_sessions WHERE id = CAST(:id AS uuid)"
         )
         result = await db.execute(lookup_stmt, {"id": str(session_id)})
         existing = result.mappings().first()
@@ -81,6 +97,47 @@ async def ensure_session(
     except Exception:
         logger.warning("Failed to persist chat session %s", resolved_id, exc_info=True)
     return resolved_id
+
+
+async def create_user_session(
+    db: AsyncSession | None,
+    user: UserContext,
+    title: str | None = None,
+) -> dict:
+    """Explicitly create a new chat session owned by the caller."""
+    resolved_id = uuid4()
+    normalized = normalize_title(title, allow_blank=True)
+    now = datetime.now(timezone.utc)
+    if db is not None:
+        insert_stmt = sql_text(
+            """
+            INSERT INTO chat_sessions (id, user_id, keycloak_id, session_token, title)
+            VALUES (
+                CAST(:id AS uuid),
+                :user_id,
+                CAST(:keycloak_id AS uuid),
+                :session_token,
+                :title
+            )
+            """
+        )
+        await db.execute(
+            insert_stmt,
+            {
+                "id": str(resolved_id),
+                "user_id": user.user_id,
+                "keycloak_id": _safe_uuid_str(user.keycloak_id),
+                "session_token": user.session_token,
+                "title": normalized,
+            },
+        )
+        await db.commit()
+    return {
+        "id": resolved_id,
+        "title": normalized,
+        "createdAt": now,
+        "updatedAt": now,
+    }
 
 
 async def get_recent_history(
@@ -171,6 +228,17 @@ async def list_user_sessions(db: AsyncSession | None, user: UserContext) -> list
             """
         )
         params: dict[str, Any] = {"user_id": user.user_id}
+    elif _safe_uuid_str(user.keycloak_id):
+        stmt = sql_text(
+            """
+            SELECT id, title, created_at, updated_at
+            FROM chat_sessions
+            WHERE user_id IS NULL AND keycloak_id = CAST(:keycloak_id AS uuid)
+            ORDER BY updated_at DESC
+            LIMIT 50
+            """
+        )
+        params = {"keycloak_id": _safe_uuid_str(user.keycloak_id)}
     elif user.session_token:
         stmt = sql_text(
             """
@@ -207,7 +275,7 @@ async def get_session_detail(
         return None
     sess_stmt = sql_text(
         """
-        SELECT id, user_id, session_token, title, created_at, updated_at
+        SELECT id, user_id, session_token, keycloak_id, title, created_at, updated_at
         FROM chat_sessions
         WHERE id = CAST(:id AS uuid)
         """
@@ -247,6 +315,43 @@ async def get_session_detail(
     }
 
 
+async def rename_user_session(
+    db: AsyncSession | None,
+    session_id: UUID,
+    user: UserContext,
+    title: str,
+) -> dict | None:
+    """Rename an owned session; returns None if missing, raises 400 on invalid title or 403 if unowned."""
+    normalized = normalize_title(title, allow_blank=False)
+    if db is None:
+        return None
+    sess_stmt = sql_text(
+        """
+        SELECT id, user_id, session_token, keycloak_id, title, created_at, updated_at
+        FROM chat_sessions
+        WHERE id = CAST(:id AS uuid)
+        """
+    )
+    sess_res = await db.execute(sess_stmt, {"id": str(session_id)})
+    sess = sess_res.mappings().first()
+    if sess is None:
+        return None
+    if not _owns_session(sess, user):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    upd_stmt = sql_text(
+        "UPDATE chat_sessions SET title = :title, updated_at = NOW() WHERE id = CAST(:id AS uuid)"
+    )
+    await db.execute(upd_stmt, {"id": str(session_id), "title": normalized})
+    await db.commit()
+    return {
+        "id": sess["id"],
+        "title": normalized,
+        "createdAt": sess.get("created_at"),
+        "updatedAt": datetime.now(timezone.utc),
+    }
+
+
 async def delete_user_session(
     db: AsyncSession | None,
     session_id: UUID,
@@ -256,7 +361,7 @@ async def delete_user_session(
     if db is None:
         return False
     sess_stmt = sql_text(
-        "SELECT id, user_id, session_token FROM chat_sessions WHERE id = CAST(:id AS uuid)"
+        "SELECT id, user_id, session_token, keycloak_id FROM chat_sessions WHERE id = CAST(:id AS uuid)"
     )
     sess_res = await db.execute(sess_stmt, {"id": str(session_id)})
     sess = sess_res.mappings().first()

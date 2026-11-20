@@ -9,6 +9,14 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
 
 
+class CreateSessionRequest(BaseModel):
+    title: str | None = Field(default=None, max_length=255)
+
+
+class RenameSessionRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+
+
 class SourceSchema(BaseModel):
     type: str
     id: int | str | None = None
