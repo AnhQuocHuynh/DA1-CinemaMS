@@ -21,6 +21,7 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,7 +30,10 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -215,6 +219,204 @@ class SeatReservationServiceImplTest {
         assertEquals(1L, result.showtimeId());
         assertEquals(2L, result.movieId());
         assertEquals("SCHEDULED", result.status());
+    }
+
+    @Test
+    void confirmHeldSeats_whenHoldExpiredAndSeatStillHeld_fallbackConfirmsSeat() {
+        SeatBookingRequest request = new SeatBookingRequest(1L, 1L, List.of(10L));
+        ShowtimeSeat seat = heldSeat(10L);
+
+        when(showtimeSeatRepository.findAllById(List.of(10L))).thenReturn(List.of(seat));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(SeatHoldPolicy.holdKey(1L, 10L))).thenReturn(null);
+        when(valueOperations.setIfAbsent(SeatHoldPolicy.holdKey(1L, 10L), "1", SeatHoldPolicy.HOLD_TTL)).thenReturn(true);
+
+        SeatBookingResult result = seatReservationService.confirmHeldSeats(request);
+
+        assertEquals(1, result.affectedRows());
+        assertEquals(ShowtimeSeat.SeatStatus.BOOKED, seat.getStatus());
+        verify(showtimeSeatRepository).saveAll(anyList());
+        verify(redisTemplate).delete(SeatHoldPolicy.holdKey(1L, 10L));
+    }
+
+    @Test
+    void confirmHeldSeats_whenHoldExpiredAndSeatAvailable_fallbackConfirmsSeat() {
+        SeatBookingRequest request = new SeatBookingRequest(1L, 1L, List.of(10L));
+        ShowtimeSeat seat = availableSeat(10L);
+
+        when(showtimeSeatRepository.findAllById(List.of(10L))).thenReturn(List.of(seat));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(SeatHoldPolicy.holdKey(1L, 10L))).thenReturn(null);
+        when(valueOperations.setIfAbsent(SeatHoldPolicy.holdKey(1L, 10L), "1", SeatHoldPolicy.HOLD_TTL)).thenReturn(true);
+
+        SeatBookingResult result = seatReservationService.confirmHeldSeats(request);
+
+        assertEquals(1, result.affectedRows());
+        assertEquals(ShowtimeSeat.SeatStatus.BOOKED, seat.getStatus());
+        verify(showtimeSeatRepository).saveAll(anyList());
+    }
+
+    @Test
+    void confirmHeldSeats_whenSeatHeldByAnotherUser_throwsSeatAlreadyTaken() {
+        SeatBookingRequest request = new SeatBookingRequest(1L, 1L, List.of(10L));
+        ShowtimeSeat seat = heldSeat(10L);
+
+        when(showtimeSeatRepository.findAllById(List.of(10L))).thenReturn(List.of(seat));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(SeatHoldPolicy.holdKey(1L, 10L))).thenReturn("2");
+
+        CustomException ex = assertThrows(CustomException.class, () -> seatReservationService.confirmHeldSeats(request));
+
+        assertEquals("SEAT_ALREADY_TAKEN", ex.getErrorCode());
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        assertEquals(ShowtimeSeat.SeatStatus.HELD, seat.getStatus());
+        verify(showtimeSeatRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void confirmHeldSeats_whenSeatAlreadyBooked_throwsSeatAlreadyTaken() {
+        SeatBookingRequest request = new SeatBookingRequest(1L, 1L, List.of(10L));
+        ShowtimeSeat seat = ShowtimeSeat.builder()
+            .id(10L)
+            .showtimeId(1L)
+            .status(ShowtimeSeat.SeatStatus.BOOKED)
+            .price(BigDecimal.TEN)
+            .build();
+
+        when(showtimeSeatRepository.findAllById(List.of(10L))).thenReturn(List.of(seat));
+
+        CustomException ex = assertThrows(CustomException.class, () -> seatReservationService.confirmHeldSeats(request));
+
+        assertEquals("SEAT_ALREADY_TAKEN", ex.getErrorCode());
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        verify(showtimeSeatRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void confirmHeldSeats_whenFallbackClaimLostToAnotherUser_rollsBackClaimsAndThrows() {
+        SeatBookingRequest request = new SeatBookingRequest(1L, 1L, List.of(10L, 11L));
+        ShowtimeSeat seat1 = heldSeat(10L);
+        ShowtimeSeat seat2 = heldSeat(11L);
+
+        when(showtimeSeatRepository.findAllById(List.of(10L, 11L))).thenReturn(List.of(seat1, seat2));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(SeatHoldPolicy.holdKey(1L, 10L))).thenReturn(null);
+        when(valueOperations.get(SeatHoldPolicy.holdKey(1L, 11L))).thenReturn(null);
+        when(valueOperations.setIfAbsent(SeatHoldPolicy.holdKey(1L, 10L), "1", SeatHoldPolicy.HOLD_TTL)).thenReturn(true);
+        when(valueOperations.setIfAbsent(SeatHoldPolicy.holdKey(1L, 11L), "1", SeatHoldPolicy.HOLD_TTL)).thenReturn(false);
+
+        CustomException ex = assertThrows(CustomException.class, () -> seatReservationService.confirmHeldSeats(request));
+
+        assertEquals("SEAT_ALREADY_TAKEN", ex.getErrorCode());
+        verify(redisTemplate).delete(SeatHoldPolicy.holdKey(1L, 10L));
+        verify(showtimeSeatRepository, never()).saveAll(anyList());
+        assertEquals(ShowtimeSeat.SeatStatus.HELD, seat1.getStatus());
+        assertEquals(ShowtimeSeat.SeatStatus.HELD, seat2.getStatus());
+    }
+
+    @Test
+    void confirmHeldSeats_whenOwnerMissing_throwsBadRequest() {
+        SeatBookingRequest request = new SeatBookingRequest(null, 1L, List.of(10L));
+
+        CustomException ex = assertThrows(CustomException.class, () -> seatReservationService.confirmHeldSeats(request));
+
+        assertEquals("SEAT_HOLD_OWNER_REQUIRED", ex.getErrorCode());
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+    }
+
+    @Test
+    void confirmHeldSeats_whenSeatNotFound_throwsNotFound() {
+        SeatBookingRequest request = new SeatBookingRequest(1L, 1L, List.of(10L));
+        when(showtimeSeatRepository.findAllById(List.of(10L))).thenReturn(List.of());
+
+        CustomException ex = assertThrows(CustomException.class, () -> seatReservationService.confirmHeldSeats(request));
+
+        assertEquals("SEAT_NOT_FOUND", ex.getErrorCode());
+    }
+
+    @Test
+    void confirmHeldSeats_whenRedisDownAndDatabaseHoldActive_confirmsSeat() {
+        SeatBookingRequest request = new SeatBookingRequest(1L, 1L, List.of(10L));
+        ShowtimeSeat seat = heldSeat(10L);
+        seat.setHeldByUserId(1L);
+        seat.setHoldExpiresAt(Instant.now().plusSeconds(300));
+
+        when(showtimeSeatRepository.findAllById(List.of(10L))).thenReturn(List.of(seat));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(SeatHoldPolicy.holdKey(1L, 10L)))
+            .thenThrow(new RedisConnectionFailureException("redis down"));
+
+        SeatBookingResult result = seatReservationService.confirmHeldSeats(request);
+
+        assertEquals(1, result.affectedRows());
+        assertEquals(ShowtimeSeat.SeatStatus.BOOKED, seat.getStatus());
+        assertNull(seat.getHeldByUserId());
+        assertNull(seat.getHoldExpiresAt());
+        verify(valueOperations, never()).setIfAbsent(anyString(), any(), any(Duration.class));
+        verify(showtimeSeatRepository).saveAll(anyList());
+    }
+
+    @Test
+    void confirmHeldSeats_whenRedisDownAndDatabaseHoldExpired_fallbackConfirmsSeat() {
+        SeatBookingRequest request = new SeatBookingRequest(1L, 1L, List.of(10L));
+        ShowtimeSeat seat = heldSeat(10L);
+        seat.setHeldByUserId(1L);
+        seat.setHoldExpiresAt(Instant.now().minusSeconds(5));
+
+        when(showtimeSeatRepository.findAllById(List.of(10L))).thenReturn(List.of(seat));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(SeatHoldPolicy.holdKey(1L, 10L)))
+            .thenThrow(new RedisConnectionFailureException("redis down"));
+
+        SeatBookingResult result = seatReservationService.confirmHeldSeats(request);
+
+        assertEquals(1, result.affectedRows());
+        assertEquals(ShowtimeSeat.SeatStatus.BOOKED, seat.getStatus());
+        verify(showtimeSeatRepository).saveAll(anyList());
+    }
+
+    @Test
+    void confirmHeldSeats_whenRedisDownAndDatabaseHoldedByAnotherUser_throwsSeatAlreadyTaken() {
+        SeatBookingRequest request = new SeatBookingRequest(1L, 1L, List.of(10L));
+        ShowtimeSeat seat = heldSeat(10L);
+        seat.setHeldByUserId(2L);
+        seat.setHoldExpiresAt(Instant.now().plusSeconds(300));
+
+        when(showtimeSeatRepository.findAllById(List.of(10L))).thenReturn(List.of(seat));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(SeatHoldPolicy.holdKey(1L, 10L)))
+            .thenThrow(new RedisConnectionFailureException("redis down"));
+
+        CustomException ex = assertThrows(CustomException.class, () -> seatReservationService.confirmHeldSeats(request));
+
+        assertEquals("SEAT_ALREADY_TAKEN", ex.getErrorCode());
+        verify(showtimeSeatRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void confirmHeldSeats_whenRedisFailsDuringSoftLock_stillConfirmsSeat() {
+        SeatBookingRequest request = new SeatBookingRequest(1L, 1L, List.of(10L));
+        ShowtimeSeat seat = heldSeat(10L);
+
+        when(showtimeSeatRepository.findAllById(List.of(10L))).thenReturn(List.of(seat));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(SeatHoldPolicy.holdKey(1L, 10L))).thenReturn(null);
+        when(valueOperations.setIfAbsent(SeatHoldPolicy.holdKey(1L, 10L), "1", SeatHoldPolicy.HOLD_TTL))
+            .thenThrow(new RedisConnectionFailureException("redis down"));
+
+        SeatBookingResult result = seatReservationService.confirmHeldSeats(request);
+
+        assertEquals(1, result.affectedRows());
+        assertEquals(ShowtimeSeat.SeatStatus.BOOKED, seat.getStatus());
+    }
+
+    private ShowtimeSeat availableSeat(Long seatId) {
+        return ShowtimeSeat.builder()
+            .id(seatId)
+            .showtimeId(1L)
+            .status(ShowtimeSeat.SeatStatus.AVAILABLE)
+            .price(BigDecimal.TEN)
+            .build();
     }
 
     private ShowtimeSeat heldSeat(Long seatId) {

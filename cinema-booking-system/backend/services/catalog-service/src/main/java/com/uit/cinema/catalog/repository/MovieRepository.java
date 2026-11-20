@@ -29,6 +29,9 @@ public interface MovieRepository extends JpaRepository<Movie, Long> {
     @Query("SELECT DISTINCT m FROM Movie m LEFT JOIN FETCH m.genres")
     List<Movie> findAllWithGenres();
 
+    @Query("SELECT DISTINCT m FROM Movie m LEFT JOIN FETCH m.genres WHERE m.aiSummary IS NULL OR TRIM(m.aiSummary) = ''")
+    List<Movie> findMoviesMissingAiSummary();
+
     @Query("SELECT DISTINCT m FROM Movie m LEFT JOIN m.genres g " +
            "WHERE (CAST(:keyword AS text) IS NULL OR LOWER(m.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS text), '%')) OR LOWER(m.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS text), '%'))) " +
            "AND (CAST(:genreId AS long) IS NULL OR g.id = :genreId) " +

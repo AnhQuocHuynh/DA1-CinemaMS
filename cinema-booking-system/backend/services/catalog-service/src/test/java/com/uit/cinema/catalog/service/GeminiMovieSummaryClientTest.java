@@ -47,7 +47,7 @@ class GeminiMovieSummaryClientTest {
         server.expect(requestTo(containsString("/models/gemini-3.5-flash:generateContent")))
             .andExpect(header("x-goog-api-key", "test-key"))
             .andExpect(content().string(containsString("A thief enters dreams.")))
-            .andExpect(content().string(containsString("same language")))
+            .andExpect(content().string(containsString("English")))
             .andExpect(content().string(containsString("thinkingLevel")))
             .andRespond(withSuccess("""
                 {

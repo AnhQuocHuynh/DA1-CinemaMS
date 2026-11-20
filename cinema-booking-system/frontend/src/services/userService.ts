@@ -11,6 +11,7 @@ export interface UserProfile {
   avatarUrl?: string;
   active: boolean;
   roles?: string[];
+  cinemaId?: number | null;
 }
 
 export const userService = {

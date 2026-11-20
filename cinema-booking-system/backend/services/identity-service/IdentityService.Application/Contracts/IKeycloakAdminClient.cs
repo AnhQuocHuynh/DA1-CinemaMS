@@ -26,4 +26,7 @@ public interface IKeycloakAdminClient
 
     /// <summary>Removes a realm role from a user.</summary>
     Task UnassignRealmRoleAsync(string keycloakId, RoleRepresentation role, CancellationToken ct = default);
+
+    /// <summary>Sets a user attribute in Keycloak (e.g. cinema_id).</summary>
+    Task SetUserAttributeAsync(string keycloakId, string attributeName, string attributeValue, CancellationToken ct = default);
 }

@@ -36,6 +36,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PaymentServiceImpl implements PaymentService {
 
+    private static final String SEAT_ALREADY_TAKEN_CODE = "SEAT_ALREADY_TAKEN";
+    private static final String SEATS_UNAVAILABLE_REASON = "SEATS_UNAVAILABLE_AFTER_PAYMENT";
+
     private final OrderRepository orderRepository;
     private final TicketRepository ticketRepository;
     private final TicketGenerationService ticketGenerationService;
@@ -165,8 +168,28 @@ public class PaymentServiceImpl implements PaymentService {
             log.warn("Ignoring payment.completed for order {} in status {}", orderId, order.getStatus());
             return PaymentEventOutcome.IGNORED_STALE;
         }
-        processPayment(orderId, paymentMethod, transactionId);
+        try {
+            processPayment(orderId, paymentMethod, transactionId);
+        } catch (CustomException ex) {
+            if (!SEAT_ALREADY_TAKEN_CODE.equals(ex.getErrorCode())) {
+                throw ex;
+            }
+            compensateSeatsUnavailableAfterPayment(order);
+        }
         return PaymentEventOutcome.APPLIED;
+    }
+
+    /**
+     * Saga compensation: the customer has been charged but the seats can no longer be confirmed
+     * (taken by someone else after the hold expired). Instead of dead-lettering the event or making
+     * a synchronous HTTP call inside the consumer transaction, cancel the order and emit order.cancelled
+     * via the transactional outbox so payment-service asynchronously refunds the charge through its Saga.
+     */
+    private void compensateSeatsUnavailableAfterPayment(Order order) {
+        log.warn("Seats of order {} are unavailable after payment; cancelling order and emitting order.cancelled for async refund", order.getId());
+        order.setStatus(Order.OrderStatus.CANCELLED);
+        orderRepository.save(order);
+        bookingOutboxEventWriter.orderCancelled(order.getId(), order.getUserId(), SEATS_UNAVAILABLE_REASON);
     }
 
     @Override

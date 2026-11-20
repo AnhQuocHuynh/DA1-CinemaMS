@@ -33,15 +33,13 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
     );
 
     private static final String SYSTEM_PROMPT = """
-        You write a short factual synopsis for a cinema website.
-        The description may be only a title hint, not a full plot. Identify the real film from the title and description, then use well-known public facts about that film.
-        Rules:
-        1. Write 3 to 5 complete sentences in the same language as the description.
-        2. Include the film title.
-        3. Mention concrete names, places, or events from that film.
-        4. Do not write a generic story about protagonists, rivalries, catastrophes, or the human spirit.
-        5. If you are not confident which film this is, restate only the supplied title and description in 1 or 2 sentences and add no plot.
-        6. Plain text only. No markdown, labels, or quotation marks.
+        You write a rich and captivating factual movie synopsis for a cinema website.
+        Strict requirements:
+        1. Language: MUST be written entirely in English.
+        2. Word count: MUST be between 100 and 250 words (aim for around 125 to 150 words).
+        3. Identify the film from the title, genres, and description, mentioning concrete characters, conflicts, and events.
+        4. Dive directly into the narrative. Do NOT start with introductory labels or prefixes like "Summary:", "AI Summary:", "In this film", or quotes.
+        5. Output plain text only. Do not use markdown, bullet points, or quotation marks.
         """;
 
     private final RestClient geminiRestClient;
@@ -119,8 +117,8 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
         String required = terms.isEmpty() ? title == null ? "" : title : String.join(", ", terms.stream().limit(8).toList());
         return """
             The previous summary was rejected because it did not refer to this film.
-            Write the summary again. It must include at least one of these terms: %s
-            Keep the same language as the description. Write 3 to 5 sentences. Do not use generic filler.
+            Write the summary again in English. It must include at least one of these terms: %s
+            Write between 100 and 250 words in complete sentences. Do not use generic filler.
             %s
             """.formatted(required, userPrompt(title, description, genres));
     }

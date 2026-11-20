@@ -29,6 +29,7 @@ public class MovieController {
     private final MovieMapper movieMapper;
     private final ImdbSyncService imdbSyncService;
     private final MovieBulkImportService movieBulkImportService;
+    private final com.uit.cinema.catalog.service.Impl.MovieSummaryBackfillService movieSummaryBackfillService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<MovieResponse>>> getAllMovies() {
@@ -94,5 +95,14 @@ public class MovieController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.success(
                 Map.of("message", "Bulk import started in background", "genre", genre.trim(), "limit", normalizedLimit),
                 "Bulk import started"));
+    }
+
+    @PostMapping("/summaries/backfill")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> backfillSummaries() {
+        int count = movieSummaryBackfillService.backfillAllMissingSummaries();
+        return ResponseEntity.ok(ApiResponse.success(
+                Map.of("updatedCount", count),
+                "Movie summaries backfill completed"));
     }
 }
