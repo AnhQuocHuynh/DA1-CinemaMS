@@ -30,14 +30,23 @@ REFUSAL_MESSAGE_VI = (
     "Hôm nay tôi có thể giúp gì cho bạn về các bộ phim của chúng tôi?"
 )
 
-INTENTS = ("CINEMA_FAQ", "MOVIE_QUERY", "SHOWTIME_QUERY", "OFF_TOPIC", "ADVERSARIAL")
+INTENTS = ("CINEMA_FAQ", "MOVIE_QUERY", "SHOWTIME_QUERY", "ORDER_QUERY", "OFF_TOPIC", "ADVERSARIAL")
 
 _VI_CHAR_RE = re.compile(
     r"[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]",
     re.IGNORECASE,
 )
 _VI_ASCII_WORDS_RE = re.compile(
-    r"\b(xin\s+chao|lich\s+chieu|suat\s+chieu|hoan\s+ve|huy\s+ve|dat\s+ve|ghe\s+doi|bap\s+nuoc)\b",
+    r"\b(xin\s+chao|lich\s+chieu|suat\s+chieu|hoan\s+ve|huy\s+ve|dat\s+ve|ghe\s+doi|bap\s+nuoc"
+    r"|ve\s+cua\s+(?:toi|minh)|don\s+hang)\b",
+    re.IGNORECASE,
+)
+
+_ORDER_RE = re.compile(
+    r"\b(my\s+orders?|my\s+tickets?|my\s+bookings?|order\s+status|order\s+history"
+    r"|check\s+my\s+(?:orders?|tickets?|bookings?)"
+    r"|vé\s+của\s+(?:tôi|mình)|vé\s+đã\s+đặt|đơn\s+hàng|đơn\s+đặt\s+vé|lịch\s+sử\s+đặt\s+vé"
+    r"|ve\s+cua\s+(?:toi|minh)|ve\s+da\s+dat|don\s+hang|don\s+dat\s+ve)\b",
     re.IGNORECASE,
 )
 
@@ -96,6 +105,8 @@ def is_injection(message: str) -> bool:
 def _heuristic_intent(message: str) -> str:
     if is_injection(message):
         return "ADVERSARIAL"
+    if _ORDER_RE.search(message):
+        return "ORDER_QUERY"
     if _SHOWTIME_RE.search(message):
         return "SHOWTIME_QUERY"
     if _POLICY_FAQ_RE.search(message):

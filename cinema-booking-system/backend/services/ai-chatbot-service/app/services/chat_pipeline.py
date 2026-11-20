@@ -31,6 +31,10 @@ _FOLLOW_UPS_BY_INTENT: dict[str, list[str]] = {
         "Show today's showtimes",
         "Recommend a movie for me",
     ],
+    "ORDER_QUERY": [
+        "Show today's showtimes",
+        "What is the ticket cancellation policy?",
+    ],
 }
 
 _FOLLOW_UPS_BY_INTENT_VI: dict[str, list[str]] = {
@@ -45,6 +49,10 @@ _FOLLOW_UPS_BY_INTENT_VI: dict[str, list[str]] = {
     "MOVIE_QUERY": [
         "Xem lịch chiếu hôm nay",
         "Gợi ý phim hay cho tôi",
+    ],
+    "ORDER_QUERY": [
+        "Xem lịch chiếu hôm nay",
+        "Chính sách hủy và hoàn vé như thế nào?",
     ],
 }
 
@@ -226,7 +234,8 @@ async def finalize_chat_turn(
         reply = guarded_reply
 
     clean_reply = sanitizer.sanitize_output(reply)
-    if not is_offline:
+    is_private_order = prepared.intent == "ORDER_QUERY" or intent_router.wants_orders(message)
+    if not is_offline and not is_private_order:
         await cache_service.set_exact(redis, message, clean_reply)
         if prepared.query_embedding:
             await cache_service.set_semantic(

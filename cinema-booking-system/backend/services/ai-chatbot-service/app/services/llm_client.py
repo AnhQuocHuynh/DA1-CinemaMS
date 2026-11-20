@@ -5,6 +5,7 @@ import math
 import struct
 
 from app.core.config import settings
+from app.services import resiliency
 
 logger = logging.getLogger("cinebot.llm")
 
@@ -147,55 +148,94 @@ async def _openai_embed(text: str) -> list[float]:
 async def generate(
     prompt: str, *, temperature: float = 0.2, max_tokens: int | None = None
 ) -> str:
-    """Generate a response using the primary provider with fallback and offline safety."""
+    """Generate a response using the primary provider with transient retries, failover, and offline safety."""
     generators = {"gemini": _gemini_generate, "openai": _openai_generate}
+    retries = max(0, settings.LLM_MAX_RETRIES)
     for provider in _provider_order():
         if not _has_key(provider):
             continue
-        try:
-            text = await generators[provider](prompt, temperature, max_tokens)
-            if text:
-                return text
-        except Exception:
-            logger.warning("LLM provider %s failed during generate", provider, exc_info=True)
+        for attempt in range(retries + 1):
+            try:
+                text = await generators[provider](prompt, temperature, max_tokens)
+                if text:
+                    return text
+                break
+            except Exception as exc:
+                logger.warning(
+                    "LLM provider %s failed during generate (attempt %d/%d)",
+                    provider,
+                    attempt + 1,
+                    retries + 1,
+                    exc_info=True,
+                )
+                if attempt < retries and resiliency.is_transient_llm_error(exc):
+                    await resiliency.async_sleep(settings.LLM_RETRY_BASE_DELAY * (2**attempt))
+                    continue
+                break
 
     logger.warning("All LLM providers unavailable; returning offline fallback message")
     return OFFLINE_FALLBACK_MESSAGE
 
 
 async def stream(prompt: str, *, temperature: float = 0.2) -> AsyncIterator[str]:
-    """Stream token chunks from the primary provider with fallback before first chunk."""
+    """Stream token chunks from the primary provider with pre-chunk retries and failover."""
     streamers = {"gemini": _gemini_stream, "openai": _openai_stream}
+    retries = max(0, settings.LLM_MAX_RETRIES)
     for provider in _provider_order():
         if not _has_key(provider):
             continue
-        yielded = False
-        try:
-            async for chunk in streamers[provider](prompt, temperature):
-                yielded = True
-                yield chunk
-            if yielded:
-                return
-        except Exception:
-            logger.warning("LLM provider %s failed during stream", provider, exc_info=True)
-            if yielded:
-                return
+        for attempt in range(retries + 1):
+            yielded = False
+            try:
+                async for chunk in streamers[provider](prompt, temperature):
+                    yielded = True
+                    yield chunk
+                if yielded:
+                    return
+                break
+            except Exception as exc:
+                logger.warning(
+                    "LLM provider %s failed during stream (attempt %d/%d)",
+                    provider,
+                    attempt + 1,
+                    retries + 1,
+                    exc_info=True,
+                )
+                if yielded:
+                    return
+                if attempt < retries and resiliency.is_transient_llm_error(exc):
+                    await resiliency.async_sleep(settings.LLM_RETRY_BASE_DELAY * (2**attempt))
+                    continue
+                break
 
     logger.warning("All LLM providers unavailable; yielding offline fallback message")
     yield OFFLINE_FALLBACK_MESSAGE
 
 
 async def embed(text: str) -> list[float]:
-    """Generate a 768-dimensional embedding with provider fallback and deterministic offline mode."""
+    """Generate a 768-dimensional embedding with transient retries, failover, and offline mode."""
     embedders = {"gemini": _gemini_embed, "openai": _openai_embed}
+    retries = max(0, settings.LLM_MAX_RETRIES)
     for provider in _provider_order():
         if not _has_key(provider):
             continue
-        try:
-            vec = await embedders[provider](text)
-            if vec:
-                return vec
-        except Exception:
-            logger.warning("Embedding provider %s failed; falling back", provider, exc_info=True)
+        for attempt in range(retries + 1):
+            try:
+                vec = await embedders[provider](text)
+                if vec:
+                    return vec
+                break
+            except Exception as exc:
+                logger.warning(
+                    "Embedding provider %s failed (attempt %d/%d)",
+                    provider,
+                    attempt + 1,
+                    retries + 1,
+                    exc_info=True,
+                )
+                if attempt < retries and resiliency.is_transient_llm_error(exc):
+                    await resiliency.async_sleep(settings.LLM_RETRY_BASE_DELAY * (2**attempt))
+                    continue
+                break
 
     return _deterministic_embedding(text, EMBEDDING_DIM)

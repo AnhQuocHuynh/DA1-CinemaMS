@@ -11,6 +11,7 @@ from app.api.v1.endpoints.internal import router as internal_router
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.db.session import engine, init_db
+from app.services import downstream_client
 from app.services.catalog_indexer import reindex_catalog
 from app.workers.event_consumer import run_consumer
 
@@ -70,7 +71,10 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "circuits": downstream_client.get_circuit_breaker_states(),
+    }
 
 
 app.include_router(api_router, prefix="/api/chat")

@@ -3,7 +3,25 @@ import re
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import UserContext
-from app.services import downstream_client, llm_client, rag_service
+from app.services import answer_guard, downstream_client, guardrails, llm_client, rag_service
+
+_ORDER_PHRASES = (
+    "my order",
+    "my orders",
+    "my ticket",
+    "my tickets",
+    "my booking",
+    "my bookings",
+    "order status",
+    "order history",
+    "ve cua toi",
+    "ve cua minh",
+    "ve da dat",
+    "don hang",
+    "don dat ve",
+    "lich su dat ve",
+    "ma don",
+)
 
 _STOP_WORDS = {
     "what",
@@ -144,6 +162,55 @@ def _format_movies(movies: list[dict], recs: list[dict]) -> str | None:
     return "\n\n".join(sections) if sections else None
 
 
+def wants_orders(message: str) -> bool:
+    """Return True if the user message asks about their personal ticket orders or bookings."""
+    folded = answer_guard.fold(message)
+    if not folded:
+        return False
+    return any(phrase in folded for phrase in _ORDER_PHRASES)
+
+
+def _format_orders(orders: list[dict], lang: str = "en") -> str:
+    if not orders:
+        if lang == "vi":
+            return "Bạn hiện chưa có đơn đặt vé nào trong hệ thống."
+        return "You currently have no ticket orders on file."
+
+    header = "Đơn đặt vé của bạn:" if lang == "vi" else "Your ticket orders:"
+    lines = [header]
+    for order in orders:
+        oid = order.get("id")
+        title = (
+            order.get("displayTitle")
+            or order.get("movieTitle")
+            or order.get("eventTitle")
+            or ("Vé xem phim" if lang == "vi" else "Ticket Order")
+        )
+        start = order.get("startTime") or "TBD"
+        cinema = order.get("cinemaName") or ""
+        room = order.get("roomName") or ""
+        status = order.get("status") or "UNKNOWN"
+        seat_labels = order.get("seatLabels")
+        if isinstance(seat_labels, list):
+            seats = ", ".join(str(s) for s in seat_labels if s)
+        else:
+            seats = str(seat_labels or "")
+        final_amount = order.get("finalAmount")
+
+        venue = " - ".join(part for part in (cinema, room) if part)
+        details: list[str] = [f"{title} ({start})"]
+        if venue:
+            details.append(venue)
+        if seats:
+            details.append(f"Ghế: {seats}" if lang == "vi" else f"Seats: {seats}")
+        details.append(f"Trạng thái: {status}" if lang == "vi" else f"Status: {status}")
+        if final_amount is not None:
+            details.append(f"Tổng: {final_amount}" if lang == "vi" else f"Total: {final_amount}")
+        prefix = f"- Đơn #{oid}: " if lang == "vi" else f"- Order #{oid}: "
+        lines.append(prefix + " | ".join(details))
+    return "\n".join(lines)
+
+
 async def build_context_and_sources(
     intent: str,
     message: str,
@@ -152,25 +219,47 @@ async def build_context_and_sources(
     query_embedding: list[float] | None = None,
 ) -> tuple[str | None, list[dict]]:
     """Assemble grounded <retrieved_knowledge> context and citation sources."""
+    lang = guardrails.detect_language(message)
+
+    if intent == "ORDER_QUERY":
+        if user is None or not user.can_lookup_bookings:
+            msg = (
+                "Vui lòng đăng nhập để kiểm tra đơn hàng và vé của bạn."
+                if lang == "vi"
+                else "Please sign in to view your ticket orders and booking status."
+            )
+            return msg, []
+        orders = await downstream_client.get_user_orders(
+            user.user_id, auth_token=user.raw_token
+        )
+        return _format_orders(orders, lang=lang), []
+
+    ctx: str | None = None
+    sources: list[dict] = []
+
     if intent == "CINEMA_FAQ":
         emb = query_embedding or await llm_client.embed(message)
         faqs = await rag_service.search_faqs(emb, limit=2, db=db)
-        if not faqs:
-            return None, []
-        return rag_service.format_faq_context(faqs), rag_service.faq_sources(faqs)
+        if faqs:
+            ctx = rag_service.format_faq_context(faqs)
+            sources = rag_service.faq_sources(faqs)
 
-    if intent == "SHOWTIME_QUERY":
+    elif intent == "SHOWTIME_QUERY":
         keyword = _extract_movie_keyword(message)
         if keyword:
             movies = await downstream_client.search_movies(keyword)
             if not movies or movies[0].get("id") is None:
-                return _format_showtimes([]), []
-            showtimes = await downstream_client.get_today_showtimes(movie_id=movies[0]["id"])
+                ctx = _format_showtimes([])
+            else:
+                showtimes = await downstream_client.get_today_showtimes(
+                    movie_id=movies[0]["id"]
+                )
+                ctx = _format_showtimes(showtimes)
         else:
             showtimes = await downstream_client.get_today_showtimes(movie_id=None)
-        return _format_showtimes(showtimes), []
+            ctx = _format_showtimes(showtimes)
 
-    if intent == "MOVIE_QUERY":
+    elif intent == "MOVIE_QUERY":
         emb = query_embedding or await llm_client.embed(message)
         vector_movies = await rag_service.search_movies_vector(emb, limit=3, db=db)
         if vector_movies:
@@ -198,9 +287,17 @@ async def build_context_and_sources(
             recs = await downstream_client.get_user_recommendations(
                 user.user_id if user else None
             )
-        return _format_movies(movies, recs), sources
+        ctx = _format_movies(movies, recs)
 
-    return None, []
+    if wants_orders(message) and user is not None and user.can_lookup_bookings:
+        orders = await downstream_client.get_user_orders(
+            user.user_id, auth_token=user.raw_token
+        )
+        if orders:
+            orders_text = _format_orders(orders, lang=lang)
+            ctx = f"{ctx}\n\n{orders_text}" if ctx else orders_text
+
+    return ctx, sources
 
 
 async def build_context(
