@@ -30,7 +30,7 @@ def _install_missing_shims() -> None:
             def _decorator(self, *args, **kwargs):
                 return lambda fn: fn
 
-            get = post = put = delete = _decorator
+            get = post = put = patch = delete = _decorator
 
         class FastAPI(APIRouter):
             def __init__(self, *args, **kwargs) -> None:
@@ -46,6 +46,9 @@ def _install_missing_shims() -> None:
         def Depends(dep=None):
             return dep
 
+        def Body(default=None, **_kwargs):
+            return default
+
         def Header(default=None, **_kwargs):
             return default
 
@@ -56,6 +59,7 @@ def _install_missing_shims() -> None:
         fastapi_mod.HTTPException = HTTPException
         fastapi_mod.APIRouter = APIRouter
         fastapi_mod.FastAPI = FastAPI
+        fastapi_mod.Body = Body
         fastapi_mod.Depends = Depends
         fastapi_mod.Header = Header
         fastapi_mod.Request = Request
@@ -244,3 +248,15 @@ def pytest_pyfunc_call(pyfuncitem):
         _run_coroutine_sync(pyfuncitem.obj(**kwargs))
         return True
     return None
+
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _reset_downstream_circuit_breakers():
+    from app.services import downstream_client
+
+    downstream_client.reset_circuit_breakers()
+    yield
+    downstream_client.reset_circuit_breakers()

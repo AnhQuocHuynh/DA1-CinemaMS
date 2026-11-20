@@ -8,10 +8,17 @@ import httpx
 import pytest
 
 from app.api.v1.endpoints.chat import send_message
-from app.api.v1.endpoints.sessions import delete_session, get_session, list_sessions
+from app.api.v1.endpoints.sessions import (
+    create_session,
+    delete_session,
+    get_session,
+    list_sessions,
+    rename_session,
+)
 from app.api.v1.endpoints.stream import stream_message
-from app.core.security import UserContext
-from app.schemas.chat import ChatRequest
+from app.core import security
+from app.core.security import ActorResolver, UserContext
+from app.schemas.chat import ChatRequest, CreateSessionRequest, RenameSessionRequest
 from app.services import cache_service, downstream_client, guardrails, llm_client, session_service
 from scripts import seed_faqs as seed_script
 
@@ -148,6 +155,13 @@ class KeylessPgDb:
             self._next_msg_id += 1
             return _Result()
 
+        if "UPDATE chat_sessions SET title =" in sql:
+            sid = params["id"]
+            if sid in self.sessions:
+                self.sessions[sid]["title"] = params["title"]
+                self.sessions[sid]["updated_at"] += 1
+            return _Result()
+
         if "UPDATE chat_sessions SET updated_at" in sql:
             sid = params["session_id"]
             if sid in self.sessions:
@@ -160,11 +174,18 @@ class KeylessPgDb:
             return _Result(rows)
 
         if "FROM chat_sessions" in sql and "WHERE user_id IS NULL" in sql:
-            rows = [
-                s
-                for s in self.sessions.values()
-                if s["user_id"] is None and s["session_token"] == params["session_token"]
-            ]
+            if "keycloak_id" in params:
+                rows = [
+                    s
+                    for s in self.sessions.values()
+                    if s["user_id"] is None and s["keycloak_id"] == params["keycloak_id"]
+                ]
+            else:
+                rows = [
+                    s
+                    for s in self.sessions.values()
+                    if s["user_id"] is None and s["session_token"] == params["session_token"]
+                ]
             rows.sort(key=lambda r: r["updated_at"], reverse=True)
             return _Result(rows)
 
@@ -373,6 +394,25 @@ class FakeDownstreamHttp:
                     },
                 }
             )
+
+        if "/api/orders/users/42" in url:
+            return _FakeHttpResponse(
+                [
+                    {
+                        "id": 901,
+                        "displayTitle": "Inception",
+                        "startTime": f"{self.today}T20:00:00",
+                        "cinemaName": "Cinema Central",
+                        "roomName": "Room 3",
+                        "status": "PAID",
+                        "seatLabels": ["A1", "A2"],
+                        "finalAmount": 240000,
+                    }
+                ]
+            )
+
+        if "/api/orders/users/" in url:
+            return _FakeHttpResponse([])
 
         return _FakeHttpResponse({}, status_code=404)
 
@@ -777,4 +817,120 @@ async def test_keyless_vietnamese_unrelated_questions_refused(keyless_env, vi_un
     assert resp.reply == guardrails.REFUSAL_MESSAGE_VI
     assert resp.cached is False
     assert keyless_env.calls == []
+
+
+@pytest.mark.asyncio
+async def test_keyless_my_orders_authorized_vs_guest_and_never_cached(keyless_env):
+    db = KeylessPgDb()
+    redis = KeylessRedis()
+    guest = UserContext(user_id=None, session_token="guest-orders")
+    auth_user = UserContext(user_id=42, raw_token="tok-42")
+
+    guest_en = await send_message(
+        ChatRequest(message="Show my orders"), user=guest, db=db, redis=redis
+    )
+    assert "sign in" in guest_en.reply.lower()
+    assert guest_en.cached is False
+    assert keyless_env.calls == []
+
+    guest_vi = await send_message(
+        ChatRequest(message="Vé của tôi đâu?"), user=guest, db=db, redis=redis
+    )
+    assert "đăng nhập" in guest_vi.reply.lower()
+    assert keyless_env.calls == []
+
+    auth_en = await send_message(
+        ChatRequest(message="Show my orders"), user=auth_user, db=db, redis=redis
+    )
+    assert "Order #901" in auth_en.reply
+    assert "Inception" in auth_en.reply
+    assert "A1, A2" in auth_en.reply
+    assert "PAID" in auth_en.reply
+    assert auth_en.cached is False
+    assert redis.store == {}
+    assert db.semantic_cache == []
+    assert keyless_env.calls[-1][2] == {"X-User-Id": "42", "Authorization": "Bearer tok-42"}
+
+    auth_vi = await send_message(
+        ChatRequest(message="Kiểm tra đơn hàng của tôi"), user=auth_user, db=db, redis=redis
+    )
+    assert "Đơn #901" in auth_vi.reply
+    assert "Inception" in auth_vi.reply
+    assert redis.store == {}
+    assert db.semantic_cache == []
+
+
+@pytest.mark.asyncio
+async def test_jwt_mode_actor_resolver_and_session_rename_flow(keyless_env, monkeypatch):
+    import base64
+    import hashlib
+    import hmac
+    import time
+
+    secret = "integration-hs256-secret"
+
+    def _b64(data: bytes) -> str:
+        return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+    def _sign(claims: dict) -> str:
+        h = _b64(json.dumps({"alg": "HS256", "typ": "JWT"}).encode("utf-8"))
+        p = _b64(json.dumps(claims).encode("utf-8"))
+        sig = hmac.new(secret.encode("utf-8"), f"{h}.{p}".encode("ascii"), hashlib.sha256).digest()
+        return f"{h}.{p}.{_b64(sig)}"
+
+    monkeypatch.setattr(security.settings, "CINEMA_SECURITY_JWT_ENABLED", True)
+    monkeypatch.setattr(
+        security.settings,
+        "KEYCLOAK_ISSUER_URI",
+        "http://localhost:8080/realms/cinema-booking",
+    )
+    monkeypatch.setattr(security.settings, "KEYCLOAK_AUDIENCE", "cinema-api")
+    resolver = ActorResolver(hs256_secret=secret)
+
+    # Unauthenticated rejected with 401
+    with pytest.raises(HTTPException) as unauth:
+        await resolver.resolve(x_user_id="42")
+    assert unauth.value.status_code == 401
+
+    token = _sign(
+        {
+            "sub": "33333333-3333-3333-3333-333333333333",
+            "user_id": 42,
+            "iss": "http://localhost:8080/realms/cinema-booking",
+            "aud": "cinema-api",
+            "exp": int(time.time()) + 300,
+            "realm_access": {"roles": ["CUSTOMER"]},
+        }
+    )
+    # Spoofed X-User-Id rejected with 403
+    with pytest.raises(HTTPException) as spoofed:
+        await resolver.resolve(authorization=f"Bearer {token}", x_user_id="99")
+    assert spoofed.value.status_code == 403
+
+    user = await resolver.resolve(authorization=f"Bearer {token}")
+    assert user.user_id == 42
+    assert user.jwt_verified is True
+
+    db = KeylessPgDb()
+    redis = KeylessRedis()
+    created = await create_session(
+        req=CreateSessionRequest(title="Order Support"), user=user, db=db
+    )
+    renamed = await rename_session(
+        created["id"],
+        req=RenameSessionRequest(title="My Orders Thread"),
+        user=user,
+        db=db,
+    )
+    assert renamed["title"] == "My Orders Thread"
+
+    order_resp = await send_message(
+        ChatRequest(sessionId=created["id"], message="Show my orders"),
+        user=user,
+        db=db,
+        redis=redis,
+    )
+    assert order_resp.sessionId == created["id"]
+    assert "Order #901" in order_resp.reply
+    assert (await list_sessions(user=user, db=db))[0]["title"] == "My Orders Thread"
 
