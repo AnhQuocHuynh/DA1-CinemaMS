@@ -83,6 +83,11 @@ async def test_client_errors_404_do_not_retry_or_trip_circuit(monkeypatch):
 @pytest.mark.asyncio
 async def test_circuit_breaker_opens_fast_fails_and_recovers(monkeypatch):
     clock = [100.0]
+
+    async def noop_sleep(_delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(resiliency, "async_sleep", noop_sleep)
     monkeypatch.setattr(resiliency.time, "monotonic", lambda: clock[0])
     monkeypatch.setattr(resiliency.settings, "DOWNSTREAM_MAX_RETRIES", 1)
     monkeypatch.setattr(resiliency.settings, "CIRCUIT_BREAKER_FAILURE_THRESHOLD", 2)
@@ -211,6 +216,10 @@ async def test_showtimes_concurrent_fanout_and_health_circuits(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_llm_client_retries_transient_error_before_succeeding_or_failing_over(monkeypatch):
+    async def noop_sleep(_delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(resiliency, "async_sleep", noop_sleep)
     monkeypatch.setattr(llm_client.settings, "AI_PROVIDER", "Gemini")
     monkeypatch.setattr(llm_client.settings, "GEMINI_API_KEY", "gem-key")
     monkeypatch.setattr(llm_client.settings, "OPENAI_API_KEY", "oai-key")

@@ -2,12 +2,24 @@ import asyncio
 from collections.abc import Awaitable, Callable, Sequence
 import logging
 import random
-import time
-from typing import TypeVar
+import time as _stdlib_time
+from typing import Any, TypeVar
 
 import httpx
 
 from app.core.config import settings
+
+
+class _LocalTimeProxy:
+    """Module-local time proxy so patching resiliency.time never freezes asyncio's loop clock."""
+
+    monotonic = staticmethod(_stdlib_time.monotonic)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(_stdlib_time, name)
+
+
+time = _LocalTimeProxy()
 
 logger = logging.getLogger("cinebot.resiliency")
 
