@@ -10,12 +10,14 @@ from fastapi.responses import JSONResponse
 from app.api.v1.endpoints.internal import router as internal_router
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.logging_filters import configure_access_log_filters
 from app.db.session import engine, init_db
 from app.services import downstream_client
 from app.services.catalog_indexer import reindex_catalog
 from app.workers.event_consumer import run_consumer
 
 logger = logging.getLogger("cinebot")
+configure_access_log_filters()
 
 
 async def _safe_reindex() -> None:
@@ -31,6 +33,7 @@ async def _safe_reindex() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configure_access_log_filters()
     await init_db()
     app.state.redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     if settings.REINDEX_ON_STARTUP:
