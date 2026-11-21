@@ -1,6 +1,7 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Check, MessageSquare, Pencil, Plus, Send, Trash2, X } from 'lucide-react';
+import keycloak from '../lib/keycloak';
+import { authService } from '../services/authService';
 import {
   ChatMessage,
   ChatSessionSummary,
@@ -11,31 +12,65 @@ import {
   renameSession,
   streamChatMessage,
 } from '../services/chatbotApi';
+import { useAuthStore } from '../store/authStore';
+import { useChatUiStore } from '../store/chatUiStore';
+import { ChatLauncher } from './chat/ChatLauncher';
+import { ChatWindow } from './chat/ChatWindow';
+import { useCinebotTranslation } from './chat/useCinebotTranslation';
+import type { FailedChatAction } from './chat/types';
 
 const MAX_MESSAGE_LENGTH = 500;
 
 export function CinemaAssistant() {
+  const { t, lang: currentLang } = useCinebotTranslation();
   const location = useLocation();
   const hidden =
     location.pathname.startsWith('/admin') || location.pathname.startsWith('/staff');
+  const authUser = useAuthStore((s) => s.user);
+  const isAuthenticated = Boolean(authUser) || Boolean(keycloak.authenticated);
 
-  const [open, setOpen] = useState(false);
+  const isOpen = useChatUiStore((s) => s.isOpen);
+  const isExpanded = useChatUiStore((s) => s.isExpanded);
+  const activeId = useChatUiStore((s) => s.activeSessionId);
+  const hasVisited = useChatUiStore((s) => s.hasVisited);
+  const feedbackByMessage = useChatUiStore((s) => s.feedbackByMessage);
+  const setOpen = useChatUiStore((s) => s.setOpen);
+  const toggleOpen = useChatUiStore((s) => s.toggleOpen);
+  const toggleExpanded = useChatUiStore((s) => s.toggleExpanded);
+  const setActiveId = useChatUiStore((s) => s.setActiveSessionId);
+  const markVisited = useChatUiStore((s) => s.markVisited);
+  const setMessageFeedback = useChatUiStore((s) => s.setMessageFeedback);
+
   const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState('');
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [failedAction, setFailedAction] = useState<FailedChatAction | null>(null);
+  const [scrollTrigger, setScrollTrigger] = useState(0);
+  const [retryCounter, setRetryCounter] = useState(0);
+
   const skipNextFetchRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const launcherRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!open || hidden) {
+    if (!isOpen || hidden) {
       return;
     }
+    if (!isAuthenticated) {
+      setSessions([]);
+      setActiveId(null);
+      setErrorKey(null);
+      setFailedAction(null);
+      return;
+    }
+
     let cancelled = false;
-    setError('');
+    setErrorKey(null);
+    setFailedAction(null);
+
     listSessions()
       .then(async (found) => {
         if (cancelled) {
@@ -46,123 +81,142 @@ export function CinemaAssistant() {
           return;
         }
         setSessions(next);
-        setActiveId((current) => current ?? next[0]?.id ?? null);
+        const storedId = useChatUiStore.getState().activeSessionId;
+        const stillExists = storedId && next.some((item) => item.id === storedId);
+        if (!stillExists) {
+          setActiveId(next[0]?.id ?? null);
+        }
       })
       .catch(() => {
         if (!cancelled) {
-          setError('Unable to connect to CineBot assistant.');
+          setErrorKey('cinebot.errors.connect');
+          setFailedAction({ type: 'sessions' });
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [open, hidden]);
+  }, [isOpen, hidden, isAuthenticated, retryCounter, setActiveId]);
 
   useEffect(() => {
-    if (!open || !activeId) {
+    if (!isOpen || !activeId || !isAuthenticated || hidden) {
       return;
     }
     if (skipNextFetchRef.current) {
       skipNextFetchRef.current = false;
       return;
     }
+
     let cancelled = false;
+    setLoadingMessages(true);
+    setErrorKey(null);
+    setFailedAction(null);
+
     getSessionDetail(activeId)
       .then((detail) => {
         if (!cancelled) {
           setMessages(detail.messages ?? []);
+          setScrollTrigger((n) => n + 1);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setError('Unable to load conversation messages.');
+          setErrorKey('cinebot.errors.loadMessages');
+          setFailedAction({ type: 'messages', sessionId: activeId });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingMessages(false);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [open, activeId]);
+  }, [isOpen, activeId, isAuthenticated, hidden, retryCounter]);
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   if (hidden) {
     return null;
   }
 
   async function handleCreateSession() {
-    setError('');
+    setErrorKey(null);
+    setFailedAction(null);
     try {
       const created = await createSession();
       skipNextFetchRef.current = true;
       setSessions((current) => [created, ...current]);
       setActiveId(created.id);
       setMessages([]);
-      setEditingId(null);
     } catch {
-      setError('Unable to create conversation.');
+      setErrorKey('cinebot.errors.createSession');
     }
   }
 
-  function startEditing(session: ChatSessionSummary) {
-    setEditingId(session.id);
-    setEditingTitle(session.title || '');
-    setError('');
-  }
-
-  async function submitRename(sessionId: string) {
-    const trimmed = editingTitle.trim();
+  async function handleRenameSession(sessionId: string, title: string): Promise<boolean> {
+    const trimmed = title.trim();
     if (!trimmed) {
-      setError('Conversation title cannot be blank.');
-      return;
+      setErrorKey('cinebot.errors.renameEmpty');
+      return false;
     }
-    setError('');
+    setErrorKey(null);
     try {
       const updated = await renameSession(sessionId, trimmed);
       setSessions((current) =>
         current.map((item) => (item.id === sessionId ? { ...item, title: updated.title } : item)),
       );
-      setEditingId(null);
-      setEditingTitle('');
+      return true;
     } catch {
-      setError('Unable to rename conversation.');
+      setErrorKey('cinebot.errors.renameFailed');
+      return false;
     }
   }
 
-  async function handleDeleteSession(id: string) {
-    setError('');
+  async function handleDeleteSession(sessionId: string): Promise<boolean> {
+    setErrorKey(null);
     try {
-      await deleteSession(id);
-      const remaining = sessions.filter((item) => item.id !== id);
+      await deleteSession(sessionId);
+      const remaining = sessions.filter((item) => item.id !== sessionId);
       setSessions(remaining);
-      if (editingId === id) {
-        setEditingId(null);
-      }
-      if (activeId === id) {
+      if (activeId === sessionId) {
         setActiveId(remaining[0]?.id ?? null);
         setMessages([]);
       }
+      return true;
     } catch {
-      setError('Unable to delete conversation.');
+      setErrorKey('cinebot.errors.deleteFailed');
+      return false;
     }
   }
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    const text = draft.trim();
+  async function streamTurn(
+    text: string,
+    options?: { replaceLastAssistant?: boolean },
+  ) {
     if (!text || text.length > MAX_MESSAGE_LENGTH || sending) {
       return;
     }
 
-    setSending(true);
-    setError('');
-    setDraft('');
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
-    const userMsg: ChatMessage = {
-      id: `local-user-${Date.now()}`,
-      role: 'user',
-      content: text,
-      createdAt: new Date().toISOString(),
-    };
+    setSending(true);
+    setErrorKey(null);
+    setFailedAction(null);
+    if (!options?.replaceLastAssistant) {
+      setDraft('');
+    }
+    setScrollTrigger((n) => n + 1);
+
     const assistantId = `local-assistant-${Date.now()}`;
     const placeholderMsg: ChatMessage = {
       id: assistantId,
@@ -172,237 +226,199 @@ export function CinemaAssistant() {
       createdAt: new Date().toISOString(),
     };
 
-    setMessages((current) => [...current, userMsg, placeholderMsg]);
+    if (options?.replaceLastAssistant) {
+      setMessages((current) => {
+        const lastIdx = current.length - 1;
+        if (lastIdx >= 0 && current[lastIdx].role === 'assistant') {
+          return [...current.slice(0, lastIdx), placeholderMsg];
+        }
+        return [...current, placeholderMsg];
+      });
+    } else {
+      const userMsg: ChatMessage = {
+        id: `local-user-${Date.now()}`,
+        role: 'user',
+        content: text,
+        createdAt: new Date().toISOString(),
+      };
+      setMessages((current) => [...current, userMsg, placeholderMsg]);
+    }
+
+    let resolvedSessionId = activeId;
 
     try {
-      await streamChatMessage(activeId, text, (payload) => {
-        if (!payload.done && payload.chunk) {
-          setMessages((current) =>
-            current.map((item) =>
-              item.id === assistantId
-                ? { ...item, content: item.content + payload.chunk }
-                : item,
-            ),
-          );
-          return;
-        }
-
-        if (payload.done) {
-          if (payload.sessionId && payload.sessionId !== activeId) {
-            skipNextFetchRef.current = true;
-            setActiveId(payload.sessionId);
+      await streamChatMessage(
+        isAuthenticated ? activeId : null,
+        text,
+        (payload) => {
+          if (!payload.done && payload.chunk) {
+            setMessages((current) =>
+              current.map((item) =>
+                item.id === assistantId
+                  ? { ...item, content: item.content + payload.chunk }
+                  : item,
+              ),
+            );
+            return;
           }
 
-          setMessages((current) =>
-            current.map((item) => {
-              if (item.id !== assistantId) {
-                return item;
-              }
-              if (payload.replacement) {
+          if (payload.done) {
+            if (isAuthenticated && payload.sessionId && payload.sessionId !== activeId) {
+              skipNextFetchRef.current = true;
+              resolvedSessionId = payload.sessionId;
+              setActiveId(payload.sessionId);
+            }
+
+            setMessages((current) =>
+              current.map((item) => {
+                if (item.id !== assistantId) {
+                  return item;
+                }
+                if (payload.replacement) {
+                  return {
+                    ...item,
+                    content: payload.replacement,
+                    sources: [],
+                    cached: false,
+                    suggestedFollowUps: payload.suggestedFollowUps,
+                  };
+                }
                 return {
                   ...item,
-                  content: payload.replacement,
-                  sources: [],
-                  cached: false,
+                  sources: payload.sources ?? [],
+                  cached: Boolean(payload.cached),
+                  suggestedFollowUps: payload.suggestedFollowUps,
                 };
+              }),
+            );
+          }
+        },
+        currentLang,
+        controller.signal,
+      );
+
+      if (isAuthenticated) {
+        const currentSession = sessions.find((s) => s.id === resolvedSessionId);
+        if (!currentSession || !currentSession.title) {
+          listSessions()
+            .then((updated) => {
+              if (updated.length > 0) {
+                setSessions(updated);
               }
-              return {
-                ...item,
-                sources: payload.sources ?? [],
-                cached: Boolean(payload.cached),
-              };
-            }),
-          );
+            })
+            .catch(() => { });
         }
-      });
-    } catch {
-      setError('Unable to reach CineBot right now.');
+      }
+    } catch (err) {
+      if ((err as { name?: string } | null)?.name === 'AbortError') {
+        return;
+      }
+      setErrorKey('cinebot.errors.sendFailed');
+      setFailedAction({ type: 'send', text });
     } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
       setSending(false);
     }
   }
 
+  function handleStop() {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setSending(false);
+  }
+
+  function handleRegenerate() {
+    if (sending) {
+      return;
+    }
+    let lastAssistantIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i].role === 'assistant') {
+        lastAssistantIdx = i;
+        break;
+      }
+    }
+    if (lastAssistantIdx <= 0) {
+      return;
+    }
+    for (let i = lastAssistantIdx - 1; i >= 0; i -= 1) {
+      if (messages[i].role === 'user' && messages[i].content.trim()) {
+        void streamTurn(messages[i].content.trim(), { replaceLastAssistant: true });
+        return;
+      }
+    }
+  }
+
+  function handleRetry() {
+    if (!failedAction) {
+      return;
+    }
+    if (failedAction.type === 'sessions' || failedAction.type === 'messages') {
+      setErrorKey(null);
+      setFailedAction(null);
+      setRetryCounter((n) => n + 1);
+      return;
+    }
+    if (failedAction.type === 'send') {
+      const last = messages[messages.length - 1];
+      const replaceLast = last?.role === 'assistant' && !last.content;
+      void streamTurn(failedAction.text, { replaceLastAssistant: replaceLast });
+    }
+  }
+
   return (
-    <div className="fixed bottom-4 right-4 z-50">
-      {open && (
-        <div className="mb-3 flex h-[30rem] w-[26rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-outline bg-surface text-on-surface shadow-xl">
-          <div className="flex items-center justify-between border-b border-outline px-3 py-2 bg-surface-container-low">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-primary" />
-              <p className="text-sm font-semibold">CineBot Assistant</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-primary hover:bg-surface-container"
-                onClick={() => handleCreateSession()}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                New chat
-              </button>
-              <button
-                type="button"
-                aria-label="Close assistant"
-                className="rounded p-1 text-on-surface-variant hover:bg-surface-container"
-                onClick={() => setOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+    <>
+      <ChatWindow
+        isOpen={isOpen}
+        isExpanded={isExpanded}
+        isAuthenticated={isAuthenticated}
+        sessions={sessions}
+        activeId={activeId}
+        messages={messages}
+        draft={draft}
+        maxLength={MAX_MESSAGE_LENGTH}
+        sending={sending}
+        loadingMessages={loadingMessages}
+        error={errorKey ? t(errorKey) : ''}
+        canRetry={Boolean(failedAction)}
+        lang={currentLang}
+        feedbackByMessage={feedbackByMessage}
+        scrollTrigger={scrollTrigger}
+        launcherRef={launcherRef}
+        onClose={() => setOpen(false)}
+        onToggleExpand={toggleExpanded}
+        onNewChat={() => void handleCreateSession()}
+        onSelectSession={(sessionId) => {
+          setErrorKey(null);
+          setFailedAction(null);
+          setActiveId(sessionId);
+        }}
+        onRenameSession={handleRenameSession}
+        onDeleteSession={handleDeleteSession}
+        onClearGuest={() => {
+          setMessages([]);
+          setErrorKey(null);
+          setFailedAction(null);
+        }}
+        onSignIn={() => void authService.login()}
+        onDraftChange={setDraft}
+        onSend={() => void streamTurn(draft.trim())}
+        onStop={handleStop}
+        onSelectPrompt={(prompt) => void streamTurn(prompt.trim())}
+        onRegenerate={handleRegenerate}
+        onFeedback={setMessageFeedback}
+        onRetry={handleRetry}
+      />
 
-          <div className="flex min-h-0 flex-1">
-            <aside className="w-36 shrink-0 overflow-y-auto border-r border-outline bg-surface-container-lowest">
-              {sessions.map((session) => {
-                const isActive = session.id === activeId;
-                const isEditing = editingId === session.id;
-                return (
-                  <div
-                    key={session.id}
-                    className={`border-b border-outline/40 p-2 ${isActive ? 'bg-surface-container' : ''}`}
-                  >
-                    {isEditing ? (
-                      <div className="space-y-1">
-                        <input
-                          value={editingTitle}
-                          maxLength={255}
-                          onChange={(e) => setEditingTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              submitRename(session.id);
-                            } else if (e.key === 'Escape') {
-                              setEditingId(null);
-                            }
-                          }}
-                          className="w-full rounded border border-outline bg-surface px-1.5 py-0.5 text-xs"
-                          aria-label="Edit conversation title"
-                        />
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            aria-label="Save title"
-                            className="rounded p-0.5 text-success hover:bg-surface-container-high"
-                            onClick={() => submitRename(session.id)}
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Cancel rename"
-                            className="rounded p-0.5 text-on-surface-variant hover:bg-surface-container-high"
-                            onClick={() => setEditingId(null)}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          className="block w-full truncate text-left text-xs font-medium"
-                          title={session.title || 'New Conversation'}
-                          onClick={() => setActiveId(session.id)}
-                        >
-                          {session.title || 'New Conversation'}
-                        </button>
-                        <div className="mt-1 flex items-center gap-2 text-on-surface-variant">
-                          <button
-                            type="button"
-                            aria-label="Rename conversation"
-                            className="hover:text-on-surface"
-                            onClick={() => startEditing(session)}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Delete conversation"
-                            className="hover:text-error"
-                            onClick={() => handleDeleteSession(session.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </aside>
-
-            <div className="flex min-w-0 flex-1 flex-col">
-              <div className="flex-1 space-y-2.5 overflow-y-auto p-3 text-sm">
-                {messages.length === 0 && (
-                  <p className="text-xs text-on-surface-variant">
-                    Ask about movies, showtimes, cinema policies, or your ticket orders.
-                  </p>
-                )}
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={message.role === 'user' ? 'flex justify-end' : 'flex flex-col items-start'}
-                  >
-                    <div
-                      className={`max-w-[90%] whitespace-pre-wrap rounded-lg px-2.5 py-1.5 text-xs leading-relaxed ${
-                        message.role === 'user'
-                          ? 'bg-primary-container text-on-primary-container'
-                          : 'bg-surface-container text-on-surface'
-                      }`}
-                    >
-                      {message.content || (sending ? '...' : '')}
-                    </div>
-                    {message.sources && message.sources.length > 0 && (
-                      <details className="mt-1 max-w-[90%] text-[11px] text-on-surface-variant">
-                        <summary className="cursor-pointer font-medium">
-                          Sources ({message.sources.length})
-                        </summary>
-                        <div className="mt-1 space-y-1 border-l-2 border-outline/60 pl-2">
-                          {message.sources.map((src, idx) => (
-                            <p key={`${src.type}-${src.id ?? idx}`}>
-                              <span className="font-semibold">{src.title}</span>
-                              {src.snippet ? `: ${src.snippet}` : ''}
-                            </p>
-                          ))}
-                        </div>
-                      </details>
-                    )}
-                  </div>
-                ))}
-                {error && <p className="text-xs text-error">{error}</p>}
-              </div>
-
-              <form onSubmit={handleSubmit} className="flex gap-2 border-t border-outline p-2">
-                <input
-                  value={draft}
-                  maxLength={MAX_MESSAGE_LENGTH}
-                  onChange={(e) => setDraft(e.target.value)}
-                  placeholder="Ask about movies, showtimes, or orders..."
-                  className="min-w-0 flex-1 rounded border border-outline bg-surface px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-                <button
-                  type="submit"
-                  aria-label="Send message"
-                  disabled={sending || draft.trim().length === 0}
-                  className="inline-flex items-center justify-center rounded bg-primary-container px-2.5 py-1 text-xs text-on-primary-container disabled:opacity-50"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <button
-        type="button"
-        className="inline-flex items-center gap-2 rounded-full bg-primary-container px-4 py-2.5 text-sm font-medium text-on-primary-container shadow-lg hover:opacity-95"
-        onClick={() => setOpen((current) => !current)}
-      >
-        <MessageSquare className="h-4 w-4" />
-        {open ? 'Close CineBot' : 'CineBot'}
-      </button>
-    </div>
+      <ChatLauncher
+        isOpen={isOpen}
+        hasVisited={hasVisited}
+        onToggle={toggleOpen}
+        onDismissTooltip={markVisited}
+        buttonRef={launcherRef}
+      />
+    </>
   );
 }

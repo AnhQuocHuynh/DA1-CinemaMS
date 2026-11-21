@@ -1178,5 +1178,132 @@
     "operationalDashboard": "Operational Dashboard",
     "title": "Room Rental Operations",
     "subtitle": "Review customer room rental requests, approve or reject bookings, and process counter cash payments."
+  },
+  "cinebot": {
+    "launcherLabel": "CineBot",
+    "openAssistant": "Open CineBot assistant",
+    "closeAssistant": "Close CineBot assistant",
+    "minimizeAssistant": "Minimize CineBot",
+    "firstVisitTooltip": "Ask me anything",
+    "dismissTooltip": "Dismiss tip",
+    "name": "CineBot",
+    "dialogLabel": "CineBot AI Assistant",
+    "online": "Online",
+    "guestBadge": "Guest FAQ",
+    "newChat": "New chat",
+    "history": "History",
+    "expand": "Expand view",
+    "collapse": "Compact view",
+    "clearChat": "Clear",
+    "signIn": "Sign in",
+    "untitledChat": "New conversation",
+    "searchPlaceholder": "Search conversations...",
+    "clearSearch": "Clear search",
+    "noConversations": "No conversations yet",
+    "noSearchResults": "No matching conversations",
+    "loadingMessages": "Loading conversation...",
+    "groups": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "previous7Days": "Previous 7 days",
+      "older": "Older"
+    },
+    "rename": "Rename",
+    "delete": "Delete",
+    "deleteConfirmPrompt": "Delete?",
+    "confirmDelete": "Confirm delete",
+    "cancel": "Cancel",
+    "save": "Save",
+    "renameInputLabel": "Edit conversation title",
+    "greetingTitle": "Hi, I'm CineBot 👋",
+    "greetingSubtitle": "How can I help you today?",
+    "guestSubtitle": "Ask cinema FAQs in guest mode, or sign in for movies, showtimes, and your tickets.",
+    "suggestions": {
+      "showtimes": {
+        "label": "Today's showtimes",
+        "prompt": "What movies are showing today?"
+      },
+      "tickets": {
+        "label": "My tickets",
+        "prompt": "Show my tickets and orders"
+      },
+      "refund": {
+        "label": "Refund policy",
+        "prompt": "What is the ticket cancellation and refund policy?"
+      },
+      "rental": {
+        "label": "Room rental",
+        "prompt": "How does private screening room rental work?"
+      }
+    },
+    "guestSuggestions": {
+      "refund": {
+        "label": "Refund policy",
+        "prompt": "What is the ticket cancellation and refund policy?"
+      },
+      "seats": {
+        "label": "Seat classes & rooms",
+        "prompt": "What seat classes and screening room types are available?"
+      },
+      "payment": {
+        "label": "Payment methods",
+        "prompt": "What payment methods are accepted and how long are seats held?"
+      },
+      "ratings": {
+        "label": "Age ratings",
+        "prompt": "What do the movie age ratings P, K, T13, T16, T18, and C mean?"
+      }
+    },
+    "thinking": "Thinking...",
+    "copy": "Copy",
+    "copied": "Copied",
+    "regenerate": "Regenerate",
+    "helpful": "Helpful",
+    "notHelpful": "Not helpful",
+    "sources": "Sources",
+    "jumpToLatest": "Jump to latest",
+    "retry": "Retry",
+    "stopped": "Generation stopped",
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago",
+    "ticket": {
+      "orderNumber": "Order #{{id}}",
+      "theater": "Theater",
+      "room": "Room",
+      "seats": "Seats",
+      "showtime": "Showtime",
+      "total": "Total",
+      "viewMyTickets": "View in My Tickets",
+      "status": {
+        "CONFIRMED": "Confirmed",
+        "PAID": "Paid",
+        "COMPLETED": "Completed",
+        "PENDING": "Pending",
+        "AWAITING_PAYMENT": "Awaiting Payment",
+        "CANCELLED": "Cancelled",
+        "REFUNDED": "Refunded",
+        "EXPIRED": "Expired",
+        "FAILED": "Failed",
+        "UNKNOWN": "Unknown"
+      }
+    },
+    "placeholder": "Ask about movies, showtimes, or orders…",
+    "placeholderShort": "Ask CineBot…",
+    "guestPlaceholder": "Ask a cinema FAQ (refunds, seats, payments)…",
+    "messageInputLabel": "Message CineBot",
+    "send": "Send message",
+    "stop": "Stop generating",
+    "disclaimer": "CineBot can make mistakes. Check important info.",
+    "errors": {
+      "connect": "Unable to connect to CineBot assistant.",
+      "loadMessages": "Unable to load conversation messages.",
+      "createSession": "Unable to create conversation.",
+      "renameEmpty": "Conversation title cannot be blank.",
+      "renameFailed": "Unable to rename conversation.",
+      "deleteFailed": "Unable to delete conversation.",
+      "sendFailed": "Unable to reach CineBot right now."
+    }
   }
 }

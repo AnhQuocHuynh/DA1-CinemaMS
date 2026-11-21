@@ -161,4 +161,82 @@ describe('chatbotApi', () => {
     expect(events2[1].sources).toEqual([]);
     expect(events2[1].replacement).toBe('Refusal message');
   });
+
+  it('streams stateless guest FAQ responses with sessionId: null', async () => {
+    const encoder = new TextEncoder();
+    const sseBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"chunk":"Standard tickets can be cancelled up to 60 minutes before showtime.","done":false}\n\n' +
+              'data: {"chunk":"","done":true,"cached":false,"sessionId":null,"sources":[{"type":"faq","id":1,"title":"Refund policy","snippet":"60 minutes","similarity":0.96}]}\n\n',
+          ),
+        );
+        controller.close();
+      },
+    });
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(sseBody, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const events: ChatStreamEventPayload[] = [];
+    await streamChatMessage(null, 'What is the refund policy?', (ev) => events.push(ev));
+    expect(fetchMock.mock.calls[0][1].body).toBe(
+      JSON.stringify({ sessionId: null, message: 'What is the refund policy?' }),
+    );
+    expect(events).toHaveLength(2);
+    expect(events[1].done).toBe(true);
+    expect(events[1].sessionId).toBeNull();
+    expect(events[1].sources?.[0].type).toBe('faq');
+  });
+
+  it('includes language in request body when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          sessionId: 's-2',
+          reply: 'Xin chào!',
+          cached: false,
+          suggestedFollowUps: [],
+          sources: [],
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await sendChatMessage('Hello', 's-2', 'vi');
+    expect(res.reply).toBe('Xin chào!');
+    expect(fetchMock.mock.calls[0][1].body).toBe(
+      JSON.stringify({ sessionId: 's-2', message: 'Hello', language: 'vi' }),
+    );
+  });
+
+  it('aborts streamChatMessage cleanly when AbortSignal is triggered', async () => {
+    const controller = new AbortController();
+    const cancelSpy = vi.fn().mockResolvedValue(undefined);
+    const readerMock = {
+      read: vi.fn().mockImplementation(
+        () =>
+          new Promise(() => {
+            // Never resolves unless cancelled/aborted
+          }),
+      ),
+      cancel: cancelSpy,
+    };
+
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: {
+        getReader: () => readerMock,
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const streamPromise = streamChatMessage('s-1', 'Hi', vi.fn(), 'en', controller.signal);
+    controller.abort();
+
+    await expect(streamPromise).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetchMock.mock.calls[0][1].signal).toBe(controller.signal);
+  });
 });

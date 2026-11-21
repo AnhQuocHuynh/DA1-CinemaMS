@@ -39,6 +39,7 @@ export interface ChatMessage {
   cached?: boolean;
   createdAt?: string | null;
   sources?: ChatSource[];
+  suggestedFollowUps?: string[];
 }
 
 export interface ChatSessionDetail extends ChatSessionSummary {
@@ -57,9 +58,10 @@ export interface ChatStreamEventPayload {
   chunk: string;
   done: boolean;
   cached?: boolean;
-  sessionId?: string;
+  sessionId?: string | null;
   sources?: ChatSource[];
   replacement?: string;
+  suggestedFollowUps?: string[];
 }
 
 function generateSessionToken(): string {
@@ -159,11 +161,15 @@ export async function deleteSession(sessionId: string): Promise<void> {
 export async function sendChatMessage(
   message: string,
   sessionId?: string | null,
+  language?: 'en' | 'vi',
 ): Promise<ChatResponse> {
+  const body = language
+    ? { sessionId: sessionId ?? null, message, language }
+    : { sessionId: sessionId ?? null, message };
   const response = await fetch(`${CHAT_API_URL}/message`, {
     method: 'POST',
     headers: await buildHeaders(),
-    body: JSON.stringify({ sessionId: sessionId ?? null, message }),
+    body: JSON.stringify(body),
   });
   return readJson<ChatResponse>(response);
 }
@@ -172,11 +178,20 @@ export async function streamChatMessage(
   sessionId: string | null,
   message: string,
   onPayload: (payload: ChatStreamEventPayload) => void,
+  language?: 'en' | 'vi',
+  signal?: AbortSignal,
 ): Promise<void> {
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
+  const body = language
+    ? { sessionId, message, language }
+    : { sessionId, message };
   const response = await fetch(`${CHAT_API_URL}/stream`, {
     method: 'POST',
     headers: await buildHeaders(),
-    body: JSON.stringify({ sessionId, message }),
+    body: JSON.stringify(body),
+    signal,
   });
   if (!response.ok || !response.body) {
     throw new Error(`Chatbot HTTP ${response.status}`);
@@ -186,23 +201,38 @@ export async function streamChatMessage(
   const decoder = new TextDecoder();
   let buffer = '';
 
-  while (true) {
-    const chunk = await reader.read();
-    if (chunk.done) {
-      break;
-    }
-    buffer += decoder.decode(chunk.value, { stream: true }).replace(/\r\n/g, '\n');
-    let splitAt = buffer.indexOf('\n\n');
-    while (splitAt >= 0) {
-      emitSseFrame(buffer.slice(0, splitAt), onPayload);
-      buffer = buffer.slice(splitAt + 2);
-      splitAt = buffer.indexOf('\n\n');
-    }
-  }
+  const onAbort = () => {
+    void reader.cancel().catch(() => {});
+  };
+  signal?.addEventListener('abort', onAbort, { once: true });
 
-  const trailing = buffer.trim();
-  if (trailing) {
-    emitSseFrame(trailing, onPayload);
+  try {
+    while (true) {
+      if (signal?.aborted) {
+        throw new DOMException('Aborted', 'AbortError');
+      }
+      const chunk = await reader.read();
+      if (signal?.aborted) {
+        throw new DOMException('Aborted', 'AbortError');
+      }
+      if (chunk.done) {
+        break;
+      }
+      buffer += decoder.decode(chunk.value, { stream: true }).replace(/\r\n/g, '\n');
+      let splitAt = buffer.indexOf('\n\n');
+      while (splitAt >= 0) {
+        emitSseFrame(buffer.slice(0, splitAt), onPayload);
+        buffer = buffer.slice(splitAt + 2);
+        splitAt = buffer.indexOf('\n\n');
+      }
+    }
+
+    const trailing = buffer.trim();
+    if (trailing) {
+      emitSseFrame(trailing, onPayload);
+    }
+  } finally {
+    signal?.removeEventListener('abort', onAbort);
   }
 }
 
