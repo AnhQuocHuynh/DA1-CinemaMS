@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     AI_PROVIDER: str = "Gemini"
     GEMINI_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-1.5-flash"
-    EMBEDDING_MODEL: str = "text-embedding-004"
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
+    EMBEDDING_MODEL: str = "gemini-embedding-001"
 
     CATALOG_SERVICE_URL: str = "http://localhost:8081"
     SHOWTIME_SERVICE_URL: str = "http://localhost:8082"
@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     EXACT_CACHE_TTL_SECONDS: int = 24 * 3600
     SEMANTIC_CACHE_TTL_DAYS: int = 7
     SEMANTIC_CACHE_THRESHOLD: float = 0.94
-    FAQ_SIMILARITY_THRESHOLD: float = 0.80
+    FAQ_SIMILARITY_THRESHOLD: float = 0.55
     FAQ_RELATIVE_MARGIN: float = 0.08
     MOVIE_RELATIVE_MARGIN: float = 0.08
     REINDEX_ON_STARTUP: bool = True

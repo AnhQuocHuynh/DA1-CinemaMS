@@ -12,8 +12,15 @@ def build_prompt(
     user_query: str,
     knowledge: str | None = None,
     history: list[dict] | None = None,
+    preferred_lang: str | None = None,
 ) -> str:
-    parts = [SYSTEM_PROMPT]
+    system_prompt = SYSTEM_PROMPT
+    if preferred_lang == "vi":
+        system_prompt += (
+            "6. The user's interface language is Vietnamese (vi); "
+            "reply in Vietnamese unless the user explicitly asks in English.\n"
+        )
+    parts = [system_prompt]
     if knowledge:
         parts.append(f"<retrieved_knowledge>\n{knowledge}\n</retrieved_knowledge>")
     if history:

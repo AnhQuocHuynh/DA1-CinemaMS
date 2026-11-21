@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import re
 from typing import Any
@@ -63,6 +64,10 @@ def exact_key(text: str) -> str:
     return "cache:chat:exact:" + hashlib.sha256(normalize(text).encode()).hexdigest()
 
 
+def faq_exact_key(text: str) -> str:
+    return "cache:chat:faq:exact:" + hashlib.sha256(normalize(text).encode()).hexdigest()
+
+
 def query_hash(text: str) -> str:
     return hashlib.sha256(normalize(text).encode()).hexdigest()
 
@@ -106,6 +111,52 @@ async def set_exact(
         return True
     except Exception:
         logger.warning("Redis exact cache write failed", exc_info=True)
+        return False
+
+
+async def get_faq_exact(redis_client: Any, text: str) -> tuple[str, list[dict]] | None:
+    """Look up a direct FAQ response and citations in the isolated guest FAQ L1 cache."""
+    if redis_client is None:
+        return None
+    try:
+        value = await redis_client.get(faq_exact_key(text))
+        if value is None:
+            return None
+        if isinstance(value, bytes):
+            value = value.decode("utf-8")
+        payload = json.loads(value)
+        if not isinstance(payload, dict):
+            return None
+        reply = payload.get("reply")
+        sources = payload.get("sources")
+        if not isinstance(reply, str) or not reply:
+            return None
+        clean_sources = (
+            [s for s in sources if isinstance(s, dict)] if isinstance(sources, list) else []
+        )
+        return reply, clean_sources
+    except Exception:
+        logger.warning("Redis guest FAQ cache lookup failed", exc_info=True)
+        return None
+
+
+async def set_faq_exact(
+    redis_client: Any,
+    text: str,
+    response_text: str,
+    sources: list[dict] | None = None,
+    ttl_seconds: int | None = None,
+) -> bool:
+    """Store a direct FAQ response and citations in the isolated guest FAQ L1 cache."""
+    if redis_client is None or not response_text:
+        return False
+    ttl = settings.EXACT_CACHE_TTL_SECONDS if ttl_seconds is None else ttl_seconds
+    payload = json.dumps({"reply": response_text, "sources": sources or []})
+    try:
+        await redis_client.setex(faq_exact_key(text), ttl, payload)
+        return True
+    except Exception:
+        logger.warning("Redis guest FAQ cache write failed", exc_info=True)
         return False
 
 

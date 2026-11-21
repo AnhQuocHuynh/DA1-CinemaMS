@@ -139,10 +139,31 @@ async def test_actor_resolver_jwt_enabled_rejects_missing_expired_wrong_aud_or_i
     )
     monkeypatch.setattr(security.settings, "KEYCLOAK_AUDIENCE", "cinema-api")
 
-    # Missing token -> 401
-    with pytest.raises(HTTPException) as missing:
-        await resolver.resolve(x_user_id="42")
-    assert missing.value.status_code == 401
+    # Missing token -> anonymous guest UserContext ignoring spoofed headers
+    anon_ctx = await resolver.resolve(
+        x_user_id="42",
+        x_keycloak_id="kc-spoof",
+        x_user_roles="ADMIN,STAFF",
+        x_session_token="guest-sess-1",
+    )
+    assert anon_ctx.user_id is None
+    assert anon_ctx.keycloak_id is None
+    assert anon_ctx.roles == []
+    assert anon_ctx.session_token == "guest-sess-1"
+    assert anon_ctx.raw_token is None
+    assert anon_ctx.jwt_verified is False
+    assert anon_ctx.is_authenticated is False
+    assert anon_ctx.can_lookup_bookings is False
+
+    with pytest.raises(HTTPException) as anon_exc:
+        security.ensure_authenticated_user(anon_ctx)
+    assert anon_exc.value.status_code == 401
+
+    # Malformed Authorization header -> 401
+    for bad_auth in ("Basic abc", "Bearer "):
+        with pytest.raises(HTTPException) as bad_auth_exc:
+            await resolver.resolve(authorization=bad_auth)
+        assert bad_auth_exc.value.status_code == 401
 
     now = int(time.time())
     base_claims = {

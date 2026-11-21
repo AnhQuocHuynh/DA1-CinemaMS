@@ -133,3 +133,45 @@ async def test_semantic_cache_miss_bypass_and_set():
     assert "INSERT INTO semantic_cache" in insert_sql
     assert insert_params["ttl_days"] == 7
     assert insert_params["embedding"] == "[0.10000000,0.20000000]"
+
+
+def test_faq_exact_key_isolated_from_general_exact_key():
+    q = "What is refund policy?"
+    assert cache_service.faq_exact_key(q).startswith("cache:chat:faq:exact:")
+    assert cache_service.faq_exact_key(q) != cache_service.exact_key(q)
+
+
+@pytest.mark.asyncio
+async def test_faq_exact_cache_roundtrip_no_bypass_and_fail_open():
+    redis = FakeRedis()
+    sources = [
+        {
+            "type": "faq",
+            "id": 3,
+            "title": "Làm sao để đặt vé xem phim trực tuyến?",
+            "snippet": "Chọn phim và suất chiếu...",
+            "similarity": 0.95,
+        }
+    ]
+    # Contains "đặt vé" / "booking", which bypasses exact_key but must still cache in faq_exact_key
+    assert (
+        await cache_service.set_faq_exact(
+            redis,
+            "Làm sao để đặt vé?",
+            "Chọn phim và suất chiếu...",
+            sources=sources,
+            ttl_seconds=90,
+        )
+        is True
+    )
+    assert redis.ttls[cache_service.faq_exact_key("Làm sao để đặt vé?")] == 90
+    hit = await cache_service.get_faq_exact(redis, "Xin chào Làm sao để đặt vé?")
+    assert hit == ("Chọn phim và suất chiếu...", sources)
+
+    # Corrupted JSON or Redis outage fails open cleanly
+    redis.store[cache_service.faq_exact_key("bad json")] = "{not-valid-json"
+    assert await cache_service.get_faq_exact(redis, "bad json") is None
+
+    broken = FakeRedis(fail=True)
+    assert await cache_service.set_faq_exact(broken, "refund policy", "ok", sources=[]) is False
+    assert await cache_service.get_faq_exact(broken, "refund policy") is None

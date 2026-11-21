@@ -19,6 +19,7 @@ async def _event_stream(
     message: str,
     db: AsyncSession | None,
     redis: Any,
+    preferred_lang: str | None = None,
 ) -> AsyncIterator[str]:
     if prepared.immediate_reply is not None:
         yield f"data: {json.dumps({'chunk': prepared.immediate_reply, 'done': False})}\n\n"
@@ -26,13 +27,13 @@ async def _event_stream(
             "chunk": "",
             "done": True,
             "cached": prepared.cached,
-            "sessionId": str(prepared.session_id),
+            "sessionId": str(prepared.session_id) if prepared.session_id is not None else None,
             "sources": prepared.sources,
         }
         yield f"data: {json.dumps(done_payload)}\n\n"
         return
 
-    lang = guardrails.detect_language(message)
+    lang = prepared.lang or guardrails.detect_language(message, preferred_lang=preferred_lang)
     raw_chunks: list[str] = []
     async for chunk in llm_client.stream(prepared.prompt or message):
         raw_chunks.append(chunk)
@@ -46,13 +47,18 @@ async def _event_stream(
 
     full_raw = "".join(raw_chunks) or llm_client.OFFLINE_FALLBACK_MESSAGE
     final_reply = await chat_pipeline.finalize_chat_turn(
-        prepared, message, full_raw, db=db, redis=redis
+        prepared,
+        message,
+        full_raw,
+        db=db,
+        redis=redis,
+        preferred_lang=preferred_lang,
     )
     done_payload: dict[str, Any] = {
         "chunk": "",
         "done": True,
         "cached": False,
-        "sessionId": str(prepared.session_id),
+        "sessionId": str(prepared.session_id) if prepared.session_id is not None else None,
         "sources": prepared.sources if not prepared.guarded else [],
     }
     if prepared.guarded:
@@ -68,9 +74,20 @@ async def stream_message(
     redis: Any = Depends(chat_pipeline.get_redis),
 ):
     prepared = await chat_pipeline.prepare_chat_turn(
-        req.message, user=user, db=db, redis=redis, session_id=req.sessionId
+        req.message,
+        user=user,
+        db=db,
+        redis=redis,
+        session_id=req.sessionId,
+        preferred_lang=req.language,
     )
     return StreamingResponse(
-        _event_stream(prepared, req.message, db=db, redis=redis),
+        _event_stream(
+            prepared,
+            req.message,
+            db=db,
+            redis=redis,
+            preferred_lang=req.language,
+        ),
         media_type="text/event-stream",
     )

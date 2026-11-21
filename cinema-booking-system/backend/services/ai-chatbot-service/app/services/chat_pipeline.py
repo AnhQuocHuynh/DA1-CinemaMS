@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+import inspect
 from typing import Any
 from uuid import UUID
 
@@ -56,6 +57,16 @@ _FOLLOW_UPS_BY_INTENT_VI: dict[str, list[str]] = {
     ],
 }
 
+_GUEST_FAQ_FOLLOW_UPS: list[str] = [
+    "What is the ticket cancellation and refund policy?",
+    "What seat classes and screening room types are available?",
+]
+
+_GUEST_FAQ_FOLLOW_UPS_VI: list[str] = [
+    "Chính sách hủy và hoàn vé như thế nào?",
+    "Rạp có những loại ghế và phòng chiếu nào?",
+]
+
 
 def get_redis(request: Request) -> Any:
     app = getattr(request, "app", None)
@@ -63,7 +74,13 @@ def get_redis(request: Request) -> Any:
     return getattr(state, "redis", None)
 
 
-def suggested_follow_ups(intent: str | None, lang: str = "en") -> list[str]:
+def suggested_follow_ups(
+    intent: str | None, lang: str = "en", authenticated: bool = True
+) -> list[str]:
+    if not authenticated:
+        if intent in (None, "OFF_TOPIC", "ADVERSARIAL"):
+            return []
+        return list(_GUEST_FAQ_FOLLOW_UPS_VI if lang == "vi" else _GUEST_FAQ_FOLLOW_UPS)
     if not intent:
         return []
     mapping = _FOLLOW_UPS_BY_INTENT_VI if lang == "vi" else _FOLLOW_UPS_BY_INTENT
@@ -88,7 +105,7 @@ def offline_grounded_reply(knowledge: str | None, lang: str = "en") -> str:
 
 @dataclass
 class PreparedChatTurn:
-    session_id: UUID
+    session_id: UUID | None = None
     immediate_reply: str | None = None
     cached: bool = False
     intent: str | None = None
@@ -99,6 +116,105 @@ class PreparedChatTurn:
     follow_ups: list[str] = field(default_factory=list)
     history_text: str = ""
     guarded: bool = False
+    lang: str = "en"
+
+
+async def _prepare_guest_faq_turn(
+    message: str,
+    db: AsyncSession | None,
+    redis: Any,
+    preferred_lang: str | None = None,
+) -> PreparedChatTurn:
+    """Handle anonymous visitors in stateless Direct RAG FAQ mode without LLM generation."""
+    lang = guardrails.detect_language(message, preferred_lang=preferred_lang)
+    guest_follow_ups = suggested_follow_ups("CINEMA_FAQ", lang=lang, authenticated=False)
+
+    if guardrails.is_injection(message):
+        return PreparedChatTurn(
+            session_id=None,
+            immediate_reply=guardrails.get_refusal_message(message, preferred_lang=lang),
+            cached=False,
+            intent="ADVERSARIAL",
+            lang=lang,
+        )
+
+    small_talk = guardrails.match_small_talk(
+        message, authenticated=False, preferred_lang=lang
+    )
+    if small_talk is not None:
+        return PreparedChatTurn(
+            session_id=None,
+            immediate_reply=small_talk,
+            cached=False,
+            intent="CINEMA_FAQ",
+            follow_ups=guest_follow_ups,
+            lang=lang,
+        )
+
+    intent = guardrails.classify_intent_heuristic(message)
+    if intent in ("ORDER_QUERY", "SHOWTIME_QUERY", "MOVIE_QUERY"):
+        return PreparedChatTurn(
+            session_id=None,
+            immediate_reply=guardrails.get_guest_login_required_message(
+                message, preferred_lang=lang
+            ),
+            cached=False,
+            intent=intent,
+            follow_ups=guest_follow_ups,
+            lang=lang,
+        )
+
+    if intent in ("OFF_TOPIC", "ADVERSARIAL"):
+        return PreparedChatTurn(
+            session_id=None,
+            immediate_reply=guardrails.get_refusal_message(message, preferred_lang=lang),
+            cached=False,
+            intent=intent,
+            lang=lang,
+        )
+
+    cached_faq = await cache_service.get_faq_exact(redis, message)
+    if cached_faq is not None:
+        cached_reply, cached_sources = cached_faq
+        return PreparedChatTurn(
+            session_id=None,
+            immediate_reply=sanitizer.sanitize_output(cached_reply),
+            cached=True,
+            intent="CINEMA_FAQ",
+            sources=cached_sources,
+            follow_ups=guest_follow_ups,
+            lang=lang,
+        )
+
+    query_embedding = await llm_client.embed(message)
+    raw_faqs = await rag_service.search_faqs(query_embedding, limit=2, db=db)
+    faqs = rag_service.select_faqs_for_language(raw_faqs, lang)
+    if not faqs:
+        return PreparedChatTurn(
+            session_id=None,
+            immediate_reply=guardrails.get_guest_faq_not_found_message(
+                message, preferred_lang=lang
+            ),
+            cached=False,
+            intent="CINEMA_FAQ",
+            query_embedding=query_embedding,
+            follow_ups=guest_follow_ups,
+            lang=lang,
+        )
+
+    direct_reply = sanitizer.sanitize_output(rag_service.format_direct_faq_reply(faqs))
+    sources = rag_service.faq_sources(faqs)
+    await cache_service.set_faq_exact(redis, message, direct_reply, sources=sources)
+    return PreparedChatTurn(
+        session_id=None,
+        immediate_reply=direct_reply,
+        cached=False,
+        intent="CINEMA_FAQ",
+        query_embedding=query_embedding,
+        sources=sources,
+        follow_ups=guest_follow_ups,
+        lang=lang,
+    )
 
 
 async def prepare_chat_turn(
@@ -107,16 +223,21 @@ async def prepare_chat_turn(
     db: AsyncSession | None,
     redis: Any,
     session_id: UUID | None = None,
+    preferred_lang: str | None = None,
 ) -> PreparedChatTurn:
     """Run guardrails, L1/L2 cache checks, intent routing, and prompt assembly."""
     guardrails.validate_length(message)
-    lang = guardrails.detect_language(message)
+    if not user.is_authenticated:
+        return await _prepare_guest_faq_turn(
+            message, db=db, redis=redis, preferred_lang=preferred_lang
+        )
+    lang = guardrails.detect_language(message, preferred_lang=preferred_lang)
     resolved_session_id = await session_service.ensure_session(
         db, user, session_id=session_id, title_hint=message[:80]
     )
 
     if guardrails.is_injection(message):
-        refusal = guardrails.get_refusal_message(message)
+        refusal = guardrails.get_refusal_message(message, preferred_lang=lang)
         await session_service.append_exchange(
             db, resolved_session_id, message, refusal, cached=False
         )
@@ -125,6 +246,23 @@ async def prepare_chat_turn(
             immediate_reply=refusal,
             cached=False,
             intent="ADVERSARIAL",
+            lang=lang,
+        )
+
+    small_talk = guardrails.match_small_talk(
+        message, authenticated=True, preferred_lang=lang
+    )
+    if small_talk is not None:
+        await session_service.append_exchange(
+            db, resolved_session_id, message, small_talk, cached=False
+        )
+        return PreparedChatTurn(
+            session_id=resolved_session_id,
+            immediate_reply=small_talk,
+            cached=False,
+            intent="CINEMA_FAQ",
+            follow_ups=suggested_follow_ups("CINEMA_FAQ", lang=lang),
+            lang=lang,
         )
 
     exact_hit = await cache_service.get_exact(redis, message)
@@ -138,6 +276,7 @@ async def prepare_chat_turn(
             immediate_reply=clean_hit,
             cached=True,
             follow_ups=suggested_follow_ups("CINEMA_FAQ", lang=lang),
+            lang=lang,
         )
 
     query_embedding = await llm_client.embed(message)
@@ -154,11 +293,12 @@ async def prepare_chat_turn(
             cached=True,
             query_embedding=query_embedding,
             follow_ups=suggested_follow_ups("CINEMA_FAQ", lang=lang),
+            lang=lang,
         )
 
     intent = await guardrails.classify_intent(message)
     if intent in ("OFF_TOPIC", "ADVERSARIAL"):
-        refusal = guardrails.get_refusal_message(message)
+        refusal = guardrails.get_refusal_message(message, preferred_lang=lang)
         await session_service.append_exchange(
             db, resolved_session_id, message, refusal, cached=False
         )
@@ -167,13 +307,26 @@ async def prepare_chat_turn(
             immediate_reply=refusal,
             cached=False,
             intent=intent,
+            lang=lang,
         )
 
+    context_kwargs: dict[str, Any] = {
+        "user": user,
+        "db": db,
+        "query_embedding": query_embedding,
+    }
+    sig_params = inspect.signature(intent_router.build_context_and_sources).parameters
+    if "preferred_lang" in sig_params or any(
+        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig_params.values()
+    ):
+        context_kwargs["preferred_lang"] = lang
     knowledge, sources = await intent_router.build_context_and_sources(
-        intent, message, user=user, db=db, query_embedding=query_embedding
+        intent,
+        message,
+        **context_kwargs,
     )
     if intent in ("CINEMA_FAQ", "MOVIE_QUERY") and not knowledge:
-        refusal = guardrails.get_refusal_message(message)
+        refusal = guardrails.get_refusal_message(message, preferred_lang=lang)
         await session_service.append_exchange(
             db, resolved_session_id, message, refusal, cached=False
         )
@@ -183,13 +336,16 @@ async def prepare_chat_turn(
             cached=False,
             intent=intent,
             query_embedding=query_embedding,
+            lang=lang,
         )
 
     history = await session_service.get_recent_history(db, resolved_session_id)
     history_text = " ".join(
         str(item.get("content") or "") for item in history if item.get("content")
     )
-    prompt = prompt_builder.build_prompt(message, knowledge=knowledge, history=history)
+    prompt = prompt_builder.build_prompt(
+        message, knowledge=knowledge, history=history, preferred_lang=lang
+    )
     return PreparedChatTurn(
         session_id=resolved_session_id,
         intent=intent,
@@ -199,6 +355,7 @@ async def prepare_chat_turn(
         prompt=prompt,
         follow_ups=suggested_follow_ups(intent, lang=lang),
         history_text=history_text,
+        lang=lang,
     )
 
 
@@ -208,9 +365,10 @@ async def finalize_chat_turn(
     raw_reply: str,
     db: AsyncSession | None,
     redis: Any,
+    preferred_lang: str | None = None,
 ) -> str:
     """Sanitize, guard, cache (L1/L2), and persist a newly generated assistant reply."""
-    lang = guardrails.detect_language(message)
+    lang = guardrails.detect_language(message, preferred_lang=preferred_lang or prepared.lang)
     reply = raw_reply
     is_offline = reply == llm_client.OFFLINE_FALLBACK_MESSAGE
     if is_offline:
@@ -222,14 +380,15 @@ async def finalize_chat_turn(
             if part
         )
         titles = await rag_service.list_movie_titles(db)
-        refusal = guardrails.get_refusal_message(message)
+        refusal = guardrails.get_refusal_message(message, preferred_lang=lang)
         guarded_reply = answer_guard.guard_answer(reply, allowed_text, titles, refusal)
         if guarded_reply == refusal:
             prepared.guarded = True
             prepared.sources = []
-            await session_service.append_exchange(
-                db, prepared.session_id, message, refusal, cached=False
-            )
+            if prepared.session_id is not None:
+                await session_service.append_exchange(
+                    db, prepared.session_id, message, refusal, cached=False
+                )
             return refusal
         reply = guarded_reply
 
@@ -241,7 +400,8 @@ async def finalize_chat_turn(
             await cache_service.set_semantic(
                 db, message, prepared.query_embedding, clean_reply
             )
-    await session_service.append_exchange(
-        db, prepared.session_id, message, clean_reply, cached=False
-    )
+    if prepared.session_id is not None:
+        await session_service.append_exchange(
+            db, prepared.session_id, message, clean_reply, cached=False
+        )
     return clean_reply

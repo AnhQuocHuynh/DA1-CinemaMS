@@ -159,6 +159,12 @@ async def generate(
                 text = await generators[provider](prompt, temperature, max_tokens)
                 if text:
                     return text
+                logger.warning(
+                    "LLM provider %s returned empty text during generate (attempt %d/%d); failing over",
+                    provider,
+                    attempt + 1,
+                    retries + 1,
+                )
                 break
             except Exception as exc:
                 logger.warning(

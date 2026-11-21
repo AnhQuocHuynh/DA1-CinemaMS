@@ -19,7 +19,12 @@ async def send_message(
     redis: Any = Depends(chat_pipeline.get_redis),
 ):
     prepared = await chat_pipeline.prepare_chat_turn(
-        req.message, user=user, db=db, redis=redis, session_id=req.sessionId
+        req.message,
+        user=user,
+        db=db,
+        redis=redis,
+        session_id=req.sessionId,
+        preferred_lang=req.language,
     )
     if prepared.immediate_reply is not None:
         return ChatResponse(
@@ -32,7 +37,12 @@ async def send_message(
 
     raw_reply = await llm_client.generate(prepared.prompt or req.message)
     final_reply = await chat_pipeline.finalize_chat_turn(
-        prepared, req.message, raw_reply, db=db, redis=redis
+        prepared,
+        req.message,
+        raw_reply,
+        db=db,
+        redis=redis,
+        preferred_lang=req.language,
     )
     return ChatResponse(
         sessionId=prepared.session_id,

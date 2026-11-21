@@ -200,3 +200,33 @@ def format_faq_context(faqs: list[dict]) -> str:
         prefix = f"[{category}] " if category else ""
         blocks.append(f"{prefix}Q: {faq['question']}\nA: {faq['answer']}")
     return "\n\n".join(blocks)
+
+
+def select_faqs_for_language(faqs: list[dict], lang: str) -> list[dict]:
+    """Prefer FAQ rows matching `lang`, falling back to all rows if none match."""
+    if not faqs:
+        return []
+    target = (lang or "en").strip().lower()
+    matched = [
+        faq
+        for faq in faqs
+        if str((faq.get("metadata") or {}).get("lang", "en")).strip().lower() == target
+    ]
+    return matched if matched else faqs
+
+
+def format_direct_faq_reply(faqs: list[dict]) -> str:
+    """Format matched FAQ entries into a plain-text reply without LLM generation."""
+    if not faqs:
+        return ""
+    valid = [faq for faq in faqs if str(faq.get("answer") or "").strip()]
+    if not valid:
+        return ""
+    if len(valid) == 1:
+        return str(valid[0].get("answer") or "").strip()
+    blocks: list[str] = []
+    for faq in valid:
+        question = str(faq.get("question") or "").strip()
+        answer = str(faq.get("answer") or "").strip()
+        blocks.append(f"{question}\n{answer}".strip() if question else answer)
+    return "\n\n".join(blocks)

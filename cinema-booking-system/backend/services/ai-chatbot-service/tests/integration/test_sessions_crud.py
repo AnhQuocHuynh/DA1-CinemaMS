@@ -144,7 +144,19 @@ async def test_sessions_crud_history_and_ownership():
     assert len(owner_sessions) == 1
     assert owner_sessions[0]["id"] == sid
 
-    guest_sessions = await list_sessions(user=guest, db=db)
+    # Session HTTP endpoints reject anonymous guests with 401
+    for call in (
+        list_sessions(user=guest, db=db),
+        create_session(req=None, user=guest, db=db),
+        get_session(guest_sid, user=guest, db=db),
+        rename_session(guest_sid, req=RenameSessionRequest(title="Nope"), user=guest, db=db),
+        delete_session(guest_sid, user=guest, db=db),
+    ):
+        with pytest.raises(HTTPException) as guest_unauth:
+            await call
+        assert guest_unauth.value.status_code == 401
+
+    guest_sessions = await session_service.list_user_sessions(db, guest)
     assert len(guest_sessions) == 1
     assert guest_sessions[0]["id"] == guest_sid
 
@@ -217,14 +229,14 @@ async def test_session_create_rename_and_keycloak_ownership():
         )
     assert forbidden_other.value.status_code == 403
 
-    with pytest.raises(HTTPException) as forbidden_guest:
+    with pytest.raises(HTTPException) as unauth_guest:
         await rename_session(
             created_default["id"],
             req=RenameSessionRequest(title="Guest Hijack"),
             user=guest,
             db=db,
         )
-    assert forbidden_guest.value.status_code == 403
+    assert unauth_guest.value.status_code == 401
 
     with pytest.raises(HTTPException) as missing_rename:
         await rename_session(
@@ -238,9 +250,9 @@ async def test_session_create_rename_and_keycloak_ownership():
     kc_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
     kc_owner = UserContext(user_id=None, keycloak_id=kc_id)
     kc_other = UserContext(user_id=None, keycloak_id="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
-    kc_sess = await create_session(req=CreateSessionRequest(title="KC Chat"), user=kc_owner, db=db)
-    assert len(await list_sessions(user=kc_owner, db=db)) == 1
-    assert (await get_session(kc_sess["id"], user=kc_owner, db=db))["title"] == "KC Chat"
+    kc_sess = await session_service.create_user_session(db, kc_owner, title="KC Chat")
+    assert len(await session_service.list_user_sessions(db, kc_owner)) == 1
+    assert (await session_service.get_session_detail(db, kc_sess["id"], kc_owner))["title"] == "KC Chat"
     with pytest.raises(HTTPException) as kc_forbidden:
-        await get_session(kc_sess["id"], user=kc_other, db=db)
+        await session_service.get_session_detail(db, kc_sess["id"], kc_other)
     assert kc_forbidden.value.status_code == 403

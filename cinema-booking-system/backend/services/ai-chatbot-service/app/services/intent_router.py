@@ -217,9 +217,10 @@ async def build_context_and_sources(
     user: UserContext | None = None,
     db: AsyncSession | None = None,
     query_embedding: list[float] | None = None,
+    preferred_lang: str | None = None,
 ) -> tuple[str | None, list[dict]]:
     """Assemble grounded <retrieved_knowledge> context and citation sources."""
-    lang = guardrails.detect_language(message)
+    lang = guardrails.detect_language(message, preferred_lang=preferred_lang)
 
     if intent == "ORDER_QUERY":
         if user is None or not user.can_lookup_bookings:
@@ -306,6 +307,7 @@ async def build_context(
     user: UserContext | None = None,
     db: AsyncSession | None = None,
     query_embedding: list[float] | None = None,
+    preferred_lang: str | None = None,
 ) -> str | None:
     """Assemble grounded <retrieved_knowledge> context based on classified intent."""
     context, _ = await build_context_and_sources(
@@ -314,5 +316,6 @@ async def build_context(
         user=user,
         db=db,
         query_embedding=query_embedding,
+        preferred_lang=preferred_lang,
     )
     return context

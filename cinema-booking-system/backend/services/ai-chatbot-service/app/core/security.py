@@ -9,7 +9,7 @@ import time
 from typing import Any, Callable
 import uuid
 
-from fastapi import Header, HTTPException
+from fastapi import Depends, Header, HTTPException
 
 from app.core.config import settings
 from app.services import downstream_client
@@ -29,7 +29,7 @@ class UserContext:
 
     @property
     def is_authenticated(self) -> bool:
-        return self.user_id is not None
+        return self.user_id is not None and self.user_id > 0
 
     @property
     def can_lookup_bookings(self) -> bool:
@@ -275,6 +275,15 @@ class ActorResolver:
         header_uid = _parse_positive_int(x_user_id)
 
         if settings.CINEMA_SECURITY_JWT_ENABLED:
+            if not (authorization or "").strip():
+                return UserContext(
+                    user_id=None,
+                    keycloak_id=None,
+                    roles=[],
+                    session_token=x_session_token or uuid.uuid4().hex,
+                    raw_token=None,
+                    jwt_verified=False,
+                )
             if not raw_token:
                 raise HTTPException(status_code=401, detail="AUTHENTICATION_REQUIRED")
 
@@ -371,4 +380,18 @@ async def get_user_context(
         x_user_roles=x_user_roles,
         x_session_token=x_session_token,
     )
+
+
+def ensure_authenticated_user(user: UserContext) -> UserContext:
+    """Reject anonymous callers on user-scoped endpoints with HTTP 401."""
+    if not user.is_authenticated:
+        raise HTTPException(status_code=401, detail="AUTHENTICATION_REQUIRED")
+    return user
+
+
+async def require_authenticated_user(
+    user: UserContext = Depends(get_user_context),
+) -> UserContext:
+    """FastAPI dependency requiring an authenticated caller."""
+    return ensure_authenticated_user(user)
 
