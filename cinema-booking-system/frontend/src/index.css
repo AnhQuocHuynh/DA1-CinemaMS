@@ -103,4 +103,83 @@
   .tonal-zone {
     @apply bg-surface-container-low;
   }
+
+  .cinebot-popover {
+    transform-origin: bottom right;
+    transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), opacity 180ms ease-out;
+  }
+
+  .cinebot-popover-open {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+
+  .cinebot-popover-closed {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+    pointer-events: none;
+  }
+
+  .cinebot-typing-dot {
+    animation: cinebot-dot-bounce 1.2s infinite ease-in-out;
+  }
+
+  .cinebot-typing-dot:nth-child(2) {
+    animation-delay: 150ms;
+  }
+
+  .cinebot-typing-dot:nth-child(3) {
+    animation-delay: 300ms;
+  }
+
+  .cinebot-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--outline-variant)) transparent;
+  }
+
+  .cinebot-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .cinebot-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .cinebot-scrollbar::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--outline-variant));
+    border-radius: 9999px;
+  }
+
+  .cinebot-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--outline));
+  }
+}
+
+@keyframes cinebot-dot-bounce {
+  0%, 80%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cinebot-popover {
+    transition: none !important;
+  }
+
+  .cinebot-typing-dot {
+    animation: none !important;
+    opacity: 0.75;
+  }
+
+  .cinebot-motion-safe {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
 }

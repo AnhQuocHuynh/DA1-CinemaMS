@@ -17,3 +17,7 @@ CREATE DATABASE keycloak_db;
 CREATE DATABASE user_profile_db;
 CREATE DATABASE payment_db;
 CREATE DATABASE facility_db;
+
+-- AI Chatbot Service Database
+SELECT 'CREATE DATABASE ai_chatbot_db'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'ai_chatbot_db')\gexec
