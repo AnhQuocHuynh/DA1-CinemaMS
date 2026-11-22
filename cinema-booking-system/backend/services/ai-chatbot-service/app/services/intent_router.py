@@ -286,7 +286,8 @@ async def build_context_and_sources(
         recs: list[dict] = []
         if any(term in lowered for term in ("recommend", "suggest", "gợi ý", "đề xuất")):
             recs = await downstream_client.get_user_recommendations(
-                user.user_id if user else None
+                user.user_id if user else None,
+                auth_token=user.raw_token if user else None,
             )
         ctx = _format_movies(movies, recs)
 

@@ -1,5 +1,6 @@
 import logging
 
+from app.core.config import Settings
 from app.core.logging_filters import HealthProbeAccessFilter, configure_access_log_filters
 
 
@@ -77,3 +78,18 @@ def test_configure_access_log_filters_is_idempotent() -> None:
         assert len(attached) == 1
     finally:
         access_logger.filters = original_filters
+
+
+def test_cors_allowed_origins_resolves_from_frontend_url_and_csv() -> None:
+    s_default = Settings(FRONTEND_URL="http://localhost:5173/", CORS_ALLOWED_ORIGINS="")
+    assert s_default.cors_allowed_origins_list == ["http://localhost:5173"]
+
+    s_csv = Settings(
+        FRONTEND_URL="http://localhost:5173",
+        CORS_ALLOWED_ORIGINS=" https://cinema.example.com/ , http://localhost:3000 ",
+    )
+    assert s_csv.cors_allowed_origins_list == [
+        "https://cinema.example.com",
+        "http://localhost:3000",
+    ]
+
