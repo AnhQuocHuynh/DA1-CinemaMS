@@ -364,7 +364,7 @@ async def test_empty_retrieval_refuses_localized_without_llm_or_caching(monkeypa
     async def empty_search_movies(keyword: str):
         return []
 
-    async def empty_recs(user_id=None):
+    async def empty_recs(user_id=None, auth_token=None):
         return []
 
     monkeypatch.setattr(llm_client, "embed", fake_embed)

@@ -159,8 +159,32 @@ async def test_downstream_get_today_showtimes_and_recommendations(monkeypatch):
     assert auth_recs[0]["title"] == "Interstellar"
     assert client.calls[-1][2] == {"X-User-Id": "42"}
 
+    auth_recs_jwt = await downstream_client.get_user_recommendations(42, auth_token="jwt-42")
+    assert auth_recs_jwt[0]["title"] == "Interstellar"
+    assert client.calls[-1][2] == {"X-User-Id": "42", "Authorization": "Bearer jwt-42"}
+
     guest_recs = await downstream_client.get_user_recommendations(None)
     assert guest_recs[0]["title"] == "Dune"
+
+
+@pytest.mark.asyncio
+async def test_downstream_recommendations_401_falls_back_to_popular(monkeypatch):
+    downstream_client.reset_circuit_breakers()
+    client = FakeHttpClient(
+        {
+            "/api/recommendations/movies/popular": FakeResponse(
+                {"success": True, "data": {"recommendations": [{"movieId": 8, "title": "Dune"}]}}
+            ),
+            "/api/recommendations/movies": FakeResponse({}, status_code=401),
+        }
+    )
+    monkeypatch.setattr(downstream_client, "_client", client)
+
+    recs = await downstream_client.get_user_recommendations(42)
+    assert recs == [{"movieId": 8, "title": "Dune"}]
+    assert downstream_client.get_breaker("recommendation").state == "CLOSED"
+    assert len(client.calls) == 2
+    assert "/api/recommendations/movies/popular" in client.calls[1][0]
 
 
 @pytest.mark.asyncio
@@ -187,7 +211,10 @@ async def test_intent_router_build_context(monkeypatch):
     async def fake_movies_vec(emb, limit=3, db=None):
         return []
 
-    async def fake_recs(user_id=None):
+    rec_calls: list[tuple[int | None, str | None]] = []
+
+    async def fake_recs(user_id=None, auth_token=None):
+        rec_calls.append((user_id, auth_token))
         return [{"title": "Dune", "reason": "Matches your Sci-Fi taste"}]
 
     monkeypatch.setattr(downstream_client, "search_movies", fake_search_movies)
@@ -210,10 +237,11 @@ async def test_intent_router_build_context(monkeypatch):
     movie_ctx = await intent_router.build_context(
         "MOVIE_QUERY",
         "Recommend Avatar movie",
-        user=UserContext(user_id=5),
+        user=UserContext(user_id=5, raw_token="tok-5"),
         query_embedding=[0.1] * 768,
     )
     assert movie_ctx is not None and "Matches your Sci-Fi taste" in movie_ctx
+    assert rec_calls == [(5, "tok-5")]
 
 
 @pytest.mark.asyncio

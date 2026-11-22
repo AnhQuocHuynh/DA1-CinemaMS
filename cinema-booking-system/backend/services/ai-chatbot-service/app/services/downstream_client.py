@@ -188,16 +188,29 @@ async def get_today_showtimes(
     return selected[:10]
 
 
-async def get_user_recommendations(user_id: int | None = None) -> list[dict]:
+async def get_user_recommendations(
+    user_id: int | None = None,
+    auth_token: str | None = None,
+) -> list[dict]:
     """Fetch personalized or popular movie recommendations from recommendation-service."""
     base = settings.RECOMMENDATION_SERVICE_URL.rstrip("/")
     if user_id is not None:
+        headers: dict[str, str] = {"X-User-Id": str(user_id)}
+        cleaned_token = (auth_token or "").strip()
+        if cleaned_token:
+            headers["Authorization"] = f"Bearer {cleaned_token}"
         ok, payload = await _get_json_fail_open(
             "recommendation",
             f"{base}/api/recommendations/movies",
             params={"userId": user_id, "limit": 5},
-            headers={"X-User-Id": str(user_id)},
+            headers=headers,
         )
+        if not ok and get_breaker("recommendation").state != "OPEN":
+            ok, payload = await _get_json_fail_open(
+                "recommendation",
+                f"{base}/api/recommendations/movies/popular",
+                params={"limit": 5},
+            )
     else:
         ok, payload = await _get_json_fail_open(
             "recommendation",

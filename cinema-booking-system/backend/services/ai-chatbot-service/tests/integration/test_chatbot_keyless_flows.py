@@ -486,7 +486,7 @@ async def test_keyless_normal_faq_prompts(keyless_env, faq_question, expected_sn
 async def test_keyless_normal_showtime_and_movie_recommendation_prompts(keyless_env):
     db = KeylessPgDb()
     redis = KeylessRedis()
-    auth_user = UserContext(user_id=42)
+    auth_user = UserContext(user_id=42, raw_token="tok-rec-42")
     guest_user = UserContext(user_id=None, session_token="guest-abc")
 
     showtime_resp = await send_message(
@@ -515,6 +515,13 @@ async def test_keyless_normal_showtime_and_movie_recommendation_prompts(keyless_
         redis=redis,
     )
     assert "Matches your thriller watch history" in auth_rec.reply
+    rec_calls = [
+        c
+        for c in keyless_env.calls
+        if "/api/recommendations/movies" in c[0] and "/popular" not in c[0]
+    ]
+    assert rec_calls
+    assert rec_calls[-1][2] == {"X-User-Id": "42", "Authorization": "Bearer tok-rec-42"}
 
     sessions_before_guest = dict(db.sessions)
     guest_rec = await send_message(
@@ -943,6 +950,22 @@ async def test_jwt_mode_actor_resolver_and_session_rename_flow(keyless_env, monk
     assert order_resp.sessionId == created["id"]
     assert "Order #901" in order_resp.reply
     assert (await list_sessions(user=user, db=db))[0]["title"] == "My Orders Thread"
+
+    rec_resp = await send_message(
+        ChatRequest(sessionId=created["id"], message="Recommend a movie for me"),
+        user=user,
+        db=db,
+        redis=redis,
+    )
+    assert rec_resp.sessionId == created["id"]
+    assert "Matches your thriller watch history" in rec_resp.reply
+    rec_calls = [
+        c
+        for c in keyless_env.calls
+        if "/api/recommendations/movies" in c[0] and "/popular" not in c[0]
+    ]
+    assert rec_calls
+    assert rec_calls[-1][2] == {"X-User-Id": "42", "Authorization": f"Bearer {token}"}
 
 
 @pytest.mark.asyncio
