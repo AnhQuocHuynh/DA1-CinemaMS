@@ -45,22 +45,22 @@ class GeminiMovieSummaryClientTest {
     @Test
     void parsesOutputAndSkipsThoughts() {
         server.expect(requestTo(containsString("/models/gemini-3.5-flash:generateContent")))
-                .andExpect(header("x-goog-api-key", "test-key"))
-                .andExpect(content().string(containsString("A thief enters dreams.")))
-                .andExpect(content().string(containsString("English")))
-                .andExpect(content().string(containsString("thinkingLevel")))
-                .andRespond(withSuccess("""
-                        {
-                          "candidates": [{
-                            "content": {
-                              "parts": [
-                                {"text": "hidden reasoning", "thought": true},
-                                {"text": "Inception follows a thief into layered dreams."}
-                              ]
-                            }
-                          }]
-                        }
-                        """, MediaType.APPLICATION_JSON));
+            .andExpect(header("x-goog-api-key", "test-key"))
+            .andExpect(content().string(containsString("A thief enters dreams.")))
+            .andExpect(content().string(containsString("English")))
+            .andExpect(content().string(containsString("thinkingLevel")))
+            .andRespond(withSuccess("""
+                {
+                  "candidates": [{
+                    "content": {
+                      "parts": [
+                        {"text": "hidden reasoning", "thought": true},
+                        {"text": "Inception follows a thief into layered dreams."}
+                      ]
+                    }
+                  }]
+                }
+                """, MediaType.APPLICATION_JSON));
 
         Optional<String> result = client.summarize("Inception", "A thief enters dreams.", List.of("Sci-Fi"));
 

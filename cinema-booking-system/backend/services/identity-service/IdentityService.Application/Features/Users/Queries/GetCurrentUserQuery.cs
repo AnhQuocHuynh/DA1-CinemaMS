@@ -32,7 +32,9 @@ public class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, U
             user.Phone,
             user.Gender,
             user.DateOfBirth,
-            user.Active
+            user.Active,
+            null,
+            user.CinemaId
         );
     }
 }

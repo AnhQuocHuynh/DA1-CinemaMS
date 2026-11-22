@@ -1,15 +1,19 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using PaymentService.Application.Contracts;
 using PaymentService.Application.DTOs;
 using PaymentService.Infrastructure.Gateways;
+using Xunit;
 
 namespace PaymentService.Test.Unit.Gateways;
 
 /// <summary>
 /// Unit tests for StripeGateway.
-/// These tests verify configuration behavior and signature rejection logic
+/// These tests verify configuration behavior, session options construction, and signature rejection logic
 /// without making real network calls.
 /// </summary>
 public class StripeGatewayTests
@@ -47,6 +51,29 @@ public class StripeGatewayTests
         // Act & Assert
         Assert.Throws<InvalidOperationException>(() =>
             new StripeGateway(config, NullLogger<StripeGateway>.Instance));
+    }
+
+    [Fact]
+    public void BuildSessionCreateOptions_ShouldSetExpiresAtTo30MinutesFromUtcNow()
+    {
+        // Arrange
+        var request = new PaymentRequest(
+            PaymentId: 42,
+            Amount: 180000m,
+            Currency: "VND",
+            CancelUrl: "https://app.cinema.com/cancel",
+            SuccessUrl: "https://app.cinema.com/success");
+
+        // Act
+        var before = DateTime.UtcNow;
+        var options = StripeGateway.BuildSessionCreateOptions(request);
+        var after = DateTime.UtcNow;
+
+        // Assert
+        options.ExpiresAt.Should().NotBeNull();
+        options.ExpiresAt!.Value.Should().BeOnOrAfter(before.AddMinutes(30).AddSeconds(-1));
+        options.ExpiresAt!.Value.Should().BeOnOrBefore(after.AddMinutes(30).AddSeconds(1));
+        options.Metadata.Should().ContainKey("paymentId").WhoseValue.Should().Be("42");
     }
 
     [Fact]

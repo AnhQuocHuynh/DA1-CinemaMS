@@ -17,6 +17,7 @@ public abstract class BaseIntegrationTest : IClassFixture<CustomWebApplicationFa
     {
         _factory = factory;
         _client = factory.CreateClient();
+        _client.DefaultRequestHeaders.Add("X-Internal-Token", "local-dev-internal-token");
         _scope = factory.Services.CreateScope();
         _dbContext = _scope.ServiceProvider.GetRequiredService<UserProfileDbContext>();
         
@@ -30,5 +31,10 @@ public abstract class BaseIntegrationTest : IClassFixture<CustomWebApplicationFa
         // For simplicity with WebApplicationFactory, we can add a test auth handler 
         // to the factory if needed. 
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Test", $"{userId}:{role}");
+        _client.DefaultRequestHeaders.Remove("X-User-Id");
+        if (long.TryParse(userId, out _))
+        {
+            _client.DefaultRequestHeaders.Add("X-User-Id", userId);
+        }
     }
 }

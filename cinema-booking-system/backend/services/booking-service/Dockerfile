@@ -9,6 +9,7 @@ COPY services/showtime-service/pom.xml services/showtime-service/pom.xml
 COPY services/booking-service/pom.xml services/booking-service/pom.xml
 COPY services/analytics-service/pom.xml services/analytics-service/pom.xml
 COPY services/recommendation-service/pom.xml services/recommendation-service/pom.xml
+COPY services/rental-service/pom.xml services/rental-service/pom.xml
 COPY services/booking-service/src services/booking-service/src
 RUN --mount=type=cache,target=/root/.m2,sharing=locked mvn -q -pl services/booking-service -am package -Dmaven.test.skip=true
 

@@ -8,6 +8,8 @@ CREATE DATABASE cinema_catalog_db;
 CREATE DATABASE cinema_showtime_db;
 CREATE DATABASE cinema_booking_db;
 CREATE DATABASE cinema_analytics_db;
+CREATE DATABASE cinema_rental_db;
+-- Existing Postgres volumes do not re-run this script. Create cinema_rental_db manually on those volumes.
 CREATE DATABASE cinema_recommendation_db;
 
 -- ASP.NET & Keycloak Microservice Databases
@@ -15,3 +17,7 @@ CREATE DATABASE keycloak_db;
 CREATE DATABASE user_profile_db;
 CREATE DATABASE payment_db;
 CREATE DATABASE facility_db;
+
+-- AI Chatbot Service Database
+SELECT 'CREATE DATABASE ai_chatbot_db'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'ai_chatbot_db')\gexec

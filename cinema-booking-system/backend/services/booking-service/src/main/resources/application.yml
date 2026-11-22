@@ -40,6 +40,12 @@ cinema:
       issuer-uri: ${KEYCLOAK_ISSUER_URI:}
       audience: ${KEYCLOAK_AUDIENCE:cinema-api}
       jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:}
+  ai:
+    enabled: ${CINEMA_AI_ENABLED:false}
+    base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
+    api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-3.5-flash}
+    timeout: ${GEMINI_TIMEOUT:30s}
 
 services:
   catalog:

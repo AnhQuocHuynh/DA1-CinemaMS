@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Linq;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -43,6 +44,7 @@ namespace ApiGateway.Middleware
             context.Request.Headers.Remove("X-Keycloak-Id");
             context.Request.Headers.Remove("X-User-Roles");
             context.Request.Headers.Remove("X-User-Email");
+            context.Request.Headers.Remove("X-Cinema-Id");
 
             if (context.User.Identity?.IsAuthenticated == true)
             {
@@ -52,6 +54,16 @@ namespace ApiGateway.Middleware
                 if (!string.IsNullOrEmpty(keycloakId))
                 {
                     context.Request.Headers["X-Keycloak-Id"] = keycloakId;
+
+                    var roles = context.User.FindAll(ClaimTypes.Role)
+                        .Select(c => c.Value)
+                        .Where(v => !string.IsNullOrWhiteSpace(v))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    if (roles.Count > 0)
+                    {
+                        context.Request.Headers["X-User-Roles"] = string.Join(",", roles);
+                    }
 
                     // Resolve Keycloak UUID to internal Long ID
                     var internalId = await ResolveInternalUserIdAsync(keycloakId);
@@ -66,6 +78,12 @@ namespace ApiGateway.Middleware
                         await context.Response.WriteAsync("User resolution failed");
                         return;
                     }
+                }
+
+                var cinemaIdClaim = context.User.FindFirst("cinema_id")?.Value;
+                if (!string.IsNullOrEmpty(cinemaIdClaim))
+                {
+                    context.Request.Headers["X-Cinema-Id"] = cinemaIdClaim;
                 }
             }
 

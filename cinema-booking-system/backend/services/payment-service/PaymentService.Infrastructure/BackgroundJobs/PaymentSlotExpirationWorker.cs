@@ -13,7 +13,7 @@ namespace PaymentService.Infrastructure.BackgroundJobs;
 
 /// <summary>
 /// Background worker that periodically scans for abandoned payment slots in CREATED status
-/// older than the configured timeout window (default 15 minutes).
+/// older than the configured timeout window (default 10 minutes).
 /// Uses atomic database row claims (ExecuteUpdateAsync) to safely coordinate across
 /// multiple horizontal replicas without publishing duplicate expiration messages.
 /// </summary>
@@ -33,7 +33,7 @@ public class PaymentSlotExpirationWorker : BackgroundService
         _logger = logger;
         
         var intervalSeconds = configuration.GetValue("Payment:ExpirationCheckIntervalSeconds", 60);
-        var timeoutMinutes = configuration.GetValue("Payment:SlotTimeoutMinutes", 15);
+        var timeoutMinutes = configuration.GetValue("Payment:SlotTimeoutMinutes", 10);
 
         _checkInterval = TimeSpan.FromSeconds(Math.Max(5, intervalSeconds));
         _slotTimeout = TimeSpan.FromMinutes(Math.Max(1, timeoutMinutes));

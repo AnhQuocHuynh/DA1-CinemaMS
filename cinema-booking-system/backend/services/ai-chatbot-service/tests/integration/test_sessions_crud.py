@@ -1,0 +1,258 @@
+from datetime import datetime, timezone
+import uuid
+from fastapi import HTTPException
+import pytest
+
+from app.api.v1.endpoints.sessions import (
+    create_session,
+    delete_session,
+    get_session,
+    list_sessions,
+    rename_session,
+)
+from app.core.security import UserContext
+from app.schemas.chat import CreateSessionRequest, RenameSessionRequest
+from app.services import session_service
+
+
+class _Mappings:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def first(self):
+        return self._rows[0] if self._rows else None
+
+    def all(self):
+        return self._rows
+
+
+class _Result:
+    def __init__(self, rows=None):
+        self._rows = rows or []
+
+    def mappings(self):
+        return _Mappings(self._rows)
+
+
+class InMemorySessionDb:
+    def __init__(self) -> None:
+        self.sessions: dict[str, dict] = {}
+        self.messages: list[dict] = []
+        self._next_msg_id = 1
+
+    async def execute(self, stmt, params=None):
+        sql = str(stmt)
+        params = params or {}
+
+        if "SELECT id, user_id, session_token" in sql and "WHERE id =" in sql:
+            row = self.sessions.get(params["id"])
+            return _Result([row] if row else [])
+
+        if "INSERT INTO chat_sessions" in sql:
+            self.sessions[params["id"]] = {
+                "id": uuid.UUID(params["id"]),
+                "user_id": params["user_id"],
+                "keycloak_id": params["keycloak_id"],
+                "session_token": params["session_token"],
+                "title": params["title"],
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
+            }
+            return _Result()
+
+        if "INSERT INTO chat_messages" in sql:
+            self.messages.append(
+                {
+                    "id": self._next_msg_id,
+                    "session_id": params["session_id"],
+                    "role": params["role"],
+                    "content": params["content"],
+                    "cached": params["cached"],
+                    "created_at": datetime.now(timezone.utc),
+                }
+            )
+            self._next_msg_id += 1
+            return _Result()
+
+        if "UPDATE chat_sessions SET title =" in sql:
+            sid = params["id"]
+            if sid in self.sessions:
+                self.sessions[sid]["title"] = params["title"]
+                self.sessions[sid]["updated_at"] = datetime.now(timezone.utc)
+            return _Result()
+
+        if "UPDATE chat_sessions SET updated_at" in sql:
+            if params["session_id"] in self.sessions:
+                self.sessions[params["session_id"]]["updated_at"] = datetime.now(timezone.utc)
+            return _Result()
+
+        if "FROM chat_sessions" in sql and "WHERE user_id =" in sql:
+            rows = [s for s in self.sessions.values() if s["user_id"] == params["user_id"]]
+            return _Result(rows)
+
+        if "FROM chat_sessions" in sql and "WHERE user_id IS NULL" in sql:
+            if "keycloak_id" in params:
+                rows = [
+                    s
+                    for s in self.sessions.values()
+                    if s["user_id"] is None and s["keycloak_id"] == params["keycloak_id"]
+                ]
+            else:
+                rows = [
+                    s
+                    for s in self.sessions.values()
+                    if s["user_id"] is None and s["session_token"] == params["session_token"]
+                ]
+            return _Result(rows)
+
+        if "FROM chat_messages" in sql and "ORDER BY created_at DESC" in sql:
+            rows = [m for m in self.messages if m["session_id"] == params["session_id"]]
+            rows = list(reversed(rows))[: params["limit"]]
+            return _Result(rows)
+
+        if "FROM chat_messages" in sql and "ORDER BY created_at ASC" in sql:
+            rows = [m for m in self.messages if m["session_id"] == params["id"]]
+            return _Result(rows)
+
+        if "DELETE FROM chat_sessions" in sql:
+            sid = params["id"]
+            self.sessions.pop(sid, None)
+            self.messages = [m for m in self.messages if m["session_id"] != sid]
+            return _Result()
+
+        return _Result()
+
+    async def commit(self) -> None:
+        return None
+
+
+@pytest.mark.asyncio
+async def test_sessions_crud_history_and_ownership():
+    db = InMemorySessionDb()
+    owner = UserContext(user_id=101, session_token="owner-tok")
+    other = UserContext(user_id=202, session_token="other-tok")
+    guest = UserContext(user_id=None, session_token="guest-tok")
+
+    sid = await session_service.ensure_session(db, owner, title_hint="Refund question")
+    await session_service.append_exchange(db, sid, "Refund policy?", "60 minutes prior.", cached=False)
+    await session_service.append_exchange(db, sid, "VIP seats?", "Non-refundable.", cached=True)
+
+    guest_sid = await session_service.ensure_session(db, guest, title_hint="Guest chat")
+    await session_service.append_exchange(db, guest_sid, "Hi", "Hello!", cached=False)
+
+    owner_sessions = await list_sessions(user=owner, db=db)
+    assert len(owner_sessions) == 1
+    assert owner_sessions[0]["id"] == sid
+
+    # Session HTTP endpoints reject anonymous guests with 401
+    for call in (
+        list_sessions(user=guest, db=db),
+        create_session(req=None, user=guest, db=db),
+        get_session(guest_sid, user=guest, db=db),
+        rename_session(guest_sid, req=RenameSessionRequest(title="Nope"), user=guest, db=db),
+        delete_session(guest_sid, user=guest, db=db),
+    ):
+        with pytest.raises(HTTPException) as guest_unauth:
+            await call
+        assert guest_unauth.value.status_code == 401
+
+    guest_sessions = await session_service.list_user_sessions(db, guest)
+    assert len(guest_sessions) == 1
+    assert guest_sessions[0]["id"] == guest_sid
+
+    detail = await get_session(sid, user=owner, db=db)
+    assert len(detail["messages"]) == 4
+    assert [m["role"] for m in detail["messages"]] == ["user", "assistant", "user", "assistant"]
+
+    history = await session_service.get_recent_history(db, sid, max_turns=1)
+    assert len(history) == 2
+    assert history[0]["content"] == "VIP seats?"
+
+    with pytest.raises(HTTPException) as forbidden_get:
+        await get_session(sid, user=other, db=db)
+    assert forbidden_get.value.status_code == 403
+
+    with pytest.raises(HTTPException) as forbidden_del:
+        await delete_session(sid, user=other, db=db)
+    assert forbidden_del.value.status_code == 403
+
+    await delete_session(sid, user=owner, db=db)
+    assert await list_sessions(user=owner, db=db) == []
+
+    with pytest.raises(HTTPException) as missing:
+        await get_session(sid, user=owner, db=db)
+    assert missing.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_session_create_rename_and_keycloak_ownership():
+    db = InMemorySessionDb()
+    owner = UserContext(user_id=101, session_token="owner-tok")
+    other = UserContext(user_id=202, session_token="other-tok")
+    guest = UserContext(user_id=None, session_token="guest-tok")
+
+    created_default = await create_session(req=None, user=owner, db=db)
+    assert created_default["title"] == "New Conversation"
+
+    created_custom = await create_session(
+        req=CreateSessionRequest(title="  Dune IMAX Planning  "),
+        user=owner,
+        db=db,
+    )
+    assert created_custom["title"] == "Dune IMAX Planning"
+
+    renamed = await rename_session(
+        created_default["id"],
+        req=RenameSessionRequest(title="  Refund Policy Chat  "),
+        user=owner,
+        db=db,
+    )
+    assert renamed["title"] == "Refund Policy Chat"
+    detail = await get_session(created_default["id"], user=owner, db=db)
+    assert detail["title"] == "Refund Policy Chat"
+
+    with pytest.raises(HTTPException) as blank_err:
+        await rename_session(
+            created_default["id"],
+            req=RenameSessionRequest(title="   "),
+            user=owner,
+            db=db,
+        )
+    assert blank_err.value.status_code == 400
+
+    with pytest.raises(HTTPException) as forbidden_other:
+        await rename_session(
+            created_default["id"],
+            req=RenameSessionRequest(title="Hijacked"),
+            user=other,
+            db=db,
+        )
+    assert forbidden_other.value.status_code == 403
+
+    with pytest.raises(HTTPException) as unauth_guest:
+        await rename_session(
+            created_default["id"],
+            req=RenameSessionRequest(title="Guest Hijack"),
+            user=guest,
+            db=db,
+        )
+    assert unauth_guest.value.status_code == 401
+
+    with pytest.raises(HTTPException) as missing_rename:
+        await rename_session(
+            uuid.uuid4(),
+            req=RenameSessionRequest(title="Missing"),
+            user=owner,
+            db=db,
+        )
+    assert missing_rename.value.status_code == 404
+
+    kc_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    kc_owner = UserContext(user_id=None, keycloak_id=kc_id)
+    kc_other = UserContext(user_id=None, keycloak_id="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+    kc_sess = await session_service.create_user_session(db, kc_owner, title="KC Chat")
+    assert len(await session_service.list_user_sessions(db, kc_owner)) == 1
+    assert (await session_service.get_session_detail(db, kc_sess["id"], kc_owner))["title"] == "KC Chat"
+    with pytest.raises(HTTPException) as kc_forbidden:
+        await session_service.get_session_detail(db, kc_sess["id"], kc_other)
+    assert kc_forbidden.value.status_code == 403

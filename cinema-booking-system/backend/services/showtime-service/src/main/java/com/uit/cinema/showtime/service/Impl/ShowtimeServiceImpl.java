@@ -14,9 +14,11 @@ import com.uit.cinema.showtime.entity.ShowtimeSeat;
 import com.uit.cinema.showtime.mapper.ShowtimeMapper;
 import com.uit.cinema.showtime.repository.ShowtimeRepository;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.showtime.service.RentalSlotGuard;
 import com.uit.cinema.showtime.service.SeatHoldPolicy;
 import com.uit.cinema.showtime.service.ShowtimeService;
 import com.uit.cinema.showtime.service.contract.EventShowtimeCreateRequest;
+import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +50,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     private final EntityManager entityManager;
     private final FacilityReadService facilityReadService;
     private final CatalogReadService catalogReadService;
+    private final RentalSlotGuard rentalSlotGuard;
 
     @Override
     public List<ShowtimeResponse> getShowtimesByMovie(Long movieId) {
@@ -96,6 +99,29 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         ShowtimeSeat seat = showtimeSeatRepository.findById(seatId)
             .orElseThrow(() -> new CustomException("Seat not found", HttpStatus.NOT_FOUND, "SEAT_NOT_FOUND"));
         return toRealtimeSeatResponse(seat.getShowtimeId(), seat);
+    }
+
+    @Override
+    public boolean hasOverlappingShowtime(Long roomId, LocalDateTime start, LocalDateTime end) {
+        return showtimeRepository.countActiveOverlap(roomId, start, end, Showtime.Status.CANCELLED) > 0;
+    }
+
+    @Override
+    public List<ShowtimeScheduleView> findActiveSchedule(Long roomId, LocalDateTime from, LocalDateTime to) {
+        if (roomId == null || from == null || to == null || !to.isAfter(from)) {
+            return List.of();
+        }
+        return showtimeRepository.findActiveIntersecting(roomId, from, to, Showtime.Status.CANCELLED).stream()
+            .map(showtime -> new ShowtimeScheduleView(
+                showtime.getId(),
+                showtime.getMovieId(),
+                showtime.getEventId(),
+                showtime.getRoomId(),
+                showtime.getStartTime(),
+                showtime.getEndTime(),
+                showtime.getStatus() != null ? showtime.getStatus().name() : null
+            ))
+            .toList();
     }
 
     @Override
@@ -171,6 +197,8 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         if (overlapCount > 0) {
             throw new CustomException("Showtime overlaps another showtime", HttpStatus.CONFLICT, "CONFLICT");
         }
+
+        rentalSlotGuard.assertSlotFree(request.getRoomId(), request.getStartTime(), request.getEndTime());
 
         Showtime showtime = showtimeMapper.toEntity(request);
         Showtime savedShowtime = showtimeRepository.save(showtime);

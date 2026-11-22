@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   BarChart3,
   Building2,
+  DoorOpen,
   Film,
   LayoutGrid,
   LogOut,
@@ -19,6 +20,7 @@ const getNavItems = (t: (key: string) => string) => [
   { id: 'events', label: t('adminSidebar.events'), icon: Film, to: '/admin/events' },
   { id: 'showtimes', label: t('adminSidebar.showtimes'), icon: MonitorPlay, to: '/admin/showtimes' },
   { id: 'theaters_and_rooms', label: t('adminSidebar.theatersAndRooms'), icon: LayoutGrid, to: '/admin/rooms' },
+  { id: 'rentals', label: t('adminSidebar.rentals'), icon: DoorOpen, to: '/admin/rentals' },
   { id: 'pricing', label: t('adminSidebar.vouchers'), icon: Ticket, to: '/admin/pricing' },
   { id: 'permissions', label: t('adminSidebar.permissions'), icon: Users, to: '/admin/permissions' },
 ];

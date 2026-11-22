@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight, Loader2, Search, Trash2, Wand2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, Lock, Search, Trash2, Wand2 } from 'lucide-react';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
@@ -8,7 +8,9 @@ import { adminService } from '../../services/adminService';
 import { showtimeService } from '../../services/showtimeService';
 import { movieService } from '../../services/movieService';
 import { eventService } from '../../services/eventService';
+import { rentalService } from '../../services/rentalService';
 import { ShowtimeResponse } from '../../types/showtime';
+import { RentalView } from '../../types/rental';
 import { formatShowtime, formatVND, parseVND } from '../../utils/formatters';
 import genericPoster from '../../resources/generic_movie_poster.png';
 import { useTranslation, Trans } from 'react-i18next';
@@ -19,6 +21,7 @@ interface FlatRoom { roomId: number; roomName: string; theaterName: string }
 export const ShowtimeManagement: React.FC = () => {
   const { t } = useTranslation();
   const [showtimes, setShowtimes] = useState<ShowtimeResponse[]>([]);
+  const [rentals, setRentals] = useState<RentalView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [showCreator, setShowCreator] = useState(false);
@@ -36,11 +39,20 @@ export const ShowtimeManagement: React.FC = () => {
   const loadAllShowtimes = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [theaters, movies, events] = await Promise.all([
+      const [theaters, movies, events, rawRentals] = await Promise.all([
         adminService.getTheaters(),
         movieService.getMovies(),
-        eventService.getEvents()
+        eventService.getEvents(),
+        rentalService.search().catch(() => [] as RentalView[]),
       ]);
+
+      const blockingRentals = (rawRentals || []).filter(
+        (r) =>
+          r.status === 'PENDING_APPROVAL' ||
+          r.status === 'AWAITING_PAYMENT' ||
+          r.status === 'CONFIRMED'
+      );
+      setRentals(blockingRentals);
 
       const rooms: FlatRoom[] = [];
       theaters.forEach((t) =>
@@ -119,6 +131,17 @@ export const ShowtimeManagement: React.FC = () => {
     );
   };
 
+  const matchesRentalQuery = (r: RentalView) => {
+    if (!query) return true;
+    const qLower = query.toLowerCase();
+    const label = `#rn-${r.id} private room rental`.toLowerCase();
+    return (
+      label.includes(qLower) ||
+      r.startTime.toLowerCase().includes(qLower) ||
+      r.status.toLowerCase().includes(qLower)
+    );
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
   const q = query.toLowerCase();
 
@@ -129,14 +152,19 @@ export const ShowtimeManagement: React.FC = () => {
     const roomLabel = `${room.theaterName} ${room.roomName}`.toLowerCase();
     if (roomLabel.includes(q)) return true;
 
-    // Check if any showtime for the selected date matches the query
+    // Check if any showtime or rental for the selected date matches the query
     const selectedDate = roomDates[room.roomId] || today;
     const roomShowtimes = showtimes.filter(st =>
       st.roomId === room.roomId &&
       st.startTime.startsWith(selectedDate)
     );
+    const dayRentals = rentals.filter(r =>
+      r.roomId === room.roomId &&
+      r.startTime < `${selectedDate}T23:59:59` &&
+      r.endTime > `${selectedDate}T00:00:00`
+    );
 
-    return roomShowtimes.some(matchesQuery);
+    return roomShowtimes.some(matchesQuery) || dayRentals.some(matchesRentalQuery);
   });
 
   return (
@@ -225,6 +253,15 @@ export const ShowtimeManagement: React.FC = () => {
 
                 const filteredRoomShowtimes = isRoomMatch ? roomShowtimes : roomShowtimes.filter(matchesQuery);
 
+                // filter room rentals for this room and date
+                const roomRentalsForDate = rentals.filter(r =>
+                  r.roomId === room.roomId &&
+                  r.startTime < `${selectedDate}T23:59:59` &&
+                  r.endTime > `${selectedDate}T00:00:00`
+                );
+
+                const filteredRoomRentals = isRoomMatch ? roomRentalsForDate : roomRentalsForDate.filter(matchesRentalQuery);
+
                 return (
                   <div key={room.roomId} className="bg-surface-container-lowest border border-surface-container rounded-xl overflow-hidden shadow-sm">
                     {/* Header */}
@@ -259,7 +296,7 @@ export const ShowtimeManagement: React.FC = () => {
                     {/* Content */}
                     {isExpanded && (
                       <div className="border-t border-surface-container bg-surface">
-                        {filteredRoomShowtimes.length === 0 ? (
+                        {filteredRoomShowtimes.length === 0 && filteredRoomRentals.length === 0 ? (
                           <div className="p-8 text-center text-secondary text-sm">
                             <Trans i18nKey="adminShowtime.noShowtimesFor" values={{ date: selectedDate }}>
                               No showtimes found for <span className="font-semibold">{selectedDate}</span>.
@@ -278,64 +315,124 @@ export const ShowtimeManagement: React.FC = () => {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-surface-container/50">
-                              {filteredRoomShowtimes.map((st) => (
-                                <tr key={st.id} className="hover:bg-surface-container-lowest transition-colors">
-                                  <td className="px-8 py-4">
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-8 h-10 bg-surface-container-high rounded overflow-hidden flex-shrink-0">
-                                        <img
-                                          src={genericPoster}
-                                          alt=""
-                                          className="w-full h-full object-cover"
-                                        />
-                                      </div>
-                                      <div>
-                                        {st.movieId ? (
-                                          <span className="text-xs font-bold bg-secondary-container text-primary px-2 py-0.5 rounded border border-blue-200">
-                                            {movieMap[st.movieId] || t('adminShowtime.movieFallback', { id: st.movieId, defaultValue: 'Movie #{{id}}' })}
+                              {[
+                                ...filteredRoomShowtimes.map((st) => ({
+                                  type: 'SHOWTIME' as const,
+                                  key: `st-${st.id}`,
+                                  time: new Date(st.startTime).getTime(),
+                                  st,
+                                })),
+                                ...filteredRoomRentals.map((r) => ({
+                                  type: 'RENTAL' as const,
+                                  key: `rental-${r.id}`,
+                                  time: new Date(r.startTime).getTime(),
+                                  rental: r,
+                                })),
+                              ]
+                                .sort((a, b) => a.time - b.time)
+                                .map((item) => {
+                                  if (item.type === 'SHOWTIME') {
+                                    const st = item.st;
+                                    return (
+                                      <tr key={item.key} className="hover:bg-surface-container-lowest transition-colors">
+                                        <td className="px-8 py-4">
+                                          <div className="flex items-center gap-3">
+                                            <div className="w-8 h-10 bg-surface-container-high rounded overflow-hidden flex-shrink-0">
+                                              <img
+                                                src={genericPoster}
+                                                alt=""
+                                                className="w-full h-full object-cover"
+                                              />
+                                            </div>
+                                            <div>
+                                              {st.movieId ? (
+                                                <span className="text-xs font-bold bg-secondary-container text-primary px-2 py-0.5 rounded border border-blue-200">
+                                                  {movieMap[st.movieId] || t('adminShowtime.movieFallback', { id: st.movieId, defaultValue: 'Movie #{{id}}' })}
+                                                </span>
+                                              ) : st.eventId ? (
+                                                <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
+                                                  {eventMap[st.eventId] || t('adminShowtime.eventFallback', { id: st.eventId, defaultValue: 'Event #{{id}}' })}
+                                                </span>
+                                              ) : (
+                                                <span className="text-xs text-on-surface-variant">—</span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </td>
+                                        <td className="px-8 py-4 text-sm text-on-surface font-medium">{formatShowtime(st.startTime)}</td>
+                                        <td className="px-8 py-4 text-sm text-secondary">{formatShowtime(st.endTime)}</td>
+                                        <td className="px-8 py-4 text-sm text-on-surface">
+                                          {formatVND(parseVND(st.basePrice))}
+                                        </td>
+                                        <td className="px-8 py-4">
+                                          <span
+                                            className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border
+                                              ${st.status === 'SCHEDULED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                st.status === 'ONGOING' ? 'bg-primary-container text-primary border-blue-200' :
+                                                  st.status === 'CANCELLED' ? 'bg-error-container text-red-600 border-error-container' :
+                                                    'bg-surface-container text-on-surface-variant border-outline-variant'}`}
+                                          >
+                                            {st.status}
                                           </span>
-                                        ) : st.eventId ? (
-                                          <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
-                                            {eventMap[st.eventId] || t('adminShowtime.eventFallback', { id: st.eventId, defaultValue: 'Event #{{id}}' })}
-                                          </span>
-                                        ) : (
-                                          <span className="text-xs text-on-surface-variant">—</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="px-8 py-4 text-sm text-on-surface font-medium">{formatShowtime(st.startTime)}</td>
-                                  <td className="px-8 py-4 text-sm text-secondary">{formatShowtime(st.endTime)}</td>
-                                  <td className="px-8 py-4 text-sm text-on-surface">
-                                    {formatVND(parseVND(st.basePrice))}
-                                  </td>
-                                  <td className="px-8 py-4">
-                                    <span
-                                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border
-                                        ${st.status === 'SCHEDULED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                          st.status === 'ONGOING' ? 'bg-primary-container text-primary border-blue-200' :
-                                            st.status === 'CANCELLED' ? 'bg-error-container text-red-600 border-error-container' :
-                                              'bg-surface-container text-on-surface-variant border-outline-variant'}`}
-                                    >
-                                      {st.status}
-                                    </span>
-                                  </td>
-                                  <td className="px-8 py-4 text-right">
-                                    <button
-                                      onClick={() => handleDelete(st.id)}
-                                      disabled={deletingId === st.id}
-                                      className="p-2 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-error-container transition-colors disabled:opacity-40"
-                                      title={t('adminShowtime.deleteAction', 'Delete Showtime')}
-                                    >
-                                      {deletingId === st.id ? (
-                                        <Loader2 size={16} className="animate-spin" />
-                                      ) : (
-                                        <Trash2 size={16} />
-                                      )}
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
+                                        </td>
+                                        <td className="px-8 py-4 text-right">
+                                          <button
+                                            onClick={() => handleDelete(st.id)}
+                                            disabled={deletingId === st.id}
+                                            className="p-2 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-error-container transition-colors disabled:opacity-40"
+                                            title={t('adminShowtime.deleteAction', 'Delete Showtime')}
+                                          >
+                                            {deletingId === st.id ? (
+                                              <Loader2 size={16} className="animate-spin" />
+                                            ) : (
+                                              <Trash2 size={16} />
+                                            )}
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    );
+                                  }
+
+                                  const r = item.rental;
+                                  return (
+                                    <tr key={item.key} className="bg-amber-500/5 hover:bg-amber-500/10 transition-colors">
+                                      <td className="px-8 py-4">
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-8 h-10 bg-amber-100 rounded flex items-center justify-center flex-shrink-0 text-amber-700 border border-amber-200">
+                                            <Lock size={16} />
+                                          </div>
+                                          <div>
+                                            <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded border border-amber-300">
+                                              #RN-{r.id} • {t('adminShowtime.privateRental', 'Private Room Rental')}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="px-8 py-4 text-sm text-on-surface font-medium">{formatShowtime(r.startTime)}</td>
+                                      <td className="px-8 py-4 text-sm text-secondary">
+                                        {formatShowtime(r.endTime)} <span className="text-[10px] text-amber-700 font-semibold">(+15m buffer)</span>
+                                      </td>
+                                      <td className="px-8 py-4 text-sm text-on-surface">
+                                        {formatVND(r.totalAmount)}
+                                      </td>
+                                      <td className="px-8 py-4">
+                                        <span
+                                          className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border
+                                            ${r.status === 'CONFIRMED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                              r.status === 'AWAITING_PAYMENT' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                'bg-blue-50 text-blue-700 border-blue-200'}`}
+                                        >
+                                          {r.status}
+                                        </span>
+                                      </td>
+                                      <td className="px-8 py-4 text-right">
+                                        <span className="text-xs text-on-surface-variant italic">
+                                          {t('adminShowtime.managedInRentals', 'Managed in Room Rentals')}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
                             </tbody>
                           </table>
                         )}

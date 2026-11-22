@@ -29,6 +29,8 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -333,6 +335,128 @@ class PaymentServiceImplTest {
 
         assertEquals(PaymentEventOutcome.APPLIED, outcome);
         assertEquals(Order.OrderStatus.PAID, counterOrder.getStatus());
+    }
+
+    @Test
+    void applyCompletedPayment_whenSeatsTakenAfterPayment_cancelsOrderAndEmitsOrderCancelledForAsyncRefund() {
+        Order order = buildOrder(1L, Order.OrderStatus.PENDING);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(seatReservationService.getSchedule(100L)).thenReturn(scheduleInHours(2));
+        when(seatReservationService.confirmHeldSeats(any()))
+            .thenThrow(new CustomException("Seat 55 is no longer available", HttpStatus.CONFLICT, "SEAT_ALREADY_TAKEN"));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentEventOutcome outcome = paymentService.applyCompletedPayment(
+            1L, 10L, "STRIPE", "txn_1", new BigDecimal("100.00")
+        );
+
+        assertEquals(PaymentEventOutcome.APPLIED, outcome);
+        assertEquals(Order.OrderStatus.CANCELLED, order.getStatus());
+        verify(bookingOutboxEventWriter).orderCancelled(1L, 10L, "SEATS_UNAVAILABLE_AFTER_PAYMENT");
+        verify(httpPaymentService, never()).executeOrderRefund(any(), any(), any());
+        verify(ticketGenerationService, never()).generateTicket(any(Ticket.class));
+        verify(bookingOutboxEventWriter, never()).orderPaid(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void applyCompletedPayment_whenAlreadyCancelledAfterCompensation_ignoresStaleAndDoesNotEmitDuplicateOrderCancelled() {
+        Order order = buildOrder(1L, Order.OrderStatus.CANCELLED);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        PaymentEventOutcome outcome = paymentService.applyCompletedPayment(
+            1L, 10L, "STRIPE", "txn_1", new BigDecimal("100.00")
+        );
+
+        assertEquals(PaymentEventOutcome.IGNORED_STALE, outcome);
+        assertEquals(Order.OrderStatus.CANCELLED, order.getStatus());
+        verify(seatReservationService, never()).confirmHeldSeats(any());
+        verify(bookingOutboxEventWriter, never()).orderCancelled(any(), any(), any());
+        verify(httpPaymentService, never()).executeOrderRefund(any(), any(), any());
+    }
+
+    @Test
+    void applyRefundedPayment_whenOrderAlreadyCancelledAfterSeatCompensation_ignoresStaleWithoutReleasingSeatsOrCallingGateway() {
+        Order order = buildOrder(1L, Order.OrderStatus.CANCELLED);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        PaymentEventOutcome outcome = paymentService.applyRefundedPayment(
+            1L, 10L, "SEATS_UNAVAILABLE_AFTER_PAYMENT", new BigDecimal("100.00")
+        );
+
+        assertEquals(PaymentEventOutcome.IGNORED_STALE, outcome);
+        assertEquals(Order.OrderStatus.CANCELLED, order.getStatus());
+        verify(ticketRepository, never()).findByOrderIdOrderByCreatedAtDesc(any());
+        verify(seatReservationService, never()).releaseBookedSeats(any());
+        verify(bookingOutboxEventWriter, never()).orderRefunded(any(), org.mockito.ArgumentMatchers.anyInt());
+        verify(httpPaymentService, never()).executeOrderRefund(any(), any(), any());
+    }
+
+    @Test
+    void applyCompletedPayment_counterOrderAnonymousWhenSeatsTaken_cancelsAndEmitsOrderCancelledWithAnonymousUserId() {
+        Order counterOrder = Order.builder()
+            .id(2L)
+            .userId(Order.ANONYMOUS_USER_ID)
+            .showtimeId(100L)
+            .seatIdsSnapshot("55")
+            .totalAmount(new BigDecimal("100.00"))
+            .discountAmount(BigDecimal.ZERO)
+            .finalAmount(new BigDecimal("100.00"))
+            .status(Order.OrderStatus.PENDING)
+            .salesChannel(Order.SalesChannel.COUNTER)
+            .build();
+
+        when(orderRepository.findById(2L)).thenReturn(Optional.of(counterOrder));
+        when(seatReservationService.getSchedule(100L)).thenReturn(scheduleInHours(2));
+        when(seatReservationService.confirmHeldSeats(any()))
+            .thenThrow(new CustomException("Seat 55 taken", HttpStatus.CONFLICT, "SEAT_ALREADY_TAKEN"));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentEventOutcome outcome = paymentService.applyCompletedPayment(
+            2L, 999L, "CASH", "CASH-TXN-2", new BigDecimal("100.00")
+        );
+
+        assertEquals(PaymentEventOutcome.APPLIED, outcome);
+        assertEquals(Order.OrderStatus.CANCELLED, counterOrder.getStatus());
+        verify(bookingOutboxEventWriter).orderCancelled(2L, Order.ANONYMOUS_USER_ID, "SEATS_UNAVAILABLE_AFTER_PAYMENT");
+        verify(httpPaymentService, never()).executeOrderRefund(any(), any(), any());
+    }
+
+    @Test
+    void applyCompletedPayment_whenSeatsTakenAndOutboxWriterThrows_propagatesException() {
+        Order order = buildOrder(1L, Order.OrderStatus.PENDING);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(seatReservationService.getSchedule(100L)).thenReturn(scheduleInHours(2));
+        when(seatReservationService.confirmHeldSeats(any()))
+            .thenThrow(new CustomException("Seat 55 taken", HttpStatus.CONFLICT, "SEAT_ALREADY_TAKEN"));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(new IllegalStateException("Outbox write failed"))
+            .when(bookingOutboxEventWriter).orderCancelled(1L, 10L, "SEATS_UNAVAILABLE_AFTER_PAYMENT");
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> paymentService.applyCompletedPayment(1L, 10L, "STRIPE", "txn_1", new BigDecimal("100.00"))
+        );
+
+        verify(httpPaymentService, never()).executeOrderRefund(any(), any(), any());
+    }
+
+    @Test
+    void applyCompletedPayment_whenOtherSeatErrorOccurs_rethrowsWithoutCancelling() {
+        Order order = buildOrder(1L, Order.OrderStatus.PENDING);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(seatReservationService.getSchedule(100L)).thenReturn(scheduleInHours(2));
+        when(seatReservationService.confirmHeldSeats(any()))
+            .thenThrow(new CustomException("Seat not found", HttpStatus.NOT_FOUND, "SEAT_NOT_FOUND"));
+
+        CustomException ex = assertThrows(
+            CustomException.class,
+            () -> paymentService.applyCompletedPayment(1L, 10L, "STRIPE", "txn_1", new BigDecimal("100.00"))
+        );
+
+        assertEquals("SEAT_NOT_FOUND", ex.getErrorCode());
+        assertEquals(Order.OrderStatus.PENDING, order.getStatus());
+        verify(httpPaymentService, never()).executeOrderRefund(any(), any(), any());
+        verify(bookingOutboxEventWriter, never()).orderCancelled(any(), any(), any());
     }
 
     private ShowtimeScheduleView scheduleInHours(long hours) {

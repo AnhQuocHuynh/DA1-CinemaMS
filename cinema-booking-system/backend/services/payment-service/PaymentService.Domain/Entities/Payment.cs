@@ -53,7 +53,7 @@ public class Payment
 
     public void Initiate(PaymentMethod method, string? gatewaySessionId = null)
     {
-        if (Status != PaymentStatus.CREATED && Status != PaymentStatus.FAILED)
+        if (Status != PaymentStatus.CREATED && Status != PaymentStatus.FAILED && Status != PaymentStatus.PENDING)
             throw new InvalidOperationException($"Cannot initiate payment in status {Status}");
 
         PaymentMethod = method;

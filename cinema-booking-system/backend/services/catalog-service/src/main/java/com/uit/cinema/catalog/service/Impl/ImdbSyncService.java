@@ -45,6 +45,7 @@ public class ImdbSyncService {
     private final MovieRepository movieRepository;
     private final GenreRepository genreRepository;
     private final CatalogOutboxEventWriter catalogOutboxEventWriter;
+    private final com.uit.cinema.catalog.service.MovieSummaryAgent movieSummaryAgent;
 
     @Value("${imdb.api.base-url:https://api.imdbapi.dev}")
     private String imdbApiBaseUrl;
@@ -169,6 +170,22 @@ public class ImdbSyncService {
             movie.setAgeRating("P");
         }
         movie.setActive(true);
+
+        if (movie.getAiSummary() == null || movie.getAiSummary().isBlank()) {
+            List<String> genreNames = movie.getGenres() != null
+                    ? movie.getGenres().stream().map(Genre::getName).filter(Objects::nonNull).toList()
+                    : List.of();
+            String desc = movie.getDescription();
+            if (desc == null || desc.isBlank()) {
+                desc = movie.getTitle();
+            }
+            try {
+                movieSummaryAgent.summarize(movie.getTitle(), desc, genreNames)
+                        .ifPresent(movie::setAiSummary);
+            } catch (Exception ex) {
+                // Ignore summarization failure to preserve IMDb sync
+            }
+        }
 
         Movie saved = movieRepository.save(movie);
         if (isNew) {

@@ -32,14 +32,14 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
             "tan", "new", "vol", "episode", "official", "trailer", "poster");
 
     private static final String SYSTEM_PROMPT = """
-            You write a rich and captivating factual movie synopsis for a cinema website.
-            Strict requirements:
-            1. Language: MUST be written entirely in English.
-            2. Word count: MUST be between 100 and 250 words (aim for around 125 to 150 words).
-            3. Identify the film from the title, genres, and description, mentioning concrete characters, conflicts, and events.
-            4. Dive directly into the narrative. Do NOT start with introductory labels or prefixes like "Summary:", "AI Summary:", "In this film", or quotes.
-            5. Output plain text only. Do not use markdown, bullet points, or quotation marks.
-            """;
+        You write a rich and captivating factual movie synopsis for a cinema website.
+        Strict requirements:
+        1. Language: MUST be written entirely in English.
+        2. Word count: MUST be between 100 and 250 words (aim for around 125 to 150 words).
+        3. Identify the film from the title, genres, and description, mentioning concrete characters, conflicts, and events.
+        4. Dive directly into the narrative. Do NOT start with introductory labels or prefixes like "Summary:", "AI Summary:", "In this film", or quotes.
+        5. Output plain text only. Do not use markdown, bullet points, or quotation marks.
+        """;
 
     private final RestClient geminiRestClient;
     private final CinemaAiProperties properties;
@@ -113,11 +113,11 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
         String required = terms.isEmpty() ? title == null ? "" : title
                 : String.join(", ", terms.stream().limit(8).toList());
         return """
-                The previous summary was rejected because it did not refer to this film.
-                Write the summary again in English. It must include at least one of these terms: %s
-                Write between 100 and 250 words in complete sentences. Do not use generic filler.
-                %s
-                """.formatted(required, userPrompt(title, description, genres));
+            The previous summary was rejected because it did not refer to this film.
+            Write the summary again in English. It must include at least one of these terms: %s
+            Write between 100 and 250 words in complete sentences. Do not use generic filler.
+            %s
+            """.formatted(required, userPrompt(title, description, genres));
     }
 
     private static String extractText(JsonNode body) {

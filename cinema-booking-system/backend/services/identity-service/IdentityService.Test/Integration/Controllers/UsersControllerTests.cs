@@ -13,6 +13,12 @@ file record ApiResponseWrapper<T>(bool Success, string Message, T? Data);
 [Collection("IntegrationTests")]
 public class UsersControllerTests : BaseIntegrationTest
 {
+    private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+    };
+
     public UsersControllerTests(CustomWebApplicationFactory factory) : base(factory)
     {
     }
@@ -34,7 +40,7 @@ public class UsersControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<UserDto>>();
+        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<UserDto>>(JsonOptions);
         wrapper.Should().NotBeNull();
         wrapper!.Success.Should().BeTrue();
         wrapper.Data.Should().NotBeNull();
@@ -63,7 +69,7 @@ public class UsersControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<PagedResult<UserDto>>>();
+        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<PagedResult<UserDto>>>(JsonOptions);
         wrapper.Should().NotBeNull();
         wrapper!.Success.Should().BeTrue();
         wrapper.Data.Should().NotBeNull();
@@ -104,7 +110,7 @@ public class UsersControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<UserDto>>();
+        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<UserDto>>(JsonOptions);
         wrapper.Should().NotBeNull();
         wrapper!.Success.Should().BeTrue();
         wrapper.Data.Should().NotBeNull();
@@ -185,5 +191,76 @@ public class UsersControllerTests : BaseIntegrationTest
         // Verify DB update
         await _dbContext.Entry(user).ReloadAsync();
         user.Phone.Should().Be("1234567890");
+    }
+
+    [Fact]
+    public async Task GetUserCinemaScope_ReturnsScopeWithCinemaId_WhenUserAssignedToCinema()
+    {
+        // Arrange
+        var keycloakId = Guid.NewGuid().ToString();
+        var user = new User(keycloakId, $"staff_{Guid.NewGuid()}@example.com", "Staff User");
+        user.AssignCinema(3L);
+        _dbContext.Users.Add(user);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var response = await _client.GetAsync($"/internal/users/{user.Id}/cinema-scope");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var wrapper = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<CinemaScopeDto>>(JsonOptions);
+        wrapper.Should().NotBeNull();
+        wrapper!.Success.Should().BeTrue();
+        wrapper.Data.Should().NotBeNull();
+        wrapper.Data!.CinemaIds.Should().ContainSingle().Which.Should().Be(3L);
+    }
+
+    [Fact]
+    public async Task GetUserCinemaScope_ReturnsNotFound_WhenUserDoesNotExist()
+    {
+        // Act
+        var response = await _client.GetAsync("/internal/users/999999/cinema-scope");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task AssignStaffCinema_ReturnsNoContentAndPersistsCinemaId_WhenAdmin()
+    {
+        // Arrange
+        var staffKeycloakId = Guid.NewGuid().ToString();
+        var adminKeycloakId = Guid.NewGuid().ToString();
+        var staffUser = new User(staffKeycloakId, $"staff_assign_{Guid.NewGuid()}@example.com", "Staff Assign User");
+        var adminUser = new User(adminKeycloakId, $"admin_assign_{Guid.NewGuid()}@example.com", "Admin User");
+
+        _dbContext.Users.Add(staffUser);
+        _dbContext.Users.Add(adminUser);
+        await _dbContext.SaveChangesAsync();
+
+        AuthenticateAsUser(adminKeycloakId, "ADMIN");
+        var request = new { CinemaId = 5L };
+
+        // Act
+        var response = await _client.PutAsJsonAsync($"/api/Users/{staffUser.Id}/cinema", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await _dbContext.Entry(staffUser).ReloadAsync();
+        staffUser.CinemaId.Should().Be(5L);
+    }
+
+    [Fact]
+    public async Task AssignStaffCinema_ReturnsForbidden_WhenNotAdmin()
+    {
+        // Arrange
+        AuthenticateAsUser(Guid.NewGuid().ToString(), "user");
+        var request = new { CinemaId = 5L };
+
+        // Act
+        var response = await _client.PutAsJsonAsync("/api/Users/999/cinema", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 }

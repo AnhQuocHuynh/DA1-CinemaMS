@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MassTransit;
@@ -10,6 +11,7 @@ using PaymentService.Domain.Entities;
 using PaymentService.Domain.Enums;
 using PaymentService.Domain.Interfaces;
 using PaymentService.Application.IntegrationEvents;
+using Xunit;
 
 namespace PaymentService.Test.Unit.Features;
 
@@ -237,7 +239,7 @@ public class InitiatePaymentCommandHandlerTests
             _handler.Handle(command, CancellationToken.None));
     }
 
-    // ── Pending Order Idempotent Retry ────────────────────────────────────────
+    // ── Pending Order Idempotent Retry & Gateway Switch ───────────────────────
 
     [Fact]
     public async Task Handle_PendingOrderRetry_ShouldReturnExistingSessionUrl()
@@ -267,6 +269,115 @@ public class InitiatePaymentCommandHandlerTests
         Assert.Equal("https://checkout.stripe.com/pay/sess_existing_123", result.RedirectUrl);
         _gatewayMock.Verify(g => g.GetExistingSessionUrlAsync("sess_existing_123", It.IsAny<CancellationToken>()), Times.Once);
         _gatewayMock.Verify(g => g.InitiateAsync(It.IsAny<PaymentRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_PendingOrderWithDifferentPaymentMethod_ShouldInitiateNewGatewaySession()
+    {
+        // Arrange — user initially clicked PayPal, then clicked Back and switched to Stripe
+        var pendingPayment = new Payment(1234, 42, 180000m, "VND");
+        pendingPayment.Initiate(PaymentMethod.PAYPAL, "paypal_token_old");
+
+        _paymentRepoMock.Setup(r => r.GetByOrderIdAsync(1234, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pendingPayment);
+
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _txLogRepoMock.Setup(t => t.AddAsync(It.IsAny<TransactionLog>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        var stripeResult = new PaymentInitiationResult(true, "https://checkout.stripe.com/pay/cs_switched_123", null, "cs_switched_123");
+        _gatewayMock.Setup(g => g.InitiateAsync(It.IsAny<PaymentRequest>())).ReturnsAsync(stripeResult);
+        _gatewayFactoryMock.Setup(f => f.GetGateway(PaymentMethod.STRIPE)).Returns(_gatewayMock.Object);
+
+        var command = new InitiatePaymentCommand(
+            OrderId: 1234, UserId: 42,
+            PaymentMethod: PaymentMethod.STRIPE,
+            CancelUrl: "https://cancel.com",
+            SuccessUrl: "https://success.com");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal("https://checkout.stripe.com/pay/cs_switched_123", result.RedirectUrl);
+        Assert.Equal(PaymentStatus.PENDING, pendingPayment.Status);
+        Assert.Equal(PaymentMethod.STRIPE, pendingPayment.PaymentMethod);
+        Assert.Equal("cs_switched_123", pendingPayment.GatewaySessionId);
+
+        _gatewayFactoryMock.Verify(f => f.GetGateway(PaymentMethod.STRIPE), Times.Once);
+        _gatewayMock.Verify(g => g.InitiateAsync(It.IsAny<PaymentRequest>()), Times.Once);
+        _publishEndpointMock.Verify(
+            p => p.Publish(
+                It.Is<PaymentInitiated>(e => e.PaymentMethod == "STRIPE" && e.OrderId == 1234),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_PendingOrderWithSameMethodWhenExistingUrlEmpty_ShouldReinitiateGatewaySession()
+    {
+        // Arrange — same method, but previous session URL is empty/expired
+        var pendingPayment = new Payment(1234, 42, 180000m, "VND");
+        pendingPayment.Initiate(PaymentMethod.STRIPE, "sess_expired_123");
+
+        _paymentRepoMock.Setup(r => r.GetByOrderIdAsync(1234, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pendingPayment);
+
+        _gatewayMock.Setup(g => g.GetExistingSessionUrlAsync("sess_expired_123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(string.Empty);
+
+        var freshStripeResult = new PaymentInitiationResult(true, "https://checkout.stripe.com/pay/cs_fresh_456", null, "cs_fresh_456");
+        _gatewayMock.Setup(g => g.InitiateAsync(It.IsAny<PaymentRequest>())).ReturnsAsync(freshStripeResult);
+        _gatewayFactoryMock.Setup(f => f.GetGateway(PaymentMethod.STRIPE)).Returns(_gatewayMock.Object);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _txLogRepoMock.Setup(t => t.AddAsync(It.IsAny<TransactionLog>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        var command = new InitiatePaymentCommand(
+            OrderId: 1234, UserId: 42,
+            PaymentMethod: PaymentMethod.STRIPE,
+            CancelUrl: "https://cancel.com",
+            SuccessUrl: "https://success.com");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal("https://checkout.stripe.com/pay/cs_fresh_456", result.RedirectUrl);
+        Assert.Equal("cs_fresh_456", pendingPayment.GatewaySessionId);
+        _gatewayMock.Verify(g => g.InitiateAsync(It.IsAny<PaymentRequest>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_PendingOrderWithDifferentMethodWhenGatewayFails_ShouldReturnFailureAndKeepPreviousState()
+    {
+        // Arrange — switching from PayPal to Stripe when Stripe API fails
+        var pendingPayment = new Payment(1234, 42, 180000m, "VND");
+        pendingPayment.Initiate(PaymentMethod.PAYPAL, "paypal_token_old");
+
+        _paymentRepoMock.Setup(r => r.GetByOrderIdAsync(1234, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pendingPayment);
+
+        var failedStripeResult = new PaymentInitiationResult(false, null, "Stripe service unavailable");
+        _gatewayMock.Setup(g => g.InitiateAsync(It.IsAny<PaymentRequest>())).ReturnsAsync(failedStripeResult);
+        _gatewayFactoryMock.Setup(f => f.GetGateway(PaymentMethod.STRIPE)).Returns(_gatewayMock.Object);
+
+        var command = new InitiatePaymentCommand(
+            OrderId: 1234, UserId: 42,
+            PaymentMethod: PaymentMethod.STRIPE,
+            CancelUrl: "https://cancel.com",
+            SuccessUrl: "https://success.com");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Stripe service unavailable", result.ErrorMessage);
+        Assert.Equal(PaymentMethod.PAYPAL, pendingPayment.PaymentMethod);
+        Assert.Equal("paypal_token_old", pendingPayment.GatewaySessionId);
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // ── Failed Order Retry ────────────────────────────────────────────────────
