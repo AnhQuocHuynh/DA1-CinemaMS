@@ -152,54 +152,54 @@ export const MovieShowtimes: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-surface text-on-surface">
-      <header className="fixed top-0 z-50 w-full bg-surface-container-lowest/80 backdrop-blur-md border-b border-surface-container-low">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="font-black tracking-tight text-lg text-primary">
+      <header className="fixed top-0 z-50 w-full bg-surface-container-lowest/80 backdrop-blur-md border-b border-surface-container-low pt-safe">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+          <Link to="/" className="font-black tracking-tight text-lg text-primary truncate">
             CinemaArchitect
           </Link>
           <button
             onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface transition-colors"
+            className="inline-flex items-center gap-2 min-h-[44px] px-2 -mr-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface transition-colors shrink-0"
           >
             <ArrowLeft size={16} /> {t('movieShowtimes.back', 'Quay lại')}
           </button>
         </div>
       </header>
 
-      <main className="pt-16 pb-20">
+      <main className="pt-16 pb-28 md:pb-20">
         {/* Movie/Event Header Info */}
-        <section className="bg-surface-container-lowest border-b border-surface-container-low py-8 px-6">
-          <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-start md:items-center gap-6">
+        <section className="bg-surface-container-lowest border-b border-surface-container-low py-5 sm:py-8 px-4 sm:px-6">
+          <div className="max-w-5xl mx-auto flex flex-row items-center gap-4 md:gap-6">
               <img
                 src={(movie?.posterUrl || event?.imageUrl) || genericPoster}
                 alt={movie?.title || event?.name}
-                className="w-24 h-36 object-cover rounded-lg shadow-md"
+                className="w-16 h-24 md:w-24 md:h-36 object-cover rounded-lg shadow-md shrink-0"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.onerror = null;
                   target.src = genericPoster;
                 }}
               />
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
+            <div className="space-y-1.5 sm:space-y-2 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 {movie && (
-                  <span className="px-2 py-1 bg-primary text-on-primary rounded text-xs font-bold">
+                  <span className="px-2 py-0.5 sm:py-1 bg-primary text-on-primary rounded text-xs font-bold">
                     {movie.ageRating}
                   </span>
                 )}
                 {event && (
-                  <span className="px-2 py-1 bg-amber-600 text-white rounded text-xs font-bold">
+                  <span className="px-2 py-0.5 sm:py-1 bg-amber-600 text-white rounded text-xs font-bold">
                     {t('movieShowtimes.eventLabel', 'Sự kiện')}
                   </span>
                 )}
                 {movie && (
-                  <span className="text-sm font-medium text-on-surface-variant">
+                  <span className="text-xs sm:text-sm font-medium text-on-surface-variant">
                     {movie.durationMinutes} {t('movieShowtimes.minutes', 'phút')}
                   </span>
                 )}
               </div>
-              <h1 className="text-3xl font-black tracking-tight text-on-surface">{movie?.title || event?.name}</h1>
-              <div className="flex flex-wrap gap-2 text-sm text-on-surface-variant font-medium">
+              <h1 className="text-xl sm:text-3xl font-black tracking-tight text-on-surface line-clamp-2">{movie?.title || event?.name}</h1>
+              <div className="flex flex-wrap gap-2 text-xs sm:text-sm text-on-surface-variant font-medium">
                 {movie && movie.genres.join(', ')}
                 {event && <span className="flex items-center gap-1"><MapPin size={14}/> {event.venue}</span>}
               </div>
@@ -208,8 +208,8 @@ export const MovieShowtimes: React.FC = () => {
         </section>
 
         {/* Date Selector */}
-        <section className="border-b border-surface-container-low sticky top-16 z-40 bg-surface-container-lowest/90 backdrop-blur-md">
-          <div className="max-w-5xl mx-auto px-6 py-4 overflow-x-auto no-scrollbar">
+        <section className="border-b border-surface-container-low sticky top-16 z-30 bg-surface-container-lowest/90 backdrop-blur-md">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 overflow-x-auto no-scrollbar">
             <div className="flex gap-4 min-w-max">
               {availableDates.map((date) => {
                 const dateStr = date.toISOString().split('T')[0];
@@ -246,7 +246,7 @@ export const MovieShowtimes: React.FC = () => {
         </section>
 
         {/* Showtimes List */}
-        <section className="max-w-5xl mx-auto px-6 py-10 space-y-10">
+        <section className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-6 sm:space-y-10">
           {Object.keys(groupedShowtimes).length === 0 ? (
             <div className="text-center py-20">
               <p className="text-lg font-semibold text-on-surface-variant mb-2">
@@ -258,16 +258,16 @@ export const MovieShowtimes: React.FC = () => {
             </div>
           ) : (
             Object.values(groupedShowtimes).map((group, idx) => (
-              <div key={idx} className="bg-surface-container-lowest rounded-2xl p-6 border border-surface-container-low shadow-sm">
-                <div className="flex items-center gap-3 mb-6 border-b border-surface-container-low pb-4">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <div key={idx} className="bg-surface-container-lowest rounded-2xl p-4 sm:p-6 border border-surface-container-low shadow-sm">
+                <div className="flex items-center gap-3 mb-4 sm:mb-6 border-b border-surface-container-low pb-3 sm:pb-4">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
                     <MapPin size={20} />
                   </div>
-                  <h2 className="text-xl font-bold tracking-tight text-on-surface">
+                  <h2 className="text-lg sm:text-xl font-bold tracking-tight text-on-surface">
                     {group.cinemaName}
                   </h2>
                 </div>
-                <div className="flex flex-wrap gap-4">
+                <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2.5 sm:gap-4">
                   {group.showtimes.map((st) => {
                     const now = Date.now();
                     const isClosed = new Date(st.startTime).getTime() - now < 5 * 60 * 1000;
@@ -276,7 +276,7 @@ export const MovieShowtimes: React.FC = () => {
                         key={st.id}
                         onClick={() => handleBookShowtime(st)}
                         disabled={isClosed}
-                        className={`group relative flex flex-col items-center justify-center w-24 h-16 rounded-xl transition-all ${
+                        className={`group relative flex flex-col items-center justify-center w-full sm:w-24 h-16 rounded-xl transition-all ${
                           isClosed
                             ? 'bg-surface-container-highest border-2 border-surface-container-highest opacity-50 cursor-not-allowed'
                             : 'bg-surface-container-lowest border-2 border-surface-container-highest hover:border-primary hover:bg-primary/5'

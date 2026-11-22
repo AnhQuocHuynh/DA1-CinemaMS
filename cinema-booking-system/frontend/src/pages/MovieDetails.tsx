@@ -111,23 +111,23 @@ export const MovieDetails: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-surface text-on-surface">
-      <header className="fixed top-0 z-50 w-full bg-surface-container-lowest/80 backdrop-blur-md border-b border-outline-variant">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="font-black tracking-tight text-lg text-on-surface">
+      <header className="fixed top-0 z-50 w-full bg-surface-container-lowest/80 backdrop-blur-md border-b border-outline-variant pt-safe">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+          <Link to="/" className="font-black tracking-tight text-lg text-on-surface truncate">
             CinemaArchitect
           </Link>
           <button
             onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 text-sm text-on-surface-variant hover:text-on-surface"
+            className="inline-flex items-center gap-2 min-h-[44px] px-2 -mr-2 text-sm text-on-surface-variant hover:text-on-surface shrink-0"
           >
             <ArrowLeft size={16} /> {t('movieDetails.goBack')}
           </button>
         </div>
       </header>
 
-      <main className="pt-16">
+      <main className="pt-16 pb-24 md:pb-16">
         {/* Hero */}
-        <section className="relative min-h-[540px] overflow-hidden">
+        <section className="relative min-h-[400px] lg:min-h-[540px] overflow-hidden flex items-end">
           <img
             src={movie.posterUrl || genericPoster}
             alt={movie.title}
@@ -138,11 +138,11 @@ export const MovieDetails: React.FC = () => {
               target.src = genericPoster;
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-100 via-slate-900/30 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent" />
 
-          <div className="relative max-w-7xl mx-auto px-6 py-20 flex items-end min-h-[540px]">
-            <div className="max-w-3xl space-y-6">
-              <div className="flex flex-wrap items-center gap-3 text-sm text-white">
+          <div className="relative max-w-7xl mx-auto w-full px-4 sm:px-6 py-10 sm:py-16 lg:py-20 flex items-end">
+            <div className="max-w-3xl space-y-4 sm:space-y-6">
+              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs sm:text-sm text-white">
                 <span className="px-3 py-1 rounded-sm bg-primary font-semibold">
                   {!movie.active 
                     ? t('home.stopped')
@@ -158,15 +158,15 @@ export const MovieDetails: React.FC = () => {
                 ))}
               </div>
 
-              <h1 className="text-5xl md:text-7xl font-black tracking-tight text-white">
+              <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black tracking-tight text-white">
                 {movie.title}
               </h1>
-              <p className="text-white/80 text-lg leading-relaxed">{movie.description}</p>
+              <p className="text-white/80 text-sm sm:text-lg leading-relaxed line-clamp-4 sm:line-clamp-none">{movie.description}</p>
 
-              <div className="flex flex-wrap items-center gap-2 text-white">
+              <div className="flex flex-wrap items-center gap-1 text-white">
                 {user ? (
                   <>
-                    <span className="text-sm">{t('movieDetailsRating.prompt', 'Rate this movie')}</span>
+                    <span className="text-sm mr-1">{t('movieDetailsRating.prompt', 'Rate this movie')}</span>
                     {[1, 2, 3, 4, 5].map((value) => (
                       <button
                         key={value}
@@ -174,7 +174,7 @@ export const MovieDetails: React.FC = () => {
                         disabled={isSavingRating}
                         onClick={() => handleRate(value)}
                         aria-label={`${value}`}
-                        className="p-1 disabled:opacity-50"
+                        className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center disabled:opacity-50"
                       >
                         <Star
                           size={22}
@@ -182,10 +182,10 @@ export const MovieDetails: React.FC = () => {
                         />
                       </button>
                     ))}
-                    {ratingMessage && <span className="text-sm text-white/80">{ratingMessage}</span>}
+                    {ratingMessage && <span className="text-sm text-white/80 ml-1">{ratingMessage}</span>}
                   </>
                 ) : (
-                  <Link to="/login" className="text-sm font-semibold text-amber-300 hover:underline">
+                  <Link to="/login" className="text-sm font-semibold text-amber-300 hover:underline min-h-[40px] inline-flex items-center">
                     {t('movieDetailsRating.signIn', 'Sign in to rate this movie')}
                   </Link>
                 )}
@@ -197,7 +197,7 @@ export const MovieDetails: React.FC = () => {
                     href={movie.trailerUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-surface-container-lowest text-on-surface font-semibold hover:bg-surface-container transition-colors"
+                    className="inline-flex items-center gap-2 px-5 sm:px-6 py-3 min-h-[44px] rounded-lg bg-surface-container-lowest text-on-surface font-semibold hover:bg-surface-container transition-colors"
                   >
                     <Play size={16} /> {t('movieDetails.watchTrailer')}
                   </a>
@@ -205,7 +205,7 @@ export const MovieDetails: React.FC = () => {
                 {showtimes.length > 0 && (
                   <button
                     onClick={handleBookNow}
-                    className="px-6 py-3 rounded-lg bg-primary text-on-primary font-semibold hover:opacity-90 transition-colors"
+                    className="px-5 sm:px-6 py-3 min-h-[44px] rounded-lg bg-primary text-on-primary font-semibold hover:opacity-90 transition-colors"
                   >
                     {t('common.bookNow')}
                   </button>
@@ -216,8 +216,8 @@ export const MovieDetails: React.FC = () => {
         </section>
 
         {/* Details */}
-        <section className="max-w-7xl mx-auto px-6 py-14 grid grid-cols-1 lg:grid-cols-12 gap-10">
-          <div className="lg:col-span-8 space-y-10">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-14 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
+          <div className="lg:col-span-8 space-y-8 sm:space-y-10 order-2 lg:order-1">
             {movie.aiSummary ? (
               <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-surface-container-high/90 via-surface-container/60 to-surface-container-lowest/90 border border-primary/30 p-6 sm:p-8 shadow-2xl backdrop-blur-md">
                 {/* Decorative ambient glow */}
@@ -264,7 +264,7 @@ export const MovieDetails: React.FC = () => {
             <ReviewSection type="movie" id={parseInt(movieId!, 10)} />
           </div>
 
-          <aside className="lg:col-span-4 space-y-6">
+          <aside className="lg:col-span-4 space-y-6 order-1 lg:order-2">
             {/* Movie meta */}
             <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 space-y-4 shadow-sm">
               <div className="flex items-center gap-2">
