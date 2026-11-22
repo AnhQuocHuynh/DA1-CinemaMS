@@ -21,9 +21,9 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-surface-container-lowest/80 backdrop-blur-md shadow-sm h-16 flex justify-between items-center px-8 transition-all duration-200 ease-in-out">
-      <div className="flex items-center gap-8">
-        <span className="text-xl font-bold tracking-tighter text-on-surface">CinemaArchitect</span>
+    <nav className="fixed top-0 w-full z-50 bg-surface-container-lowest/80 backdrop-blur-md shadow-sm h-16 flex justify-between items-center px-3 sm:px-6 md:px-8 transition-all duration-200 ease-in-out pt-safe">
+      <div className="flex items-center gap-4 md:gap-8 min-w-0">
+        <Link to="/" className="text-lg sm:text-xl font-bold tracking-tighter text-on-surface truncate">CinemaArchitect</Link>
         <div className="hidden md:flex space-x-6">
           <Link to="/" className="text-on-surface-variant hover:text-on-surface transition-colors font-medium text-sm">
             {t('header.movies', 'Movies')}
@@ -44,9 +44,11 @@ export const Header: React.FC = () => {
           )}
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        <LanguageSwitcher />
-        <ThemeToggle />
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="hidden sm:flex items-center gap-2">
+          <LanguageSwitcher />
+          <ThemeToggle />
+        </div>
         {user ? (
           <div className="relative">
             <button
@@ -83,13 +85,13 @@ export const Header: React.FC = () => {
           <>
             <Link
               to="/login"
-              className="text-on-surface-variant font-medium text-sm hover:bg-surface-container/50 px-3 py-2 rounded-md transition-all active:scale-95"
+              className="text-on-surface-variant font-medium text-xs sm:text-sm hover:bg-surface-container/50 px-2.5 sm:px-3 py-2 rounded-md transition-all active:scale-95 whitespace-nowrap"
             >
               {t('header.signIn', 'Sign In')}
             </Link>
             <Link
               to="/signup"
-              className="bg-primary text-on-primary px-5 py-2 rounded-lg font-semibold text-sm transition-all active:scale-95 hover:opacity-90"
+              className="bg-primary text-on-primary px-3 sm:px-5 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-all active:scale-95 hover:opacity-90 whitespace-nowrap"
             >
               {t('header.bookNow', 'Book Now')}
             </Link>

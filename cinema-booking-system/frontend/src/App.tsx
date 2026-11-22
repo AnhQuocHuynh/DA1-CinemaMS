@@ -39,6 +39,7 @@ import { StaffSettings } from './pages/staff/StaffSettings';
 import { StaffRentalManagement } from './pages/staff/StaffRentalManagement';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { CinemaAssistant } from './components/CinemaAssistant';
+import { MobileBottomNav } from './components/portal/MobileBottomNav';
 import { useAuthStore } from './store/authStore';
 import { useNotificationStore } from './store/notificationStore';
 import { notificationHubService } from './services/notificationHubService';
@@ -140,6 +141,7 @@ function App() {
       {/* Catch-all redirect */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    <MobileBottomNav />
     <CinemaAssistant />
     </>
   );
