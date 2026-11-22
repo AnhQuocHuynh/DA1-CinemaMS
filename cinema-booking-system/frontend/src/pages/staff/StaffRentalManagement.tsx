@@ -7,16 +7,13 @@ export const StaffRentalManagement: React.FC = () => {
   const { t } = useTranslation();
 
   return (
-    <StaffLayout
-      activeItemId="rentals"
-      searchPlaceholder={t('staffRentals.searchPlaceholder', 'Search rental ID or room...')}
-    >
-      <section className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <StaffLayout activeItemId="rentals">
+      <section className="mb-6 sm:mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6">
         <div>
           <span className="text-[0.65rem] uppercase tracking-[0.15em] font-bold text-on-surface-variant mb-1 block">
             {t('staffRentals.operationalDashboard', 'Operational Dashboard')}
           </span>
-          <h2 className="text-3xl font-bold tracking-tight text-on-surface">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-on-surface">
             {t('staffRentals.title', 'Room Rental Operations')}
           </h2>
           <p className="text-on-surface-variant mt-2 text-sm max-w-xl">
