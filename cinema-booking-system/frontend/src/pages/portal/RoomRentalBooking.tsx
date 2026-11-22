@@ -344,18 +344,18 @@ export const RoomRentalBooking: React.FC = () => {
     <div className="min-h-screen bg-surface text-on-surface">
       <SiteTopNav activeLabel="Room Rental" showSearch={false} />
 
-      <main className="pt-24 px-4 sm:px-8 pb-20">
-        <div className="max-w-6xl mx-auto space-y-10">
+      <main className="pt-20 md:pt-24 px-4 sm:px-8 pb-24 md:pb-20">
+        <div className="max-w-6xl mx-auto space-y-6 sm:space-y-10">
 
           {/* Page Header */}
-          <section className="border-b border-outline-variant/20 pb-6">
+          <section className="border-b border-outline-variant/20 pb-5 sm:pb-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold mb-2">
                   <Sparkles className="w-3.5 h-3.5" />
                   {t('roomRental.badge', 'VIP Private Screening')}
                 </div>
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-on-surface tracking-tight">
+                <h1 className="text-2xl sm:text-4xl font-extrabold text-on-surface tracking-tight">
                   {t('roomRental.title', 'Private Screening Room Rental')}
                 </h1>
                 <p className="text-on-surface-variant text-sm sm:text-base mt-1.5 max-w-2xl">
@@ -370,7 +370,7 @@ export const RoomRentalBooking: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/my-tickets?tab=rentals')}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-outline-variant/40 hover:bg-surface-container transition-colors inline-flex items-center gap-2"
+                  className="px-4 py-2 min-h-[44px] text-xs font-semibold rounded-xl border border-outline-variant/40 hover:bg-surface-container transition-colors inline-flex items-center gap-2"
                 >
                   <Film className="w-3.5 h-3.5 text-primary" />
                   {t('roomRental.viewMyRentals', 'My Rentals')}
@@ -387,7 +387,7 @@ export const RoomRentalBooking: React.FC = () => {
             <div className="lg:col-span-7 xl:col-span-8 space-y-8">
 
               {/* STEP 1: Select Cinema Branch & Screening Room */}
-              <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant/40 p-6 shadow-xs space-y-6">
+              <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant/40 p-4 sm:p-6 shadow-xs space-y-6">
                 <div className="flex items-center gap-3 border-b border-outline-variant/20 pb-4">
                   <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
                     1
@@ -528,7 +528,7 @@ export const RoomRentalBooking: React.FC = () => {
               </section>
 
               {/* STEP 2: Date, Time Window, Visual Timeline & Movie */}
-              <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant/40 p-6 shadow-xs space-y-6">
+              <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant/40 p-4 sm:p-6 shadow-xs space-y-6">
                 <div className="flex items-center gap-3 border-b border-outline-variant/20 pb-4">
                   <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
                     2
@@ -556,7 +556,7 @@ export const RoomRentalBooking: React.FC = () => {
                       value={selectedDate}
                       min={todayStr}
                       onChange={(e) => setSelectedDate(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl border border-outline-variant/40 bg-surface text-on-surface text-xs font-semibold focus:outline-none focus:border-primary"
+                      className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-outline-variant/40 bg-surface text-on-surface text-base sm:text-xs font-semibold focus:outline-none focus:border-primary"
                     />
                   </div>
 
@@ -569,7 +569,7 @@ export const RoomRentalBooking: React.FC = () => {
                     <select
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl border border-outline-variant/40 bg-surface text-on-surface text-xs font-semibold focus:outline-none focus:border-primary"
+                      className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-outline-variant/40 bg-surface text-on-surface text-base sm:text-xs font-semibold focus:outline-none focus:border-primary"
                     >
                       {TIME_OPTIONS.map((time) => (
                         <option key={time} value={time}>
@@ -588,7 +588,7 @@ export const RoomRentalBooking: React.FC = () => {
                     <select
                       value={durationHours}
                       onChange={(e) => setDurationHours(Number(e.target.value))}
-                      className="w-full px-3 py-2.5 rounded-xl border border-outline-variant/40 bg-surface text-on-surface text-xs font-semibold focus:outline-none focus:border-primary"
+                      className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-outline-variant/40 bg-surface text-on-surface text-base sm:text-xs font-semibold focus:outline-none focus:border-primary"
                     >
                       {DURATION_OPTIONS.map((hours) => (
                         <option key={hours} value={hours}>
@@ -629,8 +629,9 @@ export const RoomRentalBooking: React.FC = () => {
                   </div>
 
                   {/* Timeline Bar Container */}
-                  <div className="bg-surface-container-low/70 border border-outline-variant/40 rounded-xl p-4 space-y-4">
-                    <div className="relative pt-6 pb-2">
+                  <div className="bg-surface-container-low/70 border border-outline-variant/40 rounded-xl p-3 sm:p-4 space-y-4">
+                    <div className="overflow-x-auto pb-1 no-scrollbar touch-pan-x">
+                      <div className="relative pt-6 pb-2 min-w-[560px] px-3">
                       {/* The 08:00 - 24:00 background bar */}
                       <div className="relative h-10 w-full bg-surface-container rounded-lg overflow-hidden border border-outline-variant/30">
                         {/* Hour vertical grid guides */}
@@ -709,11 +710,12 @@ export const RoomRentalBooking: React.FC = () => {
                           </span>
                         ))}
                       </div>
+                      </div>
                     </div>
 
                     {/* Timeline Legend & Note */}
                     <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] pt-1 border-t border-outline-variant/20 text-on-surface-variant">
-                      <div className="flex items-center gap-4">
+                      <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                         <span className="flex items-center gap-1.5">
                           <span className="w-3 h-3 rounded bg-sky-500/80 inline-block" />
                           {t('roomRental.showtimeOccupied', 'Scheduled Showtime')}
@@ -755,7 +757,7 @@ export const RoomRentalBooking: React.FC = () => {
                       const val = e.target.value;
                       setSelectedMovieId(val ? Number(val) : null);
                     }}
-                    className="w-full px-3 py-2.5 rounded-xl border border-outline-variant/40 bg-surface text-on-surface text-xs font-medium focus:outline-none focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-3 py-2.5 min-h-[44px] rounded-xl border border-outline-variant/40 bg-surface text-on-surface text-base sm:text-xs font-medium focus:outline-none focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">
                       {isLoadingMovies

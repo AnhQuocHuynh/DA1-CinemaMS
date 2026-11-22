@@ -11,24 +11,24 @@ export const Settings: React.FC = () => {
   return (
     <div className="min-h-screen bg-surface text-on-surface">
       <SiteTopNav activeLabel="Settings" showSearch={false} />
-      <main className="pt-24 px-6 pb-16 max-w-4xl mx-auto space-y-8">
+      <main className="pt-20 md:pt-24 px-4 sm:px-6 pb-24 md:pb-16 max-w-4xl mx-auto space-y-6 sm:space-y-8">
         <div>
-          <h1 className="text-3xl font-bold text-on-surface">{t('settings.title', 'Settings')}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface">{t('settings.title', 'Settings')}</h1>
           <p className="text-on-surface-variant mt-2">{t('settings.subtitle', 'Manage your account preferences and profile.')}</p>
         </div>
 
-        <div className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/50">
+        <div className="bg-surface-container-low rounded-2xl p-4 sm:p-6 border border-outline-variant/50">
           <h2 className="text-xl font-bold text-on-surface mb-6">{t('settings.systemPreferences', 'System Preferences')}</h2>
           <div className="space-y-4">
-            <div className="flex items-center justify-between pb-4 border-b border-outline-variant/30">
-              <div>
+            <div className="flex items-center justify-between gap-4 pb-4 border-b border-outline-variant/30">
+              <div className="min-w-0">
                 <p className="font-medium text-on-surface">{t('settings.language', 'Language')}</p>
                 <p className="text-sm text-on-surface-variant">{t('settings.languageDesc', 'Choose your preferred language.')}</p>
               </div>
               <LanguageSwitcher />
             </div>
-            <div className="flex items-center justify-between pt-1">
-              <div>
+            <div className="flex items-center justify-between gap-4 pt-1">
+              <div className="min-w-0">
                 <p className="font-medium text-on-surface">{t('settings.theme', 'Theme')}</p>
                 <p className="text-sm text-on-surface-variant">{t('settings.themeDesc', 'Choose between light, dark, or system mode.')}</p>
               </div>

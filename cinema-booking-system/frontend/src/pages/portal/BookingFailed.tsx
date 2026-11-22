@@ -106,8 +106,8 @@ export const BookingFailed: React.FC = () => {
   const reasonInfo = getReasonInfo();
 
   return (
-    <main className="min-h-screen bg-surface flex items-center justify-center px-6 py-12 md:py-20 text-on-surface">
-      <div className="max-w-xl w-full bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-2xl p-8 md:p-10 text-center relative overflow-hidden">
+    <main className="min-h-screen bg-surface flex items-center justify-center px-4 sm:px-6 py-10 md:py-20 text-on-surface">
+      <div className="max-w-xl w-full bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-2xl p-5 sm:p-8 md:p-10 text-center relative overflow-hidden">
         {/* Subtle decorative glow */}
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -172,7 +172,7 @@ export const BookingFailed: React.FC = () => {
         </div>
 
         {/* Auto Redirect Banner */}
-        <div className="mb-6 flex items-center justify-between bg-surface-container-low/70 px-4 py-2.5 rounded-lg border border-outline-variant/20 text-xs">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-2 bg-surface-container-low/70 px-4 py-2.5 rounded-lg border border-outline-variant/20 text-xs">
           <span className="text-on-surface-variant">
             {isAutoRedirectPaused ? (
               t('bookingFailed.redirectPaused', 'Auto-redirect is paused')
@@ -186,7 +186,7 @@ export const BookingFailed: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsAutoRedirectPaused((prev) => !prev)}
-            className="flex items-center gap-1 text-primary hover:text-primary/80 font-medium transition-colors"
+            className="flex items-center gap-1 text-primary hover:text-primary/80 font-medium transition-colors min-h-[40px] px-3 py-1.5 -mr-2"
           >
             {isAutoRedirectPaused ? (
               <>
@@ -214,7 +214,7 @@ export const BookingFailed: React.FC = () => {
           </button>
 
           <Link
-            to="/movies"
+            to="/movies/search"
             onClick={() => clearSelection()}
             className="w-full sm:flex-1 py-3 px-6 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-semibold text-sm transition-colors flex items-center justify-center gap-2"
           >

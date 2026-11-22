@@ -326,12 +326,12 @@ export const UserDashboard: React.FC = () => {
     <div className="min-h-screen bg-surface text-on-surface">
       <SiteTopNav activeLabel="My Tickets" showSearch={false} />
 
-      <main className="pt-24 px-4 sm:px-8 pb-16">
-        <div className="max-w-4xl mx-auto space-y-8">
+      <main className="pt-20 md:pt-24 px-4 sm:px-8 pb-24 md:pb-16">
+        <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
           
           {/* Header */}
-          <section className="border-b border-outline-variant/20 pb-6">
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-on-surface tracking-tight">
+          <section className="border-b border-outline-variant/20 pb-5 sm:pb-6">
+            <h1 className="text-2xl sm:text-4xl font-extrabold text-on-surface tracking-tight">
               {t('userDashboard.title')}
             </h1>
             <p className="text-on-surface-variant text-sm sm:text-base mt-2">
@@ -340,12 +340,12 @@ export const UserDashboard: React.FC = () => {
           </section>
 
           {/* Segmented Tab Bar & CTA */}
-          <section className="flex flex-wrap items-center justify-between gap-4 border-b border-outline-variant/30 pb-3">
-            <div className="flex items-center gap-2 p-1 bg-surface-container rounded-xl">
+          <section className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 border-b border-outline-variant/30 pb-3">
+            <div className="flex flex-wrap sm:inline-flex items-center gap-2 p-1 bg-surface-container rounded-xl w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => handleTabChange('tickets')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 min-h-[40px] rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                   activeTab === 'tickets'
                     ? 'bg-surface-container-lowest text-primary shadow-xs'
                     : 'text-on-surface-variant hover:text-on-surface'
@@ -363,7 +363,7 @@ export const UserDashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleTabChange('rentals')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 min-h-[40px] rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                   activeTab === 'rentals'
                     ? 'bg-surface-container-lowest text-primary shadow-xs'
                     : 'text-on-surface-variant hover:text-on-surface'
@@ -469,7 +469,7 @@ export const UserDashboard: React.FC = () => {
                         <div className="p-6 space-y-5">
                           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                             <div className="space-y-2">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <Film className="w-5 h-5 text-primary shrink-0" />
                                 <h2 className="text-lg font-bold text-on-surface tracking-tight">
                                   {(order.displayTitle || order.movieTitle || t('userDashboard.movieTicket')).toUpperCase()}
@@ -546,7 +546,7 @@ export const UserDashboard: React.FC = () => {
                                     </div>
                                     <Link
                                       to={`/user/tickets/${t_ticket.ticketCode}`}
-                                      className="p-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary hover:text-on-primary transition-colors shrink-0"
+                                      className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-md bg-primary/10 text-primary hover:bg-primary hover:text-on-primary transition-colors shrink-0"
                                       title={t('userDashboard.viewQrCode')}
                                     >
                                       <QrCode className="w-4 h-4" />
@@ -711,7 +711,7 @@ export const UserDashboard: React.FC = () => {
                           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                             <div className="space-y-2.5">
                               {/* Event / Movie Info */}
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <Tv className="w-5 h-5 text-primary shrink-0" />
                                 <h2 className="text-lg font-bold text-on-surface tracking-tight">
                                   {movieTitle
@@ -754,7 +754,7 @@ export const UserDashboard: React.FC = () => {
                           {/* Expiration Notice for PENDING_APPROVAL and AWAITING_PAYMENT */}
                           {rental.expiresAt && (rental.status === 'PENDING_APPROVAL' || rental.status === 'AWAITING_PAYMENT') && (
                             <div className="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-xl text-xs flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <Clock className="w-4 h-4 text-amber-500 shrink-0" />
                                 <span>
                                   {rental.status === 'PENDING_APPROVAL'
@@ -799,7 +799,7 @@ export const UserDashboard: React.FC = () => {
                               )}
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               {/* AWAITING_PAYMENT: Pay Online Button */}
                               {rental.status === 'AWAITING_PAYMENT' && (
                                 <button
@@ -878,16 +878,16 @@ export const UserDashboard: React.FC = () => {
       {/* ========================================================================= */}
       {refundOrder && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-scale-up">
-            <div className="flex items-center justify-between border-b border-outline-variant/20 pb-3">
-              <div className="flex items-center gap-2 text-error font-bold text-lg">
-                <RotateCcw className="w-5 h-5" />
-                {t('userDashboard.modal.confirmTitle', { orderId: refundOrder.id })}
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl max-w-lg w-full max-h-[90dvh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-5 animate-scale-up">
+            <div className="flex items-center justify-between gap-2 border-b border-outline-variant/20 pb-3">
+              <div className="flex items-center gap-2 text-error font-bold text-base sm:text-lg min-w-0">
+                <RotateCcw className="w-5 h-5 shrink-0" />
+                <span className="truncate">{t('userDashboard.modal.confirmTitle', { orderId: refundOrder.id })}</span>
               </div>
               <button
                 onClick={handleCloseRefundModal}
                 disabled={isRefunding}
-                className="p-1 rounded-lg hover:bg-surface-container text-on-surface-variant transition-colors"
+                className="min-w-[40px] min-h-[40px] -mr-2 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface-variant transition-colors shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -947,7 +947,7 @@ export const UserDashboard: React.FC = () => {
                   onChange={(e) => setRefundReason(e.target.value)}
                   placeholder={t('userDashboard.modal.reasonPlaceholder')}
                   disabled={isRefunding}
-                  className="w-full px-3 py-2 text-xs bg-surface border border-outline-variant/40 rounded-lg focus:outline-none focus:border-primary text-on-surface"
+                  className="w-full px-3 py-2.5 text-base sm:text-xs bg-surface border border-outline-variant/40 rounded-lg focus:outline-none focus:border-primary text-on-surface"
                 />
               </div>
 
@@ -992,16 +992,16 @@ export const UserDashboard: React.FC = () => {
       {/* ========================================================================= */}
       {paymentRental && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-scale-up">
-            <div className="flex items-center justify-between border-b border-outline-variant/20 pb-3">
-              <div className="flex items-center gap-2 text-on-surface font-bold text-lg">
-                <CreditCard className="w-5 h-5 text-primary" />
-                {t('userDashboard.payRentalTitle', 'Pay for Room Rental #RN-{{id}}', { id: paymentRental.id })}
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-5 animate-scale-up">
+            <div className="flex items-center justify-between gap-2 border-b border-outline-variant/20 pb-3">
+              <div className="flex items-center gap-2 text-on-surface font-bold text-base sm:text-lg min-w-0">
+                <CreditCard className="w-5 h-5 text-primary shrink-0" />
+                <span className="truncate">{t('userDashboard.payRentalTitle', 'Pay for Room Rental #RN-{{id}}', { id: paymentRental.id })}</span>
               </div>
               <button
                 onClick={handleCloseRentalPaymentModal}
                 disabled={isPayingRental}
-                className="p-1 rounded-lg hover:bg-surface-container text-on-surface-variant transition-colors"
+                className="min-w-[40px] min-h-[40px] -mr-2 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface-variant transition-colors shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1113,18 +1113,18 @@ export const UserDashboard: React.FC = () => {
       {/* ========================================================================= */}
       {cancelTarget && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-scale-up">
-            <div className="flex items-center justify-between border-b border-outline-variant/20 pb-3">
-              <div className="flex items-center gap-2 text-error font-bold text-lg">
-                <AlertTriangle className="w-5 h-5 text-error" />
-                {cancelTarget.isConfirmed
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-5 animate-scale-up">
+            <div className="flex items-center justify-between gap-2 border-b border-outline-variant/20 pb-3">
+              <div className="flex items-center gap-2 text-error font-bold text-base sm:text-lg min-w-0">
+                <AlertTriangle className="w-5 h-5 text-error shrink-0" />
+                <span>{cancelTarget.isConfirmed
                   ? t('userDashboard.confirmCancelRentalRefundTitle', 'Cancel Rental & Request 100% Refund')
-                  : t('userDashboard.confirmCancelRentalTitle', 'Cancel Rental Request')}
+                  : t('userDashboard.confirmCancelRentalTitle', 'Cancel Rental Request')}</span>
               </div>
               <button
                 onClick={handleCloseCancelModal}
                 disabled={isCancellingRental}
-                className="p-1 rounded-lg hover:bg-surface-container text-on-surface-variant transition-colors"
+                className="min-w-[40px] min-h-[40px] -mr-2 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface-variant transition-colors shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>

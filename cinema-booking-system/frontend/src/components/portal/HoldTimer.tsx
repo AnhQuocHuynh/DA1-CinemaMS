@@ -5,13 +5,14 @@ import { useTranslation } from 'react-i18next';
 interface HoldTimerProps {
   expiresAt: Date | null;
   onExpired?: () => void;
+  compact?: boolean;
 }
 
 /**
  * Countdown timer shown while seats are held.
  * Shows MM:SS and a progress bar. Calls onExpired when time runs out.
  */
-export const HoldTimer: React.FC<HoldTimerProps> = ({ expiresAt, onExpired }) => {
+export const HoldTimer: React.FC<HoldTimerProps> = ({ expiresAt, onExpired, compact = false }) => {
   const { t } = useTranslation();
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
 
@@ -36,6 +37,30 @@ export const HoldTimer: React.FC<HoldTimerProps> = ({ expiresAt, onExpired }) =>
   const isUrgent = secondsLeft > 0 && secondsLeft <= 60;
 
   if (!expiresAt) return null;
+
+  if (compact) {
+    return (
+      <div className={`rounded-xl px-4 py-2.5 border shadow-md backdrop-blur-md ${isUrgent ? 'bg-error/15 border-error/40 text-error' : 'bg-surface-container-lowest/95 border-outline-variant/40 text-on-surface'}`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Timer className={`w-4 h-4 shrink-0 ${isUrgent ? 'text-error' : 'text-primary'}`} />
+            <span className={`text-[11px] font-bold tracking-wider uppercase truncate ${isUrgent ? 'text-error' : 'text-on-surface-variant'}`}>
+              {t('holdTimer.expiresIn', 'Giữ ghế hết hạn sau')}
+            </span>
+          </div>
+          <span className={`text-base font-black font-mono tabular-nums shrink-0 ${isUrgent ? 'text-error' : 'text-primary'}`}>
+            {mm}:{ss}
+          </span>
+        </div>
+        <div className="mt-2 h-1 w-full bg-surface-container-high rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-1000 ${isUrgent ? 'bg-error' : 'bg-primary'}`}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`rounded-xl p-5 border shadow-sm ${isUrgent ? 'bg-error/10 border-error/40 text-error' : 'bg-surface-container-low border-outline-variant/20 text-on-surface'}`}>

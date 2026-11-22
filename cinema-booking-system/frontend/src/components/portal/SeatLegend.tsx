@@ -11,7 +11,7 @@ export const SeatLegend: React.FC = () => {
     { label: t('seatLegend.sold', 'Sold'), className: 'bg-gray-400' },
   ];
   return (
-    <div className="mt-16 flex flex-wrap justify-center gap-8 py-6 bg-surface-container-low rounded-xl">
+    <div className="mt-8 md:mt-16 flex flex-wrap justify-center gap-4 md:gap-8 px-4 py-4 md:py-6 bg-surface-container-low rounded-xl">
       {legendItems.map((item) => (
         <div key={item.label} className="flex items-center gap-3">
           <div className={`w-5 h-5 rounded-sm ${item.className}`} />
