@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Star, Film, ChevronLeft, ChevronRight, Sparkles, TrendingUp } from 'lucide-react';
+import { Star, Film, ChevronLeft, ChevronRight, Sparkles, TrendingUp, SlidersHorizontal, RotateCcw } from 'lucide-react';
 import { RatingBadge } from '../components/Review/RatingBadge';
 import { calculateEndTime, formatDuration, movies as mockMovies } from '../utils/movieData';
 import { SiteTopNav } from '../components/SiteTopNav';
@@ -86,6 +86,83 @@ export const Home: React.FC = () => {
   const [topK, setTopK] = useState<TopKRecommendation[]>([]);
   const [topKState, setTopKState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
 
+  // Client-side Top-K & Recommendation filter state
+  const [topKLimit, setTopKLimit] = useState<number>(5); // default k = 5 according to SRS
+  const [selectedGenre, setSelectedGenre] = useState<string>('');
+  const [selectedCountry, setSelectedCountry] = useState<string>('');
+
+  // Calculate catalog min and max release years
+  const { minCatalogYear, maxCatalogYear } = useMemo(() => {
+    let min = 2020;
+    let max = 2026;
+    const years: number[] = [];
+    backendMovies.forEach(m => {
+      if (m.releaseDate) {
+        const yr = new Date(m.releaseDate).getFullYear();
+        if (!isNaN(yr) && yr > 1900 && yr < 2100) years.push(yr);
+      }
+    });
+    if (years.length > 0) {
+      min = Math.min(...years);
+      max = Math.max(...years);
+    }
+    return { minCatalogYear: min, maxCatalogYear: max };
+  }, [backendMovies]);
+
+  const [yearRange, setYearRange] = useState<[number, number]>([2020, 2026]);
+
+  useEffect(() => {
+    setYearRange([minCatalogYear, maxCatalogYear]);
+  }, [minCatalogYear, maxCatalogYear]);
+
+  // Standard comprehensive list of movie production countries
+  const standardCountries = useMemo(() => [
+    { code: 'VN', name: 'Vietnam', labelEn: 'Vietnam', labelVi: 'Việt Nam' },
+    { code: 'US', name: 'USA', labelEn: 'United States', labelVi: 'Hoa Kỳ / Mỹ' },
+    { code: 'GB', name: 'UK', labelEn: 'United Kingdom', labelVi: 'Vương quốc Anh' },
+    { code: 'KR', name: 'South Korea', labelEn: 'South Korea', labelVi: 'Hàn Quốc' },
+    { code: 'JP', name: 'Japan', labelEn: 'Japan', labelVi: 'Nhật Bản' },
+    { code: 'CN', name: 'China', labelEn: 'China', labelVi: 'Trung Quốc' },
+    { code: 'FR', name: 'France', labelEn: 'France', labelVi: 'Pháp' },
+    { code: 'DE', name: 'Germany', labelEn: 'Germany', labelVi: 'Đức' },
+    { code: 'IN', name: 'India', labelEn: 'India', labelVi: 'Ấn Độ' },
+    { code: 'TH', name: 'Thailand', labelEn: 'Thailand', labelVi: 'Thái Lan' },
+    { code: 'ES', name: 'Spain', labelEn: 'Spain', labelVi: 'Tây Ban Nha' },
+    { code: 'IT', name: 'Italy', labelEn: 'Italy', labelVi: 'Ý' },
+    { code: 'CA', name: 'Canada', labelEn: 'Canada', labelVi: 'Canada' },
+    { code: 'AU', name: 'Australia', labelEn: 'Australia', labelVi: 'Úc' },
+  ], []);
+
+  // Merge standard list with any custom region stored in database
+  const availableCountryOptions = useMemo(() => {
+    const existing = new Set(standardCountries.map(c => c.name.toLowerCase()));
+    const extra: { name: string; labelEn: string; labelVi: string }[] = [];
+    backendMovies.forEach(m => {
+      if (m.region && m.region.trim()) {
+        const norm = m.region.trim();
+        if (!existing.has(norm.toLowerCase()) && !extra.some(e => e.name.toLowerCase() === norm.toLowerCase())) {
+          extra.push({ name: norm, labelEn: norm, labelVi: norm });
+        }
+      }
+    });
+    return [...standardCountries, ...extra];
+  }, [backendMovies, standardCountries]);
+
+  // Matching helper for countries
+  const matchesCountry = (movieRegion: string | undefined, selected: string): boolean => {
+    if (!selected) return true;
+    if (!movieRegion) return false;
+    const r = movieRegion.trim().toLowerCase();
+    const s = selected.trim().toLowerCase();
+    if (r === s) return true;
+    if ((s === 'usa' || s === 'united states' || s === 'us') && (r === 'usa' || r === 'united states' || r === 'us')) return true;
+    if ((s === 'uk' || s === 'united kingdom' || s === 'gb') && (r === 'uk' || r === 'united kingdom' || r === 'gb')) return true;
+    if ((s === 'vietnam' || s === 'việt nam' || s === 'vn') && (r === 'vietnam' || r === 'việt nam' || r === 'vn')) return true;
+    if ((s === 'south korea' || s === 'hàn quốc' || s === 'korea' || s === 'kr') && (r === 'south korea' || r === 'hàn quốc' || r === 'korea' || r === 'kr')) return true;
+    if ((s === 'japan' || s === 'nhật bản' || s === 'jp') && (r === 'japan' || r === 'nhật bản' || r === 'jp')) return true;
+    return r.includes(s) || s.includes(r);
+  };
+
   useEffect(() => {
     if (!user) {
       setTopK([]);
@@ -94,7 +171,8 @@ export const Home: React.FC = () => {
     }
     let cancelled = false;
     setTopKState('loading');
-    recommendationService.getTopK(5)
+    // Fetch generous candidate pool so client-side filters (Genre, Year, Country) have plenty of items
+    recommendationService.getTopK(50)
       .then((items) => {
         if (cancelled) return;
         setTopK(items);
@@ -107,6 +185,59 @@ export const Home: React.FC = () => {
       cancelled = true;
     };
   }, [user]);
+
+  // Available filter options based on catalog
+  const availableGenres = useMemo(() => {
+    const set = new Set<string>();
+    backendMovies.forEach(m => m.genres?.forEach(g => { if (g) set.add(g); }));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [backendMovies]);
+
+  // Filtered Top-K recommendations
+  const filteredTopK = useMemo(() => {
+    const filtered = topK.filter((rec) => {
+      const fullMovie = backendMovies.find(m => m.id === rec.movieId);
+      if (selectedGenre) {
+        const movieGenres = fullMovie?.genres || [];
+        if (!movieGenres.includes(selectedGenre)) return false;
+      }
+      if (fullMovie?.releaseDate) {
+        const yr = new Date(fullMovie.releaseDate).getFullYear();
+        if (!isNaN(yr) && (yr < yearRange[0] || yr > yearRange[1])) {
+          return false;
+        }
+      }
+      if (selectedCountry && !matchesCountry(fullMovie?.region, selectedCountry)) {
+        return false;
+      }
+      return true;
+    });
+
+    return filtered.slice(0, Math.max(1, topKLimit));
+  }, [topK, backendMovies, selectedGenre, yearRange, selectedCountry, topKLimit]);
+
+  const totalMatchingRecs = useMemo(() => {
+    return topK.filter((rec) => {
+      const fullMovie = backendMovies.find(m => m.id === rec.movieId);
+      if (selectedGenre && (!fullMovie?.genres || !fullMovie.genres.includes(selectedGenre))) return false;
+      if (fullMovie?.releaseDate) {
+        const yr = new Date(fullMovie.releaseDate).getFullYear();
+        if (!isNaN(yr) && (yr < yearRange[0] || yr > yearRange[1])) return false;
+      }
+      if (selectedCountry && !matchesCountry(fullMovie?.region, selectedCountry)) return false;
+      return true;
+    }).length;
+  }, [topK, backendMovies, selectedGenre, yearRange, selectedCountry]);
+
+  const isYearFiltered = yearRange[0] > minCatalogYear || yearRange[1] < maxCatalogYear;
+  const hasActiveFilters = selectedGenre !== '' || isYearFiltered || selectedCountry !== '' || topKLimit !== 5;
+
+  const handleResetFilters = () => {
+    setSelectedGenre('');
+    setYearRange([minCatalogYear, maxCatalogYear]);
+    setSelectedCountry('');
+    setTopKLimit(5);
+  };
 
   useEffect(() => {
     eventService.getEvents().then(setEvents).catch(console.error);
@@ -333,6 +464,162 @@ export const Home: React.FC = () => {
               </Link>
             </div>
 
+            {/* ── Top-K & Recommendation Filter Controls ── */}
+            {topKState === 'ready' && topK.length > 0 && (
+              <div className="mb-6 p-4 rounded-xl bg-surface-container-low border border-outline-variant/30 flex flex-col gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  {/* Top-K Selector */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant flex items-center gap-1.5">
+                      <SlidersHorizontal size={14} className="text-primary" />
+                      Top-K:
+                    </span>
+                    <div className="inline-flex rounded-lg bg-surface-container-high p-0.5 border border-outline-variant/20">
+                      {[3, 5, 10, 20].map((k) => (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => setTopKLimit(k)}
+                          className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                            topKLimit === k
+                              ? 'bg-primary text-on-primary shadow-sm'
+                              : 'text-on-surface-variant hover:text-on-surface'
+                          }`}
+                        >
+                          Top {k}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Custom K Number Input */}
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-on-surface-variant font-medium">K =</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={topKLimit}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          if (!isNaN(val)) setTopKLimit(Math.max(1, Math.min(50, val)));
+                        }}
+                        className="w-14 px-2 py-1 text-xs font-semibold bg-surface-container-high border border-outline-variant/40 rounded-md text-on-surface text-center focus:outline-none focus:ring-1 focus:ring-primary"
+                        title="Custom Top-K (1-50)"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Reset Filters Button */}
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={handleResetFilters}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <RotateCcw size={12} />
+                      {t('home.resetFilters', 'Reset filters')}
+                    </button>
+                  )}
+                </div>
+
+                {/* Genre, Year, Country Selects */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-outline-variant/20">
+                  {/* Genre Select */}
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant mb-1">
+                      {t('home.filterGenre', 'Genre')}
+                    </label>
+                    <select
+                      value={selectedGenre}
+                      onChange={(e) => setSelectedGenre(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs bg-surface-container-high border border-outline-variant/40 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">{t('home.allGenres', 'All Genres')}</option>
+                      {availableGenres.map((g) => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Release Year Range Slider */}
+                  <div className="flex flex-col justify-center">
+                    <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant mb-1">
+                      <span>{t('home.filterYear', 'Release Year')}</span>
+                      <span className="text-primary font-bold">{yearRange[0]} – {yearRange[1]}</span>
+                    </div>
+                    <div className="relative h-6 flex items-center">
+                      <div className="absolute w-full h-1.5 bg-surface-container-highest rounded-full" />
+                      <div
+                        className="absolute h-1.5 bg-primary rounded-full"
+                        style={{
+                          left: `${Math.max(0, Math.min(100, ((yearRange[0] - minCatalogYear) / Math.max(1, maxCatalogYear - minCatalogYear)) * 100))}%`,
+                          right: `${Math.max(0, Math.min(100, 100 - ((yearRange[1] - minCatalogYear) / Math.max(1, maxCatalogYear - minCatalogYear)) * 100))}%`
+                        }}
+                      />
+                      <input
+                        type="range"
+                        min={minCatalogYear}
+                        max={maxCatalogYear}
+                        value={yearRange[0]}
+                        onChange={(e) => {
+                          const val = Math.min(Number(e.target.value), yearRange[1]);
+                          setYearRange([val, yearRange[1]]);
+                        }}
+                        className="absolute w-full pointer-events-none appearance-none bg-transparent accent-primary [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:cursor-pointer"
+                        title={`From year ${yearRange[0]}`}
+                      />
+                      <input
+                        type="range"
+                        min={minCatalogYear}
+                        max={maxCatalogYear}
+                        value={yearRange[1]}
+                        onChange={(e) => {
+                          const val = Math.max(Number(e.target.value), yearRange[0]);
+                          setYearRange([yearRange[0], val]);
+                        }}
+                        className="absolute w-full pointer-events-none appearance-none bg-transparent accent-primary [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:cursor-pointer"
+                        title={`To year ${yearRange[1]}`}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-on-surface-variant font-medium">
+                      <span>{minCatalogYear}</span>
+                      <span>{maxCatalogYear}</span>
+                    </div>
+                  </div>
+
+                  {/* Country / Region Select */}
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant mb-1">
+                      {t('home.filterCountry', 'Country / Region')}
+                    </label>
+                    <select
+                      value={selectedCountry}
+                      onChange={(e) => setSelectedCountry(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs bg-surface-container-high border border-outline-variant/40 rounded-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">{t('home.allCountries', 'All Countries')}</option>
+                      {availableCountryOptions.map((c) => (
+                        <option key={c.name} value={c.name}>
+                          {c.labelVi ? `${c.labelVi} (${c.labelEn})` : c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Status / count info */}
+                <div className="flex items-center justify-between text-xs text-on-surface-variant">
+                  <span>
+                    {t('home.showingPicks', {
+                      shown: filteredTopK.length,
+                      total: totalMatchingRecs,
+                      k: topKLimit
+                    })}
+                  </span>
+                  {selectedGenre && <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-[11px] font-medium">{selectedGenre}</span>}
+                </div>
+              </div>
+            )}
+
             {topKState === 'loading' && (
               <p className="text-sm text-on-surface-variant mb-8">{t('home.topKLoading', 'Loading your picks...')}</p>
             )}
@@ -341,11 +628,33 @@ export const Home: React.FC = () => {
               <p className="text-sm text-on-surface-variant mb-8">{t('home.topKEmpty', 'No showing movies to recommend yet.')}</p>
             )}
 
-            {topKState === 'ready' && topK.length > 0 && (
+            {topKState === 'ready' && topK.length > 0 && filteredTopK.length === 0 && (
+              <div className="p-8 text-center bg-surface-container-low rounded-xl border border-outline-variant/30 mb-8">
+                <p className="text-sm font-semibold text-on-surface mb-1">
+                  {t('home.noMatchingRecommendations', 'No recommendations match your current filters.')}
+                </p>
+                <p className="text-xs text-on-surface-variant mb-4">
+                  {t('home.tryAdjustingFilters', 'Try choosing another genre, year, or country, or reset the filters.')}
+                </p>
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="px-4 py-1.5 bg-primary text-on-primary rounded-lg text-xs font-semibold hover:opacity-90 inline-flex items-center gap-1.5"
+                  >
+                    <RotateCcw size={12} />
+                    {t('home.resetFilters', 'Reset filters')}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {topKState === 'ready' && filteredTopK.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7 mb-12">
-                {topK.map((rec) => {
+                {filteredTopK.map((rec) => {
                   const match = Math.round(Math.min(100, Math.max(0, rec.predictedRating * 20)));
                   const confidence = Math.round(Math.min(100, Math.max(0, 100 - rec.uncertaintyScore)));
+                  const fullMovie = backendMovies.find(m => m.id === rec.movieId);
                   return (
                     <article key={rec.movieId} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow">
                       <Link to={`/movies/${rec.movieId}`}>
@@ -369,6 +678,13 @@ export const Home: React.FC = () => {
                         <Link to={`/movies/${rec.movieId}`} className="font-bold leading-tight hover:opacity-90 line-clamp-1">
                           {rec.title}
                         </Link>
+                        {fullMovie && (
+                          <p className="text-xs text-on-surface-variant line-clamp-1">
+                            {fullMovie.genres?.join(', ') || 'Movie'}
+                            {fullMovie.releaseDate ? ` • ${new Date(fullMovie.releaseDate).getFullYear()}` : ''}
+                            {fullMovie.region ? ` • ${fullMovie.region}` : ''}
+                          </p>
+                        )}
                         <p className="text-xs text-on-surface-variant">
                           {t('home.confidence', 'Confidence')} {confidence}%
                         </p>

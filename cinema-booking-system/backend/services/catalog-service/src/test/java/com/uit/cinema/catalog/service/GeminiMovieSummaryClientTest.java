@@ -72,20 +72,18 @@ class GeminiMovieSummaryClientTest {
     void retriesWhenSummaryIgnoresTheFilm() {
         String generic = "Set against an expansive cinematic canvas, this compelling story chronicles an extraordinary journey.";
         server.expect(requestTo(containsString(":generateContent")))
-            .andRespond(withSuccess(geminiText(generic), MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(geminiText(generic), MediaType.APPLICATION_JSON));
         server.expect(requestTo(containsString(":generateContent")))
-            .andExpect(content().string(containsString("rejected")))
-            .andExpect(content().string(containsString("Doraemon")))
-            .andRespond(withSuccess(
-                geminiText("Doraemon cùng Nobita khám phá lâu đài dưới đáy biển."),
-                MediaType.APPLICATION_JSON
-            ));
+                .andExpect(content().string(containsString("rejected")))
+                .andExpect(content().string(containsString("Doraemon")))
+                .andRespond(withSuccess(
+                        geminiText("Doraemon cùng Nobita khám phá lâu đài dưới đáy biển."),
+                        MediaType.APPLICATION_JSON));
 
         Optional<String> result = client.summarize(
-            "Doraemon Lâu đài dưới đáy biển",
-            "Doraemon movie 45: Tân - Lâu đài dưới đáy biển",
-            List.of("Animation")
-        );
+                "Doraemon Lâu đài dưới đáy biển",
+                "Doraemon movie 45: Tân - Lâu đài dưới đáy biển",
+                List.of("Animation"));
 
         assertEquals(Optional.of("Doraemon cùng Nobita khám phá lâu đài dưới đáy biển."), result);
         server.verify();
@@ -95,15 +93,14 @@ class GeminiMovieSummaryClientTest {
     void returnsEmptyWhenBothSummariesIgnoreTheFilm() {
         String generic = "This compelling story chronicles an extraordinary journey and the resilient human spirit.";
         server.expect(requestTo(containsString(":generateContent")))
-            .andRespond(withSuccess(geminiText(generic), MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(geminiText(generic), MediaType.APPLICATION_JSON));
         server.expect(requestTo(containsString(":generateContent")))
-            .andRespond(withSuccess(geminiText(generic), MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(geminiText(generic), MediaType.APPLICATION_JSON));
 
         Optional<String> result = client.summarize(
-            "Doraemon Lâu đài dưới đáy biển",
-            "Doraemon movie 45: Tân - Lâu đài dưới đáy biển",
-            List.of()
-        );
+                "Doraemon Lâu đài dưới đáy biển",
+                "Doraemon movie 45: Tân - Lâu đài dưới đáy biển",
+                List.of());
 
         assertEquals(Optional.empty(), result);
         server.verify();
@@ -116,29 +113,28 @@ class GeminiMovieSummaryClientTest {
         String generic = "Set against an expansive cinematic canvas, this compelling story chronicles an extraordinary journey filled with tremendous stakes.";
 
         assertTrue(GeminiMovieSummaryClient.mentionsSource(
-            "Doraemon cùng Nobita tìm lâu đài dưới đáy biển.",
-            title,
-            description
-        ));
+                "Doraemon cùng Nobita tìm lâu đài dưới đáy biển.",
+                title,
+                description));
         assertFalse(GeminiMovieSummaryClient.mentionsSource(generic, title, description));
     }
 
     private static String geminiText(String text) {
         return """
-            {
-              "candidates": [{
-                "content": {
-                  "parts": [{ "text": "%s" }]
+                {
+                  "candidates": [{
+                    "content": {
+                      "parts": [{ "text": "%s" }]
+                    }
+                  }]
                 }
-              }]
-            }
-            """.formatted(text);
+                """.formatted(text);
     }
 
     @Test
     void http429ReturnsEmpty() {
         server.expect(requestTo(containsString(":generateContent")))
-            .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
 
         Optional<String> result = client.summarize("Title", "Plot", List.of());
 
@@ -149,7 +145,7 @@ class GeminiMovieSummaryClientTest {
     @Test
     void http500ReturnsEmpty() {
         server.expect(requestTo(containsString(":generateContent")))
-            .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
 
         Optional<String> result = client.summarize("Title", "Plot", List.of());
 
@@ -188,9 +184,12 @@ class GeminiMovieSummaryClientTest {
 
     @Test
     void cleanSummaryStripsPrefixesAndQuotes() {
-        assertEquals("Nội dung tóm tắt phim.", GeminiMovieSummaryClient.cleanSummary("Tóm tắt AI: Nội dung tóm tắt phim."));
-        assertEquals("Nội dung tóm tắt phim.", GeminiMovieSummaryClient.cleanSummary("Tóm tắt: Nội dung tóm tắt phim."));
-        assertEquals("Nội dung tóm tắt phim.", GeminiMovieSummaryClient.cleanSummary("AI Summary: Nội dung tóm tắt phim."));
+        assertEquals("Nội dung tóm tắt phim.",
+                GeminiMovieSummaryClient.cleanSummary("Tóm tắt AI: Nội dung tóm tắt phim."));
+        assertEquals("Nội dung tóm tắt phim.",
+                GeminiMovieSummaryClient.cleanSummary("Tóm tắt: Nội dung tóm tắt phim."));
+        assertEquals("Nội dung tóm tắt phim.",
+                GeminiMovieSummaryClient.cleanSummary("AI Summary: Nội dung tóm tắt phim."));
         assertEquals("Nội dung tóm tắt phim.", GeminiMovieSummaryClient.cleanSummary("\"Nội dung tóm tắt phim.\""));
     }
 }

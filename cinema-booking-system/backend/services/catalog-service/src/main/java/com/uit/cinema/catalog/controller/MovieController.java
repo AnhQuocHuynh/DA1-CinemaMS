@@ -52,7 +52,8 @@ public class MovieController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<MovieResponse>> updateMovie(@PathVariable Long id, @Valid @RequestBody MovieRequest request) {
+    public ResponseEntity<ApiResponse<MovieResponse>> updateMovie(@PathVariable Long id,
+            @Valid @RequestBody MovieRequest request) {
         MovieResponse movie = movieService.updateMovie(id, request);
         return ResponseEntity.ok(ApiResponse.success(movie, "Cập nhật phim thành công"));
     }
@@ -67,8 +68,7 @@ public class MovieController {
     @GetMapping("/imdb/titles")
     public ResponseEntity<ApiResponse<List<ImdbTitleDTO>>> imdbTitles(
             @RequestParam(required = false) String query,
-            @RequestParam(required = false) Integer limit
-    ) {
+            @RequestParam(required = false) Integer limit) {
         return ResponseEntity.ok(ApiResponse.success(
                 imdbSyncService.getTitlesFromImdb(query, limit),
                 "IMDb titles loaded"));
@@ -85,8 +85,7 @@ public class MovieController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> bulkImport(
             @RequestParam String genre,
-            @RequestParam(defaultValue = "20") int limit
-    ) {
+            @RequestParam(defaultValue = "20") int limit) {
         if (genre == null || genre.isBlank()) {
             throw new CustomException("genre must not be blank", HttpStatus.BAD_REQUEST, "GENRE_REQUIRED");
         }
