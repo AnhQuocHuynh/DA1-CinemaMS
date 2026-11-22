@@ -56,12 +56,25 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
                 { "RabbitMQ:HostName", _rabbitMqContainer.Hostname },
                 { "RabbitMQ:Port", _rabbitMqContainer.GetMappedPublicPort(5672).ToString() },
                 { "RabbitMQ:UserName", "guest" },
-                { "RabbitMQ:Password", "guest" }
+                { "RabbitMQ:Password", "guest" },
+                { "InternalApi:Token", "local-dev-internal-token" },
+                { "Payment:ExpirationCheckIntervalSeconds", "86400" },
+                { "Payment:SlotTimeoutMinutes", "1440" }
             });
         });
 
         builder.ConfigureServices(services =>
         {
+            // Remove background expiration worker so it doesn't asynchronously mutate slots during tests
+            var hostedServiceDescriptors = services
+                .Where(d => d.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService) && 
+                            d.ImplementationType == typeof(PaymentService.Infrastructure.BackgroundJobs.PaymentSlotExpirationWorker))
+                .ToList();
+            foreach (var d in hostedServiceDescriptors)
+            {
+                services.Remove(d);
+            }
+
             // Ensure schema is created before tests run
             var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();

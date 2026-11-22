@@ -35,7 +35,7 @@ const DroppableCell: React.FC<{
     } else if (isVip) {
        cellClass = 'bg-gradient-to-br from-amber-200 to-amber-500 hover:from-amber-300 hover:to-amber-600 border border-amber-600 shadow-sm w-full aspect-square text-amber-950';
     } else {
-       cellClass = 'bg-green-500 hover:bg-green-600 border border-transparent w-full aspect-square text-white';
+       cellClass = 'bg-success hover:bg-success border border-transparent w-full aspect-square text-white';
     }
   }
 

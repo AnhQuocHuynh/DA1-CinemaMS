@@ -56,6 +56,10 @@ namespace FacilityService.Presentation.Middleware
                     code = HttpStatusCode.NotFound;
                     result = JsonSerializer.Serialize(new { error = notFoundException.Message });
                     break;
+                case KeyNotFoundException keyNotFoundException:
+                    code = HttpStatusCode.NotFound;
+                    result = JsonSerializer.Serialize(new { error = keyNotFoundException.Message });
+                    break;
             }
 
             if (string.IsNullOrEmpty(result))

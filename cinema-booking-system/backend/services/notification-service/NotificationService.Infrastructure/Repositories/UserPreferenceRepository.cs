@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Driver;
@@ -30,5 +32,14 @@ public class UserPreferenceRepository : IUserPreferenceRepository
             preference,
             new ReplaceOptions { IsUpsert = true },
             cancellationToken);
+    }
+
+    public async Task<IEnumerable<long>> GetAllPushEnabledUserIdsAsync(CancellationToken cancellationToken = default)
+    {
+        var preferences = await _context.UserPreferences
+            .Find(p => p.PushEnabled)
+            .ToListAsync(cancellationToken);
+
+        return preferences.Select(p => p.UserId);
     }
 }

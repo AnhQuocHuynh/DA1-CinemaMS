@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight, Loader2, Search, Trash2, Wand2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, Lock, Search, Trash2, Wand2 } from 'lucide-react';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader';
 import { AdminTopBar } from '../../components/admin/AdminTopBar';
@@ -8,15 +8,20 @@ import { adminService } from '../../services/adminService';
 import { showtimeService } from '../../services/showtimeService';
 import { movieService } from '../../services/movieService';
 import { eventService } from '../../services/eventService';
+import { rentalService } from '../../services/rentalService';
 import { ShowtimeResponse } from '../../types/showtime';
+import { RentalView } from '../../types/rental';
 import { formatShowtime, formatVND, parseVND } from '../../utils/formatters';
 import genericPoster from '../../resources/generic_movie_poster.png';
+import { useTranslation, Trans } from 'react-i18next';
 
 // ── helper: flatten all rooms across all theaters ─────────────────────────────
 interface FlatRoom { roomId: number; roomName: string; theaterName: string }
 
 export const ShowtimeManagement: React.FC = () => {
+  const { t } = useTranslation();
   const [showtimes, setShowtimes] = useState<ShowtimeResponse[]>([]);
+  const [rentals, setRentals] = useState<RentalView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [showCreator, setShowCreator] = useState(false);
@@ -34,11 +39,20 @@ export const ShowtimeManagement: React.FC = () => {
   const loadAllShowtimes = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [theaters, movies, events] = await Promise.all([
+      const [theaters, movies, events, rawRentals] = await Promise.all([
         adminService.getTheaters(),
         movieService.getMovies(),
-        eventService.getEvents()
+        eventService.getEvents(),
+        rentalService.search().catch(() => [] as RentalView[]),
       ]);
+
+      const blockingRentals = (rawRentals || []).filter(
+        (r) =>
+          r.status === 'PENDING_APPROVAL' ||
+          r.status === 'AWAITING_PAYMENT' ||
+          r.status === 'CONFIRMED'
+      );
+      setRentals(blockingRentals);
 
       const rooms: FlatRoom[] = [];
       theaters.forEach((t) =>
@@ -81,14 +95,14 @@ export const ShowtimeManagement: React.FC = () => {
 
   // ── Delete handler ─────────────────────────────────────────────────────────
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Delete this showtime? This action cannot be undone.')) return;
+    if (!window.confirm(t('adminShowtime.deleteConfirm', 'Delete this showtime? This action cannot be undone.'))) return;
     setDeletingId(id);
     try {
       await showtimeService.deleteShowtime(id);
       setShowtimes((prev) => prev.filter((s) => s.id !== id));
     } catch (err) {
       console.error('Failed to delete showtime:', err);
-      alert('Failed to delete. The showtime may have associated tickets.');
+      alert(t('adminShowtime.deleteFail', 'Failed to delete. The showtime may have associated tickets.'));
     } finally {
       setDeletingId(null);
     }
@@ -106,14 +120,25 @@ export const ShowtimeManagement: React.FC = () => {
   const matchesQuery = (st: ShowtimeResponse) => {
     if (!query) return true;
     const q = query.toLowerCase();
-    const movieTitle = st.movieId ? movieMap[st.movieId] || `Movie #${st.movieId}` : '';
-    const eventName = st.eventId ? eventMap[st.eventId] || `Event #${st.eventId}` : '';
+    const movieTitle = st.movieId ? movieMap[st.movieId] || t('adminShowtime.movieFallback', { id: st.movieId, defaultValue: 'Movie #{{id}}' }) : '';
+    const eventName = st.eventId ? eventMap[st.eventId] || t('adminShowtime.eventFallback', { id: st.eventId, defaultValue: 'Event #{{id}}' }) : '';
 
     return (
       movieTitle.toLowerCase().includes(q) ||
       eventName.toLowerCase().includes(q) ||
       st.startTime.includes(q) ||
       st.status.toLowerCase().includes(q)
+    );
+  };
+
+  const matchesRentalQuery = (r: RentalView) => {
+    if (!query) return true;
+    const qLower = query.toLowerCase();
+    const label = `#rn-${r.id} private room rental`.toLowerCase();
+    return (
+      label.includes(qLower) ||
+      r.startTime.toLowerCase().includes(qLower) ||
+      r.status.toLowerCase().includes(qLower)
     );
   };
 
@@ -127,31 +152,36 @@ export const ShowtimeManagement: React.FC = () => {
     const roomLabel = `${room.theaterName} ${room.roomName}`.toLowerCase();
     if (roomLabel.includes(q)) return true;
 
-    // Check if any showtime for the selected date matches the query
+    // Check if any showtime or rental for the selected date matches the query
     const selectedDate = roomDates[room.roomId] || today;
     const roomShowtimes = showtimes.filter(st =>
       st.roomId === room.roomId &&
       st.startTime.startsWith(selectedDate)
     );
+    const dayRentals = rentals.filter(r =>
+      r.roomId === room.roomId &&
+      r.startTime < `${selectedDate}T23:59:59` &&
+      r.endTime > `${selectedDate}T00:00:00`
+    );
 
-    return roomShowtimes.some(matchesQuery);
+    return roomShowtimes.some(matchesQuery) || dayRentals.some(matchesRentalQuery);
   });
 
   return (
     <AdminLayout activeItemId="showtimes">
-      <AdminTopBar title="Admin Portal" searchPlaceholder="Search schedules..." />
+      <AdminTopBar title={t('adminShowtime.console', 'Admin Portal')} searchPlaceholder={t('adminShowtime.search', 'Search schedules...')} />
       <main className="p-6 md:p-12 bg-surface min-h-screen">
         <AdminPageHeader
-          title="Showtime Management"
-          subtitle="Configure schedules and screen allocations for current movie runs."
+          title={t('adminShowtime.title', 'Showtime Management')}
+          subtitle={t('adminShowtime.subtitle', 'Configure schedules and screen allocations for current movie runs.')}
           actions={
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowCreator(true)}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm"
+                className="flex items-center gap-2 bg-primary hover:opacity-90 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm"
               >
                 <Wand2 className="w-4 h-4" />
-                Add Showtimes
+                {t('adminShowtime.addShowtime', 'Add Showtimes')}
               </button>
             </div>
           }
@@ -161,7 +191,7 @@ export const ShowtimeManagement: React.FC = () => {
         <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-10 mb-12">
           <div className="md:col-span-2 bg-surface-container-lowest p-8 rounded-xl border border-transparent shadow-sm flex flex-col justify-between">
             <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">
-              Total Showtimes (loaded)
+              {t('adminShowtime.totalLoaded', 'Total Showtimes (loaded)')}
             </label>
             <div className="flex items-end justify-between">
               <span className="text-5xl font-bold tracking-tighter text-on-surface">
@@ -170,13 +200,13 @@ export const ShowtimeManagement: React.FC = () => {
             </div>
           </div>
           <div className="bg-surface-container-low p-8 rounded-xl flex flex-col justify-between">
-            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">Scheduled</label>
+            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">{t('adminShowtime.scheduled', 'Scheduled')}</label>
             <span className="text-4xl font-bold tracking-tighter text-on-surface">
               {isLoading ? '…' : showtimes.filter((s) => s.status === 'SCHEDULED').length}
             </span>
           </div>
           <div className="bg-surface-container-high p-8 rounded-xl flex flex-col justify-between">
-            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">Rooms</label>
+            <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-secondary mb-4">{t('adminShowtime.rooms', 'Rooms')}</label>
             <span className="text-4xl font-bold tracking-tighter text-on-surface">
               {isLoading ? '…' : flatRooms.length}
             </span>
@@ -189,22 +219,22 @@ export const ShowtimeManagement: React.FC = () => {
             <Search className="w-4 h-4 text-outline" />
             <input
               className="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline"
-              placeholder="Search by room name..."
+              placeholder={t('adminShowtime.searchRooms', 'Search by room name...')}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            {isLoading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+            {isLoading && <Loader2 className="w-4 h-4 animate-spin text-on-surface-variant" />}
           </div>
 
           {isLoading ? (
             <div className="p-12 text-center text-on-surface-variant flex flex-col items-center gap-3">
-              <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-              <span>Loading schedules…</span>
+              <Loader2 className="w-8 h-8 animate-spin text-on-surface-variant" />
+              <span>{t('adminShowtime.loadingSchedules', 'Loading schedules…')}</span>
             </div>
           ) : filteredRooms.length === 0 ? (
             <div className="p-12 text-center text-on-surface-variant bg-surface-container-lowest rounded-xl">
-              No rooms or showtimes match your search.
+              {t('adminShowtime.noMatch', 'No rooms or showtimes match your search.')}
             </div>
           ) : (
             <div className="space-y-4">
@@ -223,6 +253,15 @@ export const ShowtimeManagement: React.FC = () => {
 
                 const filteredRoomShowtimes = isRoomMatch ? roomShowtimes : roomShowtimes.filter(matchesQuery);
 
+                // filter room rentals for this room and date
+                const roomRentalsForDate = rentals.filter(r =>
+                  r.roomId === room.roomId &&
+                  r.startTime < `${selectedDate}T23:59:59` &&
+                  r.endTime > `${selectedDate}T00:00:00`
+                );
+
+                const filteredRoomRentals = isRoomMatch ? roomRentalsForDate : roomRentalsForDate.filter(matchesRentalQuery);
+
                 return (
                   <div key={room.roomId} className="bg-surface-container-lowest border border-surface-container rounded-xl overflow-hidden shadow-sm">
                     {/* Header */}
@@ -238,13 +277,13 @@ export const ShowtimeManagement: React.FC = () => {
                           {room.theaterName} <span className="text-secondary mx-1">›</span> {room.roomName}
                         </h3>
                         <span className="text-xs bg-surface-container-high px-2 py-1 rounded-md text-secondary font-medium">
-                          {showtimes.filter(st => st.roomId === room.roomId).length} total
+                          {t('adminShowtime.total', { count: showtimes.filter(st => st.roomId === room.roomId).length, defaultValue: '{{count}} total' })}
                         </span>
                       </div>
 
                       {/* Date picker */}
                       <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                        <label className="text-xs font-semibold text-secondary uppercase tracking-wider">Date</label>
+                        <label className="text-xs font-semibold text-secondary uppercase tracking-wider">{t('adminShowtime.date', 'Date')}</label>
                         <input
                           type="date"
                           value={selectedDate}
@@ -257,81 +296,143 @@ export const ShowtimeManagement: React.FC = () => {
                     {/* Content */}
                     {isExpanded && (
                       <div className="border-t border-surface-container bg-surface">
-                        {filteredRoomShowtimes.length === 0 ? (
+                        {filteredRoomShowtimes.length === 0 && filteredRoomRentals.length === 0 ? (
                           <div className="p-8 text-center text-secondary text-sm">
-                            No showtimes found for <span className="font-semibold">{selectedDate}</span>.
+                            <Trans i18nKey="adminShowtime.noShowtimesFor" values={{ date: selectedDate }}>
+                              No showtimes found for <span className="font-semibold">{selectedDate}</span>.
+                            </Trans>
                           </div>
                         ) : (
                           <table className="w-full text-left border-collapse">
                             <thead className="bg-surface-container-low/30">
                               <tr>
-                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">Movie / Event</th>
-                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">Start</th>
-                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">End</th>
-                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">Base Price</th>
-                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">Status</th>
-                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary text-right">Actions</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">{t('adminShowtime.colMovieEvent', 'Movie / Event')}</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">{t('adminShowtime.colStart', 'Start')}</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">{t('adminShowtime.colEnd', 'End')}</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">{t('adminShowtime.colBasePrice', 'Base Price')}</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary">{t('adminShowtime.colStatus', 'Status')}</th>
+                                <th className="px-8 py-3 text-[10px] uppercase tracking-widest font-bold text-secondary text-right">{t('adminShowtime.colActions', 'Actions')}</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-surface-container/50">
-                              {filteredRoomShowtimes.map((st) => (
-                                <tr key={st.id} className="hover:bg-surface-container-lowest transition-colors">
-                                  <td className="px-8 py-4">
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-8 h-10 bg-slate-200 rounded overflow-hidden flex-shrink-0">
-                                        <img
-                                          src={genericPoster}
-                                          alt=""
-                                          className="w-full h-full object-cover"
-                                        />
-                                      </div>
-                                      <div>
-                                        {st.movieId ? (
-                                          <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
-                                            {movieMap[st.movieId] || `Movie #${st.movieId}`}
+                              {[
+                                ...filteredRoomShowtimes.map((st) => ({
+                                  type: 'SHOWTIME' as const,
+                                  key: `st-${st.id}`,
+                                  time: new Date(st.startTime).getTime(),
+                                  st,
+                                })),
+                                ...filteredRoomRentals.map((r) => ({
+                                  type: 'RENTAL' as const,
+                                  key: `rental-${r.id}`,
+                                  time: new Date(r.startTime).getTime(),
+                                  rental: r,
+                                })),
+                              ]
+                                .sort((a, b) => a.time - b.time)
+                                .map((item) => {
+                                  if (item.type === 'SHOWTIME') {
+                                    const st = item.st;
+                                    return (
+                                      <tr key={item.key} className="hover:bg-surface-container-lowest transition-colors">
+                                        <td className="px-8 py-4">
+                                          <div className="flex items-center gap-3">
+                                            <div className="w-8 h-10 bg-surface-container-high rounded overflow-hidden flex-shrink-0">
+                                              <img
+                                                src={genericPoster}
+                                                alt=""
+                                                className="w-full h-full object-cover"
+                                              />
+                                            </div>
+                                            <div>
+                                              {st.movieId ? (
+                                                <span className="text-xs font-bold bg-secondary-container text-primary px-2 py-0.5 rounded border border-blue-200">
+                                                  {movieMap[st.movieId] || t('adminShowtime.movieFallback', { id: st.movieId, defaultValue: 'Movie #{{id}}' })}
+                                                </span>
+                                              ) : st.eventId ? (
+                                                <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
+                                                  {eventMap[st.eventId] || t('adminShowtime.eventFallback', { id: st.eventId, defaultValue: 'Event #{{id}}' })}
+                                                </span>
+                                              ) : (
+                                                <span className="text-xs text-on-surface-variant">—</span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </td>
+                                        <td className="px-8 py-4 text-sm text-on-surface font-medium">{formatShowtime(st.startTime)}</td>
+                                        <td className="px-8 py-4 text-sm text-secondary">{formatShowtime(st.endTime)}</td>
+                                        <td className="px-8 py-4 text-sm text-on-surface">
+                                          {formatVND(parseVND(st.basePrice))}
+                                        </td>
+                                        <td className="px-8 py-4">
+                                          <span
+                                            className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border
+                                              ${st.status === 'SCHEDULED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                st.status === 'ONGOING' ? 'bg-primary-container text-primary border-blue-200' :
+                                                  st.status === 'CANCELLED' ? 'bg-error-container text-red-600 border-error-container' :
+                                                    'bg-surface-container text-on-surface-variant border-outline-variant'}`}
+                                          >
+                                            {st.status}
                                           </span>
-                                        ) : st.eventId ? (
-                                          <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
-                                            {eventMap[st.eventId] || `Event #${st.eventId}`}
-                                          </span>
-                                        ) : (
-                                          <span className="text-xs text-slate-400">—</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="px-8 py-4 text-sm text-on-surface font-medium">{formatShowtime(st.startTime)}</td>
-                                  <td className="px-8 py-4 text-sm text-secondary">{formatShowtime(st.endTime)}</td>
-                                  <td className="px-8 py-4 text-sm text-on-surface">
-                                    {formatVND(parseVND(st.basePrice))}
-                                  </td>
-                                  <td className="px-8 py-4">
-                                    <span
-                                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border
-                                        ${st.status === 'SCHEDULED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                          st.status === 'ONGOING' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                            st.status === 'CANCELLED' ? 'bg-red-50 text-red-600 border-red-200' :
-                                              'bg-slate-100 text-slate-500 border-slate-200'}`}
-                                    >
-                                      {st.status}
-                                    </span>
-                                  </td>
-                                  <td className="px-8 py-4 text-right">
-                                    <button
-                                      onClick={() => handleDelete(st.id)}
-                                      disabled={deletingId === st.id}
-                                      className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
-                                      title="Delete Showtime"
-                                    >
-                                      {deletingId === st.id ? (
-                                        <Loader2 size={16} className="animate-spin" />
-                                      ) : (
-                                        <Trash2 size={16} />
-                                      )}
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
+                                        </td>
+                                        <td className="px-8 py-4 text-right">
+                                          <button
+                                            onClick={() => handleDelete(st.id)}
+                                            disabled={deletingId === st.id}
+                                            className="p-2 rounded-lg text-on-surface-variant hover:text-red-500 hover:bg-error-container transition-colors disabled:opacity-40"
+                                            title={t('adminShowtime.deleteAction', 'Delete Showtime')}
+                                          >
+                                            {deletingId === st.id ? (
+                                              <Loader2 size={16} className="animate-spin" />
+                                            ) : (
+                                              <Trash2 size={16} />
+                                            )}
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    );
+                                  }
+
+                                  const r = item.rental;
+                                  return (
+                                    <tr key={item.key} className="bg-amber-500/5 hover:bg-amber-500/10 transition-colors">
+                                      <td className="px-8 py-4">
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-8 h-10 bg-amber-100 rounded flex items-center justify-center flex-shrink-0 text-amber-700 border border-amber-200">
+                                            <Lock size={16} />
+                                          </div>
+                                          <div>
+                                            <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded border border-amber-300">
+                                              #RN-{r.id} • {t('adminShowtime.privateRental', 'Private Room Rental')}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="px-8 py-4 text-sm text-on-surface font-medium">{formatShowtime(r.startTime)}</td>
+                                      <td className="px-8 py-4 text-sm text-secondary">
+                                        {formatShowtime(r.endTime)} <span className="text-[10px] text-amber-700 font-semibold">(+15m buffer)</span>
+                                      </td>
+                                      <td className="px-8 py-4 text-sm text-on-surface">
+                                        {formatVND(r.totalAmount)}
+                                      </td>
+                                      <td className="px-8 py-4">
+                                        <span
+                                          className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border
+                                            ${r.status === 'CONFIRMED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                              r.status === 'AWAITING_PAYMENT' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                'bg-blue-50 text-blue-700 border-blue-200'}`}
+                                        >
+                                          {r.status}
+                                        </span>
+                                      </td>
+                                      <td className="px-8 py-4 text-right">
+                                        <span className="text-xs text-on-surface-variant italic">
+                                          {t('adminShowtime.managedInRentals', 'Managed in Room Rentals')}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
                             </tbody>
                           </table>
                         )}

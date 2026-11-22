@@ -21,7 +21,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ activeItemId, children
 
   return (
     <div className="min-h-screen bg-surface">
-      <AdminSidebar activeItemId={activeItemId} onLogout={handleLogout} />
+      <AdminSidebar 
+        activeItemId={activeItemId} 
+        onLogout={handleLogout} 
+        onSettings={() => navigate('/admin/settings')}
+      />
       <div className="md:ml-64 min-h-screen">{children}</div>
     </div>
   );

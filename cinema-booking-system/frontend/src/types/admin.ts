@@ -87,6 +87,9 @@ export interface AdminUserPermission {
   id: string;
   name: string;
   email: string;
+  phone?: string;
+  gender?: string;
+  dateOfBirth?: string;
   status: 'active' | 'on-leave' | 'deactivated';
   lastActivity: string;
   roles: {
@@ -94,6 +97,7 @@ export interface AdminUserPermission {
     staff: boolean;
     admin: boolean;
   };
+  cinemaId?: number | null;
 }
 
 export interface AdminPermissionRule {
@@ -112,9 +116,12 @@ export interface UserDto {
   email: string;
   fullName: string;
   phone?: string;
+  gender?: string;
+  dateOfBirth?: string;
   active: boolean;
   /** Uppercase Keycloak realm roles, e.g. ["CUSTOMER"] or ["ADMIN"] */
   roles: string[];
+  cinemaId?: number | null;
 }
 
 /** Mirrors IdentityService.Application.DTOs.PagedResult<T> */

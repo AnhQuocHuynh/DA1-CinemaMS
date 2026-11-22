@@ -1,0 +1,171 @@
+{
+    "metrics": {
+        "seat_hold_duration_ms": {
+            "avg": 2.6563275434243176,
+            "min": 1,
+            "med": 2,
+            "max": 19,
+            "p(90)": 4,
+            "p(95)": 5
+        },
+        "http_req_duration": {
+            "min": 1.088946,
+            "med": 6.417035,
+            "max": 360.935051,
+            "p(90)": 13.466341199999999,
+            "p(95)": 16.164354799999984,
+            "avg": 6.888741979541223,
+            "thresholds": {
+                "p(95)<1000": false
+            }
+        },
+        "http_req_duration{expected_response:true}": {
+            "max": 360.935051,
+            "p(90)": 13.466341199999999,
+            "p(95)": 16.164354799999984,
+            "avg": 6.888741979541223,
+            "min": 1.088946,
+            "med": 6.417035
+        },
+        "iteration_duration": {
+            "max": 1523.087234,
+            "p(90)": 1419.512006,
+            "p(95)": 1466.78578875,
+            "avg": 1012.9550637394534,
+            "min": 511.639658,
+            "med": 1008.5857384999999
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 1613,
+            "thresholds": {
+                "rate<0.10": false
+            },
+            "value": 0
+        },
+        "successful_seat_holds": {
+            "count": 40,
+            "rate": 0.7785002640980112
+        },
+        "http_req_waiting": {
+            "p(90)": 13.1514762,
+            "p(95)": 15.735792399999998,
+            "avg": 6.612031497830132,
+            "min": 1.011406,
+            "med": 6.160853,
+            "max": 360.023542
+        },
+        "data_received": {
+            "count": 1835094,
+            "rate": 35715.52909111689
+        },
+        "iterations": {
+            "count": 806,
+            "rate": 15.686780321574926
+        },
+        "http_req_receiving": {
+            "avg": 0.24961581711097278,
+            "min": 0.027907,
+            "med": 0.197172,
+            "max": 14.484703,
+            "p(90)": 0.3989599999999999,
+            "p(95)": 0.48160519999999946
+        },
+        "seat_map_duration_ms": {
+            "avg": 10.936724565756824,
+            "min": 5,
+            "med": 10,
+            "max": 47,
+            "p(90)": 16,
+            "p(95)": 19,
+            "thresholds": {
+                "p(95)<500": false
+            }
+        },
+        "http_req_blocked": {
+            "min": 0.001934,
+            "med": 0.004329,
+            "max": 1.542475,
+            "p(90)": 0.00682,
+            "p(95)": 0.008825199999999995,
+            "avg": 0.010360270303781775
+        },
+        "conflict_seat_holds": {
+            "count": 766,
+            "rate": 14.908280057476913
+        },
+        "vus": {
+            "min": 1,
+            "max": 20,
+            "value": 1
+        },
+        "checks": {
+            "passes": 1612,
+            "fails": 0,
+            "value": 1
+        },
+        "data_sent": {
+            "count": 223786,
+            "rate": 4355.436502535938
+        },
+        "vus_max": {
+            "value": 20,
+            "min": 20,
+            "max": 20
+        },
+        "http_reqs": {
+            "count": 1613,
+            "rate": 31.393023149752302
+        },
+        "http_req_connecting": {
+            "avg": 0.00322682207067576,
+            "min": 0,
+            "med": 0,
+            "max": 0.369605,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_tls_handshaking": {
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0
+        },
+        "http_req_sending": {
+            "p(95)": 0.06677519999999998,
+            "avg": 0.02709466460012401,
+            "min": 0.007391,
+            "med": 0.023248,
+            "max": 0.24017,
+            "p(90)": 0.05076339999999999
+        }
+    },
+    "setup_data": {
+        "token": null,
+        "showtimeId": 1
+    },
+    "root_group": {
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "seat map status is 200 or 404": {
+                    "fails": 0,
+                    "name": "seat map status is 200 or 404",
+                    "path": "::seat map status is 200 or 404",
+                    "id": "d4f67c02e5642759fec89a844fee08f1",
+                    "passes": 806
+                },
+                "hold seat valid response": {
+                    "passes": 806,
+                    "fails": 0,
+                    "name": "hold seat valid response",
+                    "path": "::hold seat valid response",
+                    "id": "f8112c7591fe9b5cb2daa40fbb2d3dc1"
+                }
+            },
+        "name": ""
+    }
+}

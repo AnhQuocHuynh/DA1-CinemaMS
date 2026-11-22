@@ -8,16 +8,16 @@ needs modular-monolith background, repository shape, or run-mode details.
 Cinema Booking System is a university project for movie/event ticket booking, admin management, and staff counter operations. The practical goal is a solid, demo-ready booking management app, not production-grade microservices.
 
 ## Current Repository Shape
-- `cinema-booking-system/backend_legacy/`: runnable Spring Boot modular monolith and source of truth for backend behavior.
-- `cinema-booking-system/frontend/`: runnable React/Vite frontend.
-- `cinema-booking-system/backend/`: microservice-refactor target. Catalog, Facility, Showtime, Booking, Analytics, and Recommendation are independently buildable and have passed full-stack runtime, event-flow, and disposable migration-rehearsal gates; other service folders are still placeholders.
-- `cinema-booking-system/docs/architecture_refactor.md`: proposed future microservice architecture. Current implementation is migrating incrementally toward it.
-- Root-level `docs/`: handoff docs for Codex agents.
-- `docs/SESSION_BOOTSTRAP.md`: concise current entry point and task-to-files
-  routing for new agent sessions.
+- `cinema-booking-system/backend_legacy/`: Spring Boot modular monolith and rollback source. Traffic has not moved off it.
+- `cinema-booking-system/frontend/`: React/Vite SPA. API base defaults to the YARP gateway at `http://localhost:5000/api`. Auth is Keycloak (`keycloak-js`).
+- `cinema-booking-system/backend/`: microservice stack. Spring Boot: Catalog, Showtime, Booking, Analytics, Recommendation. ASP.NET: Identity, Facility, Payment, Notification, API Gateway. Compose also runs Keycloak, one PostgreSQL 18 container, Redis, RabbitMQ, Neo4j, and MongoDB.
+- `services/rental-service` has build output only. Room rental is not on this branch.
+- `cinema-booking-system/docs/architecture_refactor.md`: target design, not an implementation checklist.
+- Root-level `docs/`: handoff docs. Feature progress is in `docs/CURRENT_STATE.md`.
+- `docs/SESSION_BOOTSTRAP.md`: concise current entry point and task-to-files routing.
 
 ## Runnable Architecture
-The implemented app is a modular monolith backend plus SPA frontend.
+The branch contains both the rollback monolith and the microservice stack. The SPA talks to the gateway. The modules below describe `backend_legacy` only.
 
 Backend modules in `backend_legacy/src/main/java/com/uit/cinema/`:
 - `core`: config, security, exception handling, health, seed data.
@@ -42,13 +42,13 @@ Frontend areas in `frontend/src/`:
 - Database/cache/messaging: PostgreSQL 18 for extracted Compose (logical
   database-per-service on one container); Redis 7, RabbitMQ 3.13, Neo4j 5.23.
   Legacy local Docker may still use PostgreSQL 16.
-- Frontend: React 18, Vite 5, TypeScript, Tailwind CSS, Zustand, Axios, Lucide React.
-- Containers: Docker/Docker Compose files exist, but verify paths because branch layout moved runnable backend to `backend_legacy`.
+- Frontend: React 18, Vite 5, TypeScript, Tailwind CSS, Zustand, Axios, keycloak-js, i18next, Lucide React.
+- Containers: `backend/infrastructure/docker-compose.yml` runs the microservice stack. `docker-compose-app.yml` may still point at the old backend path; inspect it before use.
 
 ## Major Decisions
-- Current complete demo/backend deliverable remains the modular monolith in `backend_legacy`.
-- `backend/` now contains buildable and runtime-verified `catalog-service`, `facility-service`, `showtime-service`, `booking-service`, `analytics-service`, and `recommendation-service`. Repository-controlled preparation for the Spring-owned scope is complete, but it is not yet a replacement for `backend_legacy` because a real copied snapshot and external traffic have not been cut over.
-- Spring Boot work should continue on Spring-assigned services only: Catalog, Showtime, Booking, Analytics, and Recommendation. ASP.NET-assigned services from `architecture_refactor.md` should not be expanded in this workstream.
+- The demo path is the microservice Compose stack plus the React SPA. `backend_legacy` stays available as rollback until cutover gates pass.
+- ASP.NET Identity, Facility, Payment, Notification, and the YARP gateway are implemented on this branch. They are no longer placeholder folders.
+- A real copied snapshot and external traffic have not been cut over. August 2026 smoke results were not re-run for the 2026-10-11 status update.
 - Event-only showtimes are allowed; `showtimes.movie_id` may be nullable via manual DB patch.
 - Staff counter booking adds customer name/phone, `sales_channel`, and `created_by_staff_id` on orders.
 - Seat map contract includes row/column labels, labels like `A1`, seat type, column span/couple seats, and pathway cells.

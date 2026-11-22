@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using PaymentService.Application.Contracts;
@@ -34,35 +38,7 @@ public class StripeGateway : IPaymentGateway
     {
         try
         {
-            var options = new SessionCreateOptions
-            {
-                PaymentMethodTypes = new List<string> { "card" },
-                LineItems = new List<SessionLineItemOptions>
-                {
-                    new SessionLineItemOptions
-                    {
-                        PriceData = new SessionLineItemPriceDataOptions
-                        {
-                            Currency = request.Currency.ToLower() == "vnd" ? "usd" : request.Currency.ToLower(),
-                            UnitAmount = ConvertToSmallestUnit(request.Amount, request.Currency),
-                            ProductData = new SessionLineItemPriceDataProductDataOptions
-                            {
-                                Name = "Cinema Ticket Booking",
-                                Description = $"Payment for booking order"
-                            }
-                        },
-                        Quantity = 1
-                    }
-                },
-                Mode = "payment",
-                SuccessUrl = request.SuccessUrl,
-                CancelUrl = request.CancelUrl,
-                Metadata = new Dictionary<string, string>
-                {
-                    { PAYMENT_ID_METADATA_KEY, request.PaymentId.ToString() },
-                    { "paymentId", request.PaymentId.ToString() }
-                }
-            };
+            var options = BuildSessionCreateOptions(request);
 
             var service = new SessionService();
             var session = await service.CreateAsync(options);
@@ -70,24 +46,93 @@ public class StripeGateway : IPaymentGateway
             _logger.LogInformation("Stripe Checkout Session created: {SessionId} for PaymentId: {PaymentId}",
                 session.Id, request.PaymentId);
 
-            return new PaymentInitiationResult(true, session.Url, null);
+            return new PaymentInitiationResult(true, session.Url, null, session.Id);
         }
         catch (StripeException ex)
         {
             _logger.LogError(ex, "Stripe API error while initiating payment {PaymentId}", request.PaymentId);
             return new PaymentInitiationResult(false, null, ex.StripeError?.Message ?? ex.Message);
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error initiating Stripe payment {PaymentId}", request.PaymentId);
+            return new PaymentInitiationResult(false, null, ex.Message);
+        }
     }
 
-    public Task<PaymentVerificationResult> VerifyCallbackAsync(IDictionary<string, string> parameters)
+    public static SessionCreateOptions BuildSessionCreateOptions(PaymentRequest request)
+    {
+        return new SessionCreateOptions
+        {
+            PaymentMethodTypes = new List<string> { "card" },
+            LineItems = new List<SessionLineItemOptions>
+            {
+                new SessionLineItemOptions
+                {
+                    PriceData = new SessionLineItemPriceDataOptions
+                    {
+                        Currency = request.Currency.ToLower(),
+                        UnitAmount = ConvertToSmallestUnit(request.Amount, request.Currency),
+                        ProductData = new SessionLineItemPriceDataProductDataOptions
+                        {
+                            Name = "Cinema Ticket Booking",
+                            Description = "Payment for booking order"
+                        }
+                    },
+                    Quantity = 1
+                }
+            },
+            Mode = "payment",
+            ExpiresAt = DateTime.UtcNow.AddMinutes(30),
+            SuccessUrl = request.SuccessUrl,
+            CancelUrl = request.CancelUrl,
+            Metadata = new Dictionary<string, string>
+            {
+                { PAYMENT_ID_METADATA_KEY, request.PaymentId.ToString() }
+            }
+        };
+    }
+
+    public async Task<string> GetExistingSessionUrlAsync(string gatewaySessionId, CancellationToken ct = default)
+    {
+        var service = new SessionService();
+        var session = await service.GetAsync(gatewaySessionId, cancellationToken: ct);
+        return session.Url;
+    }
+
+    public async Task<PaymentVerificationResult> VerifyCallbackAsync(IDictionary<string, string> parameters)
     {
         try
         {
+            // 1. Direct session check (when redirected back with session_id)
+            if (parameters.TryGetValue("sessionId", out var sessionId) && !string.IsNullOrWhiteSpace(sessionId))
+            {
+                var sessionService = new SessionService();
+                var session = await sessionService.GetAsync(sessionId);
+
+                if (session == null)
+                    return new PaymentVerificationResult(false, null, null, "Stripe session not found");
+
+                if (session.PaymentStatus == "paid")
+                {
+                    if (session.Metadata != null && session.Metadata.TryGetValue(PAYMENT_ID_METADATA_KEY, out var paymentIdStr))
+                    {
+                        parameters["paymentId"] = paymentIdStr;
+                    }
+
+                    var txnId = session.PaymentIntentId ?? session.Id;
+                    return new PaymentVerificationResult(true, txnId, session.RawJObject?.ToString(), null);
+                }
+
+                return new PaymentVerificationResult(false, null, session.RawJObject?.ToString(), $"Stripe session payment status is {session.PaymentStatus}");
+            }
+
+            // 2. Webhook signature & event processing
             if (!parameters.TryGetValue("rawBody", out var rawBody))
-                return Task.FromResult(new PaymentVerificationResult(false, null, null, "Missing raw request body"));
+                return new PaymentVerificationResult(false, null, null, "Missing raw request body");
 
             if (!parameters.TryGetValue("stripeSignature", out var signature))
-                return Task.FromResult(new PaymentVerificationResult(false, null, null, "Missing Stripe-Signature header"));
+                return new PaymentVerificationResult(false, null, null, "Missing Stripe-Signature header");
 
             var webhookSecret = _configuration["Stripe:WebhookSecret"]
                 ?? throw new InvalidOperationException("Stripe:WebhookSecret is not configured.");
@@ -100,7 +145,26 @@ public class StripeGateway : IPaymentGateway
             catch (StripeException ex)
             {
                 _logger.LogWarning("Stripe webhook signature validation failed: {Message}", ex.Message);
-                return Task.FromResult(new PaymentVerificationResult(false, null, null, "Invalid Stripe signature"));
+                var isDev = string.Equals(_configuration["ASPNETCORE_ENVIRONMENT"], "Development", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
+
+                if (isDev)
+                {
+                    _logger.LogWarning("Development mode: Falling back to EventUtility.ParseEvent without signature verification.");
+                    try
+                    {
+                        stripeEvent = EventUtility.ParseEvent(rawBody, throwOnApiVersionMismatch: false);
+                    }
+                    catch (Exception parseEx)
+                    {
+                        _logger.LogWarning("Could not parse Stripe event JSON: {Message}", parseEx.Message);
+                        return new PaymentVerificationResult(true, null, rawBody, null); // Acknowledge with 200 OK
+                    }
+                }
+                else
+                {
+                    return new PaymentVerificationResult(false, null, null, "Invalid Stripe signature");
+                }
             }
 
             _logger.LogInformation("Stripe webhook event received: {EventType}", stripeEvent.Type);
@@ -109,11 +173,11 @@ public class StripeGateway : IPaymentGateway
             {
                 var session = stripeEvent.Data.Object as Session;
                 if (session == null)
-                    return Task.FromResult(new PaymentVerificationResult(false, null, rawBody, "Invalid session data"));
+                    return new PaymentVerificationResult(false, null, rawBody, "Invalid session data");
 
                 // Extract paymentId from metadata (stored during InitiateAsync)
                 if (!session.Metadata.TryGetValue(PAYMENT_ID_METADATA_KEY, out var paymentIdStr))
-                    return Task.FromResult(new PaymentVerificationResult(false, null, rawBody, "paymentId not in session metadata"));
+                    return new PaymentVerificationResult(false, null, rawBody, "paymentId not in session metadata");
 
                 // The transaction ID from Stripe is the PaymentIntent ID
                 var transactionId = session.PaymentIntentId;
@@ -121,7 +185,7 @@ public class StripeGateway : IPaymentGateway
                 // Inject paymentId back into parameters for the handler to use
                 parameters["paymentId"] = paymentIdStr;
 
-                return Task.FromResult(new PaymentVerificationResult(true, transactionId, rawBody, null));
+                return new PaymentVerificationResult(true, transactionId, rawBody, null);
             }
 
             if (stripeEvent.Type == EventTypes.PaymentIntentPaymentFailed)
@@ -133,17 +197,17 @@ public class StripeGateway : IPaymentGateway
                 if (paymentIntent?.Metadata?.TryGetValue(PAYMENT_ID_METADATA_KEY, out var paymentIdStr) == true)
                     parameters["paymentId"] = paymentIdStr;
 
-                return Task.FromResult(new PaymentVerificationResult(false, null, rawBody, failureMessage));
+                return new PaymentVerificationResult(false, null, rawBody, failureMessage);
             }
 
-            // For other event types (e.g. payment_intent.created), we acknowledge but do nothing
-            _logger.LogDebug("Stripe event {EventType} is not handled, ignoring.", stripeEvent.Type);
-            return Task.FromResult(new PaymentVerificationResult(false, null, rawBody, $"Unhandled event type: {stripeEvent.Type}"));
+            // For other event types (e.g. payment_intent.created, charge.succeeded), acknowledge with IsSuccess = true so webhooks return 200 OK
+            _logger.LogInformation("Stripe event {EventType} acknowledged (no action needed).", stripeEvent.Type);
+            return new PaymentVerificationResult(true, null, rawBody, null);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error verifying Stripe callback");
-            return Task.FromResult(new PaymentVerificationResult(false, null, null, ex.Message));
+            return new PaymentVerificationResult(false, null, null, ex.Message);
         }
     }
 

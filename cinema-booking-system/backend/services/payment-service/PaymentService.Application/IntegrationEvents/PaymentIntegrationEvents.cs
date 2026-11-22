@@ -1,3 +1,5 @@
+using System;
+
 namespace PaymentService.Application.IntegrationEvents;
 
 /// <summary>Published when a Payment record is created. Triggers the PaymentStateMachine into Pending state.</summary>
@@ -10,6 +12,7 @@ public record PaymentInitiated
     public decimal Amount { get; init; }
     public string Currency { get; init; } = "VND";
     public string PaymentMethod { get; init; } = string.Empty;
+    public string? TransactionId { get; init; }
 }
 
 /// <summary>Published after gateway signature verification. Saga drives domain state + downstream events.</summary>
@@ -23,7 +26,8 @@ public record GatewayCallbackReceived
     public string? RawResponse { get; init; }
 }
 
-/// <summary>Published when admin confirms a cash payment was collected at the counter.</summary>
+/// <summary>Published when admin confirms a cash payment was collected at the counter. (Deprecated)</summary>
+[Obsolete("Manual cash confirmation is deprecated; cash payments settle immediately at counter.")]
 public record CashPaymentConfirmed
 {
     public Guid CorrelationId { get; init; }
@@ -88,4 +92,49 @@ public record OrderPaid
     public int TicketCount { get; init; }
     public string PaymentMethod { get; init; } = string.Empty;
     public string TransactionId { get; init; } = string.Empty;
+}
+
+/// <summary>Inbound event from Booking Service (order.created routing key).</summary>
+public record OrderCreated
+{
+    public long OrderId { get; init; }
+    public long UserId { get; init; }
+    public decimal TotalAmount { get; init; }
+    public decimal DiscountAmount { get; init; }
+    public decimal FinalAmount { get; init; }
+}
+
+/// <summary>Inbound event from Booking Service (order.cancelled routing key).</summary>
+public record OrderCancelled
+{
+    public long OrderId { get; init; }
+    public long UserId { get; init; }
+    public string Reason { get; init; } = string.Empty;
+}
+
+/// <summary>Published when a payment slot is reserved by OrderCreatedConsumer. Initiates the saga into Created state.</summary>
+public record OrderSlotReserved
+{
+    public Guid CorrelationId { get; init; }
+    public long PaymentId { get; init; }
+    public long OrderId { get; init; }
+    public long UserId { get; init; }
+    public decimal Amount { get; init; }
+    public string Currency { get; init; } = "VND";
+}
+
+/// <summary>Internal saga scheduled event fired when a reserved payment slot reaches timeout.</summary>
+public record PaymentSlotExpired
+{
+    public Guid CorrelationId { get; init; }
+}
+
+/// <summary>Published by the saga when a CREATED payment slot expires without initiation. Consumed by Booking Service.</summary>
+public record OrderExpired
+{
+    public Guid CorrelationId { get; init; }
+    public long? PaymentId { get; init; }
+    public long OrderId { get; init; }
+    public long UserId { get; init; }
+    public string Reason { get; init; } = "Payment initiation timed out";
 }

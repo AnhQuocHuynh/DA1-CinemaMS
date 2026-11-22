@@ -20,7 +20,7 @@ public class DeliveryLogTests
         log.Status.Should().Be(DeliveryStatus.SENT);
         log.ProviderResponse.Should().Be("Success");
         log.Timestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
-        log.Id.Should().BeEmpty();
+        log.Id.Should().NotBeNullOrWhiteSpace();
     }
 
     [Theory]

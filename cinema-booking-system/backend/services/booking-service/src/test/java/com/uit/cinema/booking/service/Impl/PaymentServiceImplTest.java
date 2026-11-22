@@ -35,6 +35,8 @@ class PaymentServiceImplTest {
     private SeatReservationService seatReservationService;
     @Mock
     private BookingOutboxEventWriter bookingOutboxEventWriter;
+    @Mock
+    private com.uit.cinema.booking.client.HttpPaymentService httpPaymentService;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;

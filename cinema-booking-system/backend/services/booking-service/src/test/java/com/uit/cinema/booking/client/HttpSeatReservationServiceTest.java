@@ -1,5 +1,6 @@
 package com.uit.cinema.booking.client;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uit.cinema.core.exception.CustomException;
 import com.uit.cinema.showtime.service.contract.SeatBookingRequest;
 import com.uit.cinema.showtime.service.contract.SeatHoldValidationResult;
@@ -29,6 +30,7 @@ class HttpSeatReservationServiceTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         HttpSeatReservationService client = new HttpSeatReservationService(
             builder,
+            new ObjectMapper(),
             "http://showtime-service",
             "secret"
         );
@@ -68,6 +70,7 @@ class HttpSeatReservationServiceTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         HttpSeatReservationService client = new HttpSeatReservationService(
             builder,
+            new ObjectMapper(),
             "http://showtime-service",
             "secret"
         );

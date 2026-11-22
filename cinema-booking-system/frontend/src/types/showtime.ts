@@ -32,7 +32,10 @@ export interface ShowtimeSeatResponse {
   rowLabel: string;     // e.g. "A"
   columnNumber: number;
   columnSpan: number;
-  seatType: ShowtimeSeatType;
+  seatType: ShowtimeSeatType | string;
+  seatTypeCode?: string;
+  seatTypeName?: string;
+  seatKind?: string;
   isPathway?: boolean;
   pathway?: boolean;
   price: string;        // decimal string e.g. "150000.00"

@@ -37,6 +37,10 @@ namespace IdentityService.Infrastructure.Migrations
                         .HasDefaultValue(true)
                         .HasColumnName("active");
 
+                    b.Property<long?>("CinemaId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("cinema_id");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")

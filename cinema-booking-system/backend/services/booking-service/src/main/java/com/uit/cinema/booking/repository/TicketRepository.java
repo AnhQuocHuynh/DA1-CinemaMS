@@ -15,4 +15,12 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     List<Ticket> findByOrderUserIdOrderByCreatedAtDesc(Long userId);
 
     List<Ticket> findByOrderIdOrderByCreatedAtDesc(Long orderId);
+
+    long countByCreatedAtBetween(java.time.LocalDateTime start, java.time.LocalDateTime end);
+
+    long countByCreatedAtBetweenAndStatus(java.time.LocalDateTime start, java.time.LocalDateTime end, Ticket.TicketStatus status);
+
+    long countByStatus(Ticket.TicketStatus status);
+
+    List<Ticket> findTop20ByOrderByCreatedAtDesc();
 }

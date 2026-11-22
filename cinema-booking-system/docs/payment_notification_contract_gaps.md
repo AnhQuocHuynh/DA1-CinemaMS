@@ -1,5 +1,11 @@
 # Payment / Notification Contract Gaps (Spring Booking consumer)
 
+> Status on 2026-10-11: sections 2 and 6 are historical. Payment now sets the
+> MassTransit entity name to `payment.events` for completed, failed, and
+> refunded envelopes. Notification service code is in this branch and consumes
+> `order.paid` and `order.refunded`. SMS is still a log-only sender, and the
+> gateway still does not route notification APIs. See `docs/CURRENT_STATE.md`.
+
 Date: 2026-08-18  
 Audience: ASP.NET Payment, Notification, and Keycloak collaborators  
 Spring change: `booking-service` now consumes `payment.completed`, `payment.failed`, and `payment.refunded`. **No ASP.NET sources were modified.**

@@ -25,16 +25,21 @@ paths:
   /api/payments/initiate:
     post:
       summary: Initiate payment.
+      description: Initiates a payment. Note that CASH payment method is restricted to STAFF/ADMIN roles.
       security:
         - bearerAuth: []
       requestBody:
         $ref: "#/components/requestBodies/InitiatePaymentRequest"
       responses:
         "200":
-          description: Payment initiated.
+          description: Payment initiated successfully (instant completion for CASH at counter).
+        "403":
+          description: Forbidden - CASH payment method restricted to staff counter bookings.
   /api/payments/cash/confirm:
     post:
       summary: Confirm cash payment.
+      description: Deprecated. Cash payments at counter are settled immediately upon initiation.
+      deprecated: true
       security:
         - bearerAuth: []
       requestBody:

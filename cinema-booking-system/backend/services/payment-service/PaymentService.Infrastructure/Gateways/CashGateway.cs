@@ -1,3 +1,4 @@
+using System.Threading;
 using PaymentService.Application.Contracts;
 using PaymentService.Application.DTOs;
 
@@ -38,5 +39,10 @@ public class CashGateway : IPaymentGateway
     public Task<RefundResult> RefundAsync(string transactionId, decimal amount, string currency)
     {
         return Task.FromResult(new RefundResult(true, null));
+    }
+
+    public Task<string> GetExistingSessionUrlAsync(string gatewaySessionId, CancellationToken ct = default)
+    {
+        throw new NotSupportedException("Cash payments do not have gateway sessions.");
     }
 }

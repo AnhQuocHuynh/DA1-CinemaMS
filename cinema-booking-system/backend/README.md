@@ -1,17 +1,19 @@
 # Cinema Backend Services
 
-This folder is the microservice migration target. The full runnable application is still `../backend_legacy` until each service has passed its cutover gates.
+This folder is the microservice stack. `../backend_legacy` remains the rollback monolith until cutover gates pass. Feature progress is in `../../docs/CURRENT_STATE.md`.
 
 ## Current Status
 
 - `services/catalog-service` owns catalog data: movies, genres, events, and catalog search.
-- `services/facility-service` is the current Spring Boot compatibility slice for facility data. The target Facility service is ASP.NET per `../docs/architecture_refactor.md`, so keep further Spring changes minimal and contract-driven.
+- `services/facility-service` is the ASP.NET cinema, room, and seat-template service on port `5002`, database `facility_db`. It is not a Spring Boot module. Contract changes belong to the ASP.NET owner; see `../docs/architecture.md`.
 - `services/showtime-service` owns showtimes, showtime seats, seat holds, and seat reservation state transitions.
 - `services/booking-service` owns orders, payments, tickets, vouchers, and reviews.
 - `services/analytics-service` maintains a PostgreSQL dashboard read model through durable, idempotent RabbitMQ projections.
 - `services/recommendation-service` serves Neo4j-backed popular, similar, personalized, and hybrid recommendations, with durable event projections and a safe disabled-graph fallback.
-- Other service folders are still placeholders unless noted in `MIGRATION_STATUS.md`.
-- The legacy monolith remains the source of truth for the complete booking flow while migration continues.
+- `identity-service` (port `5001`), `payment-service` (port `5003`), `notification-service` (port `5004`, MongoDB), and `api-gateway` (port `5000`) are ASP.NET services in this tree. Payment publishes camelCase envelopes to `payment.events`. Notification sends email and exposes a SignalR hub; SMS only logs.
+- `rental-service` has no source on this branch.
+- Spring `CINEMA_SECURITY_JWT_ENABLED` still defaults to `false` in Compose. The gateway validates Keycloak tokens.
+- `../backend_legacy` remains the rollback source. Traffic has not been cut over.
 
 ## Verify
 
@@ -52,6 +54,8 @@ From `cinema-booking-system/backend`:
 docker compose -f infrastructure\docker-compose.yml up --build
 ```
 
+That stack includes `cinema-frontend` at `http://localhost:5173`. The image bakes the gateway URL `http://localhost:5000/api` and Keycloak `http://localhost:8080`. Rebuild the frontend image after changing `API_GATEWAY_PORT` or `KC_PORT`. Stop `npm run dev` before starting the container, because both use port `5173`.
+
 Catalog API:
 
 - Service: `http://localhost:8081`
@@ -61,8 +65,8 @@ Catalog API:
 Facility API:
 
 - Service: `http://localhost:5002`
-- Health: `http://localhost:5002/actuator/health`
-- Database: `localhost:5432/cinema_facility_db`
+- Health: `http://localhost:5002/health`
+- Database: `localhost:5432/facility_db`
 
 Showtime API:
 
@@ -88,18 +92,18 @@ Recommendation API:
 - Service: `http://localhost:8085`
 - Health: `http://localhost:8085/actuator/health`
 
-The microservices share a single PostgreSQL 18 container on host port `5432` with logical database isolation (`cinema_catalog_db`, `cinema_facility_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, etc.) initialized via `init-multiple-databases.sql`. Showtime Redis uses host port `6380` so it can run beside legacy Redis on `6379`.
+The microservices share a single PostgreSQL 18 container on host port `5432`. `init-multiple-databases.sql` creates `cinema_catalog_db`, `cinema_showtime_db`, `cinema_booking_db`, `cinema_analytics_db`, `keycloak_db`, `user_profile_db`, `payment_db`, and `facility_db`. Notification uses MongoDB. Showtime Redis uses host port `6380`. Shared Redis is on `6379`. Gateway is `http://localhost:5000`. Identity is `5001`, Payment `5003`, Notification `5004`, Keycloak `8080`.
 
 Internal service-to-service endpoints under `/internal/**` require `X-Internal-Token`. For local Docker, set `INTERNAL_API_TOKEN` or use the documented dev default `local-dev-internal-token`.
 
 ## Keycloak Integration
 
 Catalog, Showtime, Booking, Analytics, and Recommendation can validate Keycloak
-JWTs directly as OAuth2 Resource Servers. Facility is intentionally excluded
-because the target Facility service belongs to the ASP.NET workstream.
+JWTs directly as OAuth2 Resource Servers. Facility, Identity, Payment,
+Notification, and the gateway validate JWTs in ASP.NET.
 
-JWT enforcement is opt-in until the shared Keycloak realm and Gateway are
-merged. Configure all Spring services with:
+Keycloak and the gateway are in Compose. Spring JWT enforcement stays opt-in.
+Configure the Spring services with:
 
 - `CINEMA_SECURITY_JWT_ENABLED=true`
 - `KEYCLOAK_ISSUER_URI`: exact canonical realm issuer from the token `iss`
@@ -114,11 +118,9 @@ audience, expiry, and not-before time. Keycloak realm roles map only `ADMIN`,
 Recommendation use the signed numeric `user_id` claim and reject conflicting
 body, query, path, or transitional header values.
 
-Keep `CINEMA_SECURITY_JWT_ENABLED=false` for the current standalone smoke stack.
-Do not enable it until Keycloak publishes the agreed audience and `user_id`
-claim and Gateway forwards the original bearer token. See
-`../docs/authentication_integration_contract.md` for the cross-framework
-contract and remaining Gateway/.NET work.
+Compose still defaults `CINEMA_SECURITY_JWT_ENABLED` to `false`. Turn it on
+only after the gateway forwards the original bearer token and the real-token
+suite passes. See `../docs/authentication_integration_contract.md`.
 
 RabbitMQ is declared at `localhost:5672` (management UI `http://localhost:15672`). Docker enables the Catalog and Booking outbox relays with the `cinema` user; set `RABBITMQ_PASSWORD` outside local development. Local service runs leave `OUTBOX_DISPATCHER_ENABLED=false` unless a reachable broker and the matching exchanges are configured.
 
@@ -144,7 +146,7 @@ Override connection settings with:
 - `INTERNAL_API_TOKEN`
 - `SHOWTIME_SERVICE_URL` for Catalog event showtime sync and Facility destructive-delete validation
 
-For Facility, use the same pattern from `services\facility-service`; the default service port is `5002` and the default database is `cinema_facility_db`.
+Facility is the ASP.NET service on port `5002`, database `facility_db`. Do not apply the Spring local-run pattern to it. `cinema_facility_db` remains only in `infrastructure/migrations/rehearsal-fixture.sql`.
 
 ## Contracts
 

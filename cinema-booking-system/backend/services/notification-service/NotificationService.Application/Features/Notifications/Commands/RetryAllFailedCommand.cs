@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
+using NotificationService.Domain.Interfaces;
 
 namespace NotificationService.Application.Features.Notifications.Commands;
 
@@ -8,13 +9,15 @@ public record RetryAllFailedCommand() : IRequest<int>;
 
 public class RetryAllFailedCommandHandler : IRequestHandler<RetryAllFailedCommand, int>
 {
-    // Implementation would likely require a new method on INotificationRepository
-    // like Task<int> ResetFailedToPendingAsync(CancellationToken ct);
-    // For now, returning 0 as a stub since repository method isn't strictly defined in the plan for this bulk op.
-    
-    public Task<int> Handle(RetryAllFailedCommand request, CancellationToken cancellationToken)
+    private readonly INotificationRepository _notificationRepository;
+
+    public RetryAllFailedCommandHandler(INotificationRepository notificationRepository)
     {
-        // TODO: Implement bulk retry logic via repository
-        return Task.FromResult(0);
+        _notificationRepository = notificationRepository;
+    }
+
+    public async Task<int> Handle(RetryAllFailedCommand request, CancellationToken cancellationToken)
+    {
+        return await _notificationRepository.ResetAllFailedToPendingAsync(cancellationToken);
     }
 }

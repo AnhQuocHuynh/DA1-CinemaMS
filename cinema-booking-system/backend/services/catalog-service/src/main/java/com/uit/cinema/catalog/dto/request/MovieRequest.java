@@ -22,6 +22,11 @@ public class MovieRequest {
     private String posterUrl;
     private String trailerUrl;
     private String language;
+    private String imdbId;
+    private Double imdbRating;
+    private String region;
+    private String director;
+    private String actors;
     private boolean active = true;
     private Set<Long> genreIds;
 }

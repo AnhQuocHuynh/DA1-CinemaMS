@@ -18,4 +18,6 @@ public class NotificationDto
     public DateTime? SentAt { get; set; }
     public string? FailedReason { get; set; }
     public DateTime CreatedAt { get; set; }
+    public bool IsRead { get; set; }
+    public DateTime? ReadAt { get; set; }
 }

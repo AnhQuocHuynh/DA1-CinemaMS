@@ -1,3 +1,4 @@
+using System;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -5,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PaymentService.Application.Contracts;
 using PaymentService.Application.IntegrationEvents;
 using PaymentService.Domain.Interfaces;
+using PaymentService.Infrastructure.BackgroundJobs;
 using PaymentService.Infrastructure.Data;
 using PaymentService.Infrastructure.Gateways;
 using PaymentService.Infrastructure.Messaging.Consumers;
@@ -52,6 +54,8 @@ public static class DependencyInjection
         {
             // ── Consumers ──────────────────────────────────────────────────────
             x.AddConsumer<OrderPaidConsumer>();
+            x.AddConsumer<OrderCreatedConsumer>();
+            x.AddConsumer<OrderCancelledConsumer>();
 
             // ── Saga (state machine + EF Core persistence) ─────────────────────
             x.AddSagaStateMachine<PaymentStateMachine, PaymentSagaState>()
@@ -100,6 +104,9 @@ public static class DependencyInjection
                 cfg.ConfigureCustomTopology(ctx);
             });
         });
+
+        // --- Background Workers ---
+        services.AddHostedService<PaymentSlotExpirationWorker>();
 
         return services;
     }

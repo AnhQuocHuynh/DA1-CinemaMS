@@ -14,7 +14,9 @@ import com.uit.cinema.showtime.entity.ShowtimeSeat;
 import com.uit.cinema.showtime.mapper.ShowtimeMapper;
 import com.uit.cinema.showtime.repository.ShowtimeRepository;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.showtime.service.RentalSlotGuard;
 import com.uit.cinema.showtime.service.contract.EventShowtimeCreateRequest;
+import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import org.junit.jupiter.api.Test;
@@ -22,9 +24,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.RedisTemplate;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -39,6 +43,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -67,6 +72,9 @@ class ShowtimeServiceImplTest {
 
     @Mock
     private CatalogReadService catalogReadService;
+
+    @Mock
+    private RentalSlotGuard rentalSlotGuard;
 
     @InjectMocks
     private ShowtimeServiceImpl showtimeService;
@@ -121,6 +129,43 @@ class ShowtimeServiceImplTest {
         CustomException ex = assertThrows(CustomException.class, () -> showtimeService.createShowtime(request));
 
         assertEquals("CONFLICT", ex.getErrorCode());
+        verify(showtimeRepository, never()).save(any());
+    }
+
+    @Test
+    void createShowtime_WhenRentalOverlaps_DoesNotSave() {
+        ShowtimeRequest request = movieShowtimeRequest();
+        when(catalogReadService.findMovie(1L)).thenReturn(Optional.of(movieContent()));
+        when(facilityReadService.findRoom(1L)).thenReturn(Optional.of(room(false)));
+        TypedQuery<Long> overlapQuery = mock(TypedQuery.class);
+        when(entityManager.createQuery(contains("SELECT COUNT(s)"), eq(Long.class))).thenReturn(overlapQuery);
+        when(overlapQuery.setParameter(anyString(), any())).thenReturn(overlapQuery);
+        when(overlapQuery.getSingleResult()).thenReturn(0L);
+        doThrow(new CustomException("Showtime overlaps a room rental", org.springframework.http.HttpStatus.CONFLICT, "RENTAL_SLOT_TAKEN"))
+            .when(rentalSlotGuard).assertSlotFree(eq(1L), any(), any());
+
+        CustomException ex = assertThrows(CustomException.class, () -> showtimeService.createShowtime(request));
+
+        assertEquals("RENTAL_SLOT_TAKEN", ex.getErrorCode());
+        verify(showtimeRepository, never()).save(any());
+    }
+
+    @Test
+    void createShowtime_WhenRentalGuardUnavailable_DoesNotSave() {
+        ShowtimeRequest request = movieShowtimeRequest();
+        when(catalogReadService.findMovie(1L)).thenReturn(Optional.of(movieContent()));
+        when(facilityReadService.findRoom(1L)).thenReturn(Optional.of(room(false)));
+        TypedQuery<Long> overlapQuery = mock(TypedQuery.class);
+        when(entityManager.createQuery(contains("SELECT COUNT(s)"), eq(Long.class))).thenReturn(overlapQuery);
+        when(overlapQuery.setParameter(anyString(), any())).thenReturn(overlapQuery);
+        when(overlapQuery.getSingleResult()).thenReturn(0L);
+        doThrow(new CustomException("Rental service is unavailable", org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "RENTAL_SERVICE_UNAVAILABLE"))
+            .when(rentalSlotGuard).assertSlotFree(eq(1L), any(), any());
+
+        CustomException ex = assertThrows(CustomException.class, () -> showtimeService.createShowtime(request));
+
+        assertEquals("RENTAL_SERVICE_UNAVAILABLE", ex.getErrorCode());
+        verify(showtimeRepository, never()).save(any());
     }
 
     @Test
@@ -216,6 +261,24 @@ class ShowtimeServiceImplTest {
     }
 
     @Test
+    void getSeatById_WhenRedisIsDown_UsesDatabaseHoldExpiry() {
+        ShowtimeSeat seat = seat();
+        seat.setStatus(ShowtimeSeat.SeatStatus.HELD);
+        seat.setHeldByUserId(4L);
+        seat.setHoldExpiresAt(Instant.now().plusSeconds(90));
+        ShowtimeSeatResponse mapped = new ShowtimeSeatResponse();
+        when(showtimeSeatRepository.findById(10L)).thenReturn(Optional.of(seat));
+        when(facilityReadService.findSeatTemplate(5L)).thenReturn(Optional.of(seatTemplate()));
+        when(showtimeMapper.toSeatResponse(any(ShowtimeSeat.class))).thenReturn(mapped);
+        when(redisTemplate.getExpire(anyString())).thenThrow(new RedisConnectionFailureException("redis down"));
+
+        ShowtimeSeatResponse result = showtimeService.getSeatById(10L);
+
+        assertEquals("holding", result.getStatus());
+        assertTrue(result.getHoldTtlSeconds() > 0);
+    }
+
+    @Test
     void hasFutureShowtimesForRoom_WhenRepositoryFindsMatch_ReturnsTrue() {
         when(showtimeRepository.existsByRoomIdAndStartTimeAfterAndStatusNot(
             eq(1L),
@@ -283,6 +346,29 @@ class ShowtimeServiceImplTest {
         verify(showtimeRepository).deleteById(20L);
         verify(showtimeSeatRepository, never()).deleteByShowtimeId(21L);
         verify(showtimeRepository, never()).deleteById(21L);
+    }
+
+    @Test
+    void findActiveSchedule_mapsActiveShowtimes() {
+        Showtime showtime = new Showtime();
+        showtime.setId(2L);
+        showtime.setMovieId(1L);
+        showtime.setRoomId(3L);
+        showtime.setStartTime(LocalDateTime.of(2026, 11, 4, 10, 0));
+        showtime.setEndTime(LocalDateTime.of(2026, 11, 4, 12, 0));
+        showtime.setStatus(Showtime.Status.SCHEDULED);
+        when(showtimeRepository.findActiveIntersecting(eq(3L), any(), any(), eq(Showtime.Status.CANCELLED)))
+            .thenReturn(List.of(showtime));
+
+        List<ShowtimeScheduleView> schedule = showtimeService.findActiveSchedule(
+            3L,
+            LocalDateTime.of(2026, 11, 4, 9, 0),
+            LocalDateTime.of(2026, 11, 4, 13, 0)
+        );
+
+        assertEquals(1, schedule.size());
+        assertEquals(2L, schedule.get(0).showtimeId());
+        assertEquals("SCHEDULED", schedule.get(0).status());
     }
 
     private ShowtimeRequest movieShowtimeRequest() {

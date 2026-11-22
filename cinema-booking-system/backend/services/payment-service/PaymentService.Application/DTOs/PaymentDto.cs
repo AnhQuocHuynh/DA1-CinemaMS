@@ -21,7 +21,7 @@ public record PaymentDto(
     string? TransactionId,
     decimal Amount,
     string Currency,
-    PaymentMethod PaymentMethod,
+    PaymentMethod? PaymentMethod,
     PaymentStatus Status,
     DateTime? PaidAt,
     DateTime CreatedAt,

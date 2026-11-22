@@ -43,6 +43,7 @@ namespace FacilityService.Application.Features.Rooms.Queries
                 Id = room.Id,
                 CinemaId = room.CinemaId,
                 Name = room.Name,
+                CinemaName = room.Cinema?.Name,
                 Type = room.Type,
                 TotalSeats = room.TotalSeats,
                 Rows = room.Rows,

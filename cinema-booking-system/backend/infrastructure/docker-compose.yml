@@ -2,7 +2,9 @@ name: cinema-backend-services
 
 services:
   postgres:
-    image: postgres:18-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
     container_name: cinema-postgres
     env_file:
       - .env
@@ -32,6 +34,11 @@ services:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - cinema-services
 
@@ -49,7 +56,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      test: [ "CMD-SHELL", "rabbitmq-diagnostics -q ping && rabbitmq-diagnostics -q check_port_connectivity" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -63,6 +70,10 @@ services:
       - .env
     environment:
       - KC_HEALTH_ENABLED=true
+      - KC_METRICS_ENABLED=true
+      - KC_FEATURES=opentelemetry
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_SERVICE_NAME=cinema-keycloak
       - KC_BOOTSTRAP_ADMIN_USERNAME=${KC_BOOTSTRAP_ADMIN_USERNAME}
       - KC_BOOTSTRAP_ADMIN_PASSWORD=${KC_BOOTSTRAP_ADMIN_PASSWORD}
       - KC_DB=${KC_DB_TYPE}
@@ -81,7 +92,7 @@ services:
       - ./keycloak-config:/opt/keycloak/data/import
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     networks:
@@ -89,8 +100,8 @@ services:
 
   api-gateway:
     build:
-      context: ../services/api-gateway
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/api-gateway/Dockerfile
     container_name: cinema-api-gateway
     env_file:
       - .env
@@ -107,11 +118,17 @@ services:
       - ReverseProxy__Clusters__analytics-cluster__Destinations__analytics-1__Address=http://analytics-service:8084
       - ReverseProxy__Clusters__recommendation-cluster__Destinations__recommendation-1__Address=http://recommendation-service:8085
       - ReverseProxy__Clusters__payment-cluster__Destinations__payment-1__Address=http://payment-service:80
+      - ReverseProxy__Clusters__notification-cluster__Destinations__notification-1__Address=http://notification-service:80
+      - ReverseProxy__Clusters__chatbot-cluster__Destinations__chatbot-1__Address=http://ai-chatbot-service:8000
+      - ReverseProxy__Clusters__rental-cluster__Destinations__rental-1__Address=http://rental-service:8086
       - Jwt__Authority=${KC_AUTHORITY_URL}
       - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
+      - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
+      - Jwt__RequireHttpsMetadata=false
       - UserProfileService__BaseUrl=http://identity-service:80
       - Redis__ConnectionString=${REDIS_CONNECTION_STRING}
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-local-dev-internal-token}
     ports:
       - "${API_GATEWAY_PORT:-5000}:80"
     depends_on:
@@ -119,13 +136,14 @@ services:
       - identity-service
       - facility-service
       - redis
+      - notification-service
     networks:
       - cinema-services
 
   identity-service:
     build:
-      context: ../services/identity-service
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/identity-service/Dockerfile
     container_name: cinema-identity-service
     env_file:
       - .env
@@ -140,19 +158,25 @@ services:
       - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
       - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
       - Jwt__RequireHttpsMetadata=false
+      - KeycloakAdmin__BaseUrl=${KC_BASE_URL:-http://keycloak:8080}
+      - KeycloakAdmin__Realm=${KC_REALM:-cinema-booking}
+      - KeycloakAdmin__ClientId=${KC_ADMIN_CLIENT_ID:-cinema-admin}
+      - KeycloakAdmin__ClientSecret=${KC_ADMIN_CLIENT_SECRET}
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
     ports:
       - "${IDENTITY_SERVICE_PORT:-5001}:80"
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - cinema-services
 
   facility-service:
     build:
-      context: ../services/facility-service
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/facility-service/Dockerfile
     container_name: cinema-facility-service
     env_file:
       - .env
@@ -165,12 +189,19 @@ services:
       - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
       - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
       - Jwt__RequireHttpsMetadata=false
+      - KeycloakAdmin__BaseUrl=http://keycloak:8080
+      - KeycloakAdmin__Realm=cinema-booking
+      - KeycloakAdmin__ClientId=cinema-admin
+      - KeycloakAdmin__ClientSecret=${KC_ADMIN_CLIENT_SECRET}
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-local-dev-internal-token}
     ports:
       - "${FACILITY_SERVICE_PORT:-5002}:80"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - cinema-services
 
@@ -190,11 +221,17 @@ services:
       KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
       KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-cinema-api}
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-}
+      CINEMA_AI_ENABLED: ${CINEMA_AI_ENABLED:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta}
+      GEMINI_TIMEOUT: ${GEMINI_TIMEOUT:-30s}
       SHOWTIME_SERVICE_URL: http://showtime-service:8082
       OUTBOX_DISPATCHER_ENABLED: "true"
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8081:8081"
     depends_on:
@@ -232,12 +269,14 @@ services:
       SPRING_DATA_REDIS_PORT: ${SHOWTIME_REDIS_PORT:-6379}
       CATALOG_SERVICE_URL: http://catalog-service:8081
       FACILITY_SERVICE_URL: http://facility-service:80
+      RENTAL_SERVICE_URL: http://rental-service:8086
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-local-dev-internal-token}
       CINEMA_SECURITY_JWT_ENABLED: ${CINEMA_SECURITY_JWT_ENABLED:-false}
       KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
       KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-cinema-api}
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8082:8082"
     depends_on:
@@ -265,17 +304,24 @@ services:
       CATALOG_SERVICE_URL: http://catalog-service:8081
       FACILITY_SERVICE_URL: http://facility-service:80
       SHOWTIME_SERVICE_URL: http://showtime-service:8082
+      PAYMENT_SERVICE_URL: http://payment-service:80
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-local-dev-internal-token}
       CINEMA_SECURITY_JWT_ENABLED: ${CINEMA_SECURITY_JWT_ENABLED:-false}
       KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
       KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-cinema-api}
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-}
+      CINEMA_AI_ENABLED: ${CINEMA_AI_ENABLED:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta}
+      GEMINI_TIMEOUT: ${GEMINI_TIMEOUT:-30s}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       OUTBOX_DISPATCHER_ENABLED: "true"
       BOOKING_PAYMENT_EVENTS_ENABLED: "true"
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8083:8083"
     depends_on:
@@ -312,6 +358,7 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8084:8084"
     depends_on:
@@ -359,12 +406,22 @@ services:
       SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
       SPRING_NEO4J_AUTHENTICATION_PASSWORD: ${NEO4J_PASSWORD:-cinema_graph_2026}
       RECOMMENDATION_MESSAGING_ENABLED: "true"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${RECOMMENDATION_DB_NAME:-cinema_recommendation_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-123}
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-local-dev-internal-token}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-cinema}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-guest}
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
     ports:
       - "8085:8085"
     depends_on:
+      postgres:
+        condition: service_healthy
+      catalog-service:
+        condition: service_started
       neo4j:
         condition: service_healthy
       rabbitmq:
@@ -372,10 +429,63 @@ services:
     networks:
       - cinema-services
 
+  rental-db-init:
+    image: postgres:18-alpine
+    container_name: cinema-rental-db-init
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-123}
+      PGUSER: ${POSTGRES_USER:-postgres}
+      RENTAL_DB_NAME: ${RENTAL_DB_NAME:-cinema_rental_db}
+    entrypoint: [ "sh", "-c" ]
+    command:
+      - |
+        case "$$RENTAL_DB_NAME" in
+          ""|*[!A-Za-z0-9_]*) echo "invalid RENTAL_DB_NAME" >&2; exit 1 ;;
+        esac
+        if psql -h postgres -d postgres -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname = '$$RENTAL_DB_NAME'" | grep -q 1; then
+          exit 0
+        fi
+        psql -h postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE $$RENTAL_DB_NAME"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cinema-services
+
+  rental-service:
+    build:
+      context: ..
+      dockerfile: services/rental-service/Dockerfile
+    container_name: cinema-rental-service
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Ho_Chi_Minh
+      SERVER_PORT: 8086
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${RENTAL_DB_NAME:-cinema_rental_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-123}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-local-dev-internal-token}
+      CINEMA_SECURITY_JWT_ENABLED: ${CINEMA_SECURITY_JWT_ENABLED:-false}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-}
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-cinema-api}
+      KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-}
+      FACILITY_SERVICE_URL: http://facility-service:80
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      SHOWTIME_SERVICE_URL: http://showtime-service:8082
+      IDENTITY_SERVICE_URL: http://identity-service:80
+      NOTIFICATION_SERVICE_URL: http://notification-service:80
+    ports:
+      - "8086:8086"
+    depends_on:
+      rental-db-init:
+        condition: service_completed_successfully
+    networks:
+      - cinema-services
+
   payment-service:
     build:
-      context: ../services/payment-service
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/payment-service/Dockerfile
     container_name: cinema-payment-service
     env_file:
       - .env
@@ -390,12 +500,19 @@ services:
       - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
       - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
       - Jwt__RequireHttpsMetadata=false
+      - KeycloakAdmin__BaseUrl=http://keycloak:8080
+      - KeycloakAdmin__Realm=cinema-booking
+      - KeycloakAdmin__ClientId=cinema-admin
+      - KeycloakAdmin__ClientSecret=${KC_ADMIN_CLIENT_SECRET}
+      - App__BaseUrl=${FRONTEND_URL:-http://localhost:5173}
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
     ports:
       - "${PAYMENT_SERVICE_PORT:-5003}:80"
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - cinema-services
 
@@ -416,8 +533,8 @@ services:
 
   notification-service:
     build:
-      context: ../services/notification-service
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/notification-service/Dockerfile
     container_name: cinema-notification-service
     env_file:
       - .env
@@ -433,7 +550,18 @@ services:
       - Jwt__ValidIssuer=${KC_VALID_ISSUER_URL}
       - Jwt__Audience=${KEYCLOAK_AUDIENCE:-cinema-api}
       - Jwt__RequireHttpsMetadata=false
+      - KeycloakAdmin__BaseUrl=http://keycloak:8080
+      - KeycloakAdmin__Realm=cinema-booking
+      - KeycloakAdmin__ClientId=cinema-admin
+      - KeycloakAdmin__ClientSecret=${KC_ADMIN_CLIENT_SECRET}
+      - IdentityService__BaseUrl=http://identity-service:80
       - Observability__OtlpEndpoint=${OTLP_ENDPOINT:-http://otel-collector:4317}
+      - Smtp__Host=${SMTP_HOST:-smtp.gmail.com}
+      - Smtp__Port=${SMTP_PORT:-587}
+      - Smtp__Username=${SMTP_USER}
+      - Smtp__Password=${SMTP_PASS}
+      - Smtp__FromName=Cinema Booking System
+      - Smtp__FromAddress=${SMTP_USER:-noreply@cinema.com}
     ports:
       - "${NOTIFICATION_SERVICE_PORT:-5004}:80"
     depends_on:
@@ -441,6 +569,73 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    networks:
+      - cinema-services
+
+  ai-chatbot-service:
+    build:
+      context: ..
+      dockerfile: services/ai-chatbot-service/Dockerfile
+    container_name: cinema-ai-chatbot
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-123}@${POSTGRES_HOST:-postgres}:5432/ai_chatbot_db
+      - REDIS_URL=redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}/0
+      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-cinema}:${RABBITMQ_DEFAULT_PASS:-guest}@${RABBITMQ_HOST:-rabbitmq}:5672/
+      - AI_PROVIDER=${AI_PROVIDER:-Gemini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-gemini-embedding-001}
+      - CATALOG_SERVICE_URL=http://catalog-service:8081
+      - SHOWTIME_SERVICE_URL=http://showtime-service:8082
+      - BOOKING_SERVICE_URL=http://booking-service:8083
+      - FACILITY_SERVICE_URL=http://facility-service:80
+      - RECOMMENDATION_SERVICE_URL=http://recommendation-service:8085
+      - IDENTITY_SERVICE_URL=http://identity-service:80
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-local-dev-internal-token}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
+      - CINEMA_SECURITY_JWT_ENABLED=${CINEMA_SECURITY_JWT_ENABLED:-false}
+      - KEYCLOAK_ISSUER_URI=${KEYCLOAK_ISSUER_URI:-}
+      - KEYCLOAK_AUDIENCE=${KEYCLOAK_AUDIENCE:-cinema-api}
+      - KEYCLOAK_JWK_SET_URI=${KEYCLOAK_JWK_SET_URI:-}
+    ports:
+      - "${AI_CHATBOT_PORT:-5005}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      catalog-service:
+        condition: service_started
+      showtime-service:
+        condition: service_started
+      booking-service:
+        condition: service_started
+      recommendation-service:
+        condition: service_started
+    networks:
+      - cinema-services
+
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:${API_GATEWAY_PORT:-5000}/api
+        VITE_KEYCLOAK_URL: http://localhost:${KC_PORT:-8080}
+        VITE_KEYCLOAK_REALM: cinema-booking
+        VITE_KEYCLOAK_CLIENT_ID: cinema-frontend
+        NGINX_CONF: nginx.static.conf
+    container_name: cinema-frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - api-gateway
+      - keycloak
     networks:
       - cinema-services
 

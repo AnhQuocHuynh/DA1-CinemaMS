@@ -33,6 +33,7 @@ namespace FacilityService.Infrastructure.Repositories
         public async Task<Room?> GetByIdAsync(long id)
         {
             return await _context.Rooms
+                .Include(r => r.Cinema)
                 .Include(r => r.SeatTemplates)
                 .ThenInclude(st => st.SeatType)
                 .FirstOrDefaultAsync(r => r.Id == id);

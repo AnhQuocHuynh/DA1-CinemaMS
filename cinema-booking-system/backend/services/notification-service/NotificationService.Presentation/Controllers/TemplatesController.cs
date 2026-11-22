@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NotificationService.Application.Features.Templates.Commands;
 using NotificationService.Application.Features.Templates.Queries;
@@ -6,7 +7,8 @@ using NotificationService.Application.Features.Templates.Queries;
 namespace NotificationService.Presentation.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/notification-templates")]
+[Authorize(Roles = "ADMIN")]
 public class TemplatesController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -38,24 +40,24 @@ public class TemplatesController : ControllerBase
         return Ok(result);
     }
 
-    [HttpPut("{code}")]
-    public async Task<IActionResult> UpdateTemplate(string code, [FromBody] UpdateTemplateCommand command)
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateTemplate(string id, [FromBody] UpdateTemplateCommand command)
     {
-        if (code != command.Code)
+        if (id != command.Id)
         {
-            return BadRequest("Code mismatch");
+            return BadRequest("Id mismatch");
         }
         
         await _mediator.Send(command);
         return NoContent();
     }
 
-    [HttpPatch("{code}/toggle-active")]
-    public async Task<IActionResult> ToggleTemplateActive(string code, [FromBody] ToggleTemplateActiveCommand command)
+    [HttpPut("{id}/toggle-active")]
+    public async Task<IActionResult> ToggleTemplateActive(string id, [FromBody] ToggleTemplateActiveCommand command)
     {
-        if (code != command.Code)
+        if (id != command.Id)
         {
-            return BadRequest("Code mismatch");
+            return BadRequest("Id mismatch");
         }
 
         await _mediator.Send(command);

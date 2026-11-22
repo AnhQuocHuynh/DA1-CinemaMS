@@ -14,11 +14,15 @@ import com.uit.cinema.showtime.entity.ShowtimeSeat;
 import com.uit.cinema.showtime.mapper.ShowtimeMapper;
 import com.uit.cinema.showtime.repository.ShowtimeRepository;
 import com.uit.cinema.showtime.repository.ShowtimeSeatRepository;
+import com.uit.cinema.showtime.service.RentalSlotGuard;
 import com.uit.cinema.showtime.service.SeatHoldPolicy;
 import com.uit.cinema.showtime.service.ShowtimeService;
 import com.uit.cinema.showtime.service.contract.EventShowtimeCreateRequest;
+import com.uit.cinema.showtime.service.contract.ShowtimeScheduleView;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -26,11 +30,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ShowtimeServiceImpl implements ShowtimeService {
@@ -44,6 +50,7 @@ public class ShowtimeServiceImpl implements ShowtimeService {
     private final EntityManager entityManager;
     private final FacilityReadService facilityReadService;
     private final CatalogReadService catalogReadService;
+    private final RentalSlotGuard rentalSlotGuard;
 
     @Override
     public List<ShowtimeResponse> getShowtimesByMovie(Long movieId) {
@@ -92,6 +99,29 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         ShowtimeSeat seat = showtimeSeatRepository.findById(seatId)
             .orElseThrow(() -> new CustomException("Seat not found", HttpStatus.NOT_FOUND, "SEAT_NOT_FOUND"));
         return toRealtimeSeatResponse(seat.getShowtimeId(), seat);
+    }
+
+    @Override
+    public boolean hasOverlappingShowtime(Long roomId, LocalDateTime start, LocalDateTime end) {
+        return showtimeRepository.countActiveOverlap(roomId, start, end, Showtime.Status.CANCELLED) > 0;
+    }
+
+    @Override
+    public List<ShowtimeScheduleView> findActiveSchedule(Long roomId, LocalDateTime from, LocalDateTime to) {
+        if (roomId == null || from == null || to == null || !to.isAfter(from)) {
+            return List.of();
+        }
+        return showtimeRepository.findActiveIntersecting(roomId, from, to, Showtime.Status.CANCELLED).stream()
+            .map(showtime -> new ShowtimeScheduleView(
+                showtime.getId(),
+                showtime.getMovieId(),
+                showtime.getEventId(),
+                showtime.getRoomId(),
+                showtime.getStartTime(),
+                showtime.getEndTime(),
+                showtime.getStatus() != null ? showtime.getStatus().name() : null
+            ))
+            .toList();
     }
 
     @Override
@@ -167,6 +197,8 @@ public class ShowtimeServiceImpl implements ShowtimeService {
         if (overlapCount > 0) {
             throw new CustomException("Showtime overlaps another showtime", HttpStatus.CONFLICT, "CONFLICT");
         }
+
+        rentalSlotGuard.assertSlotFree(request.getRoomId(), request.getStartTime(), request.getEndTime());
 
         Showtime showtime = showtimeMapper.toEntity(request);
         Showtime savedShowtime = showtimeRepository.save(showtime);
@@ -280,11 +312,10 @@ public class ShowtimeServiceImpl implements ShowtimeService {
 
     private ShowtimeSeatResponse toRealtimeSeatResponse(Long showtimeId, ShowtimeSeat seat) {
         ShowtimeSeatResponse response = showtimeMapper.toSeatResponse(seat);
-        String holdKey = SeatHoldPolicy.holdKey(showtimeId, seat.getId());
-        Long ttlSeconds = redisTemplate.getExpire(holdKey);
-        response.setHoldTtlSeconds((ttlSeconds != null && ttlSeconds > 0) ? ttlSeconds : null);
+        Long ttlSeconds = resolveHoldTtlSeconds(showtimeId, seat);
+        response.setHoldTtlSeconds(ttlSeconds);
         response.setSeatId(String.valueOf(seat.getId()));
-        response.setStatus(mapSeatStatus(seat.getStatus(), response.getHoldTtlSeconds()));
+        response.setStatus(mapDisplayedStatus(seat, ttlSeconds));
 
         facilityReadService.findSeatTemplate(seat.getSeatTemplateId()).ifPresent(template -> {
             response.setRowLabel(template.rowLabel());
@@ -331,6 +362,39 @@ public class ShowtimeServiceImpl implements ShowtimeService {
             case "STANDARD" -> "Standard";
             default -> code;
         };
+    }
+
+    private Long resolveHoldTtlSeconds(Long showtimeId, ShowtimeSeat seat) {
+        Long redisTtl = readRedisTtl(showtimeId, seat.getId());
+        if (redisTtl != null) {
+            return redisTtl;
+        }
+        Instant expiresAt = seat.getHoldExpiresAt();
+        if (seat.getStatus() != ShowtimeSeat.SeatStatus.HELD || expiresAt == null) {
+            return null;
+        }
+        long remaining = Duration.between(Instant.now(), expiresAt).getSeconds();
+        if (remaining <= 0) {
+            return null;
+        }
+        return remaining;
+    }
+
+    private Long readRedisTtl(Long showtimeId, Long seatId) {
+        try {
+            Long ttlSeconds = redisTemplate.getExpire(SeatHoldPolicy.holdKey(showtimeId, seatId));
+            return (ttlSeconds != null && ttlSeconds > 0) ? ttlSeconds : null;
+        } catch (DataAccessException exception) {
+            log.warn("Redis unavailable while reading the hold timer for seat {}. Using the database expiry.", seatId);
+            return null;
+        }
+    }
+
+    private String mapDisplayedStatus(ShowtimeSeat seat, Long holdTtlSeconds) {
+        if (seat.getStatus() == ShowtimeSeat.SeatStatus.HELD && holdTtlSeconds == null) {
+            return "available";
+        }
+        return mapSeatStatus(seat.getStatus(), holdTtlSeconds);
     }
 
     private String mapSeatStatus(ShowtimeSeat.SeatStatus status, Long holdTtlSeconds) {

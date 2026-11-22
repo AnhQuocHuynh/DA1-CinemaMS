@@ -34,4 +34,15 @@ class CatalogServiceApplicationTest {
                 .header("X-Internal-Token", "test-internal-token"))
             .andExpect(status().isNotFound());
     }
+
+    @Test
+    void featureListAndStatusSearchAreRouted() throws Exception {
+        mockMvc.perform(get("/internal/catalog/movies/features")
+                .header("X-Internal-Token", "test-internal-token"))
+            .andExpect(status().isOk());
+        mockMvc.perform(get("/api/catalog/search").param("status", "SHOWING"))
+            .andExpect(status().isOk());
+        mockMvc.perform(get("/api/catalog/search").param("status", "LATER"))
+            .andExpect(status().isBadRequest());
+    }
 }

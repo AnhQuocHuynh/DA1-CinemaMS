@@ -3,6 +3,8 @@ package com.uit.cinema.booking.dto.response;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 @Builder
 public class ReviewInsightResponse {
@@ -15,4 +17,7 @@ public class ReviewInsightResponse {
     private long threeStarCount;
     private long fourStarCount;
     private long fiveStarCount;
+    private String aiSummary;
+    @Builder.Default
+    private List<String> keywords = List.of();
 }

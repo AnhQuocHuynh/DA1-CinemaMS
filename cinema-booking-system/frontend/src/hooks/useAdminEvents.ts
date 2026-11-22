@@ -27,6 +27,7 @@ export const useAdminEvents = () => {
       await fetchEvents();
     } catch (error) {
       console.error('Failed to add event:', error);
+      throw error; // let the caller (modal) surface the error and stay open
     }
   };
 

@@ -1,16 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../../../contexts/ToastContext';
+import { CinemaResponse } from '../../../services/cinemaService';
 
 interface UserRoleModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: any) => Promise<void>;
+  onAssignCinema?: (userId: string | number, cinemaId: number | null) => Promise<void>;
+  cinemas?: CinemaResponse[];
   user: any;
 }
 
-export const UserRoleModal: React.FC<UserRoleModalProps> = ({ isOpen, onClose, onSubmit, user }) => {
+export const UserRoleModal: React.FC<UserRoleModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  onAssignCinema,
+  cinemas = [],
+  user,
+}) => {
   const { addToast } = useToast();
   const [activeRole, setActiveRole] = useState<'customer' | 'staff' | 'admin'>('customer');
+  const [selectedCinemaId, setSelectedCinemaId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -18,10 +29,10 @@ export const UserRoleModal: React.FC<UserRoleModalProps> = ({ isOpen, onClose, o
       if (user.roles.admin) setActiveRole('admin');
       else if (user.roles.staff) setActiveRole('staff');
       else setActiveRole('customer');
+
+      setSelectedCinemaId(user.cinemaId ?? null);
     }
   }, [user, isOpen]);
-
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +44,16 @@ export const UserRoleModal: React.FC<UserRoleModalProps> = ({ isOpen, onClose, o
         admin: activeRole === 'admin',
       };
       await onSubmit({ roles: rolesToSubmit });
-      addToast(`Roles updated for ${user.name}`, 'success');
+
+      // Update cinema assignment if user is staff and onAssignCinema is provided
+      if (onAssignCinema) {
+        const targetCinemaId = activeRole === 'staff' ? selectedCinemaId : null;
+        if (targetCinemaId !== (user.cinemaId ?? null)) {
+          await onAssignCinema(user.id, targetCinemaId);
+        }
+      }
+
+      addToast(`User settings updated for ${user.name}`, 'success');
       onClose();
     } catch (err: any) {
       addToast(err?.message || 'Failed to update roles', 'error');
@@ -53,15 +73,28 @@ export const UserRoleModal: React.FC<UserRoleModalProps> = ({ isOpen, onClose, o
         </div>
         
         <div className="p-6 text-center">
-          <div className="w-16 h-16 bg-blue-100 text-blue-700 font-bold flex items-center justify-center rounded-full text-xl mx-auto mb-4">
+          <div className="w-16 h-16 bg-primary-container text-primary font-bold flex items-center justify-center rounded-full text-xl mx-auto mb-4">
             {user.name.split(' ').map((p: string) => p[0]).join('')}
           </div>
           <h3 className="font-bold text-lg">{user.name}</h3>
-          <p className="text-sm text-slate-500 mb-6">{user.email}</p>
+          <p className="text-sm text-on-surface-variant mb-2">{user.email}</p>
+
+          <div className="grid grid-cols-2 gap-2 text-left bg-surface-container-low rounded-lg p-3 mb-6 text-sm">
+            <div className="text-on-surface-variant font-medium">Phone:</div>
+            <div className="text-on-surface">{user.phone || 'N/A'}</div>
+            
+            <div className="text-on-surface-variant font-medium">Gender:</div>
+            <div className="text-on-surface capitalize">{user.gender?.toLowerCase() || 'N/A'}</div>
+            
+            <div className="text-on-surface-variant font-medium">DOB:</div>
+            <div className="text-on-surface">
+              {user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : 'N/A'}
+            </div>
+          </div>
 
           <form id="role-form" onSubmit={handleSubmit} className="space-y-4 text-left">
             <div className="space-y-1">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Access Level</label>
+              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Access Level</label>
               <select 
                 value={activeRole} 
                 onChange={(e) => setActiveRole(e.target.value as any)}
@@ -72,12 +105,36 @@ export const UserRoleModal: React.FC<UserRoleModalProps> = ({ isOpen, onClose, o
                 <option value="admin">Admin</option>
               </select>
             </div>
+
+            {activeRole === 'staff' && (
+              <div className="space-y-1 pt-2 border-t border-slate-100 animate-fade-in">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-widest text-slate-500">Assigned Cinema</label>
+                  <span className="text-[10px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded">Scope Guard</span>
+                </div>
+                <select
+                  value={selectedCinemaId === null ? '' : String(selectedCinemaId)}
+                  onChange={(e) => setSelectedCinemaId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none"
+                >
+                  <option value="">-- Unassigned (No Cinema) --</option>
+                  {cinemas.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.city ? `(${c.city})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Staff can only scan tickets and approve rental requests for their assigned cinema.
+                </p>
+              </div>
+            )}
           </form>
         </div>
         
         <div className="px-6 py-4 border-t border-surface-container bg-surface-container-lowest flex justify-end gap-3">
-          <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-100">Cancel</button>
-          <button type="submit" form="role-form" disabled={isSubmitting} className="px-6 py-2 rounded-lg font-bold text-sm bg-primary text-white hover:bg-blue-700">
+          <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 rounded-lg font-bold text-sm text-on-surface-variant hover:bg-surface-container">Cancel</button>
+          <button type="submit" form="role-form" disabled={isSubmitting} className="px-6 py-2 rounded-lg font-bold text-sm bg-primary text-on-primary hover:opacity-90">
             {isSubmitting ? 'Saving...' : 'Save Roles'}
           </button>
         </div>

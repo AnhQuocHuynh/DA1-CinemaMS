@@ -1,3 +1,6 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using PaymentService.Application.IntegrationEvents;
@@ -12,6 +15,7 @@ namespace PaymentService.Infrastructure.Sagas;
 ///
 /// State transitions:
 ///   Initial ──[PaymentInitiated]──► Pending
+///   Pending ──[PaymentInitiated (gateway switch)]──► Pending
 ///   Pending ──[GatewayCallbackReceived (success)]──► Completed
 ///   Pending ──[GatewayCallbackReceived (failure)]──► Failed
 ///   Pending ──[CashPaymentConfirmed]──────────────► Completed
@@ -26,16 +30,19 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
     private readonly ILogger<PaymentStateMachine> _logger;
 
     // ── States ─────────────────────────────────────────────────────────────────
+    public State Created { get; private set; } = null!;
     public State Pending { get; private set; } = null!;
     public State Completed { get; private set; } = null!;
     public State Failed { get; private set; } = null!;
     public State Refunded { get; private set; } = null!;
 
     // ── Events ─────────────────────────────────────────────────────────────────
+    public Event<OrderSlotReserved> OrderSlotReservedEvent { get; private set; } = null!;
     public Event<PaymentInitiated> PaymentInitiatedEvent { get; private set; } = null!;
     public Event<GatewayCallbackReceived> GatewayCallbackReceivedEvent { get; private set; } = null!;
     public Event<CashPaymentConfirmed> CashPaymentConfirmedEvent { get; private set; } = null!;
     public Event<RefundRequested> RefundRequestedEvent { get; private set; } = null!;
+    public Event<PaymentSlotExpired> PaymentSlotExpiredEvent { get; private set; } = null!;
 
     public PaymentStateMachine(ILogger<PaymentStateMachine> logger)
     {
@@ -46,21 +53,96 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
 
         // ── Event correlation definitions (MassTransit v8 syntax) ──────────────
         // All events carry CorrelationId (= Payment.SagaId) as the saga key
+        Event(() => OrderSlotReservedEvent, x => x.CorrelateById(m => m.Message.CorrelationId));
         Event(() => PaymentInitiatedEvent, x => x.CorrelateById(m => m.Message.CorrelationId));
         Event(() => GatewayCallbackReceivedEvent, x => x.CorrelateById(m => m.Message.CorrelationId));
         Event(() => CashPaymentConfirmedEvent, x => x.CorrelateById(m => m.Message.CorrelationId));
         Event(() => RefundRequestedEvent, x => x.CorrelateById(m => m.Message.CorrelationId));
+        Event(() => PaymentSlotExpiredEvent, x => x.CorrelateById(m => m.Message.CorrelationId));
 
         // ── Transitions ─────────────────────────────────────────────────────────
 
-        // Initial → Pending on PaymentInitiated
         Initially(
+            When(OrderSlotReservedEvent)
+                .Then(OnOrderSlotReserved)
+                .TransitionTo(Created),
+
             When(PaymentInitiatedEvent)
                 .Then(OnPaymentInitiated)
-                .TransitionTo(Pending));
+                .IfElse(ctx => ctx.Message.PaymentMethod == "CASH",
+                    cash => cash
+                        .ThenAsync(OnCashPaymentInitiated)
+                        .PublishAsync(ctx => ctx.Init<EventEnvelope<PaymentCompleted>>(new EventEnvelope<PaymentCompleted>
+                        {
+                            EventType = "payment.completed",
+                            Source = "payment-service",
+                            Payload = new PaymentCompleted
+                            {
+                                CorrelationId = ctx.Saga.CorrelationId,
+                                PaymentId = ctx.Saga.PaymentId,
+                                OrderId = ctx.Saga.OrderId,
+                                UserId = ctx.Saga.UserId,
+                                Amount = ctx.Saga.Amount,
+                                Currency = ctx.Saga.Currency,
+                                TransactionId = ctx.Saga.TransactionId ?? string.Empty,
+                                PaymentMethod = ctx.Saga.PaymentMethod,
+                                PaidAt = ctx.Saga.CompletedAt ?? DateTime.UtcNow
+                            }
+                        }))
+                        .TransitionTo(Completed),
+                    other => other
+                        .TransitionTo(Pending)));
 
-        // Pending → Completed (gateway success) or Failed (gateway failure)
+        During(Created,
+            When(PaymentInitiatedEvent)
+                .Then(OnPaymentInitiated)
+                .IfElse(ctx => ctx.Message.PaymentMethod == "CASH",
+                    cash => cash
+                        .ThenAsync(OnCashPaymentInitiated)
+                        .PublishAsync(ctx => ctx.Init<EventEnvelope<PaymentCompleted>>(new EventEnvelope<PaymentCompleted>
+                        {
+                            EventType = "payment.completed",
+                            Source = "payment-service",
+                            Payload = new PaymentCompleted
+                            {
+                                CorrelationId = ctx.Saga.CorrelationId,
+                                PaymentId = ctx.Saga.PaymentId,
+                                OrderId = ctx.Saga.OrderId,
+                                UserId = ctx.Saga.UserId,
+                                Amount = ctx.Saga.Amount,
+                                Currency = ctx.Saga.Currency,
+                                TransactionId = ctx.Saga.TransactionId ?? string.Empty,
+                                PaymentMethod = ctx.Saga.PaymentMethod,
+                                PaidAt = ctx.Saga.CompletedAt ?? DateTime.UtcNow
+                            }
+                        }))
+                        .TransitionTo(Completed),
+                    other => other
+                        .TransitionTo(Pending)),
+
+            When(PaymentSlotExpiredEvent)
+                .ThenAsync(OnPaymentExpired)
+                .PublishAsync(ctx => ctx.Init<EventEnvelope<OrderExpired>>(new EventEnvelope<OrderExpired>
+                {
+                    EventType = "order.expired",
+                    Source = "payment-service",
+                    Payload = new OrderExpired
+                    {
+                        CorrelationId = ctx.Saga.CorrelationId,
+                        PaymentId = ctx.Saga.PaymentId,
+                        OrderId = ctx.Saga.OrderId,
+                        UserId = ctx.Saga.UserId,
+                        Reason = "Payment initiation timed out (10 minutes)"
+                    }
+                }))
+                .Finalize());
+
+        // Pending → Completed (gateway success) or Failed (gateway failure) or Pending (gateway switch)
         During(Pending,
+            When(PaymentInitiatedEvent)
+                .Then(OnPaymentInitiated)
+                .TransitionTo(Pending),
+
             When(GatewayCallbackReceivedEvent, ctx => ctx.Message.IsSuccess)
                 .ThenAsync(OnPaymentSucceeded)
                 .PublishAsync(ctx => ctx.Init<EventEnvelope<PaymentCompleted>>(new EventEnvelope<PaymentCompleted>
@@ -145,6 +227,43 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
 
     // ── Handlers ───────────────────────────────────────────────────────────────
 
+    private void OnOrderSlotReserved(BehaviorContext<PaymentSagaState, OrderSlotReserved> ctx)
+    {
+        var msg = ctx.Message;
+        ctx.Saga.PaymentId = msg.PaymentId;
+        ctx.Saga.OrderId = msg.OrderId;
+        ctx.Saga.UserId = msg.UserId;
+        ctx.Saga.Amount = msg.Amount;
+        ctx.Saga.Currency = msg.Currency;
+        ctx.Saga.CreatedAt = DateTime.UtcNow;
+
+        _logger.LogInformation(
+            "Saga {CorrelationId}: OrderSlotReserved — PaymentId={PaymentId}, OrderId={OrderId}, Amount={Amount}",
+            ctx.Saga.CorrelationId, msg.PaymentId, msg.OrderId, msg.Amount);
+    }
+
+    private async Task OnPaymentExpired(BehaviorContext<PaymentSagaState, PaymentSlotExpired> ctx)
+    {
+        ctx.TryGetPayload<IServiceProvider>(out var sp);
+        var repository = sp?.GetService(typeof(IPaymentRepository)) as IPaymentRepository;
+        var uow = sp?.GetService(typeof(IUnitOfWork)) as IUnitOfWork;
+
+        if (repository != null)
+        {
+            var payment = await repository.GetByIdAsync(ctx.Saga.PaymentId);
+            if (payment != null && payment.Status == PaymentStatus.CREATED)
+            {
+                payment.Expire();
+                if (uow != null)
+                    await uow.SaveChangesAsync();
+            }
+        }
+
+        _logger.LogWarning(
+            "Saga {CorrelationId}: Payment {PaymentId} for Order {OrderId} expired after 10 minutes",
+            ctx.Saga.CorrelationId, ctx.Saga.PaymentId, ctx.Saga.OrderId);
+    }
+
     private void OnPaymentInitiated(BehaviorContext<PaymentSagaState, PaymentInitiated> ctx)
     {
         var msg = ctx.Message;
@@ -168,8 +287,8 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
         ctx.Saga.CompletedAt = DateTime.UtcNow;
 
         // Update domain Payment entity (via service locator — avoids constructor injection issues in saga)
-        var repository = ctx.GetPayload<IServiceProvider>()
-            .GetService(typeof(IPaymentRepository)) as IPaymentRepository;
+        ctx.TryGetPayload<IServiceProvider>(out var sp);
+        var repository = sp?.GetService(typeof(IPaymentRepository)) as IPaymentRepository;
 
         if (repository != null)
         {
@@ -189,8 +308,8 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
         ctx.Saga.FailureReason = msg.ErrorMessage;
         ctx.Saga.CompletedAt = DateTime.UtcNow;
 
-        var repository = ctx.GetPayload<IServiceProvider>()
-            .GetService(typeof(IPaymentRepository)) as IPaymentRepository;
+        ctx.TryGetPayload<IServiceProvider>(out var sp);
+        var repository = sp?.GetService(typeof(IPaymentRepository)) as IPaymentRepository;
 
         if (repository != null)
         {
@@ -204,14 +323,36 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
             ctx.Saga.CorrelationId, ctx.Saga.PaymentId, msg.ErrorMessage);
     }
 
+    private async Task OnCashPaymentInitiated(BehaviorContext<PaymentSagaState, PaymentInitiated> ctx)
+    {
+        var msg = ctx.Message;
+        var cashTransactionId = msg.TransactionId ?? $"CASH-{ctx.Saga.OrderId}-{DateTime.UtcNow:yyyyMMddHHmmss}";
+        ctx.Saga.TransactionId = cashTransactionId;
+        ctx.Saga.CompletedAt = DateTime.UtcNow;
+
+        ctx.TryGetPayload<IServiceProvider>(out var sp);
+        var repository = sp?.GetService(typeof(IPaymentRepository)) as IPaymentRepository;
+
+        if (repository != null)
+        {
+            var payment = await repository.GetByIdAsync(ctx.Saga.PaymentId);
+            if (payment != null && payment.Status == PaymentStatus.PENDING)
+                payment.Complete(cashTransactionId, "Cash collected at counter");
+        }
+
+        _logger.LogInformation(
+            "Saga {CorrelationId}: Cash payment {PaymentId} for Order {OrderId} completed at counter. TransactionId={TxId}",
+            ctx.Saga.CorrelationId, ctx.Saga.PaymentId, ctx.Saga.OrderId, cashTransactionId);
+    }
+
     private async Task OnCashPaymentConfirmed(BehaviorContext<PaymentSagaState, CashPaymentConfirmed> ctx)
     {
         var cashTransactionId = $"CASH-{ctx.Saga.PaymentId}-{DateTime.UtcNow:yyyyMMddHHmmss}";
         ctx.Saga.TransactionId = cashTransactionId;
         ctx.Saga.CompletedAt = DateTime.UtcNow;
 
-        var repository = ctx.GetPayload<IServiceProvider>()
-            .GetService(typeof(IPaymentRepository)) as IPaymentRepository;
+        ctx.TryGetPayload<IServiceProvider>(out var sp);
+        var repository = sp?.GetService(typeof(IPaymentRepository)) as IPaymentRepository;
 
         if (repository != null)
         {
@@ -227,14 +368,22 @@ public class PaymentStateMachine : MassTransitStateMachine<PaymentSagaState>
 
     private async Task OnRefundRequested(BehaviorContext<PaymentSagaState, RefundRequested> ctx)
     {
-        var repository = ctx.GetPayload<IServiceProvider>()
-            .GetService(typeof(IPaymentRepository)) as IPaymentRepository;
+        ctx.TryGetPayload<IServiceProvider>(out var sp);
+        var repository = sp?.GetService(typeof(IPaymentRepository)) as IPaymentRepository;
 
         if (repository != null)
         {
             var payment = await repository.GetByIdAsync(ctx.Saga.PaymentId);
-            if (payment != null)
-                payment.AddRefund(ctx.Message.Amount, ctx.Message.Reason);
+            if (payment != null && (payment.Status == PaymentStatus.COMPLETED || payment.Status == PaymentStatus.PARTIALLY_REFUNDED))
+            {
+                decimal totalRefunded = payment.Refunds
+                    .Where(r => r.Status == RefundStatus.APPROVED || r.Status == RefundStatus.PROCESSED)
+                    .Sum(r => r.Amount);
+                if (totalRefunded + ctx.Message.Amount <= payment.Amount)
+                {
+                    payment.AddRefund(ctx.Message.Amount, ctx.Message.Reason);
+                }
+            }
         }
 
         _logger.LogInformation(

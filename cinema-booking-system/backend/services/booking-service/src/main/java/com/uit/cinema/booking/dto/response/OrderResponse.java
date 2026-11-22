@@ -42,6 +42,8 @@ public class OrderResponse {
     private String paymentMethod;
     private String paymentTransactionId;
     private List<OrderTicketResponse> tickets;
+    private boolean refundable;
+    private int refundPercent;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

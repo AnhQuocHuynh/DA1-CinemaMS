@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Linq;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -17,6 +18,7 @@ namespace ApiGateway.Middleware
         private readonly IDistributedCache _cache;
         private readonly string _userProfileBaseUrl;
         private readonly string _resolveEndpoint;
+        private readonly string _internalToken;
 
         public KeycloakUserIdResolutionMiddleware(
             RequestDelegate next,
@@ -32,6 +34,7 @@ namespace ApiGateway.Middleware
             
             _userProfileBaseUrl = config["UserProfileService:BaseUrl"] ?? throw new InvalidOperationException("UserProfileService:BaseUrl is not configured");
             _resolveEndpoint = config["UserProfileService:ResolveEndpoint"] ?? "/internal/users/resolve";
+            _internalToken = config["INTERNAL_API_TOKEN"] ?? config["InternalApi:Token"] ?? "local-dev-internal-token";
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -41,6 +44,7 @@ namespace ApiGateway.Middleware
             context.Request.Headers.Remove("X-Keycloak-Id");
             context.Request.Headers.Remove("X-User-Roles");
             context.Request.Headers.Remove("X-User-Email");
+            context.Request.Headers.Remove("X-Cinema-Id");
 
             if (context.User.Identity?.IsAuthenticated == true)
             {
@@ -50,6 +54,16 @@ namespace ApiGateway.Middleware
                 if (!string.IsNullOrEmpty(keycloakId))
                 {
                     context.Request.Headers["X-Keycloak-Id"] = keycloakId;
+
+                    var roles = context.User.FindAll(ClaimTypes.Role)
+                        .Select(c => c.Value)
+                        .Where(v => !string.IsNullOrWhiteSpace(v))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    if (roles.Count > 0)
+                    {
+                        context.Request.Headers["X-User-Roles"] = string.Join(",", roles);
+                    }
 
                     // Resolve Keycloak UUID to internal Long ID
                     var internalId = await ResolveInternalUserIdAsync(keycloakId);
@@ -64,6 +78,12 @@ namespace ApiGateway.Middleware
                         await context.Response.WriteAsync("User resolution failed");
                         return;
                     }
+                }
+
+                var cinemaIdClaim = context.User.FindFirst("cinema_id")?.Value;
+                if (!string.IsNullOrEmpty(cinemaIdClaim))
+                {
+                    context.Request.Headers["X-Cinema-Id"] = cinemaIdClaim;
                 }
             }
 
@@ -84,7 +104,12 @@ namespace ApiGateway.Middleware
             {
                 var client = _httpClientFactory.CreateClient("UserProfileClient");
                 var url = $"{_userProfileBaseUrl}{_resolveEndpoint}?keycloakId={keycloakId}";
-                var response = await client.GetAsync(url);
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                if (!string.IsNullOrEmpty(_internalToken) && !client.DefaultRequestHeaders.Contains("X-Internal-Token"))
+                {
+                    request.Headers.Add("X-Internal-Token", _internalToken);
+                }
+                var response = await client.SendAsync(request);
 
                 if (response.IsSuccessStatusCode)
                 {

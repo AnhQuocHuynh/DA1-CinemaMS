@@ -12,7 +12,7 @@ instead of relying on framework-specific defaults or trusting unsigned headers.
 
 Related artifacts:
 
-- `architecture_refactor.md` for the high-level target architecture.
+- `architecture.md` for the high-level target architecture.
 - `../backend/shared/contracts/*.openapi.yml` for public and internal HTTP paths.
 - `../backend/shared/events/README.md` for the cross-framework RabbitMQ envelope.
 
@@ -72,6 +72,7 @@ and session handling.
 The canonical application roles are:
 
 - `ADMIN`
+- `MANAGER`
 - `STAFF`
 - `CUSTOMER`
 
@@ -83,8 +84,14 @@ produce:
 | Keycloak realm role | Spring authority | ASP.NET role |
 |---|---|---|
 | `ADMIN` | `ROLE_ADMIN` | `ADMIN` |
+| `MANAGER` | `ROLE_MANAGER` | `MANAGER` |
 | `STAFF` | `ROLE_STAFF` | `STAFF` |
 | `CUSTOMER` | `ROLE_CUSTOMER` | `CUSTOMER` |
+
+`MANAGER` is a realm role, not a per-cinema role. The cinemas a manager or staff
+member may act on are rows in Identity `cinema_assignments`. `ADMIN` is global
+and does not need an assignment row. A manager approves room rentals and assigns
+staff only for those cinemas.
 
 Keycloak system roles such as `offline_access` and account-management roles
 must not become application authorities.

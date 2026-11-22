@@ -82,7 +82,7 @@ export const GenreManagementModal: React.FC<GenreManagementModalProps> = ({ isOp
             <button 
               type="submit" 
               disabled={!newGenre.trim()} 
-              className="bg-primary text-white p-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="bg-primary text-on-primary p-3 rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
             >
               <Plus className="w-5 h-5" />
             </button>

@@ -28,14 +28,14 @@ public class ToggleTemplateActiveCommandHandlerTests
     public async Task Handle_ShouldToggleActiveStatus_WhenTemplateExists(bool activeStatus)
     {
         // Arrange
-        var command = new ToggleTemplateActiveCommand("CODE1", activeStatus);
+        var command = new ToggleTemplateActiveCommand("template-id-1", activeStatus);
         var template = new NotificationTemplate("CODE1", NotificationChannel.EMAIL, "Subject", "Body");
 
         // Set initial state to opposite so we can verify toggle
         template.ToggleActive(!activeStatus);
 
         _templateRepositoryMock
-            .Setup(x => x.GetByCodeAsync(command.Code, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetByIdAsync(command.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(template);
 
         // Act
@@ -54,7 +54,7 @@ public class ToggleTemplateActiveCommandHandlerTests
         var command = new ToggleTemplateActiveCommand("NON_EXISTENT", false);
 
         _templateRepositoryMock
-            .Setup(x => x.GetByCodeAsync(command.Code, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetByIdAsync(command.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync((NotificationTemplate?)null);
 
         // Act

@@ -5,14 +5,15 @@ using Microsoft.Extensions.DependencyInjection;
 using PaymentService.Domain.Entities;
 using PaymentService.Domain.Enums;
 using PaymentService.Infrastructure.Data;
+using PaymentService.Infrastructure.Sagas;
 using PaymentService.Presentation.Controllers;
 using PaymentService.Test.Integration;
 using Xunit;
 
 namespace PaymentService.Test.Integration.Controllers;
 
-[Collection("IntegrationTests")]
-public class InternalPaymentsControllerTests : IClassFixture<CustomWebApplicationFactory>
+[Collection("Integration Tests")]
+public class InternalPaymentsControllerTests : IAsyncLifetime
 {
     private readonly HttpClient _client;
     private readonly CustomWebApplicationFactory _factory;
@@ -23,11 +24,22 @@ public class InternalPaymentsControllerTests : IClassFixture<CustomWebApplicatio
         _client = factory.CreateClient();
     }
 
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
+        db.Payments.RemoveRange(db.Payments);
+        db.Set<PaymentSagaState>().RemoveRange(db.Set<PaymentSagaState>());
+        await db.SaveChangesAsync();
+    }
+
     [Fact]
     public async Task GetPaymentStatus_ShouldReturnStatus_WhenValidKey()
     {
         // Arrange
-        var payment = new Payment(9996, 301, 150000m, "VND", PaymentMethod.CASH);
+        var payment = new Payment(9301, 301, 150000m, "VND", PaymentMethod.CASH);
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { MessageSquare, Star } from 'lucide-react';
+import { MessageSquare, Star, Info, Sparkles } from 'lucide-react';
 import { reviewService } from '../../services/reviewService';
 import { useAuthStore } from '../../store/authStore';
 import { StarRating } from './StarRating';
@@ -10,6 +10,7 @@ import type {
   ReviewInsightResponse,
   ReviewEligibilityResponse,
 } from '../../types/review';
+import { useTranslation } from 'react-i18next';
 
 interface ReviewSectionProps {
   type: 'movie' | 'event';
@@ -17,6 +18,7 @@ interface ReviewSectionProps {
 }
 
 export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
 
   const [insight, setInsight] = useState<ReviewInsightResponse | null>(null);
@@ -40,11 +42,13 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
 
       if (user?.id) {
         const userId = typeof user.id === 'string' ? parseInt(user.id, 10) : user.id;
-        const eligibilityData =
-          type === 'movie'
-            ? await reviewService.checkMovieEligibility(id, userId)
-            : await reviewService.checkEventEligibility(id, userId);
-        setEligibility(eligibilityData);
+        if (!isNaN(userId)) {
+          const eligibilityData =
+            type === 'movie'
+              ? await reviewService.checkMovieEligibility(id, userId)
+              : await reviewService.checkEventEligibility(id, userId);
+          setEligibility(eligibilityData);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch reviews:', err);
@@ -72,9 +76,9 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
   if (isLoading) {
     return (
       <div className="mt-10 space-y-4 animate-pulse">
-        <div className="h-6 bg-slate-200 rounded w-1/3" />
-        <div className="h-24 bg-slate-100 rounded-xl" />
-        <div className="h-16 bg-slate-100 rounded-xl" />
+        <div className="h-6 bg-surface-container-high rounded w-1/3" />
+        <div className="h-24 bg-surface-container rounded-xl" />
+        <div className="h-16 bg-surface-container rounded-xl" />
       </div>
     );
   }
@@ -92,22 +96,22 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
 
   return (
     <div className="mt-10">
-      <h2 className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center gap-2">
+      <h2 className="text-xs uppercase tracking-[0.2em] text-on-surface-variant mb-6 flex items-center gap-2">
         <MessageSquare size={14} />
-        Đánh giá & Nhận xét
+        {t('reviewSection.title', 'Đánh giá & Nhận xét')}
       </h2>
 
       {/* Insight Summary */}
       {insight && insight.totalReviews > 0 && (
-        <div className="flex flex-col sm:flex-row gap-8 items-start mb-8 p-6 rounded-xl bg-slate-50 border border-slate-200">
+        <div className="flex flex-col sm:flex-row gap-8 items-start mb-8 p-6 rounded-xl bg-surface-container-low border border-outline-variant">
           {/* Average */}
           <div className="text-center sm:text-left flex-shrink-0">
-            <div className="text-5xl font-black text-slate-900 tracking-tighter">
+            <div className="text-5xl font-black text-on-surface tracking-tighter">
               {insight.averageRating.toFixed(1)}
             </div>
             <StarRating value={insight.averageRating} size={18} />
-            <p className="text-xs text-slate-500 mt-1">
-              {insight.totalReviews} đánh giá
+            <p className="text-xs text-on-surface-variant mt-1">
+              {insight.totalReviews} {t('reviewSection.reviewsCount', 'đánh giá')}
             </p>
           </div>
 
@@ -115,24 +119,64 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
           <div className="flex-1 w-full space-y-1.5">
             {[5, 4, 3, 2, 1].map((star, idx) => (
               <div key={star} className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500 w-3 text-right">{star}</span>
+                <span className="text-xs font-semibold text-on-surface-variant w-3 text-right">{star}</span>
                 <Star size={12} className="text-amber-400 fill-amber-400 flex-shrink-0" />
-                <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div className="flex-1 h-2 bg-surface-container-high rounded-full overflow-hidden">
                   <div
                     className="h-full bg-amber-400 rounded-full transition-all duration-500"
                     style={{ width: `${(starCounts[idx] / maxCount) * 100}%` }}
                   />
                 </div>
-                <span className="text-xs text-slate-400 w-6 text-right">{starCounts[idx]}</span>
+                <span className="text-xs text-on-surface-variant w-6 text-right">{starCounts[idx]}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* AI Review Summary */}
+      {insight && insight.aiSummary && (
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-surface-container-high/90 via-surface-container/60 to-surface-container-lowest/90 border border-primary/30 p-6 mb-8 shadow-lg backdrop-blur-md">
+          <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-outline-variant/20">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-lg bg-primary/15 text-primary border border-primary/25">
+                <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+              </div>
+              <h3 className="text-base font-bold text-on-surface">
+                {t('reviewSection.aiSummaryTitle', 'Tóm tắt đánh giá bởi AI')}
+              </h3>
+            </div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {t('reviewSection.aiGenerated', 'AI Summary')}
+            </span>
+          </div>
+
+          <p className="text-sm md:text-base text-on-surface/90 leading-relaxed font-normal mb-4">
+            {insight.aiSummary}
+          </p>
+
+          {insight.keywords && insight.keywords.length > 0 && (
+            <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-outline-variant/15">
+              <span className="text-xs font-semibold text-on-surface-variant">
+                {t('reviewSection.keywords', 'Từ khóa nổi bật:')}
+              </span>
+              {insight.keywords.map((kw, i) => (
+                <span
+                  key={i}
+                  className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20"
+                >
+                  #{kw}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {insight && insight.totalReviews === 0 && (
-        <div className="mb-8 p-6 rounded-xl bg-slate-50 border border-slate-200 text-center">
-          <p className="text-slate-500 text-sm">Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
+        <div className="mb-8 p-6 rounded-xl bg-surface-container-low border border-outline-variant text-center">
+          <p className="text-on-surface-variant text-sm">{t('reviewSection.noReviews', 'Chưa có đánh giá nào. Hãy là người đầu tiên!')}</p>
         </div>
       )}
 
@@ -145,14 +189,15 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
 
       {/* Eligibility messages */}
       {user && eligibility && !eligibility.eligible && (
-        <div className="mb-8 p-4 rounded-lg bg-blue-50 border border-blue-100">
-          <p className="text-sm text-blue-700">{eligibility.message || 'Bạn không đủ điều kiện đánh giá.'}</p>
+        <div className="mb-8 p-3.5 rounded-lg bg-secondary/10 border border-secondary/20 flex items-center gap-2.5 text-secondary">
+          <Info size={16} className="text-secondary shrink-0" />
+          <p className="text-sm font-medium text-secondary">{eligibility.message || t('reviewSection.notEligible', 'Bạn không đủ điều kiện đánh giá.')}</p>
         </div>
       )}
 
       {/* Review List */}
       {reviews.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
           {reviews.map((review) => (
             <ReviewCard key={review.id} review={review} />
           ))}

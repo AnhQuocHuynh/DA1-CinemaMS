@@ -9,6 +9,7 @@ import com.uit.cinema.catalog.mapper.EventMapper;
 import com.uit.cinema.catalog.mapper.MovieMapper;
 import com.uit.cinema.catalog.repository.EventRepository;
 import com.uit.cinema.catalog.repository.MovieRepository;
+import com.uit.cinema.core.exception.CustomException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -60,7 +62,7 @@ class CatalogServiceImplTest {
         Page<Movie> moviePage = new PageImpl<>(List.of(movie));
         Page<Event> eventPage = new PageImpl<>(List.of(event));
 
-        when(movieRepository.searchMovies(eq("Avengers"), isNull(), isNull(), isNull(), any(Pageable.class)))
+        when(movieRepository.searchMovies(eq("Avengers"), isNull(), isNull(), isNull(), isNull(), any(java.time.LocalDate.class), any(Pageable.class)))
                 .thenReturn(moviePage);
         when(eventRepository.searchEvents(eq("Avengers"), isNull(), isNull(), any(LocalDateTime.class), any(Pageable.class)))
                 .thenReturn(eventPage);
@@ -71,7 +73,7 @@ class CatalogServiceImplTest {
         EventResponse mockEventResp = new EventResponse();
         when(eventMapper.toResponse(event)).thenReturn(mockEventResp);
 
-        CatalogSearchResponse response = catalogService.search("Avengers", null, null, null, 0, 10);
+        CatalogSearchResponse response = catalogService.search("Avengers", null, null, null, null, 0, 10);
 
         assertEquals(1, response.getMovies().size());
         assertEquals(1, response.getEvents().size());
@@ -87,14 +89,31 @@ class CatalogServiceImplTest {
         Page<Movie> moviePage = new PageImpl<>(List.of());
         Page<Event> eventPage = new PageImpl<>(List.of());
 
-        when(movieRepository.searchMovies(isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
+        when(movieRepository.searchMovies(isNull(), isNull(), isNull(), isNull(), isNull(), any(java.time.LocalDate.class), any(Pageable.class)))
                 .thenReturn(moviePage);
         when(eventRepository.searchEvents(isNull(), isNull(), isNull(), any(LocalDateTime.class), any(Pageable.class)))
                 .thenReturn(eventPage);
 
-        CatalogSearchResponse response = catalogService.search("   ", null, null, null, 0, 10);
+        CatalogSearchResponse response = catalogService.search("   ", null, null, null, "ALL", 0, 10);
 
         assertEquals(0, response.getMovies().size());
         assertEquals(0, response.getEvents().size());
+    }
+
+    @Test
+    void search_WithShowingStatus_ForwardsNormalizedStatus() {
+        when(movieRepository.searchMovies(isNull(), isNull(), isNull(), isNull(), eq("SHOWING"), any(java.time.LocalDate.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+        when(eventRepository.searchEvents(isNull(), isNull(), isNull(), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        catalogService.search(null, null, null, null, "showing", 0, 10);
+
+        verify(movieRepository).searchMovies(isNull(), isNull(), isNull(), isNull(), eq("SHOWING"), any(java.time.LocalDate.class), any(Pageable.class));
+    }
+
+    @Test
+    void search_WithUnknownStatus_Rejects() {
+        assertThrows(CustomException.class, () -> catalogService.search(null, null, null, null, "LATER", 0, 10));
     }
 }

@@ -7,14 +7,17 @@ import { Home } from './pages/Home';
 import { MovieDetails } from './pages/MovieDetails';
 import { MovieShowtimes } from './pages/MovieShowtimes';
 import { MovieSearch } from './pages/MovieSearch';
+import { MyRatings } from './pages/MyRatings';
 import { EventDetails } from './pages/EventDetails';
 import { HealthCheck } from './pages/HealthCheck';
 import { Theaters } from './pages/Theaters';
 import { Membership } from './pages/Membership';
 import { UserDashboard } from './pages/portal/UserDashboard';
+import { RoomRentalBooking } from './pages/portal/RoomRentalBooking';
 import { Booking } from './pages/portal/Booking';
 import { Checkout } from './pages/portal/Checkout';
 import { CheckoutSuccess } from './pages/portal/CheckoutSuccess';
+import { BookingFailed } from './pages/portal/BookingFailed';
 import { TicketInfo } from './pages/portal/TicketInfo';
 import { Settings } from './pages/portal/Settings';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -25,19 +28,51 @@ import { PricingAndVouchers } from './pages/admin/PricingAndVouchers';
 import { RoomManagement } from './pages/admin/RoomManagement';
 import { SeatConfigurator } from './pages/admin/SeatConfigurator';
 import { ShowtimeManagement } from './pages/admin/ShowtimeManagement';
+import { AdminSettings } from './pages/admin/AdminSettings';
+import { AdminRentalManagement } from './pages/admin/AdminRentalManagement';
+import { useEffect } from 'react';
 import { StaffDashboard } from './pages/staff/StaffDashboard';
 import { CounterBooking } from './pages/staff/CounterBooking';
 import { TicketLookup } from './pages/staff/TicketLookup';
 import { QRChecker } from './pages/staff/QRChecker';
+import { StaffSettings } from './pages/staff/StaffSettings';
+import { StaffRentalManagement } from './pages/staff/StaffRentalManagement';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { CinemaAssistant } from './components/CinemaAssistant';
+import { useAuthStore } from './store/authStore';
+import { useNotificationStore } from './store/notificationStore';
+import { notificationHubService } from './services/notificationHubService';
 
 function App() {
+  const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    if (user) {
+      notificationHubService.startConnection();
+      useNotificationStore.getState().fetchNotifications();
+    } else {
+      notificationHubService.stopConnection();
+      useNotificationStore.getState().clearNotifications();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator && import.meta.env.PROD) {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.warn('SW registration failed:', err);
+      });
+    }
+  }, []);
+
   return (
+    <>
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<Home />} />
       <Route path="/theaters" element={<Theaters />} />
       <Route path="/membership" element={<Membership />} />
+      <Route path="/room-rental" element={<RoomRentalBooking />} />
+      <Route path="/user/room-rental" element={<Navigate to="/room-rental" replace />} />
       <Route path="/movies/:movieId" element={<MovieDetails />} />
       <Route path="/movies/:movieId/showtimes" element={<MovieShowtimes />} />
       <Route path="/events/:eventId" element={<EventDetails />} />
@@ -62,8 +97,11 @@ function App() {
       <Route path="/user/booking/:showtimeId" element={<ProtectedRoute requiredRole="USER"><Booking /></ProtectedRoute>} />
       <Route path="/user/checkout" element={<ProtectedRoute requiredRole="USER"><Checkout /></ProtectedRoute>} />
       <Route path="/user/checkout-success" element={<ProtectedRoute requiredRole="USER"><CheckoutSuccess /></ProtectedRoute>} />
+      <Route path="/user/booking-failed" element={<ProtectedRoute requiredRole="USER"><BookingFailed /></ProtectedRoute>} />
+      <Route path="/booking-failed" element={<Navigate to="/user/booking-failed" replace />} />
       <Route path="/user/tickets/:ticketId" element={<ProtectedRoute requiredRole="USER"><TicketInfo /></ProtectedRoute>} />
       <Route path="/user/settings" element={<ProtectedRoute requiredRole="USER"><Settings /></ProtectedRoute>} />
+      <Route path="/my-ratings" element={<ProtectedRoute><MyRatings /></ProtectedRoute>} />
 
       {/* Protected Admin Routes */}
       <Route
@@ -74,6 +112,7 @@ function App() {
           </ProtectedRoute>
         }
       />
+      <Route path="/admin/settings" element={<ProtectedRoute requiredRole="ADMIN"><AdminSettings /></ProtectedRoute>} />
       <Route path="/admin/movies" element={<ProtectedRoute requiredRole="ADMIN"><MovieManagement /></ProtectedRoute>} />
       <Route path="/admin/events" element={<ProtectedRoute requiredRole="ADMIN"><EventManagement /></ProtectedRoute>} />
       <Route path="/admin/permissions" element={<ProtectedRoute requiredRole="ADMIN"><PermissionManagement /></ProtectedRoute>} />
@@ -81,6 +120,7 @@ function App() {
       <Route path="/admin/rooms" element={<ProtectedRoute requiredRole="ADMIN"><RoomManagement /></ProtectedRoute>} />
       <Route path="/admin/rooms/:roomId/seats" element={<ProtectedRoute requiredRole="ADMIN"><SeatConfigurator /></ProtectedRoute>} />
       <Route path="/admin/showtimes" element={<ProtectedRoute requiredRole="ADMIN"><ShowtimeManagement /></ProtectedRoute>} />
+      <Route path="/admin/rentals" element={<ProtectedRoute requiredRole="ADMIN"><AdminRentalManagement /></ProtectedRoute>} />
 
       {/* Protected Staff Routes */}
       <Route
@@ -93,11 +133,15 @@ function App() {
       />
       <Route path="/staff/ticket-lookup" element={<ProtectedRoute requiredRole="STAFF"><TicketLookup /></ProtectedRoute>} />
       <Route path="/staff/bookings/new" element={<ProtectedRoute requiredRole="STAFF"><CounterBooking /></ProtectedRoute>} />
+      <Route path="/staff/rentals" element={<ProtectedRoute requiredRole="STAFF"><StaffRentalManagement /></ProtectedRoute>} />
       <Route path="/staff/qr-checker" element={<ProtectedRoute requiredRole="STAFF"><QRChecker /></ProtectedRoute>} />
+      <Route path="/staff/settings" element={<ProtectedRoute requiredRole="STAFF"><StaffSettings /></ProtectedRoute>} />
 
       {/* Catch-all redirect */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    <CinemaAssistant />
+    </>
   );
 }
 

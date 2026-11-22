@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentValidation;
@@ -10,7 +9,7 @@ using NotificationService.Domain.Interfaces;
 namespace NotificationService.Application.Features.Templates.Commands;
 
 public record UpdateTemplateCommand(
-    string Code,
+    string Id,
     NotificationChannel Channel,
     string Subject,
     string BodyTemplate) : IRequest;
@@ -19,7 +18,7 @@ public class UpdateTemplateCommandValidator : AbstractValidator<UpdateTemplateCo
 {
     public UpdateTemplateCommandValidator()
     {
-        RuleFor(x => x.Code).NotEmpty();
+        RuleFor(x => x.Id).NotEmpty();
         RuleFor(x => x.Subject).NotEmpty();
         RuleFor(x => x.BodyTemplate).NotEmpty();
         RuleFor(x => x.Channel).IsInEnum();
@@ -37,8 +36,8 @@ public class UpdateTemplateCommandHandler : IRequestHandler<UpdateTemplateComman
 
     public async Task Handle(UpdateTemplateCommand request, CancellationToken cancellationToken)
     {
-        var template = await _templateRepository.GetByCodeAsync(request.Code, cancellationToken)
-            ?? throw new TemplateNotFoundException(request.Code);
+        var template = await _templateRepository.GetByIdAsync(request.Id, cancellationToken)
+            ?? throw new TemplateNotFoundException(request.Id);
 
         template.Update(request.Subject, request.BodyTemplate, request.Channel);
 

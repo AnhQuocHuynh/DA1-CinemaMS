@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,4 +13,5 @@ public interface IPaymentRepository
     Task<IEnumerable<Payment>> GetByUserIdAsync(long userId, CancellationToken cancellationToken = default);
     Task<(IEnumerable<Payment> Items, int TotalCount)> GetPaginatedAsync(int page, int pageSize, CancellationToken cancellationToken = default);
     Task AddAsync(Payment payment, CancellationToken cancellationToken = default);
+    Task<List<(long Id, Guid SagaId)>> ClaimExpiredPaymentsAsync(DateTime cutoff, int batchSize = 50, CancellationToken cancellationToken = default);
 }

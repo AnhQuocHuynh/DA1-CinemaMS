@@ -36,7 +36,9 @@ public class GetNotificationByIdQueryHandler : IRequestHandler<GetNotificationBy
             RetryCount = notification.RetryCount,
             SentAt = notification.SentAt,
             FailedReason = notification.FailedReason,
-            CreatedAt = notification.CreatedAt
+            CreatedAt = notification.CreatedAt,
+            IsRead = notification.IsRead,
+            ReadAt = notification.ReadAt
         };
     }
 }
