@@ -24,6 +24,20 @@ class Settings(BaseSettings):
     RECOMMENDATION_SERVICE_URL: str = "http://localhost:8085"
     IDENTITY_SERVICE_URL: str = "http://localhost:5001"
     INTERNAL_API_TOKEN: str = "local-dev-internal-token"
+    FRONTEND_URL: str = "http://localhost:5173"
+    CORS_ALLOWED_ORIGINS: str = ""
+
+    @property
+    def cors_allowed_origins_list(self) -> list[str]:
+        raw = self.CORS_ALLOWED_ORIGINS.strip()
+        if raw:
+            origins = [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+            if origins:
+                return origins
+        frontend = self.FRONTEND_URL.strip().rstrip("/")
+        if frontend:
+            return [frontend]
+        return ["http://localhost:5173"]
 
     CINEMA_SECURITY_JWT_ENABLED: bool = False
     KEYCLOAK_ISSUER_URI: str = ""
