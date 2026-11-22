@@ -26,11 +26,10 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
     static final int MAX_SUMMARY_LENGTH = 2000;
 
     private static final Set<String> STOPWORDS = Set.of(
-        "movie", "movies", "phim", "film", "films", "anime",
-        "the", "and", "with", "for", "from", "this", "that", "into", "onto",
-        "cua", "voi", "mot", "nay", "cho", "trong", "nhung", "duoc", "phan", "tap",
-        "tan", "new", "vol", "episode", "official", "trailer", "poster"
-    );
+            "movie", "movies", "phim", "film", "films", "anime",
+            "the", "and", "with", "for", "from", "this", "that", "into", "onto",
+            "cua", "voi", "mot", "nay", "cho", "trong", "nhung", "duoc", "phan", "tap",
+            "tan", "new", "vol", "episode", "official", "trailer", "poster");
 
     private static final String SYSTEM_PROMPT = """
         You write a rich and captivating factual movie synopsis for a cinema website.
@@ -69,12 +68,12 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
     private ModelCall requestText(String userText) {
         try {
             JsonNode body = geminiRestClient.post()
-                .uri("/models/{model}:generateContent", properties.getModel())
-                .header("x-goog-api-key", properties.getApiKey())
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(requestBody(userText))
-                .retrieve()
-                .body(JsonNode.class);
+                    .uri("/models/{model}:generateContent", properties.getModel())
+                    .header("x-goog-api-key", properties.getApiKey())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(requestBody(userText))
+                    .retrieve()
+                    .body(JsonNode.class);
             return new ModelCall(limitSummary(cleanSummary(extractText(body))), false);
         } catch (RestClientResponseException ex) {
             log.warn("Gemini summary request failed: status {}", ex.getStatusCode().value());
@@ -90,31 +89,29 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
 
     private Map<String, Object> requestBody(String userText) {
         return Map.of(
-            "systemInstruction", Map.of("parts", List.of(Map.of("text", SYSTEM_PROMPT))),
-            "contents", List.of(Map.of(
-                "role", "user",
-                "parts", List.of(Map.of("text", userText))
-            )),
-            "generationConfig", Map.of(
-                "maxOutputTokens", 512,
-                "thinkingConfig", Map.of("thinkingLevel", "low")
-            )
-        );
+                "systemInstruction", Map.of("parts", List.of(Map.of("text", SYSTEM_PROMPT))),
+                "contents", List.of(Map.of(
+                        "role", "user",
+                        "parts", List.of(Map.of("text", userText)))),
+                "generationConfig", Map.of(
+                        "maxOutputTokens", 512,
+                        "thinkingConfig", Map.of("thinkingLevel", "low")));
     }
 
     private static String userPrompt(String title, String description, List<String> genres) {
         String genreLine = genres == null || genres.isEmpty() ? "None" : String.join(", ", genres);
         return """
-            Title: %s
-            Genres: %s
-            Description:
-            %s
-            """.formatted(title == null ? "" : title, genreLine, description);
+                Title: %s
+                Genres: %s
+                Description:
+                %s
+                """.formatted(title == null ? "" : title, genreLine, description);
     }
 
     private static String retryPrompt(String title, String description, List<String> genres) {
         List<String> terms = significantTerms(title, description);
-        String required = terms.isEmpty() ? title == null ? "" : title : String.join(", ", terms.stream().limit(8).toList());
+        String required = terms.isEmpty() ? title == null ? "" : title
+                : String.join(", ", terms.stream().limit(8).toList());
         return """
             The previous summary was rejected because it did not refer to this film.
             Write the summary again in English. It must include at least one of these terms: %s
@@ -177,7 +174,7 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
             if (i + 1 < words.size()) {
                 String next = words.get(i + 1);
                 if (word.length() >= 3 && next.length() >= 3
-                    && !STOPWORDS.contains(word) && !STOPWORDS.contains(next)) {
+                        && !STOPWORDS.contains(word) && !STOPWORDS.contains(next)) {
                     String phrase = word + " " + next;
                     if (!terms.contains(phrase)) {
                         terms.add(phrase);
@@ -228,7 +225,8 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
             return null;
         }
         String cleaned = text.strip();
-        cleaned = cleaned.replaceFirst("^(?i)(ai summary|plot summary|summary|tóm tắt ai|tóm tắt)\\s*:\\s*", "").strip();
+        cleaned = cleaned.replaceFirst("^(?i)(ai summary|plot summary|summary|tóm tắt ai|tóm tắt)\\s*:\\s*", "")
+                .strip();
         if (cleaned.startsWith("\"") && cleaned.endsWith("\"") && cleaned.length() > 1) {
             cleaned = cleaned.substring(1, cleaned.length() - 1).strip();
         }
@@ -248,9 +246,8 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
         }
         String cut = trimmed.substring(0, MAX_SUMMARY_LENGTH);
         int lastSentence = Math.max(
-            cut.lastIndexOf('.'),
-            Math.max(cut.lastIndexOf('!'), Math.max(cut.lastIndexOf('?'), cut.lastIndexOf('。')))
-        );
+                cut.lastIndexOf('.'),
+                Math.max(cut.lastIndexOf('!'), Math.max(cut.lastIndexOf('?'), cut.lastIndexOf('。'))));
         if (lastSentence >= 400) {
             return cut.substring(0, lastSentence + 1).strip();
         }

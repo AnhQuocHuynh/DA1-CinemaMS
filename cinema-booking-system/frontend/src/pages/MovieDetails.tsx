@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ReviewSection } from '../components/Review/ReviewSection';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Play, Calendar, Clock, Globe, Star, Sparkles } from 'lucide-react';
+import { ArrowLeft, Play, Calendar, Clock, Globe, Star, Sparkles, Film, Users, ShieldAlert } from 'lucide-react';
 import { movieService, MovieResponse } from '../services/movieService';
 import { showtimeService } from '../services/showtimeService';
 import { recommendationService } from '../services/recommendationService';
@@ -140,17 +140,45 @@ export const MovieDetails: React.FC = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent" />
 
-          <div className="relative max-w-7xl mx-auto w-full px-4 sm:px-6 py-10 sm:py-16 lg:py-20 flex items-end">
-            <div className="max-w-3xl space-y-4 sm:space-y-6">
+          <div className="relative max-w-7xl mx-auto w-full px-4 sm:px-6 py-10 sm:py-16 flex flex-col md:flex-row items-start md:items-end gap-6 sm:gap-8 min-h-[400px] lg:min-h-[540px]">
+            {/* Front vertical high-definition poster card */}
+            <div className="w-40 sm:w-52 md:w-64 flex-shrink-0 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-surface-container-high relative group">
+              <img
+                src={movie.posterUrl || genericPoster}
+                alt={movie.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.onerror = null;
+                  target.src = genericPoster;
+                }}
+              />
+              {movie.imdbRating != null && movie.imdbRating > 0 && (
+                <div className="absolute top-3 right-3 px-2.5 py-1 rounded-md bg-amber-500 text-slate-950 font-black text-xs flex items-center gap-1 shadow-md">
+                  <Star size={12} className="fill-current" />
+                  {movie.imdbRating.toFixed(1)} IMDb
+                </div>
+              )}
+            </div>
+
+            <div className="max-w-2xl space-y-4 sm:space-y-6">
               <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs sm:text-sm text-white">
                 <span className="px-3 py-1 rounded-sm bg-primary font-semibold">
                   {!movie.active 
                     ? t('home.stopped')
                     : (new Date(movie.releaseDate).setHours(0,0,0,0) > new Date().setHours(0,0,0,0) ? t('home.comingSoon') : t('home.nowShowing'))}
                 </span>
-                <span className="px-2 py-1 bg-surface-container-lowest/20 rounded text-xs font-bold">
-                  {movie.ageRating}
-                </span>
+                {movie.ageRating && (
+                  <span className="px-2 py-1 bg-surface-container-lowest/20 rounded text-xs font-bold">
+                    {movie.ageRating}
+                  </span>
+                )}
+                {movie.region && (
+                  <span className="px-2 py-1 bg-surface-container-lowest/20 rounded text-xs font-medium flex items-center gap-1">
+                    <Globe size={12} />
+                    {movie.region}
+                  </span>
+                )}
                 {movie.genres.map((g) => (
                   <span key={g} className="text-white/70">
                     {g}
@@ -158,7 +186,7 @@ export const MovieDetails: React.FC = () => {
                 ))}
               </div>
 
-              <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black tracking-tight text-white">
+              <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-white">
                 {movie.title}
               </h1>
               <p className="text-white/80 text-sm sm:text-lg leading-relaxed line-clamp-4 sm:line-clamp-none">{movie.description}</p>
@@ -274,29 +302,90 @@ export const MovieDetails: React.FC = () => {
           <aside className="lg:col-span-4 space-y-6 order-1 lg:order-2">
             {/* Movie meta */}
             <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 space-y-4 shadow-sm">
+              {movie.director && (
+                <div className="flex items-center gap-2">
+                  <Film size={14} className="text-on-surface-variant flex-shrink-0" />
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-on-surface-variant">{t('movieDetails.director', 'Director')}</p>
+                    <p className="font-semibold text-sm">{movie.director}</p>
+                  </div>
+                </div>
+              )}
+
+              {movie.actors && (
+                <div className="flex items-start gap-2">
+                  <Users size={14} className="text-on-surface-variant flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-on-surface-variant mb-1">{t('movieDetails.actors', 'Cast & Actors')}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {movie.actors.split(',').map((actor, idx) => (
+                        <span key={idx} className="px-2 py-0.5 bg-surface-container text-on-surface rounded text-xs font-medium">
+                          {actor.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {movie.region && (
+                <div className="flex items-center gap-2">
+                  <Globe size={14} className="text-on-surface-variant flex-shrink-0" />
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-on-surface-variant">{t('movieDetails.region', 'Country / Region')}</p>
+                    <p className="font-semibold text-sm">{movie.region}</p>
+                  </div>
+                </div>
+              )}
+
+              {movie.imdbRating != null && movie.imdbRating > 0 && (
+                <div className="flex items-center gap-2">
+                  <Star size={14} className="text-amber-500 fill-amber-500 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-on-surface-variant">IMDb Rating</p>
+                    <p className="font-semibold text-sm text-amber-600 dark:text-amber-400">
+                      {movie.imdbRating.toFixed(1)} / 10
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {movie.ageRating && (
+                <div className="flex items-center gap-2">
+                  <ShieldAlert size={14} className="text-on-surface-variant flex-shrink-0" />
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-on-surface-variant">{t('movieDetails.ageRating', 'Age Rating')}</p>
+                    <p className="font-semibold text-sm">{movie.ageRating}</p>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center gap-2">
-                <Calendar size={14} className="text-on-surface-variant" />
+                <Calendar size={14} className="text-on-surface-variant flex-shrink-0" />
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">Ngày phát hành</p>
-                  <p className="font-semibold">
+                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">{t('movieDetails.releaseDate', 'Release Date')}</p>
+                  <p className="font-semibold text-sm">
                     {new Date(movie.releaseDate).toLocaleDateString('vi-VN')}
                   </p>
                 </div>
               </div>
+
               <div className="flex items-center gap-2">
-                <Clock size={14} className="text-on-surface-variant" />
+                <Clock size={14} className="text-on-surface-variant flex-shrink-0" />
                 <div>
                   <p className="text-xs uppercase tracking-widest text-on-surface-variant">{t('movieDetails.duration')}</p>
-                  <p className="font-semibold">{movie.durationMinutes} {t('movieDetails.minutes')}</p>
+                  <p className="font-semibold text-sm">{movie.durationMinutes} {t('movieDetails.minutes')}</p>
                 </div>
               </div>
+
               <div className="flex items-center gap-2">
-                <Globe size={14} className="text-on-surface-variant" />
+                <Globe size={14} className="text-on-surface-variant flex-shrink-0" />
                 <div>
                   <p className="text-xs uppercase tracking-widest text-on-surface-variant">{t('movieDetails.language')}</p>
-                  <p className="font-semibold">{movie.language}</p>
+                  <p className="font-semibold text-sm">{movie.language}</p>
                 </div>
               </div>
+
               {movie.genres.length > 0 && (
                 <div>
                   <p className="text-xs uppercase tracking-widest text-on-surface-variant mb-2">{t('movieDetails.genres')}</p>

@@ -22,6 +22,10 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
     posterUrl: '',
     trailerUrl: '',
     language: 'English',
+    region: 'USA',
+    director: '',
+    actors: '',
+    imdbRating: '',
     active: true,
     genreIds: [] as number[],
   });
@@ -60,6 +64,10 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
             posterUrl: initialData.posterUrl || '',
             trailerUrl: initialData.trailerUrl || '',
             language: initialData.language || 'English',
+            region: initialData.region || 'USA',
+            director: initialData.director || '',
+            actors: initialData.actors || '',
+            imdbRating: initialData.imdbRating != null ? String(initialData.imdbRating) : '',
             active: initialData.active ?? true,
             genreIds: initialData.genres 
               ? initialData.genres
@@ -81,6 +89,10 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
             posterUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800',
             trailerUrl: '',
             language: 'English',
+            region: 'USA',
+            director: '',
+            actors: '',
+            imdbRating: '',
             active: true,
             genreIds: [],
           });
@@ -102,6 +114,10 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
             posterUrl: initialData.posterUrl || '',
             trailerUrl: initialData.trailerUrl || '',
             language: initialData.language || 'English',
+            region: initialData.region || 'USA',
+            director: initialData.director || '',
+            actors: initialData.actors || '',
+            imdbRating: initialData.imdbRating != null ? String(initialData.imdbRating) : '',
             active: initialData.active ?? true,
             genreIds: initialData.genreIds || [],
           });
@@ -115,6 +131,10 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
             posterUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800',
             trailerUrl: '',
             language: 'English',
+            region: 'USA',
+            director: '',
+            actors: '',
+            imdbRating: '',
             active: true,
             genreIds: [],
           });
@@ -217,6 +237,8 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
     const finalReleaseDate = formData.releaseDate || new Date().toISOString().split('T')[0];
     const finalPosterUrl = formData.posterUrl.trim() || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800';
 
+    const finalImdb = formData.imdbRating && !isNaN(Number(formData.imdbRating)) ? Number(formData.imdbRating) : null;
+
     setIsSubmitting(true);
     try {
       await onSubmit({
@@ -224,7 +246,11 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
         durationMinutes: finalDuration,
         releaseDate: finalReleaseDate,
         posterUrl: finalPosterUrl,
-        genreIds: formData.genreIds
+        genreIds: formData.genreIds,
+        region: formData.region?.trim() || null,
+        director: formData.director?.trim() || null,
+        actors: formData.actors?.trim() || null,
+        imdbRating: finalImdb
       });
       addToast(`Movie successfully ${initialData ? 'updated' : 'added'}!`, 'success');
       onClose();
@@ -279,6 +305,42 @@ export const MovieModal: React.FC<MovieModalProps> = ({ isOpen, onClose, onSubmi
               <div className="space-y-1">
                 <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Language</label>
                 <input type="text" name="language" value={formData.language} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none" placeholder="e.g. English" />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Country / Region</label>
+                <input list="country-suggestions" type="text" name="region" value={formData.region} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none" placeholder="e.g. USA, Vietnam, South Korea..." />
+                <datalist id="country-suggestions">
+                  <option value="Vietnam" />
+                  <option value="USA" />
+                  <option value="UK" />
+                  <option value="South Korea" />
+                  <option value="Japan" />
+                  <option value="France" />
+                  <option value="Germany" />
+                  <option value="China" />
+                  <option value="India" />
+                  <option value="Thailand" />
+                  <option value="Spain" />
+                  <option value="Italy" />
+                  <option value="Canada" />
+                  <option value="Australia" />
+                </datalist>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Director</label>
+                <input type="text" name="director" value={formData.director} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none" placeholder="e.g. Christopher Nolan" />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">IMDb Rating (0.0 - 10.0)</label>
+                <input type="number" step="0.1" min="0" max="10" name="imdbRating" value={formData.imdbRating} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none" placeholder="e.g. 8.6" />
+              </div>
+
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Cast & Actors</label>
+                <input type="text" name="actors" value={formData.actors} onChange={handleChange} className="w-full bg-surface-container-highest border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-primary outline-none" placeholder="e.g. Leonardo DiCaprio, Joseph Gordon-Levitt, Elliot Page" />
               </div>
 
               <div className="space-y-1 md:col-span-2">
