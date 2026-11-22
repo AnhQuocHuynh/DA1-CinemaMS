@@ -34,7 +34,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-3 mb-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1">
           <span className="text-sm font-semibold text-on-surface">
             {t('reviewCard.userPrefix', 'User #')}{review.userId}
           </span>
@@ -44,7 +44,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
         <StarRating value={review.rating} size={14} />
 
         {review.comment && (
-          <p className="mt-2 text-sm text-on-surface-variant leading-relaxed">{review.comment}</p>
+          <p className="mt-2 text-sm text-on-surface-variant leading-relaxed break-words">{review.comment}</p>
         )}
       </div>
     </div>

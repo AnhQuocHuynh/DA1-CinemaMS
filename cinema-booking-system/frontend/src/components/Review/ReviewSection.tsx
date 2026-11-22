@@ -103,9 +103,9 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
 
       {/* Insight Summary */}
       {insight && insight.totalReviews > 0 && (
-        <div className="flex flex-col sm:flex-row gap-8 items-start mb-8 p-6 rounded-xl bg-surface-container-low border border-outline-variant">
+        <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start mb-8 p-4 sm:p-6 rounded-xl bg-surface-container-low border border-outline-variant">
           {/* Average */}
-          <div className="text-center sm:text-left flex-shrink-0">
+          <div className="w-full sm:w-auto text-center sm:text-left flex-shrink-0">
             <div className="text-5xl font-black text-on-surface tracking-tighter">
               {insight.averageRating.toFixed(1)}
             </div>
@@ -136,8 +136,8 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
 
       {/* AI Review Summary */}
       {insight && insight.aiSummary && (
-        <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-surface-container-high/90 via-surface-container/60 to-surface-container-lowest/90 border border-primary/30 p-6 mb-8 shadow-lg backdrop-blur-md">
-          <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-outline-variant/20">
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-surface-container-high/90 via-surface-container/60 to-surface-container-lowest/90 border border-primary/30 p-4 sm:p-6 mb-8 shadow-lg backdrop-blur-md">
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-3 pb-3 border-b border-outline-variant/20">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-lg bg-primary/15 text-primary border border-primary/25">
                 <Sparkles className="w-4 h-4 text-primary animate-pulse" />
@@ -197,7 +197,7 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
 
       {/* Review List */}
       {reviews.length > 0 && (
-        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant p-4 sm:p-6">
           {reviews.map((review) => (
             <ReviewCard key={review.id} review={review} />
           ))}

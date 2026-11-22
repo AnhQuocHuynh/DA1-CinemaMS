@@ -59,7 +59,7 @@ export const ThemeToggle: React.FC = () => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-center gap-1.5 w-9 h-9 shrink-0 rounded-full bg-surface-container-high hover:bg-surface-container-highest transition-colors text-on-surface"
+        className="flex items-center justify-center gap-1.5 w-10 h-10 shrink-0 rounded-full bg-surface-container-high hover:bg-surface-container-highest transition-colors text-on-surface"
         title={t('common.themeToggle', 'Toggle Theme')}
         aria-label={t('common.themeToggle', 'Toggle Theme')}
       >
@@ -77,7 +77,7 @@ export const ThemeToggle: React.FC = () => {
                 setTheme(opt.value);
                 setIsOpen(false);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left transition-colors ${
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-left transition-colors ${
                 theme === opt.value
                   ? 'bg-primary-container text-on-primary-container font-bold'
                   : 'text-on-surface hover:bg-surface-container-high'

@@ -65,7 +65,7 @@ export function Composer({
   const canSend = draft.trim().length > 0;
 
   return (
-    <div className="shrink-0 border-t border-outline-variant/70 bg-surface-container-low/75 px-3 pb-2.5 pt-2.5 backdrop-blur-md dark:bg-surface-container-low/90">
+    <div className="shrink-0 border-t border-outline-variant/70 bg-surface-container-low/75 px-3 pb-[max(0.625rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-md dark:bg-surface-container-low/90">
       <div className="flex items-end gap-2 rounded-2xl border border-outline-variant bg-surface-container-lowest px-3 py-2 shadow-sm transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/20 dark:bg-surface-container-low">
         <textarea
           ref={textareaRef}
@@ -76,7 +76,7 @@ export function Composer({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           aria-label={t('cinebot.messageInputLabel')}
-          className="cinebot-scrollbar max-h-[120px] min-h-[24px] flex-1 resize-none bg-transparent py-1 text-[13.5px] leading-relaxed text-on-surface placeholder:text-on-surface-variant/75 focus:outline-none"
+          className="cinebot-scrollbar max-h-[120px] min-h-[24px] flex-1 resize-none bg-transparent py-1 text-base sm:text-[13.5px] leading-relaxed text-on-surface placeholder:text-on-surface-variant/75 focus:outline-none"
         />
 
         {sending ? (

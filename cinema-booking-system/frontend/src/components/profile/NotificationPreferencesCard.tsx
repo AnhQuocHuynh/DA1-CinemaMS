@@ -95,9 +95,9 @@ export const NotificationPreferencesCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/50">
-      <div className="flex items-center justify-between mb-6">
-        <div>
+    <div className="bg-surface-container-low rounded-2xl p-4 sm:p-6 border border-outline-variant/50">
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="min-w-0">
           <h2 className="text-xl font-bold text-on-surface">
             {t('settings.notificationPreferences', 'Notification Preferences')}
           </h2>
@@ -108,7 +108,7 @@ export const NotificationPreferencesCard: React.FC = () => {
             )}
           </p>
         </div>
-        {isSaving && <Loader2 className="w-5 h-5 text-primary animate-spin" />}
+        {isSaving && <Loader2 className="w-5 h-5 text-primary animate-spin shrink-0" />}
       </div>
 
       {isLoading ? (
@@ -116,12 +116,12 @@ export const NotificationPreferencesCard: React.FC = () => {
       ) : (
         <div className="space-y-5">
           {/* Push Notifications */}
-          <div className="flex items-center justify-between pb-4 border-b border-outline-variant/30">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-primary/10 text-primary mt-0.5">
+          <div className="flex items-center justify-between gap-4 pb-4 border-b border-outline-variant/30">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary mt-0.5 shrink-0">
                 <Bell className="w-5 h-5" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="font-medium text-on-surface">
                   {t('settings.pushNotifications', 'In-App & Browser Push')}
                 </p>
@@ -136,25 +136,30 @@ export const NotificationPreferencesCard: React.FC = () => {
             <button
               type="button"
               onClick={handlePushToggle}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                pushEnabled ? 'bg-primary' : 'bg-surface-container-high'
-              }`}
+              aria-pressed={pushEnabled}
+              className="min-h-[44px] inline-flex items-center shrink-0 cursor-pointer focus:outline-none"
             >
               <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  pushEnabled ? 'translate-x-5' : 'translate-x-0'
+                className={`relative inline-flex h-6 w-11 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                  pushEnabled ? 'bg-primary' : 'bg-surface-container-high'
                 }`}
-              />
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    pushEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </span>
             </button>
           </div>
 
           {/* Email Notifications */}
-          <div className="flex items-center justify-between pb-4 border-b border-outline-variant/30">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-primary/10 text-primary mt-0.5">
+          <div className="flex items-center justify-between gap-4 pb-4 border-b border-outline-variant/30">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary mt-0.5 shrink-0">
                 <Mail className="w-5 h-5" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="font-medium text-on-surface">
                   {t('settings.emailNotifications', 'Email Confirmations')}
                 </p>
@@ -169,25 +174,30 @@ export const NotificationPreferencesCard: React.FC = () => {
             <button
               type="button"
               onClick={handleEmailToggle}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                emailEnabled ? 'bg-primary' : 'bg-surface-container-high'
-              }`}
+              aria-pressed={emailEnabled}
+              className="min-h-[44px] inline-flex items-center shrink-0 cursor-pointer focus:outline-none"
             >
               <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  emailEnabled ? 'translate-x-5' : 'translate-x-0'
+                className={`relative inline-flex h-6 w-11 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                  emailEnabled ? 'bg-primary' : 'bg-surface-container-high'
                 }`}
-              />
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    emailEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </span>
             </button>
           </div>
 
           {/* SMS Notifications */}
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-primary/10 text-primary mt-0.5">
+          <div className="flex items-center justify-between gap-4 pt-1">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary mt-0.5 shrink-0">
                 <MessageSquare className="w-5 h-5" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="font-medium text-on-surface">
                   {t('settings.smsNotifications', 'SMS Alerts')}
                 </p>
@@ -202,15 +212,20 @@ export const NotificationPreferencesCard: React.FC = () => {
             <button
               type="button"
               onClick={handleSmsToggle}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                smsEnabled ? 'bg-primary' : 'bg-surface-container-high'
-              }`}
+              aria-pressed={smsEnabled}
+              className="min-h-[44px] inline-flex items-center shrink-0 cursor-pointer focus:outline-none"
             >
               <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  smsEnabled ? 'translate-x-5' : 'translate-x-0'
+                className={`relative inline-flex h-6 w-11 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                  smsEnabled ? 'bg-primary' : 'bg-surface-container-high'
                 }`}
-              />
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    smsEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </span>
             </button>
           </div>
         </div>

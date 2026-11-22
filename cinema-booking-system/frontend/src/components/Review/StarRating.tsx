@@ -30,7 +30,7 @@ export const StarRating: React.FC<StarRatingProps> = ({
             disabled={!interactive}
             className={`relative transition-transform ${
               interactive
-                ? 'cursor-pointer hover:scale-110 active:scale-95'
+                ? 'cursor-pointer hover:scale-110 active:scale-95 p-1.5 min-w-[40px] min-h-[40px] inline-flex items-center justify-center'
                 : 'cursor-default'
             }`}
             onClick={() => interactive && onChange?.(star)}
