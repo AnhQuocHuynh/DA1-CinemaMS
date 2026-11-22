@@ -273,3 +273,41 @@ async def get_user_orders(
     if not isinstance(data, list):
         return []
     return [item for item in data if isinstance(item, dict)][:10]
+
+
+async def get_order_by_id(
+    order_id: int,
+    user_id: int | None = None,
+    auth_token: str | None = None,
+    *,
+    allow_any_owner: bool = False,
+) -> dict | None:
+    """Fetch a single ticket order by ID from booking-service, verifying ownership."""
+    if order_id <= 0 or user_id is None or user_id <= 0:
+        return None
+    base = settings.BOOKING_SERVICE_URL.rstrip("/")
+    headers: dict[str, str] = {"X-User-Id": str(user_id)}
+    cleaned_token = (auth_token or "").strip()
+    if cleaned_token:
+        headers["Authorization"] = f"Bearer {cleaned_token}"
+    ok, payload = await _get_json_fail_open(
+        "booking",
+        f"{base}/api/orders/{order_id}",
+        headers=headers,
+    )
+    if not ok:
+        return None
+    data = _unwrap_data(payload)
+    if not isinstance(data, dict):
+        return None
+    if not allow_any_owner:
+        owner_id = data.get("userId")
+        if owner_id is not None and str(owner_id).strip() != str(user_id):
+            logger.warning(
+                "Blocked order #%s lookup for user_id=%s (owned by user_id=%s)",
+                order_id,
+                user_id,
+                owner_id,
+            )
+            return None
+    return data

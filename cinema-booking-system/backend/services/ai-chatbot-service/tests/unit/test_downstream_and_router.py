@@ -281,3 +281,114 @@ async def test_process_catalog_event_enriches_and_upserts(monkeypatch):
     assert params["movie_id"] == 12
     assert params["genres"] == "Sci-Fi, Thriller"
     assert params["age_rating"] == "T13"
+
+
+@pytest.mark.asyncio
+async def test_downstream_get_order_by_id_forwards_token_and_enforces_ownership(monkeypatch):
+    downstream_client.reset_circuit_breakers()
+    client = FakeHttpClient(
+        {
+            "/api/orders/15": FakeResponse(
+                {"id": 15, "userId": 5, "movieTitle": "Dune", "status": "PAID"}
+            ),
+            "/api/orders/10": FakeResponse(
+                {"id": 10, "userId": 2, "movieTitle": "Dune", "status": "REFUNDED"}
+            ),
+            "/api/orders/999": FakeResponse({}, status_code=404),
+            "/api/orders/2": FakeResponse({}, status_code=403),
+        }
+    )
+    monkeypatch.setattr(downstream_client, "_client", client)
+
+    own_order = await downstream_client.get_order_by_id(
+        15, user_id=5, auth_token="tok-5"
+    )
+    assert own_order is not None and own_order["id"] == 15
+    assert client.calls[-1][0].endswith("/api/orders/15")
+    assert client.calls[-1][2] == {
+        "X-User-Id": "5",
+        "Authorization": "Bearer tok-5",
+    }
+
+    assert await downstream_client.get_order_by_id(2, user_id=5, auth_token="tok-5") is None
+    assert await downstream_client.get_order_by_id(999, user_id=5, auth_token="tok-5") is None
+    assert len(client.calls) == 3  # no retries on 403/404
+    assert downstream_client.get_breaker("booking").state == "CLOSED"
+
+    # Defense-in-depth when JWT checks are disabled downstream and wrong owner row returns
+    mismatched = await downstream_client.get_order_by_id(10, user_id=5)
+    assert mismatched is None
+
+    pre_invalid_calls = len(client.calls)
+    assert await downstream_client.get_order_by_id(0, user_id=5) is None
+    assert await downstream_client.get_order_by_id(15, user_id=None) is None
+    assert len(client.calls) == pre_invalid_calls
+
+
+def test_extract_order_ids_and_order_query_heuristic():
+    assert intent_router.extract_order_ids("check booking #15") == [15]
+    assert intent_router.extract_order_ids("status of #BK-26?") == [26]
+    assert intent_router.extract_order_ids("order 12 and order #15") == [12, 15]
+    assert intent_router.extract_order_ids("kiểm tra đơn #19") == [19]
+    assert intent_router.extract_order_ids("trạng thái mã đơn 29") == [29]
+
+    assert intent_router.extract_order_ids("book 2 tickets") == []
+    assert intent_router.extract_order_ids("T18 age rating") == []
+    assert intent_router.extract_order_ids("showtimes at 19:00") == []
+    assert intent_router.extract_order_ids("order #0") == []
+
+    assert guardrails.classify_intent_heuristic("check booking #15") == "ORDER_QUERY"
+    assert guardrails.classify_intent_heuristic("status of #BK-26") == "ORDER_QUERY"
+    assert guardrails.classify_intent_heuristic("kiểm tra đơn #19") == "ORDER_QUERY"
+    assert intent_router.wants_orders("check booking #15") is True
+
+
+@pytest.mark.asyncio
+async def test_intent_router_specific_order_id_lookup(monkeypatch):
+    by_id_calls: list[tuple[int, int | None, str | None]] = []
+    list_calls: list[tuple[int | None, str | None]] = []
+
+    async def fake_get_order_by_id(
+        order_id: int, user_id: int | None = None, auth_token: str | None = None
+    ):
+        by_id_calls.append((order_id, user_id, auth_token))
+        if order_id == 15:
+            return {
+                "id": 15,
+                "userId": 5,
+                "movieTitle": "Dune",
+                "startTime": "2026-09-27T18:00:00",
+                "cinemaName": "CGV",
+                "roomName": "Room 1",
+                "seatLabels": ["A1"],
+                "status": "PAID",
+                "finalAmount": 85000,
+            }
+        return None
+
+    async def fake_get_user_orders(
+        user_id: int | None, auth_token: str | None = None
+    ):
+        list_calls.append((user_id, auth_token))
+        return []
+
+    monkeypatch.setattr(downstream_client, "get_order_by_id", fake_get_order_by_id)
+    monkeypatch.setattr(downstream_client, "get_user_orders", fake_get_user_orders)
+
+    user = UserContext(user_id=5, raw_token="tok-5")
+    found_ctx = await intent_router.build_context(
+        "ORDER_QUERY", "Check status of booking #15", user=user
+    )
+    assert found_ctx is not None and "Order #15" in found_ctx and "Dune" in found_ctx
+    assert by_id_calls == [(15, 5, "tok-5")]
+    assert list_calls == []
+
+    en_missing = await intent_router.build_context(
+        "ORDER_QUERY", "Check status of booking #2", user=user
+    )
+    assert en_missing == "No matching ticket order was found under your account for: #2."
+
+    vi_missing = await intent_router.build_context(
+        "ORDER_QUERY", "Kiểm tra đơn #2", user=user, preferred_lang="vi"
+    )
+    assert vi_missing == "Không tìm thấy đơn đặt vé phù hợp thuộc tài khoản của bạn cho: #2."
