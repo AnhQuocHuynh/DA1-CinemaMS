@@ -1,8 +1,8 @@
 # Cinema Booking System — Microservices Architecture
 
-> **Status**: Active — Migration In Progress | **Last Audited**: 2026-09-11  
+> **Status**: Active — Migration In Progress | **Last Audited**: 2026-11-17  
 > **Origin**: Modular Monolith (Spring Boot 3.3 + PostgreSQL + Redis)  
-> **Current State**: Polyglot Microservices (Spring Boot + ASP.NET Core 9) with Database-per-Service  
+> **Current State**: Polyglot Microservices (Spring Boot 3.3 + ASP.NET Core 9 + Python 3.12 FastAPI) with Database-per-Service  
 > **Legacy Rollback**: `backend_legacy/` — intact and runnable monolith
 
 ---
@@ -26,6 +26,7 @@
 15. [Migration Status & Roadmap](#15-migration-status--roadmap)
 16. [Risk Assessment](#16-risk-assessment)
 17. [Recommendation System — Neo4j Graph DB](#17-recommendation-system--neo4j-graph-db)
+18. [AI Chatbot Service — CineBot (FastAPI + pgvector RAG)](#18-ai-chatbot-service--cinebot-fastapi--pgvector-rag)
 
 ---
 
@@ -33,7 +34,7 @@
 
 The **Cinema Booking System** has been refactored from a **Modular Monolith** (Spring Boot) into a **polyglot microservices architecture**. The original application was organized into well-separated domain modules (`iam`, `catalog`, `booking`, `facility`, `showtime`, `admin`, `staff`, `core`), which provided an excellent foundation for decomposition.
 
-The refactored system splits services between **Spring Boot 3.3 (Java 21)** and **ASP.NET Core 9 (C#)**, leverages **database-per-service** with purpose-chosen databases, uses **RabbitMQ 3.13** for async event-driven communication, routes all traffic through an **API Gateway (YARP)**, and adopts **Keycloak** as the centralized Identity & Access Management (IAM) solution — replacing the monolith's custom JWT/auth implementation.
+The refactored system splits services between **Spring Boot 3.3 (Java 21)**, **ASP.NET Core 9 (C#)**, and **Python 3.12 (FastAPI)**, leverages **database-per-service** with purpose-chosen databases (PostgreSQL 18 + `pgvector`, Redis 7, MongoDB 6, Neo4j 5.23), uses **RabbitMQ 3.13** for async event-driven communication, routes all traffic through an **API Gateway (YARP)**, and adopts **Keycloak** as the centralized Identity & Access Management (IAM) solution — replacing the monolith's custom JWT/auth implementation.
 
 ### Migration Progress
 
@@ -41,6 +42,7 @@ The refactored system splits services between **Spring Boot 3.3 (Java 21)** and 
 |---|---|
 | **Spring Boot services** (Catalog, Showtime, Booking, Analytics, Recommendation) | ✅ Migration-prepared — build, test, containerize independently |
 | **ASP.NET services** (Identity, Facility, Payment, Notification, API Gateway) | ✅ Implemented — Clean Architecture with MediatR/CQRS |
+| **Python AI service** (AI Chatbot / CineBot) | ✅ Implemented (backend) — FastAPI, `pgvector` RAG, L1/L2 caching, bilingual EN/VI guardrails; frontend widget pending |
 | **Infrastructure** (Keycloak, RabbitMQ, Neo4j, MongoDB, Observability) | ✅ Provisioned in Docker Compose |
 | **Cross-workstream integration** | 🔄 In progress — JWT activation, Payment→Booking saga wiring, frontend booking flow |
 | **Production cutover** | ⬜ Blocked on integration gates (see §15) |
@@ -161,6 +163,15 @@ The following cross-module dependencies existed in the monolith and have been re
                                      │          └──────────────┘                    │
                                      └─────────────────────────────────────────────┘
 
+                                     ┌─────────────────────────────────────────────┐
+                                     │       AI Chatbot Service (CineBot)          │
+                                     │    (Python 3.12 FastAPI) :5005 (:8000)      │
+                                     │   ┌────────────────────┐ ┌──────────────┐   │
+                                     │   │ PostgreSQL pgvector│ │   Redis 7    │   │
+                                     │   │  (ai_chatbot_db)   │ │  (L1 Cache)  │   │
+                                     │   └────────────────────┘ └──────────────┘   │
+                                     └─────────────────────────────────────────────┘
+
                           ┌──────────────────────────────────────────────┐
                           │         RabbitMQ 3.13 (Message Broker)        │
                           │   Exchanges: booking.*, payment.*, user.*    │
@@ -195,6 +206,7 @@ The following cross-module dependencies existed in the monolith and have been re
 | 8 | **Analytics Service** | Analytics | Admin dashboard aggregations, revenue series, popular movies, live sales, staff dashboard KPIs; event-sourced read model |
 | 9 | **API Gateway** | Infrastructure | YARP reverse proxy, JWT validation, user ID resolution, rate limiting, internal token injection, `/internal/**` blocking |
 | 10 | **Recommendation Service** | Recommendation | Personalized movie recommendations via collaborative filtering (Neo4j graph traversal), content-based genre matching, popularity fallback |
+| 11 | **AI Chatbot Service (CineBot)** | Conversational AI | Bilingual (EN/VI) cinema assistant: FAQ & movie vector RAG (`pgvector`), live showtime/recommendation pre-retrieval, L1 Redis + L2 semantic cache, prompt-injection & foreign-title hallucination guardrails, SSE streaming, RabbitMQ catalog sync & reindex |
 
 ### 4.2 Domain Ownership Matrix
 
@@ -202,13 +214,14 @@ The following cross-module dependencies existed in the monolith and have been re
 |---|---|---|
 | `User` (profile data), `KeycloakId` mapping | Identity Service | All services (user lookup) |
 | Auth identity (credentials, roles, tokens, sessions) | **Keycloak** (external) | All services (JWT validation via OIDC) |
-| `Movie`, `Event`, `Genre`, `MovieGenre` | Catalog Service | Showtime, Booking, Analytics, Recommendation |
+| `Movie`, `Event`, `Genre`, `MovieGenre` | Catalog Service | Showtime, Booking, Analytics, Recommendation, AI Chatbot |
 | `Cinema`, `Room`, `SeatTemplate`, `SeatType` | Facility Service | Showtime, Booking, Analytics |
-| `Showtime`, `ShowtimeSeat` | Showtime Service | Booking, Analytics |
+| `Showtime`, `ShowtimeSeat` | Showtime Service | Booking, Analytics, AI Chatbot |
 | `Order`, `Ticket`, `Voucher` | Booking Service | Payment, Analytics, Notification |
 | `Review` | Booking Service | Catalog (avg rating), Analytics, Recommendation |
 | `Payment`, `Refund`, `TransactionLog` | Payment Service | Booking, Analytics, Notification |
-| Recommendation graph (User→Movie edges) | Recommendation Service | Frontend (via API Gateway) |
+| Recommendation graph (User→Movie edges) | Recommendation Service | Frontend, AI Chatbot (via internal/HTTP calls) |
+| `ChatSession`, `ChatMessage`, `FaqEmbedding`, `MovieEmbedding`, `SemanticCache` | AI Chatbot Service | Frontend (via API Gateway) |
 
 ---
 
@@ -228,25 +241,26 @@ The following cross-module dependencies existed in the monolith and have been re
 | **Analytics Service** | **Spring Boot 3.3** | Java 21 | Read-model + Event consumers | Event-sourced read model, SQL aggregation queries, RabbitMQ consumers |
 | **API Gateway** | **ASP.NET Core 9** | C# | YARP Reverse Proxy | High-performance routing, JWT validation, user ID resolution middleware |
 | **Recommendation Service** | **Spring Boot 3.3** | Java 21 | Spring Data Neo4j + Event consumers | Graph DB for collaborative filtering, Neo4j Cypher queries, event-driven graph sync |
+| **AI Chatbot Service** | **FastAPI 0.115** | Python 3.12 | Async Layered Pipeline + Vector RAG | First-class Gemini/OpenAI SDKs, native `pgvector` & SSE streaming, L1 Redis + L2 semantic cache, bilingual guardrails |
 
 ### 5.2 Summary Split
 
 ```
-┌─────────────────────────────────┬──────────────────────────────────┐
-│     Spring Boot 3.3 (Java 21)   │      ASP.NET Core 9 (C#)         │
-├─────────────────────────────────┼──────────────────────────────────┤
-│ • Catalog Service               │ • Identity Service               │
-│ • Showtime Service              │ • Facility Service               │
-│ • Booking Service               │ • Payment Service                │
-│ • Analytics Service             │ • Notification Service           │
-│ • Recommendation Service        │ • API Gateway (YARP)             │
-├─────────────────────────────────┼──────────────────────────────────┤
-│  5 services                     │  5 services (incl. gateway)      │
-│  Maven multi-module build       │  Clean Architecture per service  │
-│  MapStruct + Lombok             │  MediatR + FluentValidation      │
-│  Spring AMQP                    │  MassTransit (RabbitMQ)          │
-│  Shared parent POM              │  Shared.Hosting NuGet library    │
-└─────────────────────────────────┴──────────────────────────────────┘
+┌─────────────────────────────────┬──────────────────────────────────┬──────────────────────────────────┐
+│     Spring Boot 3.3 (Java 21)   │      ASP.NET Core 9 (C#)         │      Python 3.12 (FastAPI)       │
+├─────────────────────────────────┼──────────────────────────────────┼──────────────────────────────────┤
+│ • Catalog Service               │ • Identity Service               │ • AI Chatbot Service (CineBot)   │
+│ • Showtime Service              │ • Facility Service               │                                  │
+│ • Booking Service               │ • Payment Service                │                                  │
+│ • Analytics Service             │ • Notification Service           │                                  │
+│ • Recommendation Service        │ • API Gateway (YARP)             │                                  │
+├─────────────────────────────────┼──────────────────────────────────┼──────────────────────────────────┤
+│  5 services                     │  5 services (incl. gateway)      │  1 AI service                    │
+│  Maven multi-module build       │  Clean Architecture per service  │  SQLAlchemy 2.0 (asyncpg)+pgvector│
+│  MapStruct + Lombok             │  MediatR + FluentValidation      │  google-genai + openai SDKs      │
+│  Spring AMQP                    │  MassTransit (RabbitMQ)          │  aio-pika + httpx + redis.asyncio│
+│  Shared parent POM              │  Shared.Hosting NuGet library    │  Pydantic v2 + pytest suite      │
+└─────────────────────────────────┴──────────────────────────────────┴──────────────────────────────────┘
 ```
 
 ### 5.3 Shared Libraries
@@ -276,8 +290,9 @@ The following cross-module dependencies existed in the monolith and have been re
 | **Analytics Service** | **PostgreSQL 18** | Event-sourced read model with SQL aggregation queries; repeatable backfill from upstream services | `cinema_analytics_db` |
 | **Keycloak** | **PostgreSQL 18** | Keycloak's built-in JDBC persistence for realm config, users, sessions | `keycloak_db` |
 | **Recommendation Service** | **Neo4j 5.23** (graph) | Native graph DB for relationship traversal (collaborative filtering); O(relationship-count) queries vs O(table-size) JOINs | `graph_db` |
+| **AI Chatbot Service** | **PostgreSQL 18 (`pgvector`)** + **Redis 7** | HNSW cosine vector indexes (`vector(768)`) for FAQ/movie RAG and L2 semantic cache, relational chat session/message storage, and Redis L1 exact-match cache | `ai_chatbot_db` + `cinema-redis:6379` |
 
-> **Dev Topology**: All PostgreSQL databases run in a **single PostgreSQL 18 container** (`cinema-postgres`) initialized by `init-multiple-databases.sql`. Production should use separate instances per database.
+> **Dev Topology**: All PostgreSQL databases run in a **single PostgreSQL 18 container** (`cinema-postgres`, built via `infrastructure/Dockerfile.postgres` with `postgresql-pgvector`) initialized by `init-multiple-databases.sql`. Production should use separate instances per database.
 
 ### 6.2 Caching Strategy
 
@@ -290,12 +305,13 @@ The following cross-module dependencies existed in the monolith and have been re
 | Booking Service | — | Order idempotency keys (potential) |
 | API Gateway | **Redis** (`cinema-redis`) | Rate limiting counters, user ID resolution cache |
 | Recommendation Service | — | Personalized recommendation cache (potential) |
+| AI Chatbot Service | **Redis** (`cinema-redis`) + **PostgreSQL `pgvector`** (`semantic_cache`) | L1 exact normalized SHA-256 cache (24h TTL) + L2 semantic similarity cache (cosine ≥ 0.94, 7d TTL) with temporal keyword bypass |
 
 ### 6.3 Database Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                PostgreSQL 18 (Single Container — Dev)                │
+│          PostgreSQL 18 + pgvector (Single Container — Dev)          │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │
 │  │user_     │ │cinema_   │ │facility  │ │cinema_   │ │cinema_   │ │
 │  │profile   │ │catalog   │ │  _db     │ │showtime  │ │booking   │ │
@@ -309,14 +325,14 @@ The following cross-module dependencies existed in the monolith and have been re
 │  │          │ │• outbox  │ │  types   │ │          │ │• outbox  │ │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ │
 │                                                                     │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐                           │
-│  │payment   │ │cinema_   │ │keycloak  │                           │
-│  │  _db     │ │analytics │ │  _db     │                           │
-│  │• payments│ │  _db     │ │(managed  │                           │
-│  │• refunds │ │• read    │ │ by KC)   │                           │
-│  │• txn_log │ │  model   │ │          │                           │
-│  │• saga    │ │  tables  │ │          │                           │
-│  │  state   │ │          │ │          │                           │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────────────────────┐ │
+│  │payment   │ │cinema_   │ │keycloak  │ │ai_chatbot_db (pgvector)│ │
+│  │  _db     │ │analytics │ │  _db     │ │• chat_sessions         │ │
+│  │• payments│ │  _db     │ │(managed  │ │• chat_messages         │ │
+│  │• refunds │ │• read    │ │ by KC)   │ │• faq_embeddings (HNSW) │ │
+│  │• txn_log │ │  model   │ │          │ │• movie_embeddings(HNSW)│ │
+│  │• saga    │ │  tables  │ │          │ │• semantic_cache (HNSW) │ │
+│  │  state   │ │          │ │          │ └────────────────────────┘ │
 │  │• outbox  │ │          │ │          │                           │
 │  └──────────┘ └──────────┘ └──────────┘                           │
 └─────────────────────────────────────────────────────────────────────┘
@@ -329,9 +345,10 @@ The following cross-module dependencies existed in the monolith and have been re
 │• rate_limits │  │  └ templates     │  │  └ users     │
 │• facility    │  │  └ delivery_log  │  │  └ movies    │
 │  cache       │  │                  │  │  └ genres    │
-│              │  │                  │  │  └ WATCHED   │
-│showtime-redis│  │                  │  │  └ RATED     │
-│• seat_holds  │  │                  │  │  └ SIMILAR_TO│
+│• chat_exact  │  │                  │  │  └ WATCHED   │
+│  cache (L1)  │  │                  │  │  └ RATED     │
+│showtime-redis│  │                  │  │  └ SIMILAR_TO│
+│• seat_holds  │  │                  │  │              │
 │  (dedicated) │  │                  │  │              │
 └──────────────┘  └──────────────────┘  └──────────────┘
 ```
@@ -373,6 +390,7 @@ The following cross-module dependencies existed in the monolith and have been re
 | `/api/admin/dashboard/**` | Analytics Service `:8084` | GET | ✓ (ADMIN) | 30 req/min |
 | `/api/staff/**` | Booking Service `:8083` | ALL | ✓ (STAFF) | 60 req/min |
 | `/api/recommendations/**` | Recommendation Service `:8085` | GET | Mixed | 60 req/min |
+| `/api/chat/**` | AI Chatbot Service `:5005` (`:8000`) | ALL | Mixed (Guest/Auth) | 20 req/min (`chatbot-rate-limit`) |
 
 ### 7.3 Gateway Responsibilities
 
@@ -436,6 +454,9 @@ The following cross-module dependencies existed in the monolith and have been re
 | Analytics Service | Catalog Service | `GET /internal/movies/{id}` | Enrich analytics with movie titles |
 | Analytics Service | Identity Service | `GET /internal/users/count` | Get total user count for dashboard |
 | API Gateway | Identity Service | `GET /internal/users/resolve?keycloakId={uuid}` | Resolve Keycloak UUID → internal Long user ID (cached) |
+| AI Chatbot Service | Catalog Service | `GET /api/catalog/search`, `GET /api/movies`, `GET /api/movies/{id}` | Movie keyword search, catalog backfill/reindex, event enrichment |
+| AI Chatbot Service | Showtime Service | `GET /api/showtimes/movie/{movieId}` | Live showtime pre-retrieval for `SHOWTIME_QUERY` |
+| AI Chatbot Service | Recommendation Service | `GET /api/recommendations/movies`, `GET /api/recommendations/movies/popular` | Personalized or popular movie suggestions |
 
 > **Internal API Security**: All internal APIs use the `/internal/` prefix and are protected by `X-Internal-Token` header. Gateway blocks external access to `/internal/**` routes. Spring services use `InternalApiSecurityFilter`; .NET services use `InternalApiSecurityMiddleware` from `Shared.Hosting`.
 
@@ -490,8 +511,10 @@ The following cross-module dependencies existed in the monolith and have been re
 │  Exchange: catalog.events (topic)                                │
 │  ├── movie.created      → Queue: analytics.movie.created         │
 │  ├── movie.created      → Queue: recommendation.movie.created    │
+│  ├── movie.created      → Queue: ai-chatbot.catalog-sync         │
 │  ├── movie.updated      → Queue: analytics.movie.updated         │
-│  └── movie.updated      → Queue: recommendation.movie.updated    │
+│  ├── movie.updated      → Queue: recommendation.movie.updated    │
+│  └── movie.updated      → Queue: ai-chatbot.catalog-sync         │
 │                                                                  │
 │  Dead Letter Exchange: dlx.exchange                              │
 │  └── *.failed           → Queue: dlq.all (manual inspection)     │
@@ -542,6 +565,7 @@ Published by the custom **Keycloak SPI** (`RabbitMqEventListenerProvider`):
 |---|---|---|
 | Spring Boot | **Spring AMQP** (`spring-boot-starter-amqp`) | **RestClient** with Resilience4j |
 | ASP.NET Core | **MassTransit 8.x** (over RabbitMQ transport) | **HttpClientFactory** with Polly |
+| Python 3.12 (FastAPI) | **aio-pika 9.4** (async AMQP) | **httpx 0.27** (`AsyncClient`) |
 
 ### 8.5 Outbox Pattern (Implemented)
 
@@ -815,6 +839,7 @@ The Payment Service uses a **MassTransit Saga State Machine** (`PaymentStateMach
 |---|---|---|
 | Spring Boot | `/actuator/health` | Spring Boot Actuator (auto-configured) |
 | ASP.NET | `/health` | `Microsoft.AspNetCore.Diagnostics.HealthChecks` + custom `HealthChecks/` directory |
+| Python (FastAPI) | `/health` | FastAPI `/health` route + Docker `urllib.request` probe |
 
 ---
 
@@ -850,6 +875,9 @@ services:
   analytics-service:     # :8084
   recommendation-service: # :8085
 
+  # ── Python AI Services ──────────────────────────────
+  ai-chatbot-service:    # Python 3.12 FastAPI :5005 (→ :8000)
+
 # Observability (separate file: docker-compose.observability.yml)
   otel-collector:        # :4317/:4318
   prometheus:            # :9090
@@ -876,7 +904,8 @@ Namespace: cinema-system
 │   ├── payment-service      (2 replicas, HPA: 2-4)
 │   ├── notification-service (1 replica,  HPA: 1-3)
 │   ├── analytics-service    (1 replica,  HPA: 1-2)
-│   └── recommendation-svc  (1 replica,  HPA: 1-2)
+│   ├── recommendation-svc   (1 replica,  HPA: 1-2)
+│   └── ai-chatbot-service   (2 replicas, HPA: 2-4)
 ├── StatefulSets
 │   ├── keycloak             (2 nodes, HA with shared DB)
 │   ├── postgresql           (3 nodes, primary + 2 replicas)
@@ -977,6 +1006,7 @@ Frontend communicates with the backend exclusively through the API Gateway. Serv
 | `payment-service` | ✅ Implemented | MassTransit saga, multiple gateways (Stripe/PayPal/Cash), EF Core outbox |
 | `notification-service` | ✅ Implemented | MongoDB, MassTransit consumers, background services |
 | `api-gateway` | ✅ Implemented | YARP routing, JWT validation, user ID resolution, health checks |
+| `ai-chatbot-service` | ✅ Implemented (backend) | FastAPI, `pgvector` RAG, L1/L2 caching, bilingual EN/VI guardrails & `answer_guard`, SSE streaming, catalog reindex (101 tests passing); frontend widget pending |
 | **Keycloak** | ✅ Provisioned | Custom SPI, branded theme (login/register/password-reset), realm export, i18n |
 | **Observability** | ✅ Provisioned | OTel Collector, Prometheus, Tempo, Loki, Grafana |
 
@@ -1135,6 +1165,59 @@ The graph is a **read-optimized projection** populated entirely via RabbitMQ eve
 
 ---
 
+## 18. AI Chatbot Service — CineBot (FastAPI + pgvector RAG)
+
+### 18.1 Overview
+
+**CineBot** (`ai-chatbot-service`) is a bilingual (**English / Vietnamese**) conversational AI assistant built with **Python 3.12** and **FastAPI**. It answers cinema policy FAQs, searches movies semantically, fetches live showtimes with clickable booking links, and serves personalized recommendations while protecting LLM API quotas and blocking prompt injection or hallucinated movie titles. For full operational details, see `backend/localdocs/ai_chatbot_service_design.md`.
+
+| Attribute | Value |
+|---|---|
+| **Service Name** | `ai-chatbot-service` (CineBot) |
+| **Framework** | FastAPI `0.115` (Python `3.12`) |
+| **Database** | PostgreSQL 18 + `pgvector` (`ai_chatbot_db`) |
+| **Cache** | Redis 7 (`cinema-redis`) + PostgreSQL `semantic_cache` |
+| **Port** | `5005` host → `8000` container |
+| **Gateway Route** | `/api/chat/**` (20 req/min `chatbot-rate-limit` token bucket) |
+| **LLM / Embeddings** | Google Gemini (`gemini-1.5-flash` / `text-embedding-004`) primary, OpenAI (`gpt-4o-mini` / `text-embedding-3-small`) fallback, deterministic offline mode |
+
+### 18.2 Dual-Tier Grounding & Caching
+
+| Layer | Mechanism | Details |
+|---|---|---|
+| **L1 Exact Cache** | Redis (`cache:chat:exact:{sha256}`) | Normalized text (strips punctuation and EN/VI greeting prefixes), 24h TTL |
+| **L2 Semantic Cache** | PostgreSQL `pgvector` (`semantic_cache`) | HNSW cosine similarity $\ge 0.94$, 7d TTL, increments `hit_count` |
+| **Dynamic Bypass** | Keyword check (`should_bypass`) | Skips L1/L2 for temporal/booking queries (`today`, `tonight`, `now`, `seats left`, `order #`, `booking`, `hôm nay`, `tối nay`, `bây giờ`, `còn ghế`, `mã đơn`, `đặt vé`) |
+| **Tier 1 Vector RAG** | `faq_embeddings` (16 EN+VI FAQs) & `movie_embeddings` | Cosine similarity thresholds (`FAQ >= 0.80`, `Movie >= 0.65`) + relative-margin filtering (`0.08` from top hit); returns `sources` citations |
+| **Tier 2 Live Pre-Retrieval** | `httpx` REST client (`downstream_client.py`) | Fetches live data from Catalog (`/api/catalog/search`, `/api/movies`), Showtime (`/api/showtimes/movie/{movieId}`), and Recommendation (`/api/recommendations/movies(/popular)`) and unwraps `ApiResponse.data` |
+
+### 18.3 Request & Guardrail Pipeline
+
+1. **Length & Regex Pre-Filter (`guardrails.py`)**: Rejects messages $> 500$ chars (`400 Bad Request`) and short-circuits EN/VI prompt-injection signatures (`ADVERSARIAL`) with localized `REFUSAL_MESSAGE` / `REFUSAL_MESSAGE_VI`.
+2. **Cache Lookup (`cache_service.py`)**: Checks L1 Redis exact cache, embeds the query once (768 dims), and checks L2 `semantic_cache`.
+3. **Intent Classification (`guardrails.classify_intent`)**: Classifies into `CINEMA_FAQ`, `MOVIE_QUERY`, `SHOWTIME_QUERY`, `OFF_TOPIC`, or `ADVERSARIAL` via fast LLM (`temperature=0.0`, `max_tokens=20`) with EN/VI word-boundary regex heuristic fallback; `OFF_TOPIC` / `ADVERSARIAL` short-circuits immediately.
+4. **Context Retrieval & Empty-Retrieval Refusal (`intent_router.py`, `chat_pipeline.py`)**: Builds `<retrieved_knowledge>` and citation `sources`; if `CINEMA_FAQ` or `MOVIE_QUERY` yields zero knowledge, refuses locally without calling the LLM or caching.
+5. **Prompt Sandboxing & History (`prompt_builder.py`, `session_service.py`)**: Wraps system rules, retrieved knowledge, sliding `<conversation_history>` (last `4` turns), and untrusted `<user_query>` XML tags.
+6. **Post-Generation Defense (`answer_guard.py`, `sanitizer.py`)**: Strips emoji, refuses any LLM answer mentioning a catalog movie title absent from context/history/question (`mentions_foreign_title` with Vietnamese diacritic folding; clears `sources`, skips caching, and emits SSE `replacement`), and scrubs leaked internal tokens, JWTs, card numbers, and stack traces.
+
+*(When no LLM API key is configured, `llm_client` uses deterministic 768-dim hash embeddings and `chat_pipeline` serves grounded `<retrieved_knowledge>` directly in offline mode.)*
+
+### 18.4 API Endpoints & Catalog Synchronization
+
+| Method | Endpoint | Access | Purpose |
+|---|---|---|---|
+| `POST` | `/api/chat/message` | Guest / Auth (Gateway) | Synchronous chat reply with `sessionId`, `cached`, `suggestedFollowUps`, `sources` |
+| `POST` | `/api/chat/stream` | Guest / Auth (Gateway) | Server-Sent Events (`text/event-stream`): `chunk`, `done`, `sources`, and `replacement` (if guarded) |
+| `GET` | `/api/chat/sessions` | Guest / Auth (Gateway) | List conversations owned by `user_id` or `session_token` |
+| `GET` | `/api/chat/sessions/{id}` | Owner (`403` otherwise) | Retrieve conversation detail and chronological messages |
+| `DELETE` | `/api/chat/sessions/{id}` | Owner (`403` otherwise) | Delete session and cascade messages |
+| `POST` | `/internal/chat/reindex` | Internal (`X-Internal-Token`) | Full catalog movie backfill & stale pruning (outside `/api/chat`, blocked externally by Gateway) |
+| `GET` | `/health` | Internal / Docker | Service health probe |
+
+- **Catalog Sync**: `catalog_indexer.reindex_catalog` backfills active movies from `catalog-service` on startup (`REINDEX_ON_STARTUP=true`, capped at `REINDEX_MAX_MOVIES=500`, never pruning on empty/failed catalog calls), and `event_consumer.py` listens on RabbitMQ `catalog.events` (`movie.created`, `movie.updated`) via queue `ai-chatbot.catalog-sync` to keep `movie_embeddings` updated incrementally.
+
+---
+
 ## Appendix A: Repository Structure (Actual)
 
 ```
@@ -1214,9 +1297,18 @@ cinema-booking-system/
 │   │   │   ├── src/main/java/com/uit/cinema/analytics/
 │   │   │   └── Dockerfile
 │   │   │
-│   │   └── recommendation-service/          # Spring Boot 3.3
-│   │       ├── pom.xml
-│   │       ├── src/main/java/com/uit/cinema/recommendation/
+│   │   ├── recommendation-service/          # Spring Boot 3.3
+│   │   │   ├── pom.xml
+│   │   │   ├── src/main/java/com/uit/cinema/recommendation/
+│   │   │   └── Dockerfile
+│   │   │
+│   │   └── ai-chatbot-service/              # Python 3.12 (FastAPI + pgvector RAG)
+│   │       ├── app/                         # api/v1/endpoints/, core/, db/, schemas/, services/, workers/
+│   │       ├── migrations/001_init_schema.sql
+│   │       ├── scripts/seed_faqs.py         # 16 bilingual FAQs (8 EN + 8 VI)
+│   │       ├── tests/                       # unit/, integration/, containers/
+│   │       ├── requirements.txt
+│   │       ├── requirements-dev.txt
 │   │       └── Dockerfile
 │   │
 │   ├── shared/
@@ -1287,6 +1379,7 @@ cinema-booking-system/
 | Booking Service | 8083 | — |
 | Analytics Service | 8084 | — |
 | Recommendation Service | 8085 | — |
+| AI Chatbot Service | 5005 (→ :8000 in container) | — (via `/api/chat/**` on Gateway) |
 | PostgreSQL | 5432 | — |
 | Redis (general) | 6379 | — |
 | Redis (showtime) | 6380 | — |
@@ -1317,7 +1410,12 @@ cinema-booking-system/
 | OpenTelemetry (.NET) | 1.18.0 | .NET observability SDK |
 | **Keycloak** | **latest** | **Centralized IAM — OIDC/OAuth2 provider** |
 | **keycloak-js** | **26.2** | **Frontend OIDC client** |
-| PostgreSQL | 18 | Primary relational database |
+| PostgreSQL | 18 | Primary relational database (`pgvector` enabled for `ai_chatbot_db`) |
+| Python | 3.12 | AI Chatbot Service runtime |
+| FastAPI | 0.115 | Python async web & SSE framework |
+| SQLAlchemy / asyncpg | 2.0.36 / 0.30.0 | Async PostgreSQL ORM/driver (`ai-chatbot-service`) |
+| pgvector (Python) | 0.3.5 | Vector similarity client (`vector(768)`) |
+| google-genai / openai | 1.1.0 / 1.52.0 | Primary Gemini & fallback OpenAI LLM/embedding clients |
 | Redis | 7 | Caching + distributed locks |
 | RabbitMQ | 3.13 | Message broker |
 | MongoDB | 6 | Notification storage |

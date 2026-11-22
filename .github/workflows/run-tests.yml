@@ -26,6 +26,7 @@ jobs:
     outputs:
       backend_legacy: ${{ steps.filter.outputs.backend_legacy }}
       backend: ${{ steps.filter.outputs.backend }}
+      ai_chatbot: ${{ steps.filter.outputs.ai_chatbot }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +38,8 @@ jobs:
               - 'cinema-booking-system/backend_legacy/**'
             backend:
               - 'cinema-booking-system/backend/**'
+            ai_chatbot:
+              - 'cinema-booking-system/backend/services/ai-chatbot-service/**'
             frontend:
               - 'cinema-booking-system/frontend/**'
 
@@ -148,6 +151,41 @@ jobs:
         if: always()
         working-directory: cinema-booking-system/backend
         run: docker compose -f infrastructure/docker-compose.yml down --remove-orphans
+
+  ai-chatbot-tests:
+    name: AI Chatbot verification
+    needs: changes
+    if: ${{ needs.changes.outputs.ai_chatbot == 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: "cinema-booking-system/backend/services/ai-chatbot-service/requirements*.txt"
+
+      - name: Install dependencies
+        working-directory: cinema-booking-system/backend/services/ai-chatbot-service
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run unit and keyless integration tests
+        working-directory: cinema-booking-system/backend/services/ai-chatbot-service
+        run: pytest -v
+
+      - name: Run pgvector and Redis container tests
+        working-directory: cinema-booking-system/backend/services/ai-chatbot-service
+        run: pytest -v -m containers
+
+      - name: Build Docker image
+        working-directory: cinema-booking-system/backend
+        run: docker build --file services/ai-chatbot-service/Dockerfile --tag ai-chatbot-service:ci .
 
   spring-unit-tests:
     name: Spring Unit Tests (${{ matrix.service }})

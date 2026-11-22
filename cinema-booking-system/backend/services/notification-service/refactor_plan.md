@@ -399,3 +399,77 @@ db.delivery_logs.createIndex({ notificationId: 1 });
 6. **SignalR for real-time**: Admin dashboard connects via SignalR hub at `/hubs/notifications` for live booking/payment notifications.
 7. **Template rendering**: Simple `{{key}}` replacement — no heavy templating engine needed at this scale.
 8. **Authentication via Keycloak JWT**: This service uses `JwtBearer` to validate Keycloak JWTs directly for authorization. It still reads the `X-User-Id` header (forwarded by the API Gateway) to map the internal numeric user ID to the `ClaimsPrincipal` for business logic.
+
+---
+
+## 12. Future Fixes
+
+
+### 🟢 Nice to Have
+
+| # | Issue | Detail |
+|---|---|---|
+| 15 | **Real SMS sender** | Replace `DummySmsSender` with a real adapter (e.g., Twilio). |
+| 16 | **Infrastructure-layer tests** | ✅ Partially Resolved — Unit tests added for `RabbitMqConsumerBaseInboxTests`, `HttpKeycloakUserResolverTests`, and 4 event consumers (`OrderPaid`, `OrderRefunded`, `OrderCancelled`, `PaymentFailed`). Remaining: `NotificationDispatcherService`, `MailKitEmailSender`, `TemplateRenderer`, and remaining 5 consumers. |
+| 17 | **Integration tests** | ✅ Resolved — Added `NotificationEndpointsIntegrationTests.cs` using `WebApplicationFactory<Program>` for REST endpoints and SignalR hub negotiation. |
+| 18 | **`DummySmsSender` → real impl** | Currently `Task.CompletedTask` with a log line. |
+
+---
+
+## 13. Remaining Completion TODO Plan (Audit — 2026-11-06)
+
+> **Current Completion**: ~92–95% (Merged in `dev` via PR #20 `3847721`). Core Email & Real-Time SignalR Push pipelines, 9 RabbitMQ consumers with MongoDB Transactional Inbox (`inbox_messages`), 3-tier contact resolution, YARP Gateway routing (`/api/notifications`, `/api/preferences`, `/hubs/notifications`), and React frontend (`NotificationBell`, `NotificationPreferencesCard`, `notificationHubService`) are complete and passing 135+ tests (78.8% line coverage).
+
+### Phase 1: Unmerged Branch Synchronization (High Priority)
+- [ ] **1.1 Merge Post-Payment Seat-Unavailable Compensation (`fix/payment-flow-seat-retry-compensation` @ `686b98a`)**
+  - **Files**:
+    - `NotificationService.Infrastructure/Messaging/Consumers/OrderCancelledEventConsumer.cs`
+    - `NotificationService.Test/Unit/Infrastructure/Messaging/Consumers/OrderCancelledEventConsumerTests.cs`
+  - **Task**: Cherry-pick or merge commit `686b98a` so `OrderCancelledEventConsumer` detects `payload.Reason == "SEATS_UNAVAILABLE_AFTER_PAYMENT"` and dispatches a tailored refund compensation push notification (`actionType = "ORDER_REFUNDED_SEATS_UNAVAILABLE"`, `actionUrl = "/user/booking-failed?reason=cancelled&orderId={orderId}"`) instead of the generic seat hold timeout message.
+- [ ] **1.2 Port Room Rental Notification Support (When `feature/room-rental` is integrated)**
+  - **Files**:
+    - `NotificationService.Domain/Enums/NotificationType.cs`
+    - `NotificationService.Presentation/Program.cs`
+  - **Task**: Re-introduce `NotificationType.RENTAL_STATUS` and `JsonStringEnumConverter` on controller JSON options (originally in commit `d721fa6`) when room rental notifications are wired up.
+
+### Phase 2: API Gateway & Security Hardening (High Priority)
+- [ ] **2.1 Add Notification Templates Route to API Gateway**
+  - **File**: `cinema-booking-system/backend/services/api-gateway/ApiGateway/appsettings.json`
+  - **Task**: Add a `notification-templates` route pointing to `notification-cluster` for `/api/notification-templates/{**catch-all}` with `"AuthorizationPolicy": "admin"` so `TemplatesController` is reachable through the gateway on port `5000`.
+- [ ] **2.2 Enforce User Ownership on Preferences & Notification Detail Endpoints**
+  - **Files**:
+    - `NotificationService.Presentation/Controllers/PreferencesController.cs`
+    - `NotificationService.Presentation/Controllers/NotificationsController.cs`
+  - **Task**:
+    - In `PreferencesController` (`GET /api/preferences/{userId}` and `PUT /api/preferences/{userId}`), verify that the `X-User-Id` gateway header matches `userId` (unless the caller has role `ADMIN`) to prevent Horizontal Privilege Escalation (IDOR).
+    - In `NotificationsController.GetNotificationById` (`GET /api/notifications/{id}`), verify `result.UserId == GetCurrentUserId()` or `User.IsInRole("ADMIN")` before returning the notification.
+
+### Phase 3: Template Engine & Channel Completeness (Medium Priority)
+- [ ] **3.1 Map All `NotificationType` Values in `SendNotificationCommandHandler`**
+  - **File**: `NotificationService.Application/Features/Notifications/Commands/SendNotificationCommand.cs`
+  - **Task**: Update `MapTypeToTemplateCode(NotificationType type)` (lines 193–201) to include mappings for the 4 newer enum values added in PR #20:
+    - `NotificationType.BOOKING_CANCELLED => "BOOKING_CANCELLED"`
+    - `NotificationType.PAYMENT_FAILED => "PAYMENT_FAILED"`
+    - `NotificationType.ORDER_REFUNDED => "ORDER_REFUNDED"`
+    - `NotificationType.REVIEW_MODERATION => "REVIEW_MODERATION"`
+- [ ] **3.2 Seed Default MongoDB Notification Templates**
+  - **File**: `NotificationService.Infrastructure/Data/MongoDbContext.cs` (or a startup seeder)
+  - **Task**: Seed default active templates in `notification_templates` for each template code so admins can customize subjects/bodies without manual database inserts.
+- [ ] **3.3 Implement Real SMS Provider (Optional / Production Scope)**
+  - **Files**:
+    - `NotificationService.Infrastructure/Services/DummySmsSender.cs`
+    - `NotificationService.Infrastructure/DependencyInjection.cs`
+    - `NotificationService.Presentation/appsettings.json`
+  - **Task**: Implement an external SMS adapter (e.g., Twilio or SpeedSMS) behind `ISmsSender` when `Smtp/Sms` credentials are configured, keeping `DummySmsSender` as the development fallback.
+
+### Phase 4: Testing & Documentation Cleanup (Low Priority)
+- [ ] **4.1 Add Missing Unit Tests for Remaining Consumers & Services**
+  - **Directory**: `NotificationService.Test/Unit/Infrastructure/`
+  - **Task**: Add unit test suites for:
+    - `UserRegisteredEventConsumer`, `UserProfileUpdatedEventConsumer`, `PasswordResetEventConsumer`, `ReviewCreatedEventConsumer`, `ShowtimeCreatedEventConsumer`
+    - `NotificationDispatcherService` (batch polling, 3-retry transition to `FAILED`, `DeliveryLog` creation)
+    - `TemplateRenderer` (`{{placeholder}}` substitution)
+- [ ] **4.2 Update `docs/CURRENT_STATE.md`**
+  - **File**: `docs/CURRENT_STATE.md`
+  - **Task**: Update lines 72, 84, and 237 (which still state from the 2026-10-11 snapshot that the SPA has no notification inbox/SignalR client and the gateway does not route `/api/notifications`) to reflect the merged PR #20 implementation.
+

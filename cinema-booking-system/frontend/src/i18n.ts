@@ -9,12 +9,18 @@ i18n
   .use(initReactI18next)
   .init({
     fallbackLng: 'vi',
+    supportedLngs: ['en', 'vi'],
+    nonExplicitSupportedLngs: true,
+    load: 'languageOnly',
     debug: import.meta.env.DEV,
     interpolation: {
       escapeValue: false, // React already escapes by default
     },
     backend: {
       loadPath: '/locales/{{lng}}/{{ns}}.json',
+      requestOptions: {
+        cache: import.meta.env.DEV ? 'no-store' : 'no-cache',
+      },
     },
   });
 
