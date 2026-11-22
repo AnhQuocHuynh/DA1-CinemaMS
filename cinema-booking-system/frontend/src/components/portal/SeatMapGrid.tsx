@@ -6,9 +6,15 @@ interface SeatMapGridProps {
   seatMap: SeatMap;
   isSelected: (seat: Seat) => boolean;
   onSeatToggle: (seat: Seat) => void;
+  fitToScreen?: boolean;
 }
 
-export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, onSeatToggle }) => {
+export const SeatMapGrid: React.FC<SeatMapGridProps> = ({
+  seatMap,
+  isSelected,
+  onSeatToggle,
+  fitToScreen = false,
+}) => {
   const { t } = useTranslation();
   // Infer column count from the widest seat number
   const colCount = seatMap.rows.reduce(
@@ -19,10 +25,16 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
     1
   );
 
+  const useTouchMinWidth = !fitToScreen && colCount > 7;
+
   return (
     <div
-      className="grid gap-2 max-w-3xl mx-auto w-full"
-      style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}
+      className={`grid gap-1.5 sm:gap-2 max-w-3xl mx-auto ${useTouchMinWidth ? 'w-max min-w-full md:w-full' : 'w-full'}`}
+      style={{
+        gridTemplateColumns: useTouchMinWidth
+          ? `repeat(${colCount}, minmax(36px, 1fr))`
+          : `repeat(${colCount}, minmax(0, 1fr))`,
+      }}
     >
       {seatMap.rows.flatMap((row) => {
         const cells = [];
@@ -77,12 +89,14 @@ export const SeatMapGrid: React.FC<SeatMapGridProps> = ({ seatMap, isSelected, o
                 type="button"
                 disabled={isDisabled}
                 onClick={() => onSeatToggle(seat)}
-                className={`${baseClass} ${shapeClass} ${spanClass} flex flex-col items-center justify-center text-[8px] font-bold min-w-0 overflow-hidden px-1`}
+                className={`${baseClass} ${shapeClass} ${spanClass} flex flex-col items-center justify-center ${
+                  fitToScreen ? 'text-[8px] px-0.5' : 'text-[10px] sm:text-xs min-h-[36px] sm:min-h-0 px-0.5 sm:px-1'
+                } font-bold min-w-0 overflow-hidden`}
                 title={`${seat.label} • ${seat.type.toUpperCase()}`}
               >
                 <span className={`${selected || seat.status === 'available' ? 'opacity-100' : 'opacity-40'} transition-opacity truncate w-full text-center leading-tight`}>
                   {seat.label}
-                  {isCouple && <span className="block text-[6px] opacity-80">({t('seatMap.couple', 'Couple')})</span>}
+                  {isCouple && <span className={`block ${fitToScreen ? 'text-[6px]' : 'text-[8px] sm:text-[9px]'} opacity-80`}>({t('seatMap.couple', 'Couple')})</span>}
                 </span>
               </button>
             );

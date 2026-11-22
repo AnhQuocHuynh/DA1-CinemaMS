@@ -43,10 +43,10 @@ export const Theaters: React.FC = () => {
   return (
     <div className="min-h-screen bg-surface text-on-surface">
       <SiteTopNav activeLabel="Theaters" showSearch={false} />
-      <main className="pt-20 px-6 pb-12 max-w-[1200px] mx-auto">
-        <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <main className="pt-20 px-4 sm:px-6 pb-24 md:pb-12 max-w-[1200px] mx-auto">
+        <header className="mb-8 sm:mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight">{t('theaters.title', 'Theaters (Coming soon)')}</h1>
+            <h1 className="text-2xl sm:text-4xl font-bold tracking-tight">{t('theaters.title', 'Theaters (Coming soon)')}</h1>
             <p className="text-on-surface-variant mt-2">{t('theaters.description', 'Find what movie is available for each theaters.')}</p>
           </div>
           <Link
@@ -75,12 +75,12 @@ export const Theaters: React.FC = () => {
                 className="rounded-2xl bg-surface-container-lowest border border-outline-variant p-6 shadow-sm flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="min-w-0">
                       <h2 className="text-xl font-semibold text-on-surface">{theater.name}</h2>
                       <p className="text-sm text-on-surface-variant">{theater.city}</p>
                     </div>
-                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary shrink-0">
                       {theater.active ? t('theaters.open', 'Open') : t('theaters.closed', 'Closed')}
                     </span>
                   </div>
@@ -92,7 +92,7 @@ export const Theaters: React.FC = () => {
                   {theater.active ? (
                     <Link
                       to={`/room-rental?cinemaId=${theater.id}`}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                      className="inline-flex items-center gap-1.5 min-h-[44px] py-2 text-xs font-semibold text-primary hover:underline"
                     >
                       <DoorOpen className="w-3.5 h-3.5" />
                       <span>{t('theaters.rentRoom', 'Rent Screening Room')}</span>

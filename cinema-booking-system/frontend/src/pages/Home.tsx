@@ -351,9 +351,9 @@ export const Home: React.FC = () => {
         suggestions={suggestions}
       />
 
-      <main className="pt-16">
+      <main className="pt-16 pb-24 md:pb-12">
         {/* ── Hero ────────────────────────────────────────────────────── */}
-        <section className="relative h-[620px] overflow-hidden bg-inverse-surface">
+        <section className="relative min-h-[440px] md:min-h-[540px] lg:h-[620px] py-10 lg:py-0 overflow-hidden bg-inverse-surface flex items-center">
           {heroCard && (
             <img
               key={heroCard.id}
@@ -369,34 +369,70 @@ export const Home: React.FC = () => {
           )}
           <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent" />
 
-          <div className="relative max-w-[1280px] mx-auto h-full px-6 flex items-center justify-between gap-8 xl:gap-12">
-            <div className="max-w-xl flex-shrink-0">
-              <span className="inline-block px-3 py-1 rounded-sm bg-primary text-on-primary text-[10px] tracking-[0.2em] uppercase font-bold mb-6">
+          <div className="relative max-w-[1280px] mx-auto w-full px-4 sm:px-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6 lg:gap-8 xl:gap-12">
+            <div className="max-w-xl w-full">
+              <span className="inline-block px-3 py-1 rounded-sm bg-primary text-on-primary text-[10px] tracking-[0.2em] uppercase font-bold mb-4 sm:mb-6">
                 {t('home.nowPremiering')}
               </span>
-              <h1 className="text-5xl md:text-6xl font-black text-white tracking-tight leading-tight mb-6 line-clamp-2">
+              <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-tight mb-4 sm:mb-6 line-clamp-2">
                 {heroCard?.title ?? t('home.heroTitleDefault')}
               </h1>
-              <p className="text-inverse-on-surface text-lg leading-relaxed mb-8 line-clamp-3">
+              <p className="text-inverse-on-surface text-sm sm:text-lg leading-relaxed mb-6 sm:mb-8 line-clamp-3">
                 {t('home.heroDesc')}
               </p>
-              <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                 {heroCard && (
                   <Link
                     to={`/movies/${heroCard.id}`}
-                    className="px-7 py-3 rounded-lg bg-primary text-on-primary font-semibold hover:opacity-90 transition-colors"
+                    className="px-5 sm:px-7 py-3 rounded-lg bg-primary text-on-primary text-sm sm:text-base font-semibold hover:opacity-90 transition-colors min-h-[44px] inline-flex items-center"
                   >
                     {t('home.exploreMovie')}
                   </Link>
                 )}
                 <button
                   onClick={() => submitSearch('')}
-                  className="px-7 py-3 rounded-lg bg-surface-container-lowest/10 border border-white/20 text-white font-semibold hover:bg-surface-container-lowest/20 transition-colors"
+                  className="px-5 sm:px-7 py-3 rounded-lg bg-surface-container-lowest/10 border border-white/20 text-white text-sm sm:text-base font-semibold hover:bg-surface-container-lowest/20 transition-colors min-h-[44px]"
                 >
                   {t('home.browseAll')}
                 </button>
               </div>
             </div>
+
+            {heroMovies.length > 1 && (
+              <div className="lg:hidden flex items-center justify-between gap-3 pt-2">
+                <div className="flex items-center gap-1.5">
+                  {heroMovies.map((m, idx) => (
+                    <button
+                      key={`dot-${m.id}`}
+                      type="button"
+                      onClick={() => setCurrentHeroIndex(idx)}
+                      aria-label={m.title}
+                      className={`h-2 rounded-full transition-all ${
+                        idx === currentHeroIndex ? 'w-6 bg-primary' : 'w-2 bg-white/40'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handlePrevHero}
+                    aria-label="Previous"
+                    className="w-10 h-10 rounded-full bg-black/40 text-white flex items-center justify-center border border-white/15"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNextHero}
+                    aria-label="Next"
+                    className="w-10 h-10 rounded-full bg-black/40 text-white flex items-center justify-center border border-white/15"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Carousel Posters (hidden on small screens) */}
             {heroMovies.length > 0 && (
@@ -448,18 +484,18 @@ export const Home: React.FC = () => {
 
         {/* ── Uncertainty top-k for a signed-in user ─────────────────── */}
         {user && topKState !== 'error' && topKState !== 'idle' && (
-          <section id="recommended" className="max-w-[1280px] mx-auto px-6 pt-12">
-            <div className="flex items-end justify-between gap-4 mb-8">
+          <section id="recommended" className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-8 sm:pt-12">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 sm:gap-4 mb-6 sm:mb-8">
               <div>
-                <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-                  <Sparkles className="text-amber-500" size={28} />
+                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
+                  <Sparkles className="text-amber-500 shrink-0" size={24} />
                   {t('home.recommendedForYou', 'Recommended for You')}
                 </h2>
-                <p className="text-on-surface-variant mt-1">
+                <p className="text-sm sm:text-base text-on-surface-variant mt-1">
                   {t('home.recommendedDesc', 'Picks from movies you rated, with a confidence score.')}
                 </p>
               </div>
-              <Link to="/my-ratings" className="text-sm font-semibold text-primary hover:underline">
+              <Link to="/my-ratings" className="text-sm font-semibold text-primary hover:underline shrink-0 min-h-[36px] inline-flex items-center">
                 {t('home.myRatings', 'Movies I rated')}
               </Link>
             </div>
@@ -629,7 +665,7 @@ export const Home: React.FC = () => {
             )}
 
             {topKState === 'ready' && topK.length > 0 && filteredTopK.length === 0 && (
-              <div className="p-8 text-center bg-surface-container-low rounded-xl border border-outline-variant/30 mb-8">
+              <div className="p-6 sm:p-8 text-center bg-surface-container-low rounded-xl border border-outline-variant/30 mb-8">
                 <p className="text-sm font-semibold text-on-surface mb-1">
                   {t('home.noMatchingRecommendations', 'No recommendations match your current filters.')}
                 </p>
@@ -640,7 +676,7 @@ export const Home: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleResetFilters}
-                    className="px-4 py-1.5 bg-primary text-on-primary rounded-lg text-xs font-semibold hover:opacity-90 inline-flex items-center gap-1.5"
+                    className="px-4 py-2 min-h-[36px] bg-primary text-on-primary rounded-lg text-xs font-semibold hover:opacity-90 inline-flex items-center gap-1.5"
                   >
                     <RotateCcw size={12} />
                     {t('home.resetFilters', 'Reset filters')}
@@ -650,13 +686,13 @@ export const Home: React.FC = () => {
             )}
 
             {topKState === 'ready' && filteredTopK.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7 mb-12">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-10 sm:mb-12">
                 {filteredTopK.map((rec) => {
                   const match = Math.round(Math.min(100, Math.max(0, rec.predictedRating * 20)));
                   const confidence = Math.round(Math.min(100, Math.max(0, 100 - rec.uncertaintyScore)));
                   const fullMovie = backendMovies.find(m => m.id === rec.movieId);
                   return (
-                    <article key={rec.movieId} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow">
+                    <article key={rec.movieId} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow flex flex-col">
                       <Link to={`/movies/${rec.movieId}`}>
                         <div className="relative aspect-[2/3] overflow-hidden">
                           <img
@@ -669,13 +705,13 @@ export const Home: React.FC = () => {
                               target.src = genericPoster;
                             }}
                           />
-                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-amber-400 text-xs font-bold border border-white/10">
+                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md text-amber-400 text-[10px] sm:text-xs font-bold border border-white/10">
                             {t('home.match', 'Match')} {match}%
                           </div>
                         </div>
                       </Link>
-                      <div className="p-4 space-y-2">
-                        <Link to={`/movies/${rec.movieId}`} className="font-bold leading-tight hover:opacity-90 line-clamp-1">
+                      <div className="p-3 sm:p-4 space-y-1.5 sm:space-y-2 flex-1">
+                        <Link to={`/movies/${rec.movieId}`} className="font-bold text-sm sm:text-base leading-tight hover:opacity-90 line-clamp-2 block">
                           {rec.title}
                         </Link>
                         {fullMovie && (
@@ -689,7 +725,7 @@ export const Home: React.FC = () => {
                           {t('home.confidence', 'Confidence')} {confidence}%
                         </p>
                         {rec.nearestMovieId != null && rec.nearestMovieTitle && (
-                          <Link to={`/movies/${rec.nearestMovieId}`} className="text-xs text-primary hover:underline line-clamp-2">
+                          <Link to={`/movies/${rec.nearestMovieId}`} className="text-xs text-primary hover:underline line-clamp-2 block">
                             {t('home.becauseRated', { title: rec.nearestMovieTitle })}
                           </Link>
                         )}
@@ -704,27 +740,27 @@ export const Home: React.FC = () => {
 
         {/* ── Neo4j recommendations: guests, or signed-in fallback ──── */}
         {(!user || topKState === 'error') && (recommendations.length > 0 || isLoadingRecs) && (
-          <section id="recommended" className="max-w-[1280px] mx-auto px-6 pt-12">
-            <div className="flex items-end justify-between gap-4 mb-8">
+          <section id="recommended" className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-8 sm:pt-12">
+            <div className="flex flex-wrap items-end justify-between gap-4 mb-6 sm:mb-8">
               <div>
-                <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
                   {user ? (
                     <>
-                      <Sparkles className="text-amber-500" size={28} />
+                      <Sparkles className="text-amber-500 shrink-0" size={24} />
                       {t('home.recommendedForYou', 'Recommended for You')}
                     </>
                   ) : (
                     <>
-                      <TrendingUp className="text-primary" size={28} />
+                      <TrendingUp className="text-primary shrink-0" size={24} />
                       {t('home.popularMovies', 'Popular Movies')}
                     </>
                   )}
                 </h2>
-                <p className="text-on-surface-variant mt-1">
+                <p className="text-sm sm:text-base text-on-surface-variant mt-1">
                   {user ? t('home.recommendedDesc', 'Picks from movies you rated, with a confidence score.') : t('home.popularDesc', 'Trending movies everyone is watching.')}
                 </p>
                 {!user && (
-                  <Link to="/login" className="inline-block text-sm font-semibold text-primary mt-2 hover:underline">
+                  <Link to="/login" className="inline-flex items-center min-h-[36px] text-sm font-semibold text-primary mt-1 hover:underline">
                     {t('home.loginForPersonal', 'Sign in to see picks based on your ratings.')}
                   </Link>
                 )}
@@ -732,11 +768,11 @@ export const Home: React.FC = () => {
             </div>
 
             {isLoadingRecs && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7 mb-7">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-7">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant animate-pulse">
                     <div className="aspect-[2/3] bg-surface-container-high" />
-                    <div className="p-4 space-y-2">
+                    <div className="p-3 sm:p-4 space-y-2">
                       <div className="h-4 bg-surface-container-high rounded w-3/4" />
                       <div className="h-3 bg-surface-container rounded w-1/2" />
                       <div className="h-3 bg-surface-container rounded w-2/3" />
@@ -747,7 +783,7 @@ export const Home: React.FC = () => {
             )}
 
             {!isLoadingRecs && recommendations.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7 mb-12">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-10 sm:mb-12">
                 {recommendations.map((rec) => {
                   // Find full movie details from backendMovies, if missing just use fallback metadata
                   const fullMovie = backendMovies.find(m => m.id === rec.movieId);
@@ -799,9 +835,9 @@ export const Home: React.FC = () => {
                         </div>
                       </Link>
 
-                      <div className="p-4 space-y-2">
-                        <div className="flex items-start justify-between gap-3">
-                          <Link to={`/movies/${card.id}`} className="font-bold leading-tight hover:opacity-90 transition-colors line-clamp-1">
+                      <div className="p-3 sm:p-4 space-y-1.5 sm:space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <Link to={`/movies/${card.id}`} className="font-bold text-sm sm:text-base leading-tight hover:opacity-90 transition-colors line-clamp-2">
                             {card.title}
                           </Link>
                         </div>
@@ -811,12 +847,12 @@ export const Home: React.FC = () => {
                         {!card.durationMinutes && (
                           <p className="text-xs text-on-surface-variant line-clamp-1">{card.genre}</p>
                         )}
-                        <p className="text-sm text-on-surface-variant">{card.firstShowLabel}</p>
-                        <p className="text-sm text-on-surface-variant">{card.theaterName}</p>
-                        <div className="pt-2 flex items-center justify-between">
+                        <p className="text-xs sm:text-sm text-on-surface-variant truncate">{card.firstShowLabel}</p>
+                        <p className="text-xs sm:text-sm text-on-surface-variant truncate">{card.theaterName}</p>
+                        <div className="pt-1 sm:pt-2 flex flex-wrap items-center justify-between gap-2">
                           <span className="text-xs font-semibold text-on-surface-variant">{fullMovie?.ageRating || ''}</span>
                           {fullMovie && <RatingBadge type="movie" id={fullMovie.id} />}
-                          <Link to={`/movies/${card.id}`} className="text-sm font-semibold text-primary hover:underline">
+                          <Link to={`/movies/${card.id}`} className="text-xs sm:text-sm font-semibold text-primary hover:underline min-h-[36px] inline-flex items-center">
                             {t('home.detailsAndBook')}
                           </Link>
                         </div>
@@ -830,23 +866,23 @@ export const Home: React.FC = () => {
         )}
 
         {/* ── Current Screenings ─────────────────────────────────────── */}
-        <section id="movies" className="max-w-[1280px] mx-auto px-6 py-12">
-          <div className="flex items-end justify-between gap-4 mb-8">
+        <section id="movies" className="max-w-[1280px] mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 sm:gap-4 mb-6 sm:mb-8">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">{t('home.currentScreenings')}</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">{t('home.currentScreenings')}</h2>
             </div>
-            <button onClick={() => submitSearch('')} className="text-sm font-semibold text-primary hover:underline">
+            <button onClick={() => submitSearch('')} className="text-sm font-semibold text-primary hover:underline shrink-0 min-h-[36px] inline-flex items-center">
               {t('home.viewFullSchedule')}
             </button>
           </div>
 
           {/* Loading skeleton */}
           {isLoadingBackend && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7 mb-7">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-7">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant animate-pulse">
                   <div className="aspect-[2/3] bg-surface-container-high" />
-                  <div className="p-4 space-y-2">
+                  <div className="p-3 sm:p-4 space-y-2">
                     <div className="h-4 bg-surface-container-high rounded w-3/4" />
                     <div className="h-3 bg-surface-container rounded w-1/2" />
                     <div className="h-3 bg-surface-container rounded w-2/3" />
@@ -863,11 +899,11 @@ export const Home: React.FC = () => {
                 <Film size={16} className="text-primary" />
                 <span className="text-xs font-bold tracking-widest uppercase text-primary">{t('home.fromCinema')}</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7 mb-12">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-10 sm:mb-12">
                 {backendMovies.map((movie) => {
                   const card = backendToCard(movie, t);
                   return (
-                    <article key={card.id} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow">
+                    <article key={card.id} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow flex flex-col">
                       <Link to={`/movies/${card.id}`}>
                         <div className="relative aspect-[2/3] overflow-hidden">
                           <img
@@ -888,20 +924,20 @@ export const Home: React.FC = () => {
                         </div>
                       </Link>
 
-                      <div className="p-4 space-y-2">
-                        <div className="flex items-start justify-between gap-3">
-                          <Link to={`/movies/${card.id}`} className="font-bold leading-tight hover:opacity-90 transition-colors">
+                      <div className="p-3 sm:p-4 space-y-1.5 sm:space-y-2 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <Link to={`/movies/${card.id}`} className="font-bold text-sm sm:text-base leading-tight hover:opacity-90 transition-colors line-clamp-2">
                             {card.title}
                           </Link>
                         </div>
 
-                        <p className="text-xs text-on-surface-variant">{card.genre} – {formatDuration(card.durationMinutes)}</p>
-                        <p className="text-sm text-on-surface-variant">{card.firstShowLabel}</p>
-                        <p className="text-sm text-on-surface-variant">{card.theaterName}</p>
-                        <div className="pt-2 flex items-center justify-between">
+                        <p className="text-xs text-on-surface-variant line-clamp-1">{card.genre} – {formatDuration(card.durationMinutes)}</p>
+                        <p className="text-xs sm:text-sm text-on-surface-variant truncate">{card.firstShowLabel}</p>
+                        <p className="text-xs sm:text-sm text-on-surface-variant truncate">{card.theaterName}</p>
+                        <div className="pt-1 sm:pt-2 flex flex-wrap items-center justify-between gap-2">
                           <span className="text-xs font-semibold text-on-surface-variant">{movie.ageRating}</span>
                           <RatingBadge type="movie" id={movie.id} />
-                          <Link to={`/movies/${card.id}`} className="text-sm font-semibold text-primary hover:underline">
+                          <Link to={`/movies/${card.id}`} className="text-xs sm:text-sm font-semibold text-primary hover:underline min-h-[36px] inline-flex items-center">
                             {t('home.detailsAndBook')}
                           </Link>
                         </div>
@@ -915,18 +951,18 @@ export const Home: React.FC = () => {
 
           {/* ── Mock movies section (remove this block when backend is complete) ── */}
           {/* TODO: REMOVE THIS ENTIRE BLOCK once backend movie data is sufficient */}
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
             <Star size={16} className="text-amber-500" />
             <span className="text-xs font-bold tracking-widest uppercase text-amber-600">Featured Showcase</span>
-            <span className="text-[10px] text-on-surface-variant ml-2">(mock data – remove later)</span>
+            <span className="text-[10px] text-on-surface-variant sm:ml-2">(mock data – remove later)</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
             {mockMovies.map((movie) => {
               const firstShow = movie.showtimes[0];
               const endTime = calculateEndTime(firstShow.startTime, movie.durationMinutes);
 
               return (
-                <article key={movie.id} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow">
+                <article key={movie.id} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow flex flex-col">
                   <Link to={`/movies/${movie.id}`}>
                     <div className="relative aspect-[2/3] overflow-hidden">
                       <img
@@ -942,22 +978,22 @@ export const Home: React.FC = () => {
                     </div>
                   </Link>
 
-                  <div className="p-4 space-y-2">
-                    <div className="flex items-start justify-between gap-3">
-                      <Link to={`/movies/${movie.id}`} className="font-bold leading-tight hover:opacity-90 transition-colors">
+                  <div className="p-3 sm:p-4 space-y-1.5 sm:space-y-2 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <Link to={`/movies/${movie.id}`} className="font-bold text-sm sm:text-base leading-tight hover:opacity-90 transition-colors line-clamp-2">
                         {movie.title}
                       </Link>
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600">
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 shrink-0">
                         <Star size={13} className="fill-amber-400 text-amber-400" /> {movie.rating}
                       </span>
                     </div>
 
-                    <p className="text-xs text-on-surface-variant">{movie.genre} - {formatDuration(movie.durationMinutes)}</p>
-                    <p className="text-sm text-on-surface-variant">{firstShow.startTime} - {endTime}</p>
-                    <p className="text-sm text-on-surface-variant">{firstShow.theaterName}</p>
-                    <div className="pt-2 flex items-center justify-between">
-                      <span className="text-lg font-black">${firstShow.price.toFixed(2)}</span>
-                      <Link to={`/movies/${movie.id}`} className="text-sm font-semibold text-primary hover:underline">
+                    <p className="text-xs text-on-surface-variant line-clamp-1">{movie.genre} - {formatDuration(movie.durationMinutes)}</p>
+                    <p className="text-xs sm:text-sm text-on-surface-variant truncate">{firstShow.startTime} - {endTime}</p>
+                    <p className="text-xs sm:text-sm text-on-surface-variant truncate">{firstShow.theaterName}</p>
+                    <div className="pt-1 sm:pt-2 flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm sm:text-lg font-black">${firstShow.price.toFixed(2)}</span>
+                      <Link to={`/movies/${movie.id}`} className="text-xs sm:text-sm font-semibold text-primary hover:underline min-h-[36px] inline-flex items-center">
                         {t('home.details')}
                       </Link>
                     </div>
@@ -970,13 +1006,13 @@ export const Home: React.FC = () => {
 
           {/* ── Upcoming Events ───────────────────────────────────────── */}
           {events.length > 0 && (
-            <div className="mt-16">
+            <div className="mt-12 sm:mt-16">
               <div className="flex items-center gap-2 mb-4 mt-8">
                 <span className="text-xs font-bold tracking-widest uppercase text-on-surface-variant">{t('home.simulated')}</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
                 {events.map((event) => (
-                  <article key={event.id} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow">
+                  <article key={event.id} className="group rounded-xl overflow-hidden bg-surface-container-lowest border border-outline-variant hover:shadow-xl transition-shadow flex flex-col">
                     <Link to={`/events/${event.id}`}>
                       <div className="relative aspect-[2/3] overflow-hidden">
                         <img
@@ -992,18 +1028,18 @@ export const Home: React.FC = () => {
                       </div>
                     </Link>
 
-                    <div className="p-4 space-y-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <Link to={`/events/${event.id}`} className="font-bold leading-tight hover:text-amber-600 transition-colors">
+                    <div className="p-3 sm:p-4 space-y-1.5 sm:space-y-2 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <Link to={`/events/${event.id}`} className="font-bold text-sm sm:text-base leading-tight hover:text-amber-600 transition-colors line-clamp-2">
                           {event.name}
                         </Link>
                       </div>
                       <p className="text-xs text-on-surface-variant">{t('home.specialEvent')}</p>
                       <RatingBadge type="event" id={event.id} />
-                      <p className="text-sm text-on-surface-variant">{new Date(event.startTime).toLocaleDateString('vi-VN')} - {new Date(event.endTime).toLocaleDateString('vi-VN')}</p>
-                      <p className="text-sm text-on-surface-variant">{event.venue}</p>
-                      <div className="pt-2 flex items-center justify-between">
-                        <Link to={`/events/${event.id}`} className="text-sm font-semibold text-amber-600 hover:underline">
+                      <p className="text-xs sm:text-sm text-on-surface-variant truncate">{new Date(event.startTime).toLocaleDateString('vi-VN')} - {new Date(event.endTime).toLocaleDateString('vi-VN')}</p>
+                      <p className="text-xs sm:text-sm text-on-surface-variant truncate">{event.venue}</p>
+                      <div className="pt-1 sm:pt-2 flex flex-wrap items-center justify-between gap-2">
+                        <Link to={`/events/${event.id}`} className="text-xs sm:text-sm font-semibold text-amber-600 hover:underline min-h-[36px] inline-flex items-center">
                           {t('home.detailsAndBook')}
                         </Link>
                       </div>

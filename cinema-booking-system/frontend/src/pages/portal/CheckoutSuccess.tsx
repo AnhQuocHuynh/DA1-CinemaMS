@@ -222,14 +222,14 @@ export const CheckoutSuccess: React.FC = () => {
   };
 
   return (
-    <main className="min-h-screen bg-surface flex items-center justify-center px-6 py-20">
-      <div className="max-w-2xl w-full bg-surface-container-lowest rounded-2xl shadow-xl p-10 text-center">
+    <main className="min-h-screen bg-surface flex items-center justify-center px-4 py-10 sm:px-6 sm:py-20">
+      <div className="max-w-2xl w-full bg-surface-container-lowest rounded-2xl shadow-xl p-5 sm:p-10 text-center">
         {/* Success icon */}
         <div className="flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 text-primary mx-auto mb-2 animate-bounce-once">
           <CheckCircle className="w-10 h-10" />
         </div>
 
-        <h1 className="text-3xl font-bold tracking-tight mt-6 text-on-surface">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-6 text-on-surface">
           {t('checkoutSuccess.title')}
         </h1>
         {isVerifying && (
@@ -249,19 +249,19 @@ export const CheckoutSuccess: React.FC = () => {
         )}
 
         {/* Booking info card */}
-        <div className="mt-8 bg-surface-container-low p-6 rounded-xl text-left">
-          <div className="flex items-center justify-between mb-4">
+        <div className="mt-6 sm:mt-8 bg-surface-container-low p-4 sm:p-6 rounded-xl text-left">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <div>
               <p className="text-[10px] uppercase tracking-widest text-on-surface-variant">
                 {t('checkoutSuccess.orderId')}
               </p>
               <p className="text-lg font-bold text-on-surface">#{completedOrder.id}</p>
             </div>
-            <span className="px-3 py-1 bg-primary text-on-primary text-[10px] uppercase tracking-widest rounded font-bold">
+            <span className="px-3 py-1 bg-primary text-on-primary text-[10px] uppercase tracking-widest rounded font-bold shrink-0">
               {t('checkoutSuccess.paid')}
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-on-surface-variant mb-1">{t('checkoutSuccess.movie')}</p>
               <p className="font-semibold text-on-surface">{displayMovie}</p>
@@ -302,7 +302,7 @@ export const CheckoutSuccess: React.FC = () => {
         </div>
 
         {/* Action buttons */}
-        <div className="mt-8 flex flex-col md:flex-row gap-4">
+        <div className="mt-8 flex flex-col lg:flex-row gap-3 sm:gap-4">
           {firstTicketCode ? (
             <Link
               to={`/user/tickets/${firstTicketCode}`}

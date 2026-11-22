@@ -32,7 +32,7 @@ export const LanguageSwitcher: React.FC = () => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-center gap-1.5 w-[76px] h-9 shrink-0 rounded-full bg-surface-container-high hover:bg-surface-container-highest transition-colors text-sm font-semibold text-on-surface"
+        className="flex items-center justify-center gap-1.5 w-[76px] h-10 shrink-0 rounded-full bg-surface-container-high hover:bg-surface-container-highest transition-colors text-sm font-semibold text-on-surface"
         title={isVi ? 'Đổi ngôn ngữ' : 'Switch Language'}
       >
         <span className="flex items-center justify-center w-4 h-4 shrink-0">

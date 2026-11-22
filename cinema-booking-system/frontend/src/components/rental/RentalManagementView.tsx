@@ -88,6 +88,16 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
   const [rejectError, setRejectError] = useState<string | null>(null);
   const [isRejecting, setIsRejecting] = useState<boolean>(false);
 
+  // Confirm modal state (replaces blocking window.confirm)
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    tone?: 'primary' | 'danger' | 'amber';
+    onConfirm: () => Promise<void>;
+  } | null>(null);
+  const [isConfirmBusy, setIsConfirmBusy] = useState(false);
+
   // Lookup dictionaries
   const cinemaMap = useMemo<Record<number, CinemaWithRoomsResponse>>(() => {
     const map: Record<number, CinemaWithRoomsResponse> = {};
@@ -286,107 +296,119 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
     }
   };
 
-  const handleConfirmCashPayment = async (rental: RentalView) => {
-    const confirmed = window.confirm(
-      t('rentalManagement.confirmCashPrompt', 'Confirm receipt of cash payment for Rental #RN-{{id}} ({{amount}})?', {
+  const handleConfirmCashPayment = (rental: RentalView) => {
+    setConfirmModal({
+      title: t('rentalManagement.confirmCash', 'Confirm Counter Cash'),
+      message: t('rentalManagement.confirmCashPrompt', 'Confirm receipt of cash payment for Rental #RN-{{id}} ({{amount}})?', {
         id: rental.id,
         amount: formatVND(rental.totalAmount),
-      })
-    );
-    if (!confirmed) return;
-
-    setRowLoading(rental.id, true);
-    try {
-      await rentalService.pay(rental.id, 'CASH');
-      addToast(
-        t('rentalManagement.paySuccess', 'Cash payment confirmed for Rental #RN-{{id}}.', { id: rental.id }),
-        'success'
-      );
-      await loadData();
-    } catch (err: any) {
-      console.error('Failed to process cash payment', err);
-      addToast(err?.response?.data?.message || t('rentalManagement.payError', 'Failed to process cash payment.'), 'error');
-    } finally {
-      setRowLoading(rental.id, false);
-    }
+      }),
+      confirmLabel: t('rentalManagement.confirmCash', 'Confirm Counter Cash'),
+      tone: 'primary',
+      onConfirm: async () => {
+        setRowLoading(rental.id, true);
+        try {
+          await rentalService.pay(rental.id, 'CASH');
+          addToast(
+            t('rentalManagement.paySuccess', 'Cash payment confirmed for Rental #RN-{{id}}.', { id: rental.id }),
+            'success'
+          );
+          await loadData();
+        } catch (err: any) {
+          console.error('Failed to process cash payment', err);
+          addToast(err?.response?.data?.message || t('rentalManagement.payError', 'Failed to process cash payment.'), 'error');
+        } finally {
+          setRowLoading(rental.id, false);
+        }
+      },
+    });
   };
 
-  const handleCancelAwaiting = async (rental: RentalView) => {
-    const confirmed = window.confirm(
-      t('rentalManagement.confirmCancelAwaiting', 'Are you sure you want to cancel Rental #RN-{{id}}?', {
+  const handleCancelAwaiting = (rental: RentalView) => {
+    setConfirmModal({
+      title: t('rentalManagement.cancel', 'Cancel'),
+      message: t('rentalManagement.confirmCancelAwaiting', 'Are you sure you want to cancel Rental #RN-{{id}}?', {
         id: rental.id,
-      })
-    );
-    if (!confirmed) return;
-
-    setRowLoading(rental.id, true);
-    try {
-      await rentalService.cancel(rental.id);
-      addToast(
-        t('rentalManagement.cancelSuccess', 'Rental #RN-{{id}} has been cancelled.', { id: rental.id }),
-        'success'
-      );
-      await loadData();
-    } catch (err: any) {
-      console.error('Failed to cancel rental', err);
-      addToast(err?.response?.data?.message || t('rentalManagement.cancelError', 'Failed to cancel rental.'), 'error');
-    } finally {
-      setRowLoading(rental.id, false);
-    }
+      }),
+      confirmLabel: t('rentalManagement.cancel', 'Cancel'),
+      tone: 'danger',
+      onConfirm: async () => {
+        setRowLoading(rental.id, true);
+        try {
+          await rentalService.cancel(rental.id);
+          addToast(
+            t('rentalManagement.cancelSuccess', 'Rental #RN-{{id}} has been cancelled.', { id: rental.id }),
+            'success'
+          );
+          await loadData();
+        } catch (err: any) {
+          console.error('Failed to cancel rental', err);
+          addToast(err?.response?.data?.message || t('rentalManagement.cancelError', 'Failed to cancel rental.'), 'error');
+        } finally {
+          setRowLoading(rental.id, false);
+        }
+      },
+    });
   };
 
-  const handleCancelConfirmed = async (rental: RentalView) => {
-    const confirmed = window.confirm(
-      t(
+  const handleCancelConfirmed = (rental: RentalView) => {
+    setConfirmModal({
+      title: t('rentalManagement.cancelIssueRefund', 'Cancel (Issue Refund)'),
+      message: t(
         'rentalManagement.confirmCancelConfirmed',
         'Are you sure you want to cancel confirmed Rental #RN-{{id}}? This will cancel the booking and initiate a refund request.',
         { id: rental.id }
-      )
-    );
-    if (!confirmed) return;
-
-    setRowLoading(rental.id, true);
-    try {
-      await rentalService.cancel(rental.id);
-      addToast(
-        t('rentalManagement.cancelRefundSuccess', 'Rental #RN-{{id}} cancelled. Refund is now pending.', {
-          id: rental.id,
-        }),
-        'success'
-      );
-      await loadData();
-    } catch (err: any) {
-      console.error('Failed to cancel confirmed rental', err);
-      addToast(err?.response?.data?.message || t('rentalManagement.cancelError', 'Failed to cancel rental.'), 'error');
-    } finally {
-      setRowLoading(rental.id, false);
-    }
+      ),
+      confirmLabel: t('rentalManagement.cancelIssueRefund', 'Cancel (Issue Refund)'),
+      tone: 'amber',
+      onConfirm: async () => {
+        setRowLoading(rental.id, true);
+        try {
+          await rentalService.cancel(rental.id);
+          addToast(
+            t('rentalManagement.cancelRefundSuccess', 'Rental #RN-{{id}} cancelled. Refund is now pending.', {
+              id: rental.id,
+            }),
+            'success'
+          );
+          await loadData();
+        } catch (err: any) {
+          console.error('Failed to cancel confirmed rental', err);
+          addToast(err?.response?.data?.message || t('rentalManagement.cancelError', 'Failed to cancel rental.'), 'error');
+        } finally {
+          setRowLoading(rental.id, false);
+        }
+      },
+    });
   };
 
-  const handleCompleteRefund = async (rental: RentalView) => {
+  const handleCompleteRefund = (rental: RentalView) => {
     const refundAmount = rental.refundAmount ?? rental.totalAmount;
-    const confirmed = window.confirm(
-      t('rentalManagement.confirmCompleteRefund', 'Mark refund as completed for Rental #RN-{{id}} ({{amount}})?', {
+    setConfirmModal({
+      title: t('rentalManagement.completeRefund', 'Complete Refund'),
+      message: t('rentalManagement.confirmCompleteRefund', 'Mark refund as completed for Rental #RN-{{id}} ({{amount}})?', {
         id: rental.id,
         amount: formatVND(refundAmount),
-      })
-    );
-    if (!confirmed) return;
-
-    setRowLoading(rental.id, true);
-    try {
-      await rentalService.completeRefund(rental.id);
-      addToast(
-        t('rentalManagement.refundCompletedSuccess', 'Refund completed for Rental #RN-{{id}}.', { id: rental.id }),
-        'success'
-      );
-      await loadData();
-    } catch (err: any) {
-      console.error('Failed to complete refund', err);
-      addToast(err?.response?.data?.message || t('rentalManagement.refundError', 'Failed to complete refund.'), 'error');
-    } finally {
-      setRowLoading(rental.id, false);
-    }
+      }),
+      confirmLabel: t('rentalManagement.completeRefund', 'Complete Refund'),
+      tone: 'primary',
+      onConfirm: async () => {
+        setRowLoading(rental.id, true);
+        try {
+          await rentalService.completeRefund(rental.id);
+          addToast(
+            t('rentalManagement.refundCompletedSuccess', 'Refund completed for Rental #RN-{{id}}.', { id: rental.id }),
+            'success'
+          );
+          await loadData();
+        } catch (err: any) {
+          console.error('Failed to complete refund', err);
+          addToast(err?.response?.data?.message || t('rentalManagement.refundError', 'Failed to complete refund.'), 'error');
+        } finally {
+          setRowLoading(rental.id, false);
+        }
+      },
+    });
   };
 
   // Status Badge Renderer
@@ -560,7 +582,7 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
                       </p>
                     )}
                   </div>
-                  <div className="mt-2 pt-2 border-t border-outline-variant/10 flex items-center justify-between text-xs">
+                  <div className="mt-2 pt-2 border-t border-outline-variant/10 flex flex-wrap items-center justify-between gap-1 text-xs">
                     <span className="text-[10px] text-on-surface-variant">
                       {b.count} {t('rentalManagement.bookings', 'bookings')}
                     </span>
@@ -590,7 +612,7 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
                   setSelectedCinemaId(e.target.value);
                   setSelectedRoomId('ALL');
                 }}
-                className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/40 rounded-lg text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
+                className="w-full min-h-[40px] px-3 py-2 bg-surface-container-low border border-outline-variant/40 rounded-lg text-base sm:text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
                 <option value="ALL">{t('rentalManagement.allCinemas', 'All Cinemas')}</option>
                 {cinemas.map((c) => (
@@ -601,12 +623,12 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
               </select>
             </div>
           ) : (
-            <div className="flex flex-col justify-center min-w-[180px]">
+            <div className="flex-1 flex flex-col justify-center min-w-[180px]">
               <label className="block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">
                 {t('rentalManagement.venueScope', 'Venue Scope')}
               </label>
               <div
-                className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 rounded-lg border border-primary/20 text-xs font-semibold text-primary"
+                className="flex items-center gap-1.5 min-h-[40px] px-3 py-2 bg-primary/10 rounded-lg border border-primary/20 text-xs font-semibold text-primary"
                 title={staffCinemaName}
               >
                 <Building2 className="w-3.5 h-3.5 shrink-0" />
@@ -623,7 +645,7 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
             <select
               value={selectedRoomId}
               onChange={(e) => setSelectedRoomId(e.target.value)}
-              className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/40 rounded-lg text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full min-h-[40px] px-3 py-2 bg-surface-container-low border border-outline-variant/40 rounded-lg text-base sm:text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
               <option value="ALL">{t('rentalManagement.allRooms', 'All Rooms')}</option>
               {filteredRooms.map((r) => (
@@ -642,7 +664,7 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/40 rounded-lg text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full min-h-[40px] px-3 py-2 bg-surface-container-low border border-outline-variant/40 rounded-lg text-base sm:text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
               <option value="ALL">{t('rentalManagement.statusAll', 'All Statuses')}</option>
               <option value="PENDING_APPROVAL">{t('rentalStatus.pendingApproval', 'Pending Approval')}</option>
@@ -655,7 +677,7 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
           </div>
 
           {/* From Date */}
-          <div className="min-w-[140px]">
+          <div className="flex-1 min-w-[140px]">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">
               {t('rentalManagement.filterFromDate', 'From Date')}
             </label>
@@ -663,12 +685,12 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="w-full px-3 py-1.5 bg-surface-container-low border border-outline-variant/40 rounded-lg text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full min-h-[40px] px-3 py-1.5 bg-surface-container-low border border-outline-variant/40 rounded-lg text-base sm:text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
 
           {/* To Date */}
-          <div className="min-w-[140px]">
+          <div className="flex-1 min-w-[140px]">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">
               {t('rentalManagement.filterToDate', 'To Date')}
             </label>
@@ -676,16 +698,16 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="w-full px-3 py-1.5 bg-surface-container-low border border-outline-variant/40 rounded-lg text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full min-h-[40px] px-3 py-1.5 bg-surface-container-low border border-outline-variant/40 rounded-lg text-base sm:text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
 
           {/* Reset & Refresh */}
-          <div className="flex items-end gap-2 pt-5">
+          <div className="flex items-end gap-2 pt-0 sm:pt-5 w-full sm:w-auto">
             <button
               type="button"
               onClick={handleResetFilters}
-              className="px-3 py-2 rounded-lg text-xs font-semibold bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors"
+              className="flex-1 sm:flex-none min-h-[40px] px-3 py-2 rounded-lg text-xs font-semibold bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors"
               title={t('rentalManagement.resetFilters', 'Reset filters')}
             >
               {t('rentalManagement.reset', 'Reset')}
@@ -694,7 +716,7 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
               type="button"
               onClick={() => loadData()}
               disabled={isLoading}
-              className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-primary text-on-primary hover:brightness-110 transition-all flex items-center gap-1.5 disabled:opacity-50"
+              className="flex-1 sm:flex-none min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-semibold bg-primary text-on-primary hover:brightness-110 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
               title={t('rentalManagement.refresh', 'Refresh list')}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
@@ -704,8 +726,134 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
         </div>
       </div>
 
-      {/* Actionable Rentals Table */}
-      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm overflow-hidden">
+      {/* Mobile Rentals Cards (< md) */}
+      <div className="md:hidden space-y-3">
+        {isLoading ? (
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-8 text-center text-on-surface-variant">
+            <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
+            <span className="text-xs">{t('rentalManagement.loadingRentals', 'Loading room rentals...')}</span>
+          </div>
+        ) : rentals.length === 0 ? (
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-8 text-center text-on-surface-variant">
+            <p className="text-sm font-medium">{t('rentalManagement.emptyState', 'No room rentals found matching current filters.')}</p>
+            <p className="text-xs text-on-surface-variant/70 mt-1">
+              {t('rentalManagement.emptyStateHint', 'Try adjusting your date range or filter criteria.')}
+            </p>
+          </div>
+        ) : (
+          rentals.map((rental) => {
+            const cinema = cinemaMap[rental.cinemaId];
+            const room = roomMap[rental.roomId];
+            const movie = rental.movieId ? movieMap[rental.movieId] : null;
+            const isActionBusy = Boolean(rowActionLoading[rental.id]);
+            const canCancelConfirmed = canStaffCancelConfirmed(rental.startTime);
+
+            return (
+              <article
+                key={`mobile-rental-${rental.id}`}
+                className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-4 shadow-sm space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-mono font-bold text-sm text-on-surface">#RN-{rental.id}</p>
+                    <p className="text-xs text-on-surface-variant">{t('rentalManagement.user', 'User')} #{rental.userId}</p>
+                  </div>
+                  {renderStatusBadge(rental)}
+                </div>
+
+                <div className="space-y-1 text-xs">
+                  <p className="font-semibold text-on-surface">
+                    {cinema?.name || `${t('rentalManagement.cinema', 'Cinema')} #${rental.cinemaId}`} •{' '}
+                    {room?.name || `${t('rentalManagement.room', 'Room')} #${rental.roomId}`}
+                  </p>
+                  <p className="text-on-surface-variant">{formatSchedule(rental.startTime, rental.endTime)}</p>
+                  {rental.movieId && (
+                    <p className="text-primary font-medium truncate">
+                      {movie?.title || `${t('rentalManagement.movie', 'Movie')} #${rental.movieId}`}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-outline-variant/20 text-xs">
+                  <span className="font-bold text-sm text-on-surface">{formatVND(rental.totalAmount)}</span>
+                  <span className="text-on-surface-variant">{formatVND(rental.pricePerHour)}/hr</span>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {rental.status === 'PENDING_APPROVAL' && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={isActionBusy}
+                        onClick={() => handleApprove(rental)}
+                        className="flex-1 min-h-[40px] px-3 py-2 rounded-lg text-xs font-bold bg-emerald-600 text-white flex items-center justify-center gap-1 disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>{t('rentalManagement.approve', 'Approve')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isActionBusy}
+                        onClick={() => handleOpenReject(rental)}
+                        className="flex-1 min-h-[40px] px-3 py-2 rounded-lg text-xs font-bold bg-rose-600/10 text-rose-600 border border-rose-500/30 flex items-center justify-center gap-1 disabled:opacity-50"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>{t('rentalManagement.reject', 'Reject')}</span>
+                      </button>
+                    </>
+                  )}
+                  {rental.status === 'AWAITING_PAYMENT' && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={isActionBusy}
+                        onClick={() => handleConfirmCashPayment(rental)}
+                        className="flex-1 min-h-[40px] px-3 py-2 rounded-lg text-xs font-bold bg-primary text-on-primary flex items-center justify-center gap-1 disabled:opacity-50"
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        <span>{t('rentalManagement.confirmCash', 'Confirm Counter Cash')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isActionBusy}
+                        onClick={() => handleCancelAwaiting(rental)}
+                        className="min-h-[40px] px-3 py-2 rounded-lg text-xs font-semibold text-rose-600 border border-rose-500/20 disabled:opacity-50"
+                      >
+                        {t('rentalManagement.cancel', 'Cancel')}
+                      </button>
+                    </>
+                  )}
+                  {rental.status === 'CONFIRMED' && canCancelConfirmed && (
+                    <button
+                      type="button"
+                      disabled={isActionBusy}
+                      onClick={() => handleCancelConfirmed(rental)}
+                      className="w-full min-h-[40px] px-3 py-2 rounded-lg text-xs font-bold bg-amber-600/10 text-amber-700 border border-amber-500/30 flex items-center justify-center gap-1 disabled:opacity-50"
+                    >
+                      <Ban className="w-3.5 h-3.5" />
+                      <span>{t('rentalManagement.cancelIssueRefund', 'Cancel (Issue Refund)')}</span>
+                    </button>
+                  )}
+                  {rental.status === 'CANCELLED' && rental.refundStatus === 'PENDING' && (
+                    <button
+                      type="button"
+                      disabled={isActionBusy}
+                      onClick={() => handleCompleteRefund(rental)}
+                      className="w-full min-h-[40px] px-3 py-2 rounded-lg text-xs font-bold bg-indigo-600 text-white flex items-center justify-center gap-1 disabled:opacity-50"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>{t('rentalManagement.completeRefund', 'Complete Refund')}</span>
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })
+        )}
+      </div>
+
+      {/* Actionable Rentals Table (>= md) */}
+      <div className="hidden md:block bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -816,7 +964,7 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
                                 type="button"
                                 disabled={isActionBusy}
                                 onClick={() => handleApprove(rental)}
-                                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center gap-1 disabled:opacity-50"
+                                className="min-h-[40px] px-3 py-2 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center gap-1 disabled:opacity-50"
                               >
                                 {isActionBusy ? (
                                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -829,7 +977,7 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
                                 type="button"
                                 disabled={isActionBusy}
                                 onClick={() => handleOpenReject(rental)}
-                                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-600/10 hover:bg-rose-600/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition-colors flex items-center gap-1 disabled:opacity-50"
+                                className="min-h-[40px] px-3 py-2 rounded-lg text-xs font-bold bg-rose-600/10 hover:bg-rose-600/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition-colors flex items-center gap-1 disabled:opacity-50"
                               >
                                 <XCircle className="w-3 h-3" />
                                 <span>{t('rentalManagement.reject', 'Reject')}</span>
@@ -844,7 +992,7 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
                                 type="button"
                                 disabled={isActionBusy}
                                 onClick={() => handleConfirmCashPayment(rental)}
-                                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-primary text-on-primary hover:brightness-110 transition-all flex items-center gap-1 disabled:opacity-50"
+                                className="min-h-[40px] px-3 py-2 rounded-lg text-xs font-bold bg-primary text-on-primary hover:brightness-110 transition-all flex items-center gap-1 disabled:opacity-50"
                               >
                                 {isActionBusy ? (
                                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -857,7 +1005,7 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
                                 type="button"
                                 disabled={isActionBusy}
                                 onClick={() => handleCancelAwaiting(rental)}
-                                className="px-3 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
+                                className="min-h-[40px] px-3 py-2 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
                               >
                                 <span>{t('rentalManagement.cancel', 'Cancel')}</span>
                               </button>
@@ -872,7 +1020,7 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
                                   type="button"
                                   disabled={isActionBusy}
                                   onClick={() => handleCancelConfirmed(rental)}
-                                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600/10 hover:bg-amber-600/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition-colors flex items-center gap-1 disabled:opacity-50"
+                                  className="min-h-[40px] px-3 py-2 rounded-lg text-xs font-bold bg-amber-600/10 hover:bg-amber-600/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition-colors flex items-center gap-1 disabled:opacity-50"
                                 >
                                   {isActionBusy ? (
                                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -895,7 +1043,7 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
                               type="button"
                               disabled={isActionBusy}
                               onClick={() => handleCompleteRefund(rental)}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors flex items-center gap-1 disabled:opacity-50"
+                              className="min-h-[40px] px-3 py-2 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors flex items-center gap-1 disabled:opacity-50"
                             >
                               {isActionBusy ? (
                                 <Loader2 className="w-3 h-3 animate-spin" />
@@ -927,12 +1075,12 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
       {/* Rejection Modal */}
       {rejectingRental && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-up">
-            <div className="px-6 py-5 border-b border-surface-container flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-lg text-on-surface flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-rose-500" />
-                  {t('rentalManagement.rejectModalTitle', 'Reject Rental Request')}
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto shadow-2xl animate-scale-up">
+            <div className="px-5 py-4 sm:px-6 sm:py-5 border-b border-surface-container flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="font-bold text-base sm:text-lg text-on-surface flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0" />
+                  <span className="truncate">{t('rentalManagement.rejectModalTitle', 'Reject Rental Request')}</span>
                 </h3>
                 <p className="text-xs text-on-surface-variant mt-0.5">
                   {t('rentalManagement.rejectModalSubtitle', 'Rental #RN-{{id}} • User #{{userId}}', {
@@ -944,13 +1092,13 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
               <button
                 type="button"
                 onClick={() => setRejectingRental(null)}
-                className="p-1 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors"
+                className="min-w-[40px] min-h-[40px] -mr-2 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleConfirmReject} className="p-6 space-y-4">
+            <form onSubmit={handleConfirmReject} className="p-5 sm:p-6 space-y-4">
               {rejectError && (
                 <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs">
                   {rejectError}
@@ -970,7 +1118,7 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
                     'rentalManagement.rejectReasonPlaceholder',
                     'Please specify a clear reason for the customer (e.g. equipment maintenance, scheduling conflict, private screening unavailability)...'
                   )}
-                  className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/40 rounded-lg text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                  className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant/40 rounded-lg text-on-surface text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
                 />
               </div>
 
@@ -978,20 +1126,73 @@ export const RentalManagementView: React.FC<RentalManagementViewProps> = ({ mode
                 <button
                   type="button"
                   onClick={() => setRejectingRental(null)}
-                  className="px-4 py-2 rounded-lg text-xs font-semibold text-on-surface-variant hover:bg-surface-container transition-colors"
+                  className="min-h-[40px] px-4 py-2 rounded-lg text-xs font-semibold text-on-surface-variant hover:bg-surface-container transition-colors"
                 >
                   {t('common.cancel', 'Cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isRejecting || !rejectReason.trim()}
-                  className="px-5 py-2 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-all flex items-center gap-1.5 disabled:opacity-50"
+                  className="min-h-[40px] px-5 py-2 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-all flex items-center gap-1.5 disabled:opacity-50"
                 >
                   {isRejecting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>{t('rentalManagement.confirmRejectBtn', 'Reject Request')}</span>
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-bold text-base sm:text-lg text-on-surface">{confirmModal.title}</h3>
+              <button
+                type="button"
+                disabled={isConfirmBusy}
+                onClick={() => setConfirmModal(null)}
+                className="min-w-[40px] min-h-[40px] -mr-2 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface-variant"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-on-surface-variant leading-relaxed">{confirmModal.message}</p>
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                disabled={isConfirmBusy}
+                onClick={() => setConfirmModal(null)}
+                className="min-h-[44px] px-4 py-2 rounded-xl border border-outline-variant/40 text-xs font-semibold text-on-surface-variant hover:bg-surface-container"
+              >
+                {t('common.cancel', 'Cancel')}
+              </button>
+              <button
+                type="button"
+                disabled={isConfirmBusy}
+                onClick={async () => {
+                  setIsConfirmBusy(true);
+                  try {
+                    await confirmModal.onConfirm();
+                    setConfirmModal(null);
+                  } finally {
+                    setIsConfirmBusy(false);
+                  }
+                }}
+                className={`min-h-[44px] px-5 py-2 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5 disabled:opacity-50 ${
+                  confirmModal.tone === 'danger'
+                    ? 'bg-rose-600 hover:bg-rose-500'
+                    : confirmModal.tone === 'amber'
+                    ? 'bg-amber-600 hover:bg-amber-500'
+                    : 'bg-primary hover:brightness-110'
+                }`}
+              >
+                {isConfirmBusy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>{confirmModal.confirmLabel}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Star, Trash2 } from 'lucide-react';
+import { Star, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { recommendationService, UserRating } from '../services/recommendationService';
+import { SiteTopNav } from '../components/SiteTopNav';
 import genericPoster from '../resources/generic_movie_poster.png';
 
 export const MyRatings: React.FC = () => {
@@ -37,22 +38,15 @@ export const MyRatings: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-surface text-on-surface">
-      <header className="sticky top-0 z-50 bg-surface-container-lowest/90 backdrop-blur border-b border-outline-variant">
-        <div className="max-w-[1280px] mx-auto h-16 px-6 flex items-center justify-between">
-          <Link to="/" className="font-black tracking-tight text-lg">CinemaArchitect</Link>
-          <Link to="/" className="inline-flex items-center gap-2 text-sm text-on-surface-variant hover:text-on-surface">
-            <ArrowLeft size={16} /> {t('myRatings.back', 'Back')}
-          </Link>
-        </div>
-      </header>
-      <main className="max-w-[1280px] mx-auto px-6 py-10">
-        <h1 className="text-3xl font-semibold tracking-tight">{t('myRatings.title', 'Movies I rated')}</h1>
-        <p className="text-sm text-on-surface-variant mt-2 mb-8">
+      <SiteTopNav activeLabel="My Ratings" showSearch={false} />
+      <main className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-20 md:pt-24 pb-24 md:pb-12">
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">{t('myRatings.title', 'Movies I rated')}</h1>
+        <p className="text-sm text-on-surface-variant mt-2 mb-6 sm:mb-8">
           {t('myRatings.subtitle', 'These ratings drive your personal recommendations.')}
         </p>
         {error && <p className="text-sm text-error mb-4">{error}</p>}
         {isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
             {Array.from({ length: 4 }).map((_, index) => (
               <div key={index} className="aspect-[2/3] rounded-xl bg-surface-container-high animate-pulse" />
             ))}
@@ -60,7 +54,7 @@ export const MyRatings: React.FC = () => {
         ) : items.length === 0 ? (
           <p className="text-on-surface-variant">{t('myRatings.empty', 'You have not rated a movie yet.')}</p>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
             {items.map((item) => (
               <article key={item.ratingId} className="rounded-xl overflow-hidden border border-outline-variant bg-surface-container-lowest">
                 <Link to={`/movies/${item.movieId}`}>
@@ -86,7 +80,7 @@ export const MyRatings: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => remove(item.movieId)}
-                      className="text-on-surface-variant hover:text-error"
+                      className="text-on-surface-variant hover:text-error min-w-[40px] min-h-[40px] -mr-2 flex items-center justify-center rounded-lg hover:bg-surface-container transition-colors"
                       aria-label={t('myRatings.delete', 'Delete rating')}
                     >
                       <Trash2 size={16} />
@@ -103,7 +97,7 @@ export const MyRatings: React.FC = () => {
               type="button"
               disabled={page <= 0}
               onClick={() => load(page - 1)}
-              className="px-3 py-2 rounded-lg border border-outline-variant disabled:opacity-40"
+              className="px-4 py-2 min-h-[44px] rounded-lg border border-outline-variant disabled:opacity-40"
             >
               {t('myRatings.previous', 'Previous')}
             </button>
@@ -112,7 +106,7 @@ export const MyRatings: React.FC = () => {
               type="button"
               disabled={page + 1 >= totalPages}
               onClick={() => load(page + 1)}
-              className="px-3 py-2 rounded-lg border border-outline-variant disabled:opacity-40"
+              className="px-4 py-2 min-h-[44px] rounded-lg border border-outline-variant disabled:opacity-40"
             >
               {t('myRatings.next', 'Next')}
             </button>

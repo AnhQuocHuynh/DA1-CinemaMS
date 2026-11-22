@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, ArrowLeft, ArrowRight, Lock, Mail } from 'lucide-react';
+import { LogIn, ArrowLeft, ArrowRight, Lock } from 'lucide-react';
 import { Header } from '../components/Header';
 import { authService } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
@@ -31,21 +31,21 @@ export const Login: React.FC = () => {
         </div>
 
         {/* Featured Carousel Background */}
-        <div className="max-w-7xl mx-auto mt-8 px-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="col-span-2 aspect-[16/9] rounded-xl overflow-hidden bg-surface-container-low relative">
+        <div className="max-w-7xl mx-auto mt-8 px-4 sm:px-8 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+          <div className="md:col-span-2 aspect-[16/9] rounded-xl overflow-hidden bg-surface-container-low relative">
             <img
               className="w-full h-full object-cover grayscale opacity-40"
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5GY2DMOxWkqIII8zWLrBLyU31RYfT6sWib8PiNi_lf5O_MAE1K_sz88wcSlJcSCRwW6sTs-NXRi9jXZOU7sP27URXl7fAvWYuglEGmN_GPUm4SEgXVy-rZrjCKD9rwNohBvrw87_Db8nk21UulaJ-dISa7GcemdrmfeG9yFEYVWFw8LXhDbqTE5Wj0vI8RIFTGq3BlSpTHKJLQqUcpqaipJ26wMes8PODjKKbs-y3_-mymgDIOv-Kz9iQN5cLQQ-_2aWOmHLXpmk"
               alt="Featured cinema theater"
             />
-            <div className="absolute bottom-12 left-12">
-              <span className="bg-primary text-on-primary text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 mb-4 inline-block">
+            <div className="absolute bottom-6 left-6 sm:bottom-12 sm:left-12 pr-6">
+              <span className="bg-primary text-on-primary text-[10px] font-black uppercase tracking-[0.2em] px-2 py-1 mb-3 sm:mb-4 inline-block">
                 {t('login.featuredRelease', 'Featured Release')}
               </span>
-              <h2 className="text-5xl font-extrabold tracking-tighter text-on-surface mb-2">
+              <h2 className="text-2xl sm:text-5xl font-extrabold tracking-tighter text-on-surface mb-2">
                 {t('login.featuredMovieTitle', 'Interstellar: Architect Edition')}
               </h2>
-              <p className="text-on-surface-variant max-w-md">
+              <p className="text-sm sm:text-base text-on-surface-variant max-w-md">
                 {t('login.featuredMovieDesc', 'Experience cinematic precision in our new ultra-wide laser projection halls.')}
               </p>
             </div>
@@ -76,19 +76,19 @@ export const Login: React.FC = () => {
         </div>
 
         {/* AUTH MODAL OVERLAY */}
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-surface-container-lowest"></div>
-          <div className="relative w-full max-w-md bg-surface-container-lowest rounded-xl shadow-2xl overflow-hidden flex flex-col transform transition-all">
-            <div className="p-8 sm:p-10">
+        <div className="fixed inset-0 z-[60] overflow-y-auto flex items-center justify-center p-4 sm:p-6">
+          <div className="fixed inset-0 bg-surface-container-lowest"></div>
+          <div className="relative w-full max-w-md my-auto bg-surface-container-lowest rounded-xl shadow-2xl overflow-hidden flex flex-col transform transition-all border border-outline-variant/30">
+            <div className="p-6 sm:p-10">
               <Link
                 to="/"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface"
+                className="inline-flex items-center gap-2 min-h-[44px] px-2 -ml-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface"
               >
                 <ArrowLeft className="w-4 h-4" />
                 {t('login.backToHome', 'Back to Home')}
               </Link>
 
-              <div className="mb-10 text-center mt-6">
+              <div className="mb-8 sm:mb-10 text-center mt-4 sm:mt-6">
                 <span className="text-xl font-black tracking-tighter text-on-surface block mb-2">
                   {t('login.brandName', 'CinemaArchitect')}
                 </span>
@@ -108,10 +108,10 @@ export const Login: React.FC = () => {
                 </button>
               </div>
 
-              <div className="mt-8 pt-8 border-t border-outline-variant/30 text-center">
+              <div className="mt-8 pt-6 sm:pt-8 border-t border-outline-variant/30 text-center">
                 <p className="text-sm text-on-surface-variant">
                   {t('login.noAccount', "Don't have an account?")}{' '}
-                  <button onClick={() => authService.register()} className="text-primary font-bold hover:underline">
+                  <button onClick={() => authService.register()} className="text-primary font-bold hover:underline inline-flex items-center min-h-[44px] px-1">
                     {t('login.createAccount', 'Create Portal ID')}
                   </button>
                 </p>
@@ -127,25 +127,6 @@ export const Login: React.FC = () => {
           </div>
         </div>
       </main>
-
-      <footer className="md:hidden fixed bottom-0 w-full glass-header flex justify-around items-center h-16 px-4 z-50 bg-surface-container-lowest/80 backdrop-blur-md">
-        <a href="#" className="flex flex-col items-center text-primary">
-          <LogIn className="w-5 h-5" />
-          <span className="text-[10px] font-bold uppercase tracking-tighter">{t('login.navHome', 'Home')}</span>
-        </a>
-        <a href="#" className="flex flex-col items-center text-on-surface-variant">
-          <Mail className="w-5 h-5" />
-          <span className="text-[10px] font-bold uppercase tracking-tighter">{t('login.navMovies', 'Movies')}</span>
-        </a>
-        <a href="#" className="flex flex-col items-center text-on-surface-variant">
-          <LogIn className="w-5 h-5" />
-          <span className="text-[10px] font-bold uppercase tracking-tighter">{t('login.navTickets', 'Tickets')}</span>
-        </a>
-        <a href="#" className="flex flex-col items-center text-on-surface-variant">
-          <Mail className="w-5 h-5" />
-          <span className="text-[10px] font-bold uppercase tracking-tighter">{t('login.navProfile', 'Profile')}</span>
-        </a>
-      </footer>
     </div>
   );
 };

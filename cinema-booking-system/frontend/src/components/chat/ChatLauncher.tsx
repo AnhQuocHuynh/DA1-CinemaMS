@@ -21,7 +21,7 @@ export function ChatLauncher({
 
   return (
     <div
-      className={`fixed bottom-4 right-4 z-[60] flex-col items-end gap-2.5 sm:bottom-5 sm:right-5 ${
+      className={`fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] right-4 z-[55] flex-col items-end gap-2.5 md:bottom-5 md:right-5 ${
         isOpen ? 'hidden sm:flex' : 'flex'
       }`}
     >

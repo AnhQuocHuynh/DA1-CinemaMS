@@ -45,7 +45,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ onSubmit }) => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-xl bg-surface-container-lowest border border-outline-variant p-6 shadow-sm space-y-4">
+    <form onSubmit={handleSubmit} className="rounded-xl bg-surface-container-lowest border border-outline-variant p-4 sm:p-6 shadow-sm space-y-4">
       <h4 className="font-semibold text-on-surface">{t('reviewForm.writeTitle', 'Viết đánh giá')}</h4>
 
       <div>
@@ -58,7 +58,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ onSubmit }) => {
         onChange={(e) => setComment(e.target.value)}
         placeholder={t('reviewForm.placeholder', 'Chia sẻ cảm nhận của bạn (tuỳ chọn)...')}
         rows={3}
-        className="w-full rounded-lg border border-outline-variant px-4 py-3 text-sm text-on-surface-variant placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-shadow"
+        className="w-full rounded-lg border border-outline-variant px-4 py-3 text-base sm:text-sm text-on-surface-variant placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-shadow"
       />
 
       {error && (
@@ -68,7 +68,7 @@ export const ReviewForm: React.FC<ReviewFormProps> = ({ onSubmit }) => {
       <button
         type="submit"
         disabled={isSubmitting || rating === 0}
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-on-primary text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 min-h-[44px] rounded-lg bg-primary text-on-primary text-sm font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         <Send size={14} />
         {isSubmitting ? t('reviewForm.submitting', 'Đang gửi...') : t('reviewForm.submitBtn', 'Gửi đánh giá')}

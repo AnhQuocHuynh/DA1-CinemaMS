@@ -10,7 +10,7 @@ export const SignUp: React.FC = () => {
   return (
     <div className="bg-surface text-on-surface min-h-screen flex flex-col">
 
-      <main className="flex-grow pt-16 relative overflow-hidden">
+      <main className="flex-grow relative overflow-hidden">
         <div className="absolute inset-0 z-0 grid grid-cols-12 gap-4 opacity-5 pointer-events-none px-8">
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="border-r border-outline-variant h-full"></div>
@@ -20,35 +20,35 @@ export const SignUp: React.FC = () => {
         <div className="absolute -top-24 -left-24 w-72 h-72 bg-surface-container-high rounded-full blur-3xl opacity-60"></div>
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-surface-container-low rounded-full blur-3xl opacity-60"></div>
 
-        <div className="relative z-10 max-w-6xl mx-auto px-6 py-14 md:py-18 grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-10 items-center">
-          <section className="space-y-8">
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-16 grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8 lg:gap-10 items-center">
+          <section className="space-y-6 sm:space-y-8 order-2 lg:order-1">
             <div>
               <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">
                 {t('signUp.memberRegistration', 'Member Registration')}
               </span>
-              <p className="text-on-surface-variant text-sm md:text-base mt-4 max-w-xl">
+              <p className="text-on-surface-variant text-sm md:text-base mt-3 sm:mt-4 max-w-xl">
                 {t('signUp.memberDesc', 'Build a dedicated booking profile with faster checkout, protected seat holds, and a consolidated ticket vault.')}
               </p>
             </div>
 
             <div className="rounded-2xl overflow-hidden border border-outline-variant/40 bg-surface-container-lowest">
-              <div className="relative aspect-[16/9]">
+              <div className="relative aspect-[16/10] sm:aspect-[16/9]">
                 <img
                   className="w-full h-full object-cover"
                   src={genericMovieBg}
                   alt="Cinema hall seats"
                 />
-                <div className="absolute inset-0 bg-gradient-to-r from-surface-container-highest/80 via-surface-container-low/40 to-transparent" />
-                <div className="absolute bottom-6 left-6">
+                <div className="absolute inset-0 bg-gradient-to-r from-surface-container-highest/90 via-surface-container-low/60 to-transparent" />
+                <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
                     {t('signUp.priorityOnboarding', 'Priority onboarding')}
                   </span>
-                  <p className="text-sm text-on-surface mt-2 max-w-sm">
+                  <p className="text-xs sm:text-sm text-on-surface mt-1.5 sm:mt-2 max-w-sm">
                     {t('signUp.priorityDesc', 'Lock seats in real time with instant checkout and order tracking.')}
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 p-4 sm:p-6">
                 {[
                   { label: t('signUp.seatHolds', 'Seat Holds'), value: t('signUp.synced', 'Synced') },
                   { label: t('signUp.ticketVault', 'Ticket Vault'), value: t('signUp.encrypted', 'Encrypted') },
@@ -77,11 +77,11 @@ export const SignUp: React.FC = () => {
             </div>
           </section>
 
-          <section className="bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/40 overflow-hidden">
-            <div className="px-8 pt-10 pb-6">
+          <section className="bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/40 overflow-hidden order-1 lg:order-2">
+            <div className="px-5 pt-6 pb-6 sm:px-8 sm:pt-10">
               <Link
                 to="/"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface"
+                className="inline-flex items-center gap-2 min-h-[44px] px-2 -ml-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface"
               >
                 <ArrowLeft className="w-4 h-4" />
                 {t('signUp.backToHome', 'Back to Home')}
@@ -124,13 +124,13 @@ export const SignUp: React.FC = () => {
               </div>
             </div>
 
-            <div className="border-t border-outline-variant/30 px-8 py-6 text-center">
+            <div className="border-t border-outline-variant/30 px-5 sm:px-8 py-6 text-center">
               <p className="text-[11px] text-on-surface-variant">
                 {t('signUp.termsAgreement', 'By creating an account, you agree to our booking terms and privacy policy.')}
               </p>
               <p className="text-sm text-on-surface-variant mt-4">
                 {t('signUp.alreadyHaveAccount', 'Already have an account?')} {' '}
-                <button onClick={() => authService.login()} className="text-primary font-bold hover:underline">
+                <button onClick={() => authService.login()} className="text-primary font-bold hover:underline inline-flex items-center min-h-[44px] px-1">
                   {t('signUp.signIn', 'Sign In')}
                 </button>
               </p>

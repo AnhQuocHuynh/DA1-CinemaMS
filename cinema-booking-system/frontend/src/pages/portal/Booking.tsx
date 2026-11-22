@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Info, AlertCircle, Timer } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Info, AlertCircle, Timer, Maximize2, Minimize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { SiteTopNav } from '../../components/SiteTopNav';
@@ -142,6 +142,8 @@ export const Booking: React.FC = () => {
   // ── Leave / go-back confirmation ────────────────────────────────────────
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [isReleasing, setIsReleasing] = useState(false);
+  const [fitToScreen, setFitToScreen] = useState(false);
+  const [hasPanned, setHasPanned] = useState(false);
   // Store the intended navigation target when intercepting a nav-link click
   const pendingNavRef = useRef<string | null>(null);
   // Flag so the popstate cleanup never fights an intentional forward navigation
@@ -266,31 +268,54 @@ export const Booking: React.FC = () => {
   return (
     <div className="bg-surface text-on-surface min-h-screen">
       <SiteTopNav activeLabel="Showtimes" showSearch={false} />
-      <main className="pt-24 pb-20 px-6 max-w-7xl mx-auto flex flex-col lg:flex-row gap-12">
+      <main className="pt-20 md:pt-24 pb-36 lg:pb-20 px-4 sm:px-6 max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 lg:gap-12">
         {/* Seat map area */}
-        <div className="flex-grow">
-          <div className="mb-12">
-            <h1 className="text-2xl font-medium tracking-tight text-on-surface mb-1">
+        <div className="flex-grow min-w-0">
+          {/* Mobile sticky countdown bar */}
+          {(holdExpiresAt || selectedSeats.length > 0) && (
+            <div className="lg:hidden sticky top-[4.25rem] z-30 mb-4">
+              {holdExpiresAt ? (
+                <HoldTimer expiresAt={holdExpiresAt} onExpired={handleTimerExpired} compact />
+              ) : (
+                <div className={`rounded-xl px-4 py-2.5 border shadow-md backdrop-blur-md ${preIsUrgent ? 'bg-error/15 border-error/40 text-error' : 'bg-surface-container-lowest/95 border-outline-variant/40 text-on-surface'}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Timer className={`w-4 h-4 shrink-0 ${preIsUrgent ? 'text-error' : 'text-primary'}`} />
+                      <span className={`text-[11px] font-bold tracking-wider uppercase truncate ${preIsUrgent ? 'text-error' : 'text-on-surface-variant'}`}>
+                        {t('booking.selectionTime')}
+                      </span>
+                    </div>
+                    <span className={`text-base font-black font-mono tabular-nums shrink-0 ${preIsUrgent ? 'text-error' : 'text-primary'}`}>
+                      {preMM}:{preSS}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="mb-6 md:mb-12">
+            <h1 className="text-xl sm:text-2xl font-medium tracking-tight text-on-surface mb-1">
               {t('booking.chooseSeatTitle')}
             </h1>
-            <p className="text-on-surface-variant text-sm">
+            <p className="text-on-surface-variant text-xs sm:text-sm">
               {movieTitle ?? '...'} • {showtimeLabel}
             </p>
           </div>
 
           {/* Screen indicator */}
-          <div className="flex flex-col items-center mb-16">
-            <div className="w-full max-w-2xl bg-surface-container-highest/20 h-12 rounded-t-[100%] flex items-center justify-center relative">
+          <div className="flex flex-col items-center mb-8 md:mb-16">
+            <div className="w-full max-w-2xl bg-surface-container-highest/20 h-10 sm:h-12 rounded-t-[100%] flex items-center justify-center relative">
               <div className="absolute bottom-0 w-4/5 h-1 bg-gradient-to-r from-transparent via-primary to-transparent blur-[1px]" />
             </div>
-            <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-outline mt-4">
+            <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-outline mt-3 sm:mt-4">
               MÀN HÌNH
             </span>
           </div>
 
           {/* Error state */}
           {error && (
-            <div className="flex items-center gap-3 bg-error/10 text-error border border-error/30 rounded-lg p-4 mb-8">
+            <div className="flex items-center gap-3 bg-error/10 text-error border border-error/30 rounded-lg p-4 mb-6">
               <AlertCircle className="w-5 h-5 shrink-0" />
               <p className="text-sm font-medium">{error}</p>
             </div>
@@ -301,9 +326,36 @@ export const Booking: React.FC = () => {
               Đang tải sơ đồ ghế...
             </div>
           ) : (
-            <div className="perspective-container">
-              <div className="perspective-map">
-                <SeatMapGrid seatMap={seatMap} isSelected={isSelected} onSeatToggle={toggleSeat} />
+            <div className="space-y-3">
+              <div className="md:hidden flex items-center justify-between gap-2">
+                {!fitToScreen && !hasPanned ? (
+                  <span className="text-[11px] font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+                    ← {t('booking.swipeSeatsHint', 'Vuốt ngang để chọn ghế')} →
+                  </span>
+                ) : (
+                  <span />
+                )}
+                <button
+                  type="button"
+                  onClick={() => setFitToScreen((prev) => !prev)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-lg border border-outline-variant bg-surface-container-lowest text-xs font-semibold text-on-surface hover:bg-surface-container"
+                >
+                  {fitToScreen ? <ZoomIconFit /> : <ZoomIconFull />}
+                  {fitToScreen ? t('booking.touchSizeView', 'Zoom 100%') : t('booking.fitScreenView', 'Fit Width')}
+                </button>
+              </div>
+              <div
+                className="w-full overflow-x-auto touch-pan-x pb-3 no-scrollbar"
+                onScroll={() => {
+                  if (!hasPanned) setHasPanned(true);
+                }}
+              >
+                <SeatMapGrid
+                  seatMap={seatMap}
+                  isSelected={isSelected}
+                  onSeatToggle={toggleSeat}
+                  fitToScreen={fitToScreen}
+                />
               </div>
             </div>
           )}
@@ -429,6 +481,44 @@ export const Booking: React.FC = () => {
         </aside>
       </main>
 
+      {/* Mobile sticky bottom checkout bar (< lg) */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md border-t border-outline-variant px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl">
+        {holdError && (
+          <p className="text-xs font-medium text-error mb-2 line-clamp-2">{holdError}</p>
+        )}
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs text-on-surface-variant font-medium truncate">
+              {selectedSeats.length > 0
+                ? selectedSeats.map((s) => s.label).join(', ')
+                : t('booking.noSeatsSelected')}
+            </p>
+            <p className="text-lg font-black tracking-tight text-primary">
+              {formatVND(summary.total)}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowLeaveConfirm(true)}
+              aria-label={t('movieDetails.goBack')}
+              className="w-12 h-12 rounded-xl border border-outline-variant/40 text-on-surface-variant hover:bg-surface-container flex items-center justify-center"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleProceed}
+              disabled={selectedSeats.length === 0 || isHolding}
+              className="min-h-[48px] px-5 bg-primary text-on-primary font-bold text-sm rounded-xl shadow-lg hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span>{isHolding ? t('booking.holdingSeats') : t('booking.proceedToCheckout')}</span>
+              {!isHolding && <ArrowRight className="w-4 h-4 shrink-0" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* ── Leave confirmation modal ────────────────────────────────────── */}
       {showLeaveConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
@@ -461,3 +551,11 @@ export const Booking: React.FC = () => {
     </div>
   );
 };
+
+function ZoomIconFit() {
+  return <Maximize2 className="w-3.5 h-3.5" />;
+}
+
+function ZoomIconFull() {
+  return <Minimize2 className="w-3.5 h-3.5" />;
+}

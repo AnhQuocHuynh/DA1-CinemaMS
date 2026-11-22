@@ -3,8 +3,11 @@ package com.uit.cinema.recommendation.messaging;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.uit.cinema.recommendation.service.UserRatingService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -18,6 +21,8 @@ import java.util.Set;
 )
 public class RecommendationEventMessageHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(RecommendationEventMessageHandler.class);
+
     private static final Set<String> SUPPORTED_EVENT_TYPES = Set.of(
         "order.paid",
         "order.refunded",
@@ -29,6 +34,7 @@ public class RecommendationEventMessageHandler {
 
     private final ObjectMapper objectMapper;
     private final RecommendationEventProjectionStore projectionStore;
+    private final UserRatingService userRatingService;
     private final Counter projectedCounter;
     private final Counter duplicateCounter;
     private final Counter rejectedCounter;
@@ -36,10 +42,12 @@ public class RecommendationEventMessageHandler {
     public RecommendationEventMessageHandler(
         ObjectMapper objectMapper,
         RecommendationEventProjectionStore projectionStore,
-        MeterRegistry meterRegistry
+        MeterRegistry meterRegistry,
+        UserRatingService userRatingService
     ) {
         this.objectMapper = objectMapper;
         this.projectionStore = projectionStore;
+        this.userRatingService = userRatingService;
         this.projectedCounter = meterRegistry.counter("cinema.recommendation.events", "outcome", "projected");
         this.duplicateCounter = meterRegistry.counter("cinema.recommendation.events", "outcome", "duplicate");
         this.rejectedCounter = meterRegistry.counter("cinema.recommendation.events", "outcome", "rejected");
@@ -60,8 +68,38 @@ public class RecommendationEventMessageHandler {
         validateEnvelope(envelope, expectedSource);
         if (projectionStore.project(envelope)) {
             projectedCounter.increment();
+            syncUserRatingIfMovieReview(envelope);
         } else {
             duplicateCounter.increment();
+        }
+    }
+
+    private void syncUserRatingIfMovieReview(JsonNode envelope) {
+        if (!"review.created".equals(envelope.path("eventType").asText())) {
+            return;
+        }
+        JsonNode payload = envelope.path("payload");
+        if (!"VISIBLE".equalsIgnoreCase(payload.path("status").asText())) {
+            return;
+        }
+        if (!payload.hasNonNull("userId") || !payload.hasNonNull("movieId") || !payload.hasNonNull("rating")) {
+            return;
+        }
+        long userId = payload.path("userId").asLong(-1);
+        long movieId = payload.path("movieId").asLong(-1);
+        double rating = payload.path("rating").asDouble(Double.NaN);
+        if (userId <= 0 || movieId <= 0 || Double.isNaN(rating) || rating < 1.0 || rating > 5.0) {
+            return;
+        }
+        try {
+            userRatingService.upsert(userId, movieId, rating);
+        } catch (RuntimeException ex) {
+            log.warn(
+                "Failed to sync review.created rating into user_ratings for userId={} movieId={}",
+                userId,
+                movieId,
+                ex
+            );
         }
     }
 

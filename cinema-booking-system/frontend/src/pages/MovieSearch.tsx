@@ -10,8 +10,13 @@ import { useTranslation, Trans } from 'react-i18next';
 
 export const MovieSearch: React.FC = () => {
   const { t } = useTranslation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get('q') ?? '';
+  const [searchInput, setSearchInput] = useState(query);
+
+  useEffect(() => {
+    setSearchInput(query);
+  }, [query]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [results, setResults] = useState<CatalogSearchResponse | null>(null);
@@ -49,44 +54,70 @@ export const MovieSearch: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-surface text-on-surface">
-      <header className="sticky top-0 z-50 bg-surface-container-lowest/90 backdrop-blur border-b border-outline-variant">
-        <div className="max-w-[1280px] mx-auto h-16 px-6 flex items-center justify-between">
-          <Link to="/" className="font-black tracking-tight text-lg">CinemaArchitect</Link>
-          <Link to="/" className="inline-flex items-center gap-2 text-sm text-on-surface-variant hover:text-on-surface">
+      <header className="sticky top-0 z-50 bg-surface-container-lowest/90 backdrop-blur border-b border-outline-variant pt-safe">
+        <div className="max-w-[1280px] mx-auto h-16 px-4 sm:px-6 flex items-center justify-between gap-3">
+          <Link to="/" className="font-black tracking-tight text-lg truncate">CinemaArchitect</Link>
+          <Link to="/" className="inline-flex items-center gap-2 min-h-[44px] px-2 -mr-2 text-sm text-on-surface-variant hover:text-on-surface shrink-0">
             <ArrowLeft size={16} /> {t('movieSearch.back', 'Quay lại')}
           </Link>
         </div>
       </header>
 
-      <main className="max-w-[1280px] mx-auto px-6 py-10">
-        <div className="flex items-center justify-between gap-6 mb-10 flex-wrap">
+      <main className="max-w-[1280px] mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-24 md:pb-10">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const trimmed = searchInput.trim();
+            setSearchParams(trimmed ? { q: trimmed } : {});
+          }}
+          className="mb-6 flex gap-2"
+        >
+          <div className="flex-1 flex items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 min-h-[44px]">
+            <Search size={18} className="text-on-surface-variant shrink-0" />
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder={t('common.searchPlaceholder', 'Search movies, events...')}
+              className="w-full bg-transparent outline-none text-base sm:text-sm text-on-surface"
+            />
+          </div>
+          <button
+            type="submit"
+            className="px-4 sm:px-6 min-h-[44px] rounded-xl bg-primary text-on-primary text-sm font-semibold hover:opacity-90 shrink-0"
+          >
+            {t('common.search', 'Search')}
+          </button>
+        </form>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6 mb-8 sm:mb-10">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">{t('movieSearch.title', 'Search Results')}</h1>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">{t('movieSearch.title', 'Search Results')}</h1>
             <p className="text-sm text-on-surface-variant mt-1">
               <Trans i18nKey="movieSearch.showingResults" count={totalCount}>
                 Showing {{count: totalCount}} results for <span className="font-semibold text-primary">"{query || t('movieSearch.allCatalogs', 'all catalogs')}"</span>
               </Trans>
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <label className="text-sm text-on-surface-variant flex flex-col gap-1">
+          <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-3 w-full sm:w-auto">
+            <label className="text-sm text-on-surface-variant flex flex-col gap-1 w-full sm:w-auto">
               {t('movieSearch.status', 'Status')}
               <select
                 value={status}
                 onChange={(event) => setStatus(event.target.value as 'ALL' | 'SHOWING' | 'UPCOMING')}
-                className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-on-surface"
+                className="w-full sm:w-auto rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 min-h-[44px] text-base sm:text-sm text-on-surface"
               >
                 <option value="ALL">{t('movieSearch.statusAll', 'All statuses')}</option>
                 <option value="SHOWING">{t('movieSearch.showing', 'Now showing')}</option>
                 <option value="UPCOMING">{t('movieSearch.upcoming', 'Coming soon')}</option>
               </select>
             </label>
-            <label className="text-sm text-on-surface-variant flex flex-col gap-1">
+            <label className="text-sm text-on-surface-variant flex flex-col gap-1 w-full sm:w-auto">
               {t('movieSearch.genre', 'Genre')}
               <select
                 value={genreId}
                 onChange={(event) => setGenreId(event.target.value === '' ? '' : Number(event.target.value))}
-                className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-on-surface"
+                className="w-full sm:w-auto rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 min-h-[44px] text-base sm:text-sm text-on-surface"
               >
                 <option value="">{t('movieSearch.genreAll', 'All genres')}</option>
                 {genres.map((genre) => (
@@ -98,7 +129,7 @@ export const MovieSearch: React.FC = () => {
         </div>
 
         {totalCount === 0 && !isLoading ? (
-          <section className="rounded-2xl border border-dashed border-outline p-16 text-center bg-surface-container-lowest">
+          <section className="rounded-2xl border border-dashed border-outline p-6 sm:p-16 text-center bg-surface-container-lowest">
             <Search className="mx-auto text-inverse-on-surface" size={44} />
             <h2 className="mt-4 text-xl font-bold">{t('movieSearch.noMatches', 'No exact matches found')}</h2>
             <p className="text-sm text-on-surface-variant mt-2">{t('movieSearch.tryAnother', 'Try another keyword like genre, theater, or name.')}</p>
@@ -153,10 +184,10 @@ export const MovieSearch: React.FC = () => {
                         <p className="text-sm text-on-surface-variant">
                           {new Date(movie.releaseDate).toLocaleDateString('vi-VN')}
                         </p>
-                        <div className="pt-2 flex items-center justify-between">
+                        <div className="pt-2 flex flex-wrap items-center justify-between gap-2">
                           <span className="text-xs font-semibold text-on-surface-variant">{movie.ageRating}</span>
                           <RatingBadge type="movie" id={movie.id} />
-                          <Link to={`/movies/${movie.id}`} className="text-sm font-semibold text-primary hover:underline">
+                          <Link to={`/movies/${movie.id}`} className="text-sm font-semibold text-primary hover:underline min-h-[36px] inline-flex items-center">
                             {t('movieSearch.detailsBook', 'Chi tiết & Đặt vé')}
                           </Link>
                         </div>
@@ -205,10 +236,10 @@ export const MovieSearch: React.FC = () => {
                             <MapPin size={14} className="text-on-surface-variant" />
                             <span>{event.venue}</span>
                           </div>
-                          <div className="pt-2 flex items-center justify-between">
+                          <div className="pt-2 flex flex-wrap items-center justify-between gap-2">
                             <span className="text-xs font-semibold text-on-surface-variant">{t('movieSearch.specialEvent', 'Sự kiện đặc biệt')}</span>
                             <RatingBadge type="event" id={event.id} />
-                            <Link to={`/events/${event.id}`} className="text-sm font-semibold text-amber-600 hover:underline">
+                            <Link to={`/events/${event.id}`} className="text-sm font-semibold text-amber-600 hover:underline min-h-[36px] inline-flex items-center">
                               {t('movieSearch.viewDetails', 'View Details')}
                             </Link>
                           </div>

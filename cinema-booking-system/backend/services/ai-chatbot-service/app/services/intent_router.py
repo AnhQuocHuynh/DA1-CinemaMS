@@ -23,6 +23,17 @@ _ORDER_PHRASES = (
     "ma don",
 )
 
+_BK_ID_RE = re.compile(r"(?:^|[\s,(])#?bk-?(\d+)\b")
+_KEYWORD_ORDER_ID_RE = re.compile(
+    r"\b(?:order|booking|don(?:\s+hang|\s+dat\s+ve)?|ma\s+don(?:\s+hang)?|ma\s+dat\s+ve)"
+    r"\s*(?:id|no\.?|number|so)?\s*#?\s*(\d+)\b"
+)
+_HASH_CONTEXT_RE = re.compile(
+    r"\b(?:order|orders|booking|bookings|ticket|tickets|status|payment"
+    r"|don|ve|trang\s+thai|thanh\s+toan|kiem\s+tra|check)\b"
+)
+_HASH_ID_RE = re.compile(r"(?:^|[\s,(])#(\d+)\b")
+
 _STOP_WORDS = {
     "what",
     "time",
@@ -162,16 +173,62 @@ def _format_movies(movies: list[dict], recs: list[dict]) -> str | None:
     return "\n\n".join(sections) if sections else None
 
 
+def extract_order_ids(message: str, *, max_ids: int = 5) -> list[int]:
+    """Extract deduplicated positive booking/order IDs mentioned in message."""
+    folded = answer_guard.fold(message)
+    if not folded or max_ids <= 0:
+        return []
+
+    matches: list[tuple[int, int]] = []
+    for pattern in (_BK_ID_RE, _KEYWORD_ORDER_ID_RE):
+        for match in pattern.finditer(folded):
+            matches.append((match.start(1), int(match.group(1))))
+
+    if _HASH_CONTEXT_RE.search(folded):
+        for match in _HASH_ID_RE.finditer(folded):
+            matches.append((match.start(1), int(match.group(1))))
+
+    matches.sort(key=lambda item: item[0])
+    seen: set[int] = set()
+    ordered_ids: list[int] = []
+    for _, oid in matches:
+        if oid <= 0 or oid in seen:
+            continue
+        seen.add(oid)
+        ordered_ids.append(oid)
+        if len(ordered_ids) >= max_ids:
+            break
+    return ordered_ids
+
+
 def wants_orders(message: str) -> bool:
     """Return True if the user message asks about their personal ticket orders or bookings."""
     folded = answer_guard.fold(message)
     if not folded:
         return False
-    return any(phrase in folded for phrase in _ORDER_PHRASES)
+    return any(phrase in folded for phrase in _ORDER_PHRASES) or bool(
+        extract_order_ids(message)
+    )
 
 
-def _format_orders(orders: list[dict], lang: str = "en") -> str:
+def _format_orders(
+    orders: list[dict],
+    lang: str = "en",
+    missing_ids: list[int] | None = None,
+) -> str:
+    missing = [oid for oid in (missing_ids or []) if oid > 0]
     if not orders:
+        if missing:
+            missing_list = ", ".join(f"#{oid}" for oid in missing)
+            if lang == "vi":
+                return (
+                    "Không tìm thấy đơn đặt vé phù hợp thuộc tài khoản của bạn cho: "
+                    f"{missing_list}."
+                )
+            return (
+                "No matching ticket order was found under your account for: "
+                f"{missing_list}."
+            )
         if lang == "vi":
             return "Bạn hiện chưa có đơn đặt vé nào trong hệ thống."
         return "You currently have no ticket orders on file."
@@ -208,7 +265,38 @@ def _format_orders(orders: list[dict], lang: str = "en") -> str:
             details.append(f"Tổng: {final_amount}" if lang == "vi" else f"Total: {final_amount}")
         prefix = f"- Đơn #{oid}: " if lang == "vi" else f"- Order #{oid}: "
         lines.append(prefix + " | ".join(details))
+    if missing:
+        missing_list = ", ".join(f"#{oid}" for oid in missing)
+        if lang == "vi":
+            lines.append(
+                f"Không tìm thấy đơn hàng thuộc tài khoản của bạn: {missing_list}."
+            )
+        else:
+            lines.append(f"Orders not found under your account: {missing_list}.")
     return "\n".join(lines)
+
+
+async def _fetch_orders_for_message(
+    message: str, user: UserContext
+) -> tuple[list[dict], list[int]]:
+    requested_ids = extract_order_ids(message)
+    if requested_ids:
+        found: list[dict] = []
+        missing: list[int] = []
+        for oid in requested_ids:
+            order = await downstream_client.get_order_by_id(
+                oid, user_id=user.user_id, auth_token=user.raw_token
+            )
+            if isinstance(order, dict):
+                found.append(order)
+            else:
+                missing.append(oid)
+        return found, missing
+
+    orders = await downstream_client.get_user_orders(
+        user.user_id, auth_token=user.raw_token
+    )
+    return orders, []
 
 
 async def build_context_and_sources(
@@ -230,10 +318,8 @@ async def build_context_and_sources(
                 else "Please sign in to view your ticket orders and booking status."
             )
             return msg, []
-        orders = await downstream_client.get_user_orders(
-            user.user_id, auth_token=user.raw_token
-        )
-        return _format_orders(orders, lang=lang), []
+        orders, missing_ids = await _fetch_orders_for_message(message, user)
+        return _format_orders(orders, lang=lang, missing_ids=missing_ids), []
 
     ctx: str | None = None
     sources: list[dict] = []
@@ -292,11 +378,9 @@ async def build_context_and_sources(
         ctx = _format_movies(movies, recs)
 
     if wants_orders(message) and user is not None and user.can_lookup_bookings:
-        orders = await downstream_client.get_user_orders(
-            user.user_id, auth_token=user.raw_token
-        )
-        if orders:
-            orders_text = _format_orders(orders, lang=lang)
+        orders, missing_ids = await _fetch_orders_for_message(message, user)
+        if orders or missing_ids:
+            orders_text = _format_orders(orders, lang=lang, missing_ids=missing_ids)
             ctx = f"{ctx}\n\n{orders_text}" if ctx else orders_text
 
     return ctx, sources

@@ -107,7 +107,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     <ToastContext.Provider value={{ addToast, addNotificationToast }}>
       {children}
       {/* Toast Container */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+      <div className="fixed top-[4.5rem] inset-x-4 z-[70] flex flex-col gap-2 pointer-events-none sm:top-auto sm:inset-x-auto sm:bottom-5 sm:right-5 sm:w-full sm:max-w-sm">
         {toasts.map((toast) => (
           <div
             key={toast.id}
@@ -158,7 +158,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
             <button
               onClick={() => removeToast(toast.id)}
-              className="shrink-0 p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+              className="shrink-0 p-2 -mr-1 -mt-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
               aria-label="Close"
             >
               <X className="w-4 h-4" />

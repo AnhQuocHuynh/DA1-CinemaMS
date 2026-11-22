@@ -62,7 +62,7 @@ export const ProfileSettingsContent: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <section className="bg-surface-container-lowest rounded-xl p-6 shadow-sm border border-outline-variant/30">
+      <section className="bg-surface-container-lowest rounded-xl p-4 sm:p-6 shadow-sm border border-outline-variant/30">
         <h2 className="text-lg font-semibold text-on-surface mb-6">{t('profileSettings.title', 'Profile Information')}</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -72,7 +72,7 @@ export const ProfileSettingsContent: React.FC = () => {
               type="text" 
               value={profile?.fullName || ''} 
               disabled 
-              className="w-full bg-surface-container border border-outline-variant rounded-lg p-3 text-on-surface-variant cursor-not-allowed"
+              className="w-full bg-surface-container border border-outline-variant rounded-lg p-3 text-base sm:text-sm text-on-surface-variant cursor-not-allowed"
             />
             <p className="text-xs text-on-surface-variant mt-1">{t('profileSettings.nameNotice', 'Name cannot be changed here.')}</p>
           </div>
@@ -82,7 +82,7 @@ export const ProfileSettingsContent: React.FC = () => {
               type="email" 
               value={profile?.email || ''} 
               disabled 
-              className="w-full bg-surface-container border border-outline-variant rounded-lg p-3 text-on-surface-variant cursor-not-allowed"
+              className="w-full bg-surface-container border border-outline-variant rounded-lg p-3 text-base sm:text-sm text-on-surface-variant cursor-not-allowed"
             />
             <p className="text-xs text-on-surface-variant mt-1">{t('profileSettings.emailNotice', 'Email is managed by the identity provider.')}</p>
           </div>
@@ -97,7 +97,7 @@ export const ProfileSettingsContent: React.FC = () => {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+1 234 567 8900"
-                className="w-full bg-surface-container-lowest border border-outline rounded-lg p-3 focus:ring-2 focus:ring-primary outline-none transition-shadow"
+                className="w-full bg-surface-container-lowest border border-outline rounded-lg p-3 text-base sm:text-sm focus:ring-2 focus:ring-primary outline-none transition-shadow"
               />
             </div>
             <div>
@@ -105,7 +105,7 @@ export const ProfileSettingsContent: React.FC = () => {
               <select 
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
-                className="w-full bg-surface-container-lowest border border-outline rounded-lg p-3 focus:ring-2 focus:ring-primary outline-none transition-shadow"
+                className="w-full bg-surface-container-lowest border border-outline rounded-lg p-3 text-base sm:text-sm focus:ring-2 focus:ring-primary outline-none transition-shadow"
               >
                 <option value="">{t('profileSettings.genderPreferNotToSay', 'Prefer not to say')}</option>
                 <option value="MALE">{t('profileSettings.genderMale', 'Male')}</option>
@@ -122,7 +122,7 @@ export const ProfileSettingsContent: React.FC = () => {
               value={dob}
               onChange={(e) => setDob(e.target.value)}
               max={new Date().toISOString().split('T')[0]}
-              className="w-full md:w-1/2 bg-surface-container-lowest border border-outline rounded-lg p-3 focus:ring-2 focus:ring-primary outline-none transition-shadow"
+              className="w-full md:w-1/2 bg-surface-container-lowest border border-outline rounded-lg p-3 text-base sm:text-sm focus:ring-2 focus:ring-primary outline-none transition-shadow"
             />
           </div>
 
@@ -130,7 +130,7 @@ export const ProfileSettingsContent: React.FC = () => {
             <button
               type="submit"
               disabled={isSaving}
-              className="px-6 py-2 bg-primary text-on-primary font-semibold rounded-lg hover:opacity-90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto px-6 py-2.5 min-h-[44px] bg-primary text-on-primary font-semibold rounded-lg hover:opacity-90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isSaving ? t('profileSettings.saving', 'Saving...') : t('profileSettings.saveBtn', 'Save Profile')}
             </button>
@@ -138,14 +138,14 @@ export const ProfileSettingsContent: React.FC = () => {
         </form>
       </section>
 
-      <section className="bg-surface-container-lowest rounded-xl p-6 shadow-sm border border-outline-variant/30">
+      <section className="bg-surface-container-lowest rounded-xl p-4 sm:p-6 shadow-sm border border-outline-variant/30">
         <h2 className="text-lg font-semibold text-on-surface mb-2">{t('profileSettings.securityTitle', 'Security')}</h2>
         <p className="text-sm text-on-surface-variant mb-4">
           {t('profileSettings.securityDesc', 'Reset your password if you think your account has been compromised.')}
         </p>
         <Link
           to="/forgot-password"
-          className="inline-flex items-center justify-center px-4 py-2 bg-surface-container text-on-surface-variant border border-outline rounded-lg text-sm font-semibold hover:bg-surface-container-high transition-all"
+          className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 min-h-[44px] bg-surface-container text-on-surface-variant border border-outline rounded-lg text-sm font-semibold hover:bg-surface-container-high transition-all"
         >
           {t('profileSettings.resetPasswordBtn', 'Reset Password')}
         </Link>

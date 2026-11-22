@@ -16,15 +16,15 @@ export const Membership: React.FC = () => {
   return (
     <div className="min-h-screen bg-surface text-on-surface">
       <SiteTopNav activeLabel="Membership" showSearch={false} />
-      <main className="pt-20 px-6 pb-12 max-w-[1100px] mx-auto">
-        <header className="mb-10">
-          <h1 className="text-4xl font-bold tracking-tight">{t('membership.title', 'Membership (Coming Soon)')}</h1>
+      <main className="pt-20 px-4 sm:px-6 pb-24 md:pb-12 max-w-[1100px] mx-auto">
+        <header className="mb-8 sm:mb-10">
+          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight">{t('membership.title', 'Membership (Coming Soon)')}</h1>
           <p className="text-on-surface-variant mt-2">{t('membership.description', 'Unlock premium perks and priority access.')}</p>
         </header>
 
-        <section className="rounded-3xl bg-inverse-surface text-inverse-on-surface p-10 md:p-14 grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <section className="rounded-3xl bg-inverse-surface text-inverse-on-surface p-5 sm:p-10 md:p-14 grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
           <div>
-            <h2 className="text-3xl font-black leading-tight mb-4">{t('membership.elevate', 'Elevate your cinema experience')}</h2>
+            <h2 className="text-xl sm:text-3xl font-black leading-tight mb-4">{t('membership.elevate', 'Elevate your cinema experience')}</h2>
             <p className="text-inverse-on-surface mb-8">
               {t('membership.joinDesc', 'Join membership for priority seats, exclusive events, and zero booking fees.')}
             </p>

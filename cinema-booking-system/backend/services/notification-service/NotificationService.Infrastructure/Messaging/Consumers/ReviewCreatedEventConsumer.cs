@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,17 +32,24 @@ public class ReviewCreatedEventConsumer : RabbitMqConsumerBase<EventEnvelope<Rev
         using var scope = _scopeFactory.CreateScope();
         var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
 
+        var rating = message.Payload.Rating ?? 0;
+        var isVisible = string.Equals(message.Payload.Status, "VISIBLE", StringComparison.OrdinalIgnoreCase);
+        var title = isVisible ? "Review Published" : "Review Submitted";
+        var content = isVisible
+            ? $"Your review (rating: {rating}/5) has been published."
+            : $"Your review (rating: {rating}/5) has been submitted and is under moderation.";
+
         var command = new SendNotificationCommand(
             message.Payload.UserId,
             NotificationType.REVIEW_MODERATION,
             NotificationChannel.PUSH,
-            "Review Submitted",
-            $"Your review (rating: {message.Payload.Rating}/10) has been submitted and is under moderation.",
+            title,
+            content,
             new Dictionary<string, object>
             {
                 { "reviewId", message.Payload.ReviewId },
                 { "movieId", message.Payload.MovieId ?? 0L },
-                { "rating", message.Payload.Rating ?? 0 },
+                { "rating", rating },
                 { "status", message.Payload.Status ?? string.Empty }
             }
         );

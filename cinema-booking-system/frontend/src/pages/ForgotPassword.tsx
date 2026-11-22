@@ -18,20 +18,20 @@ export const ForgotPassword: React.FC = () => {
           ))}
         </div>
 
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm"></div>
+        <div className="fixed inset-0 z-[60] overflow-y-auto flex items-center justify-center p-4 sm:p-6">
+          <div className="fixed inset-0 bg-inverse-surface/40 backdrop-blur-sm"></div>
 
-          <div className="relative w-full max-w-md bg-surface-container-lowest rounded-xl shadow-2xl overflow-hidden">
-            <div className="p-8 sm:p-10">
+          <div className="relative w-full max-w-md my-auto bg-surface-container-lowest rounded-xl shadow-2xl overflow-hidden">
+            <div className="p-6 sm:p-10">
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface mb-6"
+                className="inline-flex items-center gap-2 min-h-[44px] px-2 -ml-2 text-sm font-semibold text-on-surface-variant hover:text-on-surface mb-4 sm:mb-6"
               >
                 <ArrowLeft className="w-4 h-4" />
                 {t('forgotPassword.backToLogin', 'Back to Login')}
               </Link>
 
-              <div className="mb-10 text-center">
+              <div className="mb-8 sm:mb-10 text-center">
                 <span className="text-xl font-black tracking-tighter text-on-surface block mb-2">
                   {t('forgotPassword.brandName', 'CinemaArchitect')}
                 </span>
@@ -49,10 +49,10 @@ export const ForgotPassword: React.FC = () => {
                 <ArrowRight className="w-4 h-4" />
               </button>
 
-              <div className="mt-8 pt-8 border-t border-outline-variant/30 text-center">
+              <div className="mt-8 pt-6 sm:pt-8 border-t border-outline-variant/30 text-center">
                 <p className="text-sm text-on-surface-variant">
                   {t('forgotPassword.rememberPassword', 'Remember your password?')} {' '}
-                  <button onClick={() => authService.login()} className="text-primary font-bold hover:underline">
+                  <button onClick={() => authService.login()} className="text-primary font-bold hover:underline inline-flex items-center min-h-[44px] px-1">
                     {t('forgotPassword.signIn', 'Sign In')}
                   </button>
                 </p>

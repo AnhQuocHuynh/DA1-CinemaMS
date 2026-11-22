@@ -25,7 +25,14 @@ export function CinemaAssistant() {
   const { t, lang: currentLang } = useCinebotTranslation();
   const location = useLocation();
   const hidden =
-    location.pathname.startsWith('/admin') || location.pathname.startsWith('/staff');
+    location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/staff') ||
+    location.pathname === '/login' ||
+    location.pathname === '/signup' ||
+    location.pathname === '/forgot-password' ||
+    location.pathname === '/auth/callback' ||
+    location.pathname.startsWith('/user/booking') ||
+    location.pathname === '/user/checkout';
   const authUser = useAuthStore((s) => s.user);
   const isAuthenticated = Boolean(authUser) || Boolean(keycloak.authenticated);
 

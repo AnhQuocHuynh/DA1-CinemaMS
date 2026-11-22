@@ -93,7 +93,7 @@ export const NotificationBell: React.FC = () => {
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative flex items-center justify-center w-9 h-9 shrink-0 rounded-full bg-surface-container-high hover:bg-surface-container-highest transition-colors text-on-surface focus:outline-none"
+        className="relative flex items-center justify-center w-10 h-10 shrink-0 rounded-full bg-surface-container-high hover:bg-surface-container-highest transition-colors text-on-surface focus:outline-none"
         title={t('notifications.title', 'Notifications')}
         aria-label={t('notifications.title', 'Notifications')}
       >
@@ -107,9 +107,9 @@ export const NotificationBell: React.FC = () => {
 
       {/* Popover Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-surface-container-lowest/95 backdrop-blur-xl border border-outline-variant shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-x-4 top-[4.25rem] sm:inset-auto sm:absolute sm:right-0 sm:top-full sm:mt-2 sm:w-96 rounded-2xl bg-surface-container-lowest/95 backdrop-blur-xl border border-outline-variant shadow-2xl overflow-hidden z-[55] animate-in fade-in zoom-in-95 duration-200">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-outline-variant flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-outline-variant flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-semibold text-on-surface">{t('notifications.title', 'Notifications')}</h3>
               {unreadCount > 0 && (
@@ -122,7 +122,7 @@ export const NotificationBell: React.FC = () => {
             {unreadCount > 0 && (
               <button
                 onClick={() => markAllAsRead()}
-                className="flex items-center gap-1 text-xs text-on-surface-variant hover:text-primary transition-colors"
+                className="flex items-center gap-1 px-2 py-1.5 -mr-2 min-h-[36px] text-xs text-on-surface-variant hover:text-primary transition-colors"
                 title={t('notifications.markAllRead', 'Mark all read')}
               >
                 <CheckCheck className="w-3.5 h-3.5" />

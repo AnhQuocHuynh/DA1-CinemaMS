@@ -38,7 +38,7 @@ export const StaffSettings: React.FC = () => {
       <div className="max-w-4xl mx-auto space-y-8 pb-12">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-on-surface">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-on-surface">
             {t('staffSettings.title', 'Settings')}
           </h1>
           <p className="text-on-surface-variant mt-1.5 text-sm">
@@ -47,7 +47,7 @@ export const StaffSettings: React.FC = () => {
         </div>
 
         {/* Appearance & Theme Card */}
-        <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/40 shadow-sm">
+        <section className="bg-surface-container-low rounded-2xl p-4 sm:p-6 border border-outline-variant/40 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
               <Palette className="w-5 h-5" />
@@ -95,7 +95,7 @@ export const StaffSettings: React.FC = () => {
         </section>
 
         {/* Language & Regional Card */}
-        <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/40 shadow-sm">
+        <section className="bg-surface-container-low rounded-2xl p-4 sm:p-6 border border-outline-variant/40 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
               <Globe className="w-5 h-5" />
@@ -164,7 +164,7 @@ export const StaffSettings: React.FC = () => {
         </section>
 
         {/* Profile & Security Card */}
-        <section className="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/40 shadow-sm">
+        <section className="bg-surface-container-low rounded-2xl p-4 sm:p-6 border border-outline-variant/40 shadow-sm">
           <div className="mb-6">
             <h2 className="text-lg font-bold text-on-surface">
               {t('staffSettings.profileSection', 'Profile & Security')}
