@@ -15,9 +15,10 @@ import { useTranslation } from 'react-i18next';
 interface ReviewSectionProps {
   type: 'movie' | 'event';
   id: number;
+  onReviewSubmitted?: (rating: number) => void;
 }
 
-export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
+export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id, onReviewSubmitted }) => {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
 
@@ -69,6 +70,7 @@ export const ReviewSection: React.FC<ReviewSectionProps> = ({ type, id }) => {
       comment: comment || undefined,
       ...(type === 'movie' ? { movieId: id } : { eventId: id }),
     });
+    onReviewSubmitted?.(rating);
     // Refresh data after submit
     await fetchData();
   };

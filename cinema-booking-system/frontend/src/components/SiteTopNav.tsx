@@ -96,17 +96,17 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
           <button
             type="button"
             onClick={() => setIsMobileDrawerOpen(true)}
-            className="md:hidden w-10 h-10 -ml-1 flex items-center justify-center rounded-lg text-on-surface hover:bg-surface-container shrink-0"
+            className="lg:hidden w-10 h-10 -ml-1 flex items-center justify-center rounded-lg text-on-surface hover:bg-surface-container shrink-0"
             aria-label={t('common.openMenu', 'Open menu')}
           >
             <Menu className="w-5 h-5" />
           </button>
-          <Link to="/" className="text-lg sm:text-xl font-bold tracking-tight truncate text-on-surface">
+          <Link to="/" className="text-lg sm:text-xl font-bold tracking-tight whitespace-nowrap shrink-0 text-on-surface">
             CinemaArchitect
           </Link>
-          <nav className="hidden md:flex items-center text-sm font-medium">
+          <nav className="hidden lg:flex items-center text-sm font-medium">
             {navItems.map((item) => (
-              <div key={item.id} className="min-w-[100px] px-3 flex justify-center whitespace-nowrap">
+              <div key={item.id} className="px-2 xl:px-3 flex justify-center whitespace-nowrap">
                 <Link
                   to={item.to}
                   className={
@@ -128,12 +128,12 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
               <button
                 type="button"
                 onClick={() => setIsMobileSearchOpen(true)}
-                className="lg:hidden w-10 h-10 flex items-center justify-center rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
+                className="xl:hidden w-10 h-10 flex items-center justify-center rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
                 aria-label={t('common.search', 'Search')}
               >
                 <Search size={18} />
               </button>
-              <div className="relative hidden lg:block">
+              <div className="relative hidden xl:block">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -253,9 +253,9 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
       </div>
     </header>
 
-    {/* Mobile Search Overlay (< lg) */}
+    {/* Mobile Search Overlay (< xl) */}
     {showSearch && isMobileSearchOpen && (
-      <div className="lg:hidden fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm" onClick={() => setIsMobileSearchOpen(false)}>
+      <div className="xl:hidden fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm" onClick={() => setIsMobileSearchOpen(false)}>
         <div
           className="bg-surface-container-lowest border-b border-outline-variant p-3 pt-safe shadow-2xl"
           onClick={(e) => e.stopPropagation()}
@@ -335,9 +335,9 @@ export const SiteTopNav: React.FC<SiteTopNavProps> = ({
       </div>
     )}
 
-    {/* Mobile Navigation Drawer (< md) */}
+    {/* Mobile Navigation Drawer (< lg) */}
     {isMobileDrawerOpen && (
-      <div className="md:hidden fixed inset-0 z-[58] flex" onClick={() => setIsMobileDrawerOpen(false)}>
+      <div className="lg:hidden fixed inset-0 z-[58] flex" onClick={() => setIsMobileDrawerOpen(false)}>
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
         <aside
           className="relative w-72 max-w-[85vw] h-full bg-surface-container-lowest border-r border-outline-variant p-4 pt-safe pb-safe flex flex-col justify-between overflow-y-auto shadow-2xl"

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Star, Trash2 } from 'lucide-react';
+import { Star, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { recommendationService, UserRating } from '../services/recommendationService';
+import { SiteTopNav } from '../components/SiteTopNav';
 import genericPoster from '../resources/generic_movie_poster.png';
 
 export const MyRatings: React.FC = () => {
@@ -37,15 +38,8 @@ export const MyRatings: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-surface text-on-surface">
-      <header className="sticky top-0 z-50 bg-surface-container-lowest/90 backdrop-blur border-b border-outline-variant pt-safe">
-        <div className="max-w-[1280px] mx-auto h-16 px-4 sm:px-6 flex items-center justify-between gap-3">
-          <Link to="/" className="font-black tracking-tight text-lg truncate">CinemaArchitect</Link>
-          <Link to="/" className="inline-flex items-center gap-2 min-h-[44px] px-2 -mr-2 text-sm text-on-surface-variant hover:text-on-surface shrink-0">
-            <ArrowLeft size={16} /> {t('myRatings.back', 'Back')}
-          </Link>
-        </div>
-      </header>
-      <main className="max-w-[1280px] mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-24 md:pb-12">
+      <SiteTopNav activeLabel="My Ratings" showSearch={false} />
+      <main className="max-w-[1280px] mx-auto px-4 sm:px-6 pt-20 md:pt-24 pb-24 md:pb-12">
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">{t('myRatings.title', 'Movies I rated')}</h1>
         <p className="text-sm text-on-surface-variant mt-2 mb-6 sm:mb-8">
           {t('myRatings.subtitle', 'These ratings drive your personal recommendations.')}

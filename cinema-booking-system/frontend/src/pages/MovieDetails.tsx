@@ -261,7 +261,14 @@ export const MovieDetails: React.FC = () => {
             ) : null}
 
             {/* Reviews */}
-            <ReviewSection type="movie" id={parseInt(movieId!, 10)} />
+            <ReviewSection
+              type="movie"
+              id={parseInt(movieId!, 10)}
+              onReviewSubmitted={(rating) => {
+                setMyRating(rating);
+                setRatingMessage(t('movieDetailsRating.saved', 'Rating saved'));
+              }}
+            />
           </div>
 
           <aside className="lg:col-span-4 space-y-6 order-1 lg:order-2">
