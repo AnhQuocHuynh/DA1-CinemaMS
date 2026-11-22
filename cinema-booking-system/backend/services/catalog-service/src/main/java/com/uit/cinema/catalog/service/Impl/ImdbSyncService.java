@@ -85,8 +85,10 @@ public class ImdbSyncService {
         }
         String normalizedImdbId = imdbId.trim();
 
-        CompletableFuture<JsonNode> titlePayloadFuture = CompletableFuture.supplyAsync(() -> fetchImdbPayload(normalizedImdbId));
-        CompletableFuture<JsonNode> akasPayloadFuture = CompletableFuture.supplyAsync(() -> fetchImdbAkasPayload(normalizedImdbId));
+        CompletableFuture<JsonNode> titlePayloadFuture = CompletableFuture
+                .supplyAsync(() -> fetchImdbPayload(normalizedImdbId));
+        CompletableFuture<JsonNode> akasPayloadFuture = CompletableFuture
+                .supplyAsync(() -> fetchImdbAkasPayload(normalizedImdbId));
         JsonNode payload;
         JsonNode akasPayload;
         try {
@@ -133,7 +135,8 @@ public class ImdbSyncService {
         if (actors != null && !actors.isBlank()) {
             movie.setActors(actors);
         }
-        if (description != null && !description.isBlank() && (movie.getDescription() == null || movie.getDescription().isBlank())) {
+        if (description != null && !description.isBlank()
+                && (movie.getDescription() == null || movie.getDescription().isBlank())) {
             movie.setDescription(description);
         }
         if (releaseYear != null) {
@@ -147,7 +150,8 @@ public class ImdbSyncService {
         if (duration != null && duration > 0) {
             movie.setDurationMinutes(duration);
         }
-        if (posterUrl != null && !posterUrl.isBlank() && (movie.getPosterUrl() == null || movie.getPosterUrl().isBlank())) {
+        if (posterUrl != null && !posterUrl.isBlank()
+                && (movie.getPosterUrl() == null || movie.getPosterUrl().isBlank())) {
             movie.setPosterUrl(posterUrl);
         }
         if (genre != null && !genre.isBlank()) {
@@ -243,7 +247,8 @@ public class ImdbSyncService {
             if (rootCause instanceof SocketTimeoutException) {
                 return new CustomException(timeoutMessage, HttpStatus.GATEWAY_TIMEOUT, "IMDB_TIMEOUT");
             }
-            return new CustomException("Cannot access IMDb API: " + resourceAccessException.getMessage(), HttpStatus.BAD_GATEWAY, "IMDB_UNAVAILABLE");
+            return new CustomException("Cannot access IMDb API: " + resourceAccessException.getMessage(),
+                    HttpStatus.BAD_GATEWAY, "IMDB_UNAVAILABLE");
         }
         return new CustomException("IMDb API error: " + exception.getMessage(), HttpStatus.BAD_GATEWAY, "IMDB_ERROR");
     }
@@ -252,7 +257,7 @@ public class ImdbSyncService {
         if (body.isArray()) {
             return body;
         }
-        String[] arrayPaths = {"titles", "results", "data", "items", "content"};
+        String[] arrayPaths = { "titles", "results", "data", "items", "content" };
         for (String path : arrayPaths) {
             JsonNode node = body.get(path);
             if (node != null && node.isArray()) {
@@ -305,7 +310,8 @@ public class ImdbSyncService {
                 languages.add(language.trim());
             }
         }
-        return new AkaMetadata(joinValuesWithinLimit(regions, REGION_MAX), joinValuesWithinLimit(languages, LANGUAGE_MAX));
+        return new AkaMetadata(joinValuesWithinLimit(regions, REGION_MAX),
+                joinValuesWithinLimit(languages, LANGUAGE_MAX));
     }
 
     private JsonNode unwrapAkasArray(JsonNode akasPayload) {

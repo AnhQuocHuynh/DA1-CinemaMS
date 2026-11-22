@@ -26,23 +26,20 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
     static final int MAX_SUMMARY_LENGTH = 2000;
 
     private static final Set<String> STOPWORDS = Set.of(
-        "movie", "movies", "phim", "film", "films", "anime",
-        "the", "and", "with", "for", "from", "this", "that", "into", "onto",
-        "cua", "voi", "mot", "nay", "cho", "trong", "nhung", "duoc", "phan", "tap",
-        "tan", "new", "vol", "episode", "official", "trailer", "poster"
-    );
+            "movie", "movies", "phim", "film", "films", "anime",
+            "the", "and", "with", "for", "from", "this", "that", "into", "onto",
+            "cua", "voi", "mot", "nay", "cho", "trong", "nhung", "duoc", "phan", "tap",
+            "tan", "new", "vol", "episode", "official", "trailer", "poster");
 
     private static final String SYSTEM_PROMPT = """
-        You write a short factual synopsis for a cinema website.
-        The description may be only a title hint, not a full plot. Identify the real film from the title and description, then use well-known public facts about that film.
-        Rules:
-        1. Write 3 to 5 complete sentences in the same language as the description.
-        2. Include the film title.
-        3. Mention concrete names, places, or events from that film.
-        4. Do not write a generic story about protagonists, rivalries, catastrophes, or the human spirit.
-        5. If you are not confident which film this is, restate only the supplied title and description in 1 or 2 sentences and add no plot.
-        6. Plain text only. No markdown, labels, or quotation marks.
-        """;
+            You write a rich and captivating factual movie synopsis for a cinema website.
+            Strict requirements:
+            1. Language: MUST be written entirely in English.
+            2. Word count: MUST be between 100 and 250 words (aim for around 125 to 150 words).
+            3. Identify the film from the title, genres, and description, mentioning concrete characters, conflicts, and events.
+            4. Dive directly into the narrative. Do NOT start with introductory labels or prefixes like "Summary:", "AI Summary:", "In this film", or quotes.
+            5. Output plain text only. Do not use markdown, bullet points, or quotation marks.
+            """;
 
     private final RestClient geminiRestClient;
     private final CinemaAiProperties properties;
@@ -71,12 +68,12 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
     private ModelCall requestText(String userText) {
         try {
             JsonNode body = geminiRestClient.post()
-                .uri("/models/{model}:generateContent", properties.getModel())
-                .header("x-goog-api-key", properties.getApiKey())
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(requestBody(userText))
-                .retrieve()
-                .body(JsonNode.class);
+                    .uri("/models/{model}:generateContent", properties.getModel())
+                    .header("x-goog-api-key", properties.getApiKey())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(requestBody(userText))
+                    .retrieve()
+                    .body(JsonNode.class);
             return new ModelCall(limitSummary(cleanSummary(extractText(body))), false);
         } catch (RestClientResponseException ex) {
             log.warn("Gemini summary request failed: status {}", ex.getStatusCode().value());
@@ -92,37 +89,35 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
 
     private Map<String, Object> requestBody(String userText) {
         return Map.of(
-            "systemInstruction", Map.of("parts", List.of(Map.of("text", SYSTEM_PROMPT))),
-            "contents", List.of(Map.of(
-                "role", "user",
-                "parts", List.of(Map.of("text", userText))
-            )),
-            "generationConfig", Map.of(
-                "maxOutputTokens", 512,
-                "thinkingConfig", Map.of("thinkingLevel", "low")
-            )
-        );
+                "systemInstruction", Map.of("parts", List.of(Map.of("text", SYSTEM_PROMPT))),
+                "contents", List.of(Map.of(
+                        "role", "user",
+                        "parts", List.of(Map.of("text", userText)))),
+                "generationConfig", Map.of(
+                        "maxOutputTokens", 512,
+                        "thinkingConfig", Map.of("thinkingLevel", "low")));
     }
 
     private static String userPrompt(String title, String description, List<String> genres) {
         String genreLine = genres == null || genres.isEmpty() ? "None" : String.join(", ", genres);
         return """
-            Title: %s
-            Genres: %s
-            Description:
-            %s
-            """.formatted(title == null ? "" : title, genreLine, description);
+                Title: %s
+                Genres: %s
+                Description:
+                %s
+                """.formatted(title == null ? "" : title, genreLine, description);
     }
 
     private static String retryPrompt(String title, String description, List<String> genres) {
         List<String> terms = significantTerms(title, description);
-        String required = terms.isEmpty() ? title == null ? "" : title : String.join(", ", terms.stream().limit(8).toList());
+        String required = terms.isEmpty() ? title == null ? "" : title
+                : String.join(", ", terms.stream().limit(8).toList());
         return """
-            The previous summary was rejected because it did not refer to this film.
-            Write the summary again. It must include at least one of these terms: %s
-            Keep the same language as the description. Write 3 to 5 sentences. Do not use generic filler.
-            %s
-            """.formatted(required, userPrompt(title, description, genres));
+                The previous summary was rejected because it did not refer to this film.
+                Write the summary again in English. It must include at least one of these terms: %s
+                Write between 100 and 250 words in complete sentences. Do not use generic filler.
+                %s
+                """.formatted(required, userPrompt(title, description, genres));
     }
 
     private static String extractText(JsonNode body) {
@@ -179,7 +174,7 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
             if (i + 1 < words.size()) {
                 String next = words.get(i + 1);
                 if (word.length() >= 3 && next.length() >= 3
-                    && !STOPWORDS.contains(word) && !STOPWORDS.contains(next)) {
+                        && !STOPWORDS.contains(word) && !STOPWORDS.contains(next)) {
                     String phrase = word + " " + next;
                     if (!terms.contains(phrase)) {
                         terms.add(phrase);
@@ -230,7 +225,8 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
             return null;
         }
         String cleaned = text.strip();
-        cleaned = cleaned.replaceFirst("^(?i)(ai summary|plot summary|summary|tóm tắt ai|tóm tắt)\\s*:\\s*", "").strip();
+        cleaned = cleaned.replaceFirst("^(?i)(ai summary|plot summary|summary|tóm tắt ai|tóm tắt)\\s*:\\s*", "")
+                .strip();
         if (cleaned.startsWith("\"") && cleaned.endsWith("\"") && cleaned.length() > 1) {
             cleaned = cleaned.substring(1, cleaned.length() - 1).strip();
         }
@@ -250,9 +246,8 @@ public class GeminiMovieSummaryClient implements MovieSummaryAgent {
         }
         String cut = trimmed.substring(0, MAX_SUMMARY_LENGTH);
         int lastSentence = Math.max(
-            cut.lastIndexOf('.'),
-            Math.max(cut.lastIndexOf('!'), Math.max(cut.lastIndexOf('?'), cut.lastIndexOf('。')))
-        );
+                cut.lastIndexOf('.'),
+                Math.max(cut.lastIndexOf('!'), Math.max(cut.lastIndexOf('?'), cut.lastIndexOf('。'))));
         if (lastSentence >= 400) {
             return cut.substring(0, lastSentence + 1).strip();
         }

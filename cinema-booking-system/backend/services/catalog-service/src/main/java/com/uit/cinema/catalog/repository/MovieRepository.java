@@ -30,14 +30,15 @@ public interface MovieRepository extends JpaRepository<Movie, Long> {
     List<Movie> findAllWithGenres();
 
     @Query("SELECT DISTINCT m FROM Movie m LEFT JOIN m.genres g " +
-           "WHERE (CAST(:keyword AS text) IS NULL OR LOWER(m.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS text), '%')) OR LOWER(m.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS text), '%'))) " +
-           "AND (CAST(:genreId AS long) IS NULL OR g.id = :genreId) " +
-           "AND (CAST(:fromDate AS date) IS NULL OR m.releaseDate >= :fromDate) " +
-           "AND (CAST(:toDate AS date) IS NULL OR m.releaseDate <= :toDate) " +
-           "AND m.active = true " +
-           "AND (CAST(:status AS text) IS NULL " +
-           "OR (CAST(:status AS text) = 'SHOWING' AND (m.releaseDate IS NULL OR m.releaseDate <= :today)) " +
-           "OR (CAST(:status AS text) = 'UPCOMING' AND m.releaseDate > :today))")
+            "WHERE (CAST(:keyword AS text) IS NULL OR LOWER(m.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS text), '%')) OR LOWER(m.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS text), '%'))) "
+            +
+            "AND (CAST(:genreId AS long) IS NULL OR g.id = :genreId) " +
+            "AND (CAST(:fromDate AS date) IS NULL OR m.releaseDate >= :fromDate) " +
+            "AND (CAST(:toDate AS date) IS NULL OR m.releaseDate <= :toDate) " +
+            "AND m.active = true " +
+            "AND (CAST(:status AS text) IS NULL " +
+            "OR (CAST(:status AS text) = 'SHOWING' AND (m.releaseDate IS NULL OR m.releaseDate <= :today)) " +
+            "OR (CAST(:status AS text) = 'UPCOMING' AND m.releaseDate > :today))")
     Page<Movie> searchMovies(
             @Param("keyword") String keyword,
             @Param("genreId") Long genreId,
@@ -45,6 +46,5 @@ public interface MovieRepository extends JpaRepository<Movie, Long> {
             @Param("toDate") LocalDate toDate,
             @Param("status") String status,
             @Param("today") LocalDate today,
-            Pageable pageable
-    );
+            Pageable pageable);
 }

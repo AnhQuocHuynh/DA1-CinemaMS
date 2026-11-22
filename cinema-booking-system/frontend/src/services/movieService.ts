@@ -13,6 +13,10 @@ export interface MovieResponse {
   language: string;
   active: boolean;
   genres: string[];
+  region?: string;
+  imdbRating?: number;
+  director?: string;
+  actors?: string;
   createdAt: string;
   updatedAt: string;
 }
