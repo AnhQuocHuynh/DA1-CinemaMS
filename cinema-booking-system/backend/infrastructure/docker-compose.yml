@@ -595,6 +595,7 @@ services:
       - RECOMMENDATION_SERVICE_URL=http://recommendation-service:8085
       - IDENTITY_SERVICE_URL=http://identity-service:80
       - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-local-dev-internal-token}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
       - CINEMA_SECURITY_JWT_ENABLED=${CINEMA_SECURITY_JWT_ENABLED:-false}
       - KEYCLOAK_ISSUER_URI=${KEYCLOAK_ISSUER_URI:-}
       - KEYCLOAK_AUDIENCE=${KEYCLOAK_AUDIENCE:-cinema-api}
