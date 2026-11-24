@@ -284,6 +284,139 @@ async def test_process_catalog_event_enriches_and_upserts(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_process_catalog_event_persists_new_catalog_fields(monkeypatch):
+    async def fake_get_movie(movie_id: int):
+        assert movie_id == 12
+        return {
+            "id": 12,
+            "title": "Inception",
+            "description": "A thief enters dreams to steal secrets.",
+            "aiSummary": "Dream heist thriller.",
+            "genres": ["Sci-Fi", "Thriller"],
+            "ageRating": "T13",
+            "director": "Christopher Nolan",
+            "actors": "Leonardo DiCaprio, Elliot Page",
+            "imdbRating": 8.8,
+            "region": "USA",
+            "releaseDate": "2010-07-16",
+            "language": "English",
+            "durationMinutes": 148,
+        }
+
+    embedded_texts: list[str] = []
+
+    async def fake_embed(text: str):
+        embedded_texts.append(text)
+        return [0.2] * 768
+
+    monkeypatch.setattr(downstream_client, "get_movie_by_id", fake_get_movie)
+    monkeypatch.setattr(llm_client, "embed", fake_embed)
+
+    db = FakeWorkerSession()
+    event_bytes = json.dumps(
+        {
+            "eventId": "evt-2",
+            "eventType": "movie.updated",
+            "payload": {"movieId": 12, "title": "Inception"},
+        }
+    ).encode("utf-8")
+
+    ok = await event_consumer.process_catalog_event(event_bytes, db=db)
+    assert ok is True
+    assert db.commits == 1
+    _, params = db.executed[0]
+    assert params["director"] == "Christopher Nolan"
+    assert params["actors"] == "Leonardo DiCaprio, Elliot Page"
+    assert params["imdb_rating"] == 8.8
+    assert params["region"] == "USA"
+    assert params["release_date"] == date(2010, 7, 16)
+    assert params["language"] == "English"
+    assert params["duration_minutes"] == 148
+    assert len(embedded_texts) == 1
+    assert "Director: Christopher Nolan" in embedded_texts[0]
+    assert "Cast: Leonardo DiCaprio" in embedded_texts[0]
+    assert "Summary: Dream heist thriller." in embedded_texts[0]
+
+
+@pytest.mark.asyncio
+async def test_process_catalog_event_falls_back_to_event_payload(monkeypatch):
+    async def fake_get_movie(movie_id: int):
+        return None
+
+    async def fake_embed(text: str):
+        return [0.2] * 768
+
+    monkeypatch.setattr(downstream_client, "get_movie_by_id", fake_get_movie)
+    monkeypatch.setattr(llm_client, "embed", fake_embed)
+
+    db = FakeWorkerSession()
+    event_bytes = json.dumps(
+        {
+            "eventId": "evt-3",
+            "eventType": "movie.updated",
+            "payload": {
+                "movieId": 14,
+                "title": "Interstellar",
+                "genreNames": ["Sci-Fi"],
+                "director": "Christopher Nolan",
+                "imdbRating": 8.7,
+                "releaseDate": "2014-11-07",
+            },
+        }
+    ).encode("utf-8")
+
+    ok = await event_consumer.process_catalog_event(event_bytes, db=db)
+    assert ok is True
+    _, params = db.executed[0]
+    assert params["movie_id"] == 14
+    assert params["genres"] == "Sci-Fi"
+    assert params["director"] == "Christopher Nolan"
+    assert params["imdb_rating"] == 8.7
+    assert params["release_date"] == date(2014, 11, 7)
+
+
+@pytest.mark.asyncio
+async def test_movie_query_context_formats_new_details(monkeypatch):
+    async def fake_movies_vec(emb, limit=3, db=None):
+        return [
+            {
+                "movie_id": 12,
+                "title": "Inception",
+                "genres": "Sci-Fi, Thriller",
+                "synopsis": "A thief enters dreams.",
+                "age_rating": "T13",
+                "director": "Christopher Nolan",
+                "actors": "Leonardo DiCaprio, Elliot Page",
+                "imdb_rating": 8.8,
+                "region": "USA",
+                "release_date": "2010-07-16",
+                "language": "English",
+                "duration_minutes": 148,
+                "similarity": 0.92,
+            }
+        ]
+
+    monkeypatch.setattr(intent_router.rag_service, "search_movies_vector", fake_movies_vec)
+    ctx = await intent_router.build_context(
+        "MOVIE_QUERY",
+        "Who directed Inception?",
+        query_embedding=[0.1] * 768,
+    )
+    assert ctx is not None
+    assert "Director: Christopher Nolan" in ctx
+    assert "IMDb: 8.8/10" in ctx
+    assert "Cast: Leonardo DiCaprio, Elliot Page" in ctx
+    assert "Released: 2010-07-16" in ctx
+    assert "Runtime: 148 min" in ctx
+
+    plain = intent_router._format_movies(
+        [{"title": "Minimal", "genres": "Drama", "synopsis": "Simple.", "age_rating": "P"}],
+        [],
+    )
+    assert plain == "Matching movies:\n- Minimal (Drama | P): Simple."
+
+
+@pytest.mark.asyncio
 async def test_downstream_get_order_by_id_forwards_token_and_enforces_ownership(monkeypatch):
     downstream_client.reset_circuit_breakers()
     client = FakeHttpClient(

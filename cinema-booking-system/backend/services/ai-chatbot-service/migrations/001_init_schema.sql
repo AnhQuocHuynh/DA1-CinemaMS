@@ -44,6 +44,14 @@ CREATE TABLE IF NOT EXISTS movie_embeddings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE movie_embeddings ADD COLUMN IF NOT EXISTS director         VARCHAR(200);
+ALTER TABLE movie_embeddings ADD COLUMN IF NOT EXISTS actors           TEXT;
+ALTER TABLE movie_embeddings ADD COLUMN IF NOT EXISTS imdb_rating      DOUBLE PRECISION;
+ALTER TABLE movie_embeddings ADD COLUMN IF NOT EXISTS region           VARCHAR(255);
+ALTER TABLE movie_embeddings ADD COLUMN IF NOT EXISTS release_date     DATE;
+ALTER TABLE movie_embeddings ADD COLUMN IF NOT EXISTS language         VARCHAR(50);
+ALTER TABLE movie_embeddings ADD COLUMN IF NOT EXISTS duration_minutes INT;
+
 CREATE TABLE IF NOT EXISTS semantic_cache (
     id            BIGSERIAL PRIMARY KEY,
     query_hash    VARCHAR(64),

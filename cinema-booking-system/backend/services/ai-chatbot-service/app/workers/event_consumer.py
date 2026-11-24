@@ -42,20 +42,12 @@ async def process_catalog_event(
 
     movie_id_int = int(movie_id)
     movie = await downstream_client.get_movie_by_id(movie_id_int) or {}
-    enriched = {
-        "id": movie_id_int,
-        "title": movie.get("title") or payload.get("title"),
-        "genres": movie.get("genres") or payload.get("genreNames") or payload.get("genres") or [],
-        "description": (
-            movie.get("description")
-            or movie.get("aiSummary")
-            or payload.get("synopsis")
-            or payload.get("description")
-            or ""
-        ),
-        "ageRating": movie.get("ageRating") or payload.get("ageRating") or "",
-    }
-    return await upsert_movie(enriched, db)
+    merged = {k: v for k, v in payload.items() if v is not None}
+    merged.update({k: v for k, v in movie.items() if v is not None})
+    merged["id"] = movie_id_int
+    if not merged.get("genres"):
+        merged["genres"] = payload.get("genreNames") or []
+    return await upsert_movie(merged, db)
 
 
 async def run_consumer() -> None:

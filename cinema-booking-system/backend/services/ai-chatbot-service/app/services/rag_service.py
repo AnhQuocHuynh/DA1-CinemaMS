@@ -150,6 +150,7 @@ async def search_movies_vector(
     stmt = sql_text(
         """
         SELECT movie_id, title, genres, synopsis, age_rating,
+               director, actors, imdb_rating, region, release_date, language, duration_minutes,
                1 - (embedding <=> CAST(:embedding AS vector)) AS similarity
         FROM movie_embeddings
         WHERE embedding IS NOT NULL
@@ -167,17 +168,30 @@ async def search_movies_vector(
         },
         db,
     )
-    mapped = [
-        {
-            "movie_id": row["movie_id"],
-            "title": row["title"],
-            "genres": row.get("genres"),
-            "synopsis": row.get("synopsis"),
-            "age_rating": row.get("age_rating"),
-            "similarity": float(row["similarity"]),
-        }
-        for row in rows
-    ]
+    mapped = []
+    for row in rows:
+        raw_release = row.get("release_date")
+        release_date = (
+            raw_release.isoformat() if hasattr(raw_release, "isoformat") else raw_release
+        )
+        raw_imdb = row.get("imdb_rating")
+        mapped.append(
+            {
+                "movie_id": row["movie_id"],
+                "title": row["title"],
+                "genres": row.get("genres"),
+                "synopsis": row.get("synopsis"),
+                "age_rating": row.get("age_rating"),
+                "director": row.get("director"),
+                "actors": row.get("actors"),
+                "imdb_rating": float(raw_imdb) if raw_imdb is not None else None,
+                "region": row.get("region"),
+                "release_date": release_date,
+                "language": row.get("language"),
+                "duration_minutes": row.get("duration_minutes"),
+                "similarity": float(row["similarity"]),
+            }
+        )
     return apply_relative_margin(mapped, margin)
 
 

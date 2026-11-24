@@ -142,6 +142,69 @@ def _format_showtimes(showtimes: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _format_release_date(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple)) and len(value) >= 3:
+        try:
+            return f"{int(value[0]):04d}-{int(value[1]):02d}-{int(value[2]):02d}"
+        except (TypeError, ValueError):
+            return ""
+    if hasattr(value, "isoformat"):
+        return str(value.isoformat())
+    return str(value).strip()
+
+
+def _movie_details(m: dict) -> str:
+    parts: list[str] = []
+    director = str(m.get("director") or "").strip()
+    if director:
+        parts.append(f"Director: {director}")
+
+    raw_actors = m.get("actors")
+    if isinstance(raw_actors, list):
+        actors_text = ", ".join(str(a).strip() for a in raw_actors if str(a).strip())
+    else:
+        actors_text = str(raw_actors or "").strip()
+    if actors_text:
+        parts.append(f"Cast: {rag_service.clip_snippet(actors_text, max_len=200)}")
+
+    raw_imdb = m.get("imdb_rating")
+    if raw_imdb is None:
+        raw_imdb = m.get("imdbRating")
+    if raw_imdb is not None and not isinstance(raw_imdb, bool):
+        try:
+            parts.append(f"IMDb: {float(raw_imdb):g}/10")
+        except (TypeError, ValueError):
+            pass
+
+    raw_release = m.get("release_date")
+    if raw_release is None:
+        raw_release = m.get("releaseDate")
+    release_str = _format_release_date(raw_release)
+    if release_str:
+        parts.append(f"Released: {release_str}")
+
+    region = str(m.get("region") or "").strip()
+    if region:
+        parts.append(f"Region: {region}")
+
+    language = str(m.get("language") or "").strip()
+    if language:
+        parts.append(f"Language: {language}")
+
+    raw_duration = m.get("duration_minutes")
+    if raw_duration is None:
+        raw_duration = m.get("durationMinutes")
+    if raw_duration is not None and not isinstance(raw_duration, bool):
+        try:
+            parts.append(f"Runtime: {int(raw_duration)} min")
+        except (TypeError, ValueError):
+            pass
+
+    return " | ".join(parts)
+
+
 def _format_movies(movies: list[dict], recs: list[dict]) -> str | None:
     sections: list[str] = []
     if movies:
@@ -156,6 +219,9 @@ def _format_movies(movies: list[dict], recs: list[dict]) -> str | None:
             meta = " | ".join(part for part in (genres, rating) if part)
             header = f"- {title} ({meta})" if meta else f"- {title}"
             lines.append(f"{header}: {synopsis}".strip(": "))
+            details = _movie_details(m)
+            if details:
+                lines.append(f"  Details: {details}")
         sections.append("\n".join(lines))
 
     if recs:

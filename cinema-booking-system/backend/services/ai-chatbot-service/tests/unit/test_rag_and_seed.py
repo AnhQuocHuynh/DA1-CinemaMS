@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 
 from app.services import rag_service
@@ -80,6 +82,13 @@ async def test_search_movies_vector_and_format_context():
                 "genres": "Sci-Fi",
                 "synopsis": "Dream heist",
                 "age_rating": "T13",
+                "director": "Christopher Nolan",
+                "actors": "Leonardo DiCaprio",
+                "imdb_rating": 8.8,
+                "region": "USA",
+                "release_date": date(2010, 7, 16),
+                "language": "English",
+                "duration_minutes": 148,
                 "similarity": 0.88,
             }
         ]
@@ -87,6 +96,13 @@ async def test_search_movies_vector_and_format_context():
     movies = await rag_service.search_movies_vector([0.3, 0.4], limit=3, db=db)
     assert movies[0]["movie_id"] == 10
     assert movies[0]["title"] == "Inception"
+    assert movies[0]["director"] == "Christopher Nolan"
+    assert movies[0]["actors"] == "Leonardo DiCaprio"
+    assert movies[0]["imdb_rating"] == 8.8
+    assert movies[0]["region"] == "USA"
+    assert movies[0]["release_date"] == "2010-07-16"
+    assert movies[0]["language"] == "English"
+    assert movies[0]["duration_minutes"] == 148
 
     formatted = rag_service.format_faq_context(
         [{"category": "REFUND", "question": "Refund?", "answer": "60 min cutoff."}]

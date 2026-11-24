@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 from fastapi import HTTPException
 
@@ -271,3 +273,11 @@ async def test_internal_reindex_endpoint_auth_and_safe_reindex(monkeypatch):
     if hasattr(main.app, "routes"):
         paths = {getattr(route, "path", None) for route in main.app.routes}
         assert "/internal/chat/reindex" in paths
+
+
+def test_opt_date_parses_supported_formats_and_rejects_invalid():
+    assert catalog_indexer._opt_date("2010-07-16") == date(2010, 7, 16)
+    assert catalog_indexer._opt_date([2010, 7, 16]) == date(2010, 7, 16)
+    assert catalog_indexer._opt_date(date(2010, 7, 16)) == date(2010, 7, 16)
+    assert catalog_indexer._opt_date("not-a-date") is None
+    assert catalog_indexer._opt_date(None) is None

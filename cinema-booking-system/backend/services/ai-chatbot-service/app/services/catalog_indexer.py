@@ -1,4 +1,6 @@
+from datetime import date, datetime
 import logging
+import math
 from typing import Any
 
 from sqlalchemy import text as sql_text
@@ -14,18 +16,86 @@ logger = logging.getLogger("cinebot.indexer")
 _UPSERT_MOVIE_SQL = sql_text(
     """
     INSERT INTO movie_embeddings
-        (movie_id, title, genres, synopsis, age_rating, embedding, updated_at)
+        (movie_id, title, genres, synopsis, age_rating,
+         director, actors, imdb_rating, region, release_date, language, duration_minutes,
+         embedding, updated_at)
     VALUES
-        (:movie_id, :title, :genres, :synopsis, :age_rating, CAST(:embedding AS vector), NOW())
+        (:movie_id, :title, :genres, :synopsis, :age_rating,
+         :director, :actors, :imdb_rating, :region, :release_date, :language, :duration_minutes,
+         CAST(:embedding AS vector), NOW())
     ON CONFLICT (movie_id) DO UPDATE SET
         title = EXCLUDED.title,
         genres = EXCLUDED.genres,
         synopsis = EXCLUDED.synopsis,
         age_rating = EXCLUDED.age_rating,
+        director = EXCLUDED.director,
+        actors = EXCLUDED.actors,
+        imdb_rating = EXCLUDED.imdb_rating,
+        region = EXCLUDED.region,
+        release_date = EXCLUDED.release_date,
+        language = EXCLUDED.language,
+        duration_minutes = EXCLUDED.duration_minutes,
         embedding = EXCLUDED.embedding,
         updated_at = NOW()
     """
 )
+
+
+def _opt_str(value: Any, max_len: int | None = None) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return text[:max_len] if max_len is not None else text
+
+
+def _opt_float(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
+
+
+def _opt_int(value: Any) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _opt_date(value: Any) -> date | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, (list, tuple)) and len(value) >= 3:
+        try:
+            return date(int(value[0]), int(value[1]), int(value[2]))
+        except (TypeError, ValueError):
+            return None
+    try:
+        text = str(value).strip()
+        if len(text) < 10:
+            return None
+        return date.fromisoformat(text[:10])
+    except (TypeError, ValueError):
+        return None
+
+
+def _pick(movie: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        val = movie.get(key)
+        if val is not None and (not isinstance(val, str) or val.strip() != ""):
+            return val
+    return None
 
 
 def _extract_movie_ids(result: Any) -> list[int]:
@@ -76,9 +146,40 @@ async def upsert_movie(
         or movie.get("synopsis")
         or ""
     )
-    age_rating = str(movie.get("ageRating") or "")[:16]
+    age_rating = str(movie.get("ageRating") or movie.get("age_rating") or "")[:16]
 
-    embed_text = f"{title}\nGenres: {genres}\nSynopsis: {synopsis}".strip()
+    director = _opt_str(movie.get("director"), 200)
+    raw_actors = movie.get("actors")
+    if isinstance(raw_actors, list):
+        actors = _opt_str(", ".join(str(a).strip() for a in raw_actors if str(a).strip()))
+    else:
+        actors = _opt_str(raw_actors)
+    imdb_rating = _opt_float(_pick(movie, "imdbRating", "imdb_rating"))
+    region = _opt_str(movie.get("region"), 255)
+    release_date = _opt_date(_pick(movie, "releaseDate", "release_date"))
+    language = _opt_str(movie.get("language"), 50)
+    duration_minutes = _opt_int(_pick(movie, "durationMinutes", "duration_minutes"))
+    ai_summary = _opt_str(_pick(movie, "aiSummary", "ai_summary"))
+
+    lines = [
+        title,
+        f"Genres: {genres}",
+    ]
+    if director:
+        lines.append(f"Director: {director}")
+    if actors:
+        lines.append(f"Cast: {actors}")
+    if release_date is not None:
+        lines.append(f"Released: {release_date.year}")
+    if region:
+        lines.append(f"Region: {region}")
+    if language:
+        lines.append(f"Language: {language}")
+    lines.append(f"Synopsis: {synopsis}")
+    if ai_summary and ai_summary != synopsis.strip():
+        lines.append(f"Summary: {ai_summary}")
+
+    embed_text = "\n".join(lines).strip()
     embedding = await llm_client.embed(embed_text)
     vec = vector_literal(embedding)
 
@@ -88,6 +189,13 @@ async def upsert_movie(
         "genres": genres,
         "synopsis": synopsis,
         "age_rating": age_rating,
+        "director": director,
+        "actors": actors,
+        "imdb_rating": imdb_rating,
+        "region": region,
+        "release_date": release_date,
+        "language": language,
+        "duration_minutes": duration_minutes,
         "embedding": vec,
     }
 
