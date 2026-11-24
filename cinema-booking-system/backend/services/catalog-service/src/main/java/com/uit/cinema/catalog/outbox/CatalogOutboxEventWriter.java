@@ -53,7 +53,15 @@ public class CatalogOutboxEventWriter {
         boolean active,
         List<Long> genreIds,
         List<String> genreNames,
-        String posterUrl
+        String posterUrl,
+        String description,
+        String aiSummary,
+        String trailerUrl,
+        String imdbId,
+        Double imdbRating,
+        String region,
+        String director,
+        String actors
     ) {
         private static MoviePayload from(Movie movie) {
             List<Genre> genres = movie.getGenres().stream()
@@ -69,7 +77,15 @@ public class CatalogOutboxEventWriter {
                 movie.isActive(),
                 genres.stream().map(Genre::getId).toList(),
                 genres.stream().map(Genre::getName).toList(),
-                movie.getPosterUrl()
+                movie.getPosterUrl(),
+                movie.getDescription(),
+                movie.getAiSummary(),
+                movie.getTrailerUrl(),
+                movie.getImdbId(),
+                movie.getImdbRating(),
+                movie.getRegion(),
+                movie.getDirector(),
+                movie.getActors()
             );
         }
     }
